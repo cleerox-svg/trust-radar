@@ -318,3 +318,52 @@ export async function handleBulkTakedown(request: Request, env: Env, userId: str
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
+
+// ─── GET /api/alerts/triage-summary ─────────────────────────────────
+//
+// Lightweight count for the bell-dropdown "X alerts need triage" row.
+// Q-D from the audit pinned the count to status='new' only — fresh
+// things to look at, not the full open workload.
+//
+// Two counts:
+//   new_count       — total alerts with status='new'
+//   critical_count  — alerts with status='new' AND severity='critical'
+//                     (drives the red dot indicator on the row)
+//
+// Cached in KV for 60s per user. Bell polls this on every dropdown
+// open; the cache prevents bursts when the operator clicks around.
+export async function handleAlertTriageSummary(
+  request: Request,
+  env: Env,
+  userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const cacheKey = `alerts_triage:${userId}`;
+
+  try {
+    // KV cache check
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) {
+      return json({ success: true, data: JSON.parse(cached) }, 200, origin);
+    }
+
+    // Single SQL with conditional aggregates — one round-trip vs two.
+    const row = await env.DB.prepare(
+      `SELECT
+         COUNT(*) AS new_count,
+         SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) AS critical_count
+       FROM alerts
+       WHERE user_id = ? AND status = 'new'`,
+    ).bind(userId).first<{ new_count: number; critical_count: number }>();
+
+    const data = {
+      new_count: row?.new_count ?? 0,
+      critical_count: row?.critical_count ?? 0,
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 60 });
+    return json({ success: true, data }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}

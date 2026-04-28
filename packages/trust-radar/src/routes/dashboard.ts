@@ -11,7 +11,7 @@ import {
 import { handleDashboardOverview, handleDashboardTopBrands, handleDashboardProviders } from "../handlers/dashboard";
 import { handleBrandAdminDashboard } from "../handlers/brandAdminDashboard";
 import { handleSignals, handleIngestSignal } from "../handlers/signals";
-import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats, handleBulkAcknowledge, handleBulkTakedown } from "../handlers/alerts";
+import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats, handleBulkAcknowledge, handleBulkTakedown, handleAlertTriageSummary } from "../handlers/alerts";
 import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
@@ -90,6 +90,11 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAlertStats(request, env, ctx.userId);
+  });
+  router.get("/api/alerts/triage-summary", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAlertTriageSummary(request, env, ctx.userId);
   });
   router.get("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
