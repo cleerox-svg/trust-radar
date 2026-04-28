@@ -1,22 +1,29 @@
-import { useState } from 'react';
+// Profile page — FarmTrack-aligned composition.
+//
+// Sections in order:
+//   1. Identity        (avatar + name + email + role)
+//   2. Account         (display_name editable; falls back to Google name)
+//   3. Preferences     (theme + timezone)
+//   4. Install card    (PWA install affordance, hidden when standalone)
+//   5. Passkeys card   (per-device list + biometric badge + add)
+//   6. Notifications   (links to /v2/notifications/preferences)
+//   7. Security        (active sessions + revoke)
+//   8. Sign out
+
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Clock, Monitor, Key, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Shield, Clock, Monitor, Bell } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/time';
-import { Button, Input } from '@/design-system/components';
+import { Card, Button, SectionLabel } from '@/design-system/components';
+import { Input } from '@/components/ui/Input';
+import { useToast } from '@/components/ui/Toast';
+import { useTheme } from '@/design-system/hooks';
 import { parseInitials, SELF_AVATAR_COLOR } from '@/lib/avatar';
-import {
-  isPasskeySupported, registerPasskey, listPasskeys, removePasskey,
-  type PasskeyDevice,
-} from '@/lib/passkeys';
-
-const readonlyField: React.CSSProperties = {
-  background: 'var(--bg-input)',
-  border: '1px solid var(--border-base)',
-  color: 'var(--text-tertiary)',
-};
+import { InstallAppCard } from '@/components/InstallAppCard';
+import { PasskeysCard } from '@/components/PasskeysCard';
 
 interface SessionData {
   total: number;
@@ -28,52 +35,47 @@ interface SessionData {
   }>;
 }
 
+const TIMEZONE_OPTIONS = [
+  { value: 'America/Toronto', label: 'America/Toronto (EST/EDT)' },
+  { value: 'America/New_York', label: 'America/New_York' },
+  { value: 'America/Chicago', label: 'America/Chicago' },
+  { value: 'America/Denver', label: 'America/Denver' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
+  { value: 'America/Halifax', label: 'America/Halifax' },
+  { value: 'America/Vancouver', label: 'America/Vancouver' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+function browserTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+  catch { return 'UTC'; }
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  analyst: 'Analyst',
+  client: 'Client',
+};
+
 export function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [displayName, setDisplayName] = useState(user?.name ?? '');
-  const [saved, setSaved] = useState(false);
+  const { user, refreshUser } = useAuth();
+  const { showToast } = useToast();
+  const { isDark, setTheme } = useTheme();
 
-  // ─── Passkey state ─────────────────────────────────────────────
-  const passkeySupported = isPasskeySupported();
-  const { data: passkeys } = useQuery({
-    queryKey: ['passkeys'],
-    queryFn: listPasskeys,
-    enabled: passkeySupported,
-  });
-  const [passkeyBusy, setPasskeyBusy] = useState(false);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(user?.display_name ?? user?.name ?? '');
+  const [timezone, setTimezone] = useState<string>(user?.timezone ?? browserTimezone());
+  const [savingField, setSavingField] = useState<string | null>(null);
 
-  const handleAddPasskey = async () => {
-    setPasskeyBusy(true);
-    setPasskeyError(null);
-    try {
-      await registerPasskey();
-      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
-    } catch (err) {
-      // DOMException with NotAllowedError = user cancelled prompt — silent.
-      if (!(err instanceof DOMException) || (err.name !== 'NotAllowedError' && err.name !== 'AbortError')) {
-        setPasskeyError(err instanceof Error ? err.message : 'Failed to add passkey.');
-      }
-    } finally {
-      setPasskeyBusy(false);
-    }
-  };
+  // Sync local state when /me refreshes (e.g. after a save).
+  useEffect(() => {
+    if (user?.display_name != null) setDisplayName(user.display_name);
+    if (user?.timezone) setTimezone(user.timezone);
+  }, [user?.display_name, user?.timezone]);
 
-  const handleRemovePasskey = async (id: string) => {
-    try {
-      await removePasskey(id);
-      queryClient.invalidateQueries({ queryKey: ['passkeys'] });
-    } catch { /* swallow */ }
-  };
-
-  const initials = parseInitials(user?.name, user?.email);
-
-  const roleName = user?.role === 'super_admin' ? 'Super Admin'
-    : user?.role === 'admin' ? 'Admin'
-    : user?.role === 'analyst' ? 'Analyst'
-    : 'Client';
+  const initials = parseInitials(user?.display_name ?? user?.name, user?.email);
+  const roleName = ROLE_LABEL[user?.role ?? ''] ?? 'Client';
 
   const { data: sessionData } = useQuery({
     queryKey: ['sessions'],
@@ -88,11 +90,40 @@ export function Profile() {
       if (!user?.id) return;
       await api.post(`/api/admin/users/${user.id}/force-logout`);
     },
+    onSuccess: () => showToast('Other sessions revoked.', 'success'),
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Revoke failed', 'error'),
   });
 
-  const handleSaveName = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const patchProfile = async (body: Record<string, unknown>, field: string) => {
+    setSavingField(field);
+    try {
+      const res = await api.patch<{ profile: unknown }>('/api/profile', body);
+      if (res.success) {
+        showToast('Saved.', 'success');
+        await refreshUser();
+      } else {
+        showToast(res.error ?? 'Save failed', 'error');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Save failed', 'error');
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const saveDisplayName = () => patchProfile(
+    { display_name: displayName.trim() || null },
+    'display_name',
+  );
+
+  const onChangeTheme = (next: 'dark' | 'light') => {
+    setTheme(next);
+    void patchProfile({ theme_preference: next }, 'theme_preference');
+  };
+
+  const onChangeTimezone = (next: string) => {
+    setTimezone(next);
+    void patchProfile({ timezone: next }, 'timezone');
   };
 
   return (
@@ -107,96 +138,207 @@ export function Profile() {
             color: 'var(--text-secondary)',
             transition: 'var(--transition-fast)',
           }}
+          aria-label="Back"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)', fontWeight: 700 }}>
           Profile & Settings
         </h1>
       </div>
 
-      <div className="rounded-xl p-6 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+      {/* 1. Identity */}
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">Identity</SectionLabel>
         <div className="flex items-center gap-4">
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+            className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0"
             style={{
               background: SELF_AVATAR_COLOR,
               color: 'var(--text-on-amber, #0A0F1E)',
               border: '2px solid rgba(255,255,255,0.20)',
             }}
+            aria-label={`Avatar: ${initials}`}
           >
             {initials}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{user?.name ?? 'User'}</h2>
-            <p className="text-[12px] text-white/40 mt-0.5">
-              {user?.email} · {roleName}
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+              {user?.display_name ?? user?.name ?? 'User'}
+            </h2>
+            <p className="text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              {user?.email}
+            </p>
+            <p className="text-[10px] font-mono uppercase tracking-[0.14em] mt-0.5" style={{ color: 'var(--amber)' }}>
+              {roleName}
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-2 mb-4">
-          <Monitor size={14} style={{ color: 'var(--amber)' }} />
-          <span className="section-label">Account</span>
-        </div>
+      {/* 2. Account */}
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">
+          <span className="inline-flex items-center gap-1.5">
+            <Monitor size={12} style={{ color: 'var(--amber)' }} />
+            Account
+          </span>
+        </SectionLabel>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
               Display Name
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={user?.name ?? 'Your name'}
                 className="text-[13px] flex-1"
               />
-              <Button variant="ghost" size="sm" onClick={handleSaveName}>
-                {saved ? 'Saved' : 'Save'}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void saveDisplayName()}
+                disabled={savingField === 'display_name'}
+              >
+                {savingField === 'display_name' ? 'Saving…' : 'Save'}
               </Button>
             </div>
+            <p className="mt-1 font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              Shown instead of your Google name. Leave blank to use Google.
+            </p>
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
               Email
             </label>
             <div
-              className="rounded-lg px-3 py-2 text-[13px] cursor-not-allowed"
-              style={readonlyField}
+              className="rounded-lg px-3 py-2 text-[13px]"
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-base)',
+                color: 'var(--text-tertiary)',
+                cursor: 'not-allowed',
+              }}
             >
               {user?.email}
             </div>
           </div>
+        </div>
+      </Card>
 
+      {/* 3. Preferences */}
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">
+          <span className="inline-flex items-center gap-1.5">
+            <Clock size={12} style={{ color: 'var(--amber)' }} />
+            Preferences
+          </span>
+        </SectionLabel>
+
+        <div className="space-y-4">
           <div>
-            <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
-              Role
+            <label className="block text-[11px] font-mono uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
+              Theme
             </label>
-            <div
-              className="rounded-lg px-3 py-2 text-[13px] cursor-not-allowed"
-              style={readonlyField}
-            >
-              {roleName}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onChangeTheme('dark')}
+                className="flex h-10 flex-1 items-center justify-center rounded-md font-mono text-[11px] uppercase tracking-[0.14em] touch-target"
+                style={{
+                  background: isDark ? 'var(--amber-glow, rgba(229,168,50,0.20))' : 'var(--bg-input)',
+                  color: isDark ? 'var(--amber)' : 'var(--text-tertiary)',
+                  border: `1px solid ${isDark ? 'var(--amber-border, rgba(229,168,50,0.25))' : 'var(--border-base)'}`,
+                }}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeTheme('light')}
+                className="flex h-10 flex-1 items-center justify-center rounded-md font-mono text-[11px] uppercase tracking-[0.14em] touch-target"
+                style={{
+                  background: !isDark ? 'var(--amber-glow, rgba(229,168,50,0.20))' : 'var(--bg-input)',
+                  color: !isDark ? 'var(--amber)' : 'var(--text-tertiary)',
+                  border: `1px solid ${!isDark ? 'var(--amber-border, rgba(229,168,50,0.25))' : 'var(--border-base)'}`,
+                }}
+              >
+                Light
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="rounded-xl p-5 mb-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-2 mb-4">
-          <Shield size={14} style={{ color: 'var(--amber)' }} />
-          <span className="section-label">Security</span>
+          <div>
+            <label className="block text-[11px] font-mono uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+              Timezone
+            </label>
+            <select
+              value={timezone}
+              onChange={(e) => onChangeTimezone(e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-[13px]"
+              style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-base)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {!TIMEZONE_OPTIONS.find((o) => o.value === timezone) && (
+                <option value={timezone}>{timezone} (custom)</option>
+              )}
+              {TIMEZONE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              Used for Quiet Hours and morning-briefing scheduling.
+            </p>
+          </div>
         </div>
+      </Card>
 
+      {/* 4. Install card (hidden when standalone) */}
+      <InstallAppCard />
+
+      {/* 5. Passkeys */}
+      <PasskeysCard />
+
+      {/* 6. Notifications row */}
+      <Card
+        className="mb-4 cursor-pointer"
+        onClick={() => navigate('/notifications/preferences')}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold inline-flex items-center gap-1.5" style={{ color: 'var(--text-primary)', fontSize: 14 }}>
+              <Bell size={14} style={{ color: 'var(--amber)' }} />
+              Notifications
+            </h3>
+            <p className="mt-0.5 font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+              Manage events, channels, quiet hours, and your subscribed devices.
+            </p>
+          </div>
+          <span aria-hidden style={{ color: 'var(--amber)', fontSize: 18 }}>→</span>
+        </div>
+      </Card>
+
+      {/* 7. Security */}
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">
+          <span className="inline-flex items-center gap-1.5">
+            <Shield size={12} style={{ color: 'var(--amber)' }} />
+            Security
+          </span>
+        </SectionLabel>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[13px] text-[rgba(255,255,255,0.74)]">Active Sessions</p>
-              <p className="text-[11px] text-white/40 mt-0.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13px]" style={{ color: 'var(--text-primary)' }}>Active Sessions</p>
+              <p className="text-[11px] mt-0.5 font-mono" style={{ color: 'var(--text-tertiary)' }}>
                 {sessionData?.total ?? 0} sessions
               </p>
             </div>
@@ -211,18 +353,18 @@ export function Profile() {
                 transition: 'var(--transition-fast)',
               }}
             >
-              {forceLogout.isPending ? 'Revoking...' : 'Revoke all other sessions'}
+              {forceLogout.isPending ? 'Revoking…' : 'Revoke other sessions'}
             </button>
           </div>
 
           {sessionData?.sessions && sessionData.sessions.length > 0 && (
             <div className="mt-3 space-y-2">
-              {sessionData.sessions.slice(0, 5).map(s => (
+              {sessionData.sessions.slice(0, 5).map((s) => (
                 <div key={s.id} className="flex items-center justify-between py-1.5 border-t border-white/5">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] text-white/50 truncate">{s.ip_address ?? 'Unknown IP'}</p>
+                    <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>{s.ip_address ?? 'Unknown IP'}</p>
                   </div>
-                  <span className="text-[10px] font-mono text-white/50 flex-shrink-0 ml-2">
+                  <span className="text-[10px] font-mono flex-shrink-0 ml-2" style={{ color: 'var(--text-tertiary)' }}>
                     {relativeTime(s.issued_at)}
                   </span>
                 </div>
@@ -230,153 +372,7 @@ export function Profile() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* ─── Passkeys ───────────────────────────── */}
-      <PasskeysCard
-        supported={passkeySupported}
-        passkeys={passkeys ?? []}
-        busy={passkeyBusy}
-        error={passkeyError}
-        onAdd={handleAddPasskey}
-        onRemove={handleRemovePasskey}
-      />
-
-      <div className="rounded-xl p-5" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-2 mb-4">
-          <Clock size={14} style={{ color: 'var(--amber)' }} />
-          <span className="section-label">Preferences</span>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-2">
-              Theme
-            </label>
-            <div className="flex gap-2">
-              {['Dark', 'Light', 'System'].map(theme => {
-                const active = theme === 'Dark';
-                return (
-                  <button
-                    key={theme}
-                    className="px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider touch-target"
-                    style={{
-                      background: active ? 'var(--amber-glow)' : 'var(--bg-input)',
-                      border: `1px solid ${active ? 'var(--amber-border)' : 'var(--border-base)'}`,
-                      color: active ? 'var(--amber)' : 'var(--text-tertiary)',
-                      transition: 'var(--transition-fast)',
-                    }}
-                  >
-                    {theme}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-mono text-white/50 uppercase tracking-wider mb-1.5">
-              Timezone
-            </label>
-            <div
-              className="rounded-lg px-3 py-2 text-[13px]"
-              style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-base)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              {Intl.DateTimeFormat().resolvedOptions().timeZone} (auto-detected)
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Passkeys section ────────────────────────────────────────────────
-
-interface PasskeysCardProps {
-  supported: boolean;
-  passkeys: PasskeyDevice[];
-  busy: boolean;
-  error: string | null;
-  onAdd: () => void;
-  onRemove: (id: string) => void;
-}
-
-function PasskeysCard({ supported, passkeys, busy, error, onAdd, onRemove }: PasskeysCardProps) {
-  const cardStyle: React.CSSProperties = {
-    background: 'rgba(15,23,42,0.50)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255,255,255,0.07)',
-    borderRadius: '0.75rem',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
-  };
-
-  return (
-    <div className="rounded-xl p-5 mb-4" style={cardStyle}>
-      <div className="flex items-center gap-2 mb-4">
-        <Key size={14} style={{ color: 'var(--amber)' }} />
-        <span className="section-label">Passkeys</span>
-      </div>
-
-      {!supported ? (
-        <p className="text-[12px] text-white/55">
-          Your browser doesn't support passkeys. Try Safari 16+, Chrome 108+, or Firefox 122+.
-        </p>
-      ) : (
-        <>
-          <p className="text-[12px] text-white/55 mb-3">
-            Sign in with Touch ID, Face ID, or a security key — no password to remember.
-            Adding a passkey on this device makes future sign-ins one tap.
-          </p>
-
-          {passkeys.length > 0 && (
-            <div className="space-y-1 mb-3">
-              {passkeys.map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2 px-1 border-b border-white/5 last:border-0">
-                  <div className="min-w-0">
-                    <p className="text-[13px] text-[rgba(255,255,255,0.74)] truncate">
-                      {p.device_label || 'Unknown device'}
-                      {p.backed_up ? <span className="ml-2 text-[10px] text-white/40">·  synced</span> : null}
-                    </p>
-                    <p className="text-[10px] text-white/40 truncate font-mono">
-                      Added {new Date(p.created_at).toLocaleDateString()}
-                      {p.last_used_at ? ` · last used ${new Date(p.last_used_at).toLocaleDateString()}` : ' · never used'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onRemove(p.id)}
-                    className="p-1.5 rounded touch-target ml-3"
-                    style={{ color: 'rgba(248,113,113,0.7)' }}
-                    aria-label="Remove passkey"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={onAdd}
-            disabled={busy}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
-            style={{
-              background: 'rgba(229,168,50,0.10)',
-              border: '1px solid rgba(229,168,50,0.30)',
-              color: 'var(--amber)',
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            {busy ? 'Adding…' : passkeys.length === 0 ? 'Set up a passkey' : 'Add another passkey'}
-          </button>
-          {error && <p className="text-[11px] mt-2" style={{ color: '#f87171' }}>{error}</p>}
-        </>
-      )}
+      </Card>
     </div>
   );
 }

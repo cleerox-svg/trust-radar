@@ -384,6 +384,15 @@ export async function handlePasskeyAuthFinish(
 
 // ─── Listing + revocation ───────────────────────────────────────────────
 
+function safeParseTransports(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function handleListPasskeys(
   request: Request,
   env: Env,
@@ -392,11 +401,23 @@ export async function handleListPasskeys(
   const origin = request.headers.get("Origin");
   try {
     const rows = await env.DB.prepare(
-      `SELECT id, device_label, user_agent, backed_up, created_at, last_used_at
+      `SELECT id, device_label, user_agent, backed_up, transports, created_at, last_used_at
          FROM passkeys WHERE user_id = ?
          ORDER BY created_at DESC`,
-    ).bind(userId).all();
-    return json({ success: true, data: rows.results }, 200, origin);
+    ).bind(userId).all<{
+      id: string; device_label: string | null; user_agent: string | null;
+      backed_up: number; transports: string | null;
+      created_at: string; last_used_at: string | null;
+    }>();
+    // Parse the JSON-encoded transports list so the UI doesn't have
+    // to. `["internal"]` = platform authenticator (Touch ID / Face ID
+    // / Windows Hello / Android fingerprint) → drives the
+    // "BIOMETRIC" badge on the Profile page.
+    const data = rows.results.map((r) => ({
+      ...r,
+      transports: r.transports ? safeParseTransports(r.transports) : [],
+    }));
+    return json({ success: true, data }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

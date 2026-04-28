@@ -5,6 +5,7 @@ import { MobileNav }      from '@/layouts/MobileNav';
 import { DeepBackground } from '@/components/ui/DeepBackground';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { useBreakpoint }  from '@/design-system/hooks';
+import { FirstSignInPasskeyPrompt } from '@/components/FirstSignInPasskeyPrompt';
 
 export function Shell() {
   const location     = useLocation();
@@ -52,6 +53,12 @@ export function Shell() {
       </div>
 
       {isMobile && <MobileNav />}
+
+      {/* Auto-prompts biometric setup on first login when the user has
+          zero passkeys + WebAuthn is supported. Self-gates internally
+          (localStorage flag + passkey_count check) so it can sit at
+          the Shell root without any per-route logic. */}
+      <FirstSignInPasskeyPrompt />
     </div>
   );
 }

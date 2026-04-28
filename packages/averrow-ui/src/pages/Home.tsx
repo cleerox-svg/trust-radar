@@ -10,6 +10,7 @@ import { useIntelligenceBriefings } from '@/hooks/useTrends';
 import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
 import { useDailyBriefing } from '@/hooks/useDailyBriefing';
 import { Card, StatCard, Avatar, Badge, SeverityDot } from '@/components/ui';
+import { InstallAppBanner } from '@/components/InstallAppBanner';
 import { RefreshCw } from 'lucide-react';
 
 // ── Latest Intel Feed ──────────────────────────────────────────────────
@@ -114,6 +115,14 @@ function HomeDashboard() {
 
   return (
     <div style={{ padding: 0, maxWidth: '100%' }}>
+
+      {/* PWA install affordance — captures beforeinstallprompt on
+          Android Chrome / Edge, shows iOS Add-to-Home-Screen steps
+          on Safari, hides itself when isStandalone() or after
+          per-device dismiss. */}
+      <div style={{ padding: '16px 32px 0' }}>
+        <InstallAppBanner />
+      </div>
 
       {/* ── Page header ─────────────────────────────────────────── */}
       <div style={{
