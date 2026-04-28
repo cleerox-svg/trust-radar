@@ -1,5 +1,12 @@
+// Stub for /v2/notifications. PR 4 of the notifications/alerts audit
+// replaces this with a paginated archive (filter by type/severity,
+// search, mark-as-read inline). PR 2 just brings the header + stub
+// card into design-system parity so it doesn't visually clash with
+// the Profile + NotificationPreferences pages around it.
+
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { Card } from '@/design-system/components';
 
 export function Notifications() {
   const navigate = useNavigate();
@@ -16,22 +23,25 @@ export function Notifications() {
             color: 'var(--text-secondary)',
             transition: 'var(--transition-fast)',
           }}
+          aria-label="Back"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-muted)' }}>
           All Notifications
         </h1>
       </div>
 
-      <div className="rounded-xl p-12 text-center" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-        <p className="text-[13px] text-white/40 font-mono">
-          Full notification history coming soon.
-        </p>
-        <p className="text-[11px] text-white/40 font-mono mt-2">
-          Use the bell icon for recent notifications.
-        </p>
-      </div>
+      <Card>
+        <div className="py-12 text-center">
+          <p className="text-[13px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+            Full notification archive coming in PR 4.
+          </p>
+          <p className="text-[11px] font-mono mt-2" style={{ color: 'var(--text-tertiary)' }}>
+            Use the bell icon for recent notifications.
+          </p>
+        </div>
+      </Card>
     </div>
   );
 }

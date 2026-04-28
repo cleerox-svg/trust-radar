@@ -7,6 +7,7 @@ import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_CHANNELS,
 } from '@averrow/shared';
+import { Card, SectionLabel } from '@/design-system/components';
 import {
   getPushStatus, subscribePush, unsubscribePush,
   listPushDevices, removePushDevice,
@@ -136,13 +137,10 @@ export function NotificationPreferences() {
     } catch { /* swallow */ }
   };
 
-  const cardStyle: React.CSSProperties = {
-    background: 'rgba(15,23,42,0.50)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255,255,255,0.07)',
-    borderRadius: '0.75rem',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border-base)',
+    color: 'var(--text-primary)',
   };
 
   return (
@@ -157,18 +155,19 @@ export function NotificationPreferences() {
             color: 'var(--text-secondary)',
             transition: 'var(--transition-fast)',
           }}
+          aria-label="Back"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] text-[rgba(255,255,255,0.42)] font-bold">
+        <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-muted)' }}>
           Notification Preferences
         </h1>
       </div>
 
       {/* ─── Alert Types ─────────────────────────────────────────── */}
-      <div className="rounded-xl p-5 mb-4" style={cardStyle}>
-        <span className="section-label">Alert Types</span>
-        <div className="mt-3 space-y-1">
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">Alert Types</SectionLabel>
+        <div className="space-y-1">
           {USER_TOGGLEABLE_EVENTS.map(({ key, label, description }) => (
             <button
               key={key}
@@ -176,14 +175,14 @@ export function NotificationPreferences() {
               className="w-full flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 touch-target"
             >
               <div>
-                <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">{label}</p>
-                <p className="text-[11px] text-white/50 text-left mt-0.5">{description}</p>
+                <p className="text-[13px] text-left" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                <p className="text-[11px] text-left mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{description}</p>
               </div>
               <Toggle on={currentPrefs?.[key] === true} />
             </button>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* ─── Push Notifications ──────────────────────────────────── */}
       <PushSection
@@ -194,13 +193,12 @@ export function NotificationPreferences() {
         onEnable={handleEnablePush}
         onDisable={handleDisablePush}
         onRemoveDevice={handleRemoveDevice}
-        cardStyle={cardStyle}
       />
 
       {/* ─── Quiet Hours ─────────────────────────────────────────── */}
-      <div className="rounded-xl p-5 mb-4" style={cardStyle}>
-        <span className="section-label">Quiet Hours</span>
-        <p className="text-[11px] text-white/50 mt-2 mb-3">
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">Quiet Hours</SectionLabel>
+        <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>
           Suppress push notifications during these hours. The bell icon and
           notification feed still update — only the OS push delivery is
           silenced.
@@ -208,37 +206,29 @@ export function NotificationPreferences() {
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label className="block">
-            <span className="text-[10px] uppercase tracking-wider text-white/40">Start</span>
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Start</span>
             <input
               type="time"
               value={currentPrefs?.quiet_hours_start ?? ''}
               onChange={(e) => handleQuietField('quiet_hours_start', e.target.value || null)}
               className="mt-1 w-full px-3 py-2 rounded-md text-[13px]"
-              style={{
-                background: 'rgba(0,0,0,0.25)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                color: 'rgba(255,255,255,0.85)',
-              }}
+              style={inputStyle}
             />
           </label>
           <label className="block">
-            <span className="text-[10px] uppercase tracking-wider text-white/40">End</span>
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>End</span>
             <input
               type="time"
               value={currentPrefs?.quiet_hours_end ?? ''}
               onChange={(e) => handleQuietField('quiet_hours_end', e.target.value || null)}
               className="mt-1 w-full px-3 py-2 rounded-md text-[13px]"
-              style={{
-                background: 'rgba(0,0,0,0.25)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                color: 'rgba(255,255,255,0.85)',
-              }}
+              style={inputStyle}
             />
           </label>
         </div>
 
         <label className="block mb-3">
-          <span className="text-[10px] uppercase tracking-wider text-white/40">Timezone</span>
+          <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Timezone</span>
           <input
             type="text"
             value={currentPrefs?.quiet_hours_tz ?? ''}
@@ -251,11 +241,7 @@ export function NotificationPreferences() {
               }
             }}
             className="mt-1 w-full px-3 py-2 rounded-md text-[13px] font-mono"
-            style={{
-              background: 'rgba(0,0,0,0.25)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              color: 'rgba(255,255,255,0.85)',
-            }}
+            style={inputStyle}
           />
         </label>
 
@@ -264,17 +250,17 @@ export function NotificationPreferences() {
           className="w-full flex items-center justify-between py-3 px-1 touch-target"
         >
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-[#f87171]" />
+            <AlertTriangle className="w-3.5 h-3.5" style={{ color: 'var(--sev-critical)' }} />
             <div>
-              <p className="text-[13px] text-[rgba(255,255,255,0.74)] text-left">Critical Breakthrough</p>
-              <p className="text-[11px] text-white/50 text-left mt-0.5">
-                Allow CRITICAL severity events to break through quiet hours
+              <p className="text-[13px] text-left" style={{ color: 'var(--text-primary)' }}>Critical Breakthrough</p>
+              <p className="text-[11px] text-left mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                Allow critical severity events to break through quiet hours
               </p>
             </div>
           </div>
           <Toggle on={currentPrefs?.critical_breakthrough === true} />
         </button>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -301,44 +287,49 @@ interface PushSectionProps {
   onEnable: () => void;
   onDisable: () => void;
   onRemoveDevice: (id: string) => void;
-  cardStyle: React.CSSProperties;
 }
 
 function PushSection(props: PushSectionProps) {
-  const { status, busy, error, devices, onEnable, onDisable, onRemoveDevice, cardStyle } = props;
+  const { status, busy, error, devices, onEnable, onDisable, onRemoveDevice } = props;
 
   return (
-    <div className="rounded-xl p-5 mb-4" style={cardStyle}>
-      <span className="section-label">Push Notifications</span>
+    <Card className="mb-4">
+      <SectionLabel className="mb-3">Push Notifications</SectionLabel>
 
       {status === undefined ? (
-        <p className="text-[11px] text-white/40 mt-3">Checking browser support…</p>
+        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Checking browser support…</p>
       ) : !status.supported ? (
-        <p className="text-[12px] text-white/55 mt-3">
+        <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
           Your browser doesn't support Web Push. Try Safari 16.4+, Chrome, or Firefox.
         </p>
       ) : status.needsInstall ? (
-        <div className="mt-3 p-3 rounded-md" style={{ background: 'rgba(229,168,50,0.08)', border: '1px solid rgba(229,168,50,0.18)' }}>
-          <p className="text-[12px] text-[rgba(255,255,255,0.78)]">
+        <div
+          className="p-3 rounded-md"
+          style={{
+            background: 'var(--sev-medium-bg)',
+            border: '1px solid var(--sev-medium-border)',
+          }}
+        >
+          <p className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
             <strong>Install required.</strong> On iOS, add Averrow to your home screen first:
             tap <span className="font-mono">Share</span> → <span className="font-mono">Add to Home Screen</span>,
             then re-open from the home-screen icon and come back here.
           </p>
         </div>
       ) : status.permission === 'denied' ? (
-        <p className="text-[12px] text-white/55 mt-3">
+        <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
           Notification permission was denied. Re-enable it in your browser's site settings, then refresh.
         </p>
       ) : (
-        <div className="mt-3">
+        <div>
           <button
             onClick={status.subscribed ? onDisable : onEnable}
             disabled={busy}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
             style={{
-              background: status.subscribed ? 'rgba(248,113,113,0.10)' : 'rgba(60,184,120,0.12)',
-              border: `1px solid ${status.subscribed ? 'rgba(248,113,113,0.25)' : 'rgba(60,184,120,0.30)'}`,
-              color: status.subscribed ? '#f87171' : '#3CB878',
+              background: status.subscribed ? 'var(--sev-critical-bg)' : 'var(--green-glow)',
+              border: `1px solid ${status.subscribed ? 'var(--sev-critical-border)' : 'var(--green-border)'}`,
+              color: status.subscribed ? 'var(--sev-critical)' : 'var(--green)',
             }}
           >
             {status.subscribed ? <BellOff className="w-4 h-4" /> : <BellRing className="w-4 h-4" />}
@@ -349,22 +340,22 @@ function PushSection(props: PushSectionProps) {
                 : 'Enable Push Notifications'}
           </button>
           {error && (
-            <p className="text-[11px] text-[#f87171] mt-2">{error}</p>
+            <p className="text-[11px] mt-2" style={{ color: 'var(--sev-critical)' }}>{error}</p>
           )}
         </div>
       )}
 
       {status?.subscribed && devices.length > 0 && (
         <div className="mt-4 pt-3 border-t border-white/5">
-          <span className="text-[10px] uppercase tracking-wider text-white/40">Devices</span>
+          <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Devices</span>
           <div className="mt-2 space-y-1">
             {devices.map((d) => (
               <div key={d.id} className="flex items-center justify-between py-2 px-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Smartphone className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
+                  <Smartphone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
                   <div className="min-w-0">
-                    <p className="text-[13px] text-[rgba(255,255,255,0.74)] truncate">{d.device_label || 'Unknown device'}</p>
-                    <p className="text-[10px] text-white/40 truncate font-mono">
+                    <p className="text-[13px] truncate" style={{ color: 'var(--text-primary)' }}>{d.device_label || 'Unknown device'}</p>
+                    <p className="text-[10px] truncate font-mono" style={{ color: 'var(--text-tertiary)' }}>
                       Added {new Date(d.created_at).toLocaleDateString()}
                       {d.last_used_at ? ` · last push ${new Date(d.last_used_at).toLocaleDateString()}` : ' · never used'}
                     </p>
@@ -373,7 +364,7 @@ function PushSection(props: PushSectionProps) {
                 <button
                   onClick={() => onRemoveDevice(d.id)}
                   className="p-1.5 rounded touch-target"
-                  style={{ color: 'rgba(248,113,113,0.7)' }}
+                  style={{ color: 'var(--sev-critical)', opacity: 0.7 }}
                   aria-label="Remove device"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -383,6 +374,6 @@ function PushSection(props: PushSectionProps) {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,35 +1,33 @@
 /**
  * Unified alerts pipeline — creation, retrieval, and status management.
  *
- * Alert types map to specific brand-threat detection modules:
- *   social_impersonation, phishing_detected, email_grade_change,
- *   lookalike_domain_active, ct_certificate_issued, threat_feed_match
+ * Alert type whitelist + severity enum live in @averrow/shared so the
+ * worker, the UI, and the migration 0121 CHECK constraint all match.
+ * Adding a new alert type = adding it to alert-types.ts (and a new
+ * migration to extend the CHECK).
  */
 
-export type AlertType =
-  | 'social_impersonation'
-  | 'app_store_impersonation'
-  | 'dark_web_mention'
-  | 'phishing_detected'
-  | 'email_grade_change'
-  | 'lookalike_domain_active'
-  | 'ct_certificate_issued'
-  | 'threat_feed_match'
-  | 'bimi_removed'
-  | 'dmarc_downgraded'
-  | 'vmc_expiring'
-  | 'typosquat_bimi'
-  | 'takedown_resurrected';
+import type { AlertTypeKey, AlertSeverity } from '@averrow/shared';
 
-export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+/** @deprecated Use AlertTypeKey from @averrow/shared. */
+export type AlertType = AlertTypeKey;
+/** @deprecated Use AlertSeverity from @averrow/shared. Lowercase. */
+export type Severity = AlertSeverity;
 
 export type AlertStatus = 'new' | 'acknowledged' | 'investigating' | 'resolved' | 'false_positive';
+
+// Accept either casing for severity at the boundary — many existing
+// callers still pass 'CRITICAL'/'HIGH'/etc. strings inherited from
+// the pre-PR-1 enum. createAlert lowercases before insert, so the
+// CHECK constraint stays satisfied. PR 3 follow-up will sweep the
+// remaining UPPERCASE literals.
+type SeverityInput = AlertSeverity | Uppercase<AlertSeverity>;
 
 export interface CreateAlertParams {
   brandId: string;
   userId: string;
   alertType: AlertType;
-  severity: Severity;
+  severity: SeverityInput;
   title: string;
   summary: string;
   details?: Record<string, any>;
@@ -64,11 +62,19 @@ export interface Alert {
 
 /**
  * Create a new alert and return its ID.
+ *
+ * Defensive: severity is lower-cased before insert so legacy callers
+ * passing 'CRITICAL'/'HIGH'/etc. don't fail the lowercase CHECK
+ * constraint added in migration 0121. Eventually all callers should
+ * be passing lowercase directly; this normalization can be removed
+ * once we've verified zero callers send uppercase (probably PR 3
+ * follow-up).
  */
 export async function createAlert(db: D1Database, params: CreateAlertParams): Promise<string> {
   const id = crypto.randomUUID();
   const detailsJson = params.details ? JSON.stringify(params.details) : null;
   const recommendationsJson = params.aiRecommendations ? JSON.stringify(params.aiRecommendations) : null;
+  const lowerSeverity = (params.severity as string).toLowerCase() as AlertSeverity;
 
   await db.prepare(
     `INSERT INTO alerts (id, brand_id, user_id, alert_type, severity, title, summary, details, source_type, source_id, ai_assessment, ai_recommendations)
@@ -78,7 +84,7 @@ export async function createAlert(db: D1Database, params: CreateAlertParams): Pr
     params.brandId,
     params.userId,
     params.alertType,
-    params.severity,
+    lowerSeverity,
     params.title,
     params.summary,
     detailsJson,

@@ -40,6 +40,11 @@ export type AlertTypeKey =
   | 'dark_web_mention'
   | 'app_store_impersonation'
   | 'geopolitical_threat'
+  | 'bimi_removed'
+  | 'dmarc_downgraded'
+  | 'vmc_expiring'
+  | 'typosquat_bimi'
+  | 'takedown_resurrected'
   | 'unknown';
 
 export interface AlertTypeDef {
@@ -133,6 +138,46 @@ export const ALERT_TYPES: readonly AlertTypeDef[] = [
     defaultSeverity: 'critical',
     dedupWindow: '-1 hour',
     writers: ['cartographer'],
+  },
+  {
+    key: 'bimi_removed',
+    label: 'BIMI Removed',
+    description: 'Brand Indicators for Message Identification (BIMI) record removed',
+    defaultSeverity: 'medium',
+    dedupWindow: '-24 hours',
+    writers: ['email_security_scanner'],
+  },
+  {
+    key: 'dmarc_downgraded',
+    label: 'DMARC Downgraded',
+    description: 'DMARC policy downgraded (e.g. reject → quarantine → none)',
+    defaultSeverity: 'high',
+    dedupWindow: '-24 hours',
+    writers: ['email_security_scanner'],
+  },
+  {
+    key: 'vmc_expiring',
+    label: 'VMC Expiring',
+    description: 'Verified Mark Certificate approaching expiration',
+    defaultSeverity: 'medium',
+    dedupWindow: '-24 hours',
+    writers: ['email_security_scanner'],
+  },
+  {
+    key: 'typosquat_bimi',
+    label: 'Typosquat with BIMI',
+    description: 'Lookalike domain has BIMI configured — abuse vector for branded email',
+    defaultSeverity: 'high',
+    dedupWindow: '-6 hours',
+    writers: ['lookalike_scanner'],
+  },
+  {
+    key: 'takedown_resurrected',
+    label: 'Takedown Resurrected',
+    description: 'A previously taken-down threat is back online',
+    defaultSeverity: 'critical',
+    dedupWindow: '-1 hour',
+    writers: ['sparrow', 'cartographer'],
   },
 
   // ─── Legacy ──────────────────────────────────────────────────
