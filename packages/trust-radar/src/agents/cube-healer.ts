@@ -198,6 +198,34 @@ export async function runCubeHealer(
     errorMessage = `${prevError}cube_healer brand heal failed (${rowsWritten} rows so far): ${errMsg}`;
   }
 
+  // ── Dark web + app store brand summaries ───────────────────
+  // Brand-keyed (not hour-bucketed) summary tables — one row per brand
+  // counting "all active mentions / listings". Rebuilt from scratch each
+  // tick; same atomic INSERT OR REPLACE shape as the cubes above. Same
+  // partial/error handling pattern.
+  try {
+    const { buildDarkWebBrandSummary, buildAppStoreBrandSummary } = await import('../lib/cube-builder');
+    const dwResult = await buildDarkWebBrandSummary(env);
+    rowsWritten += dwResult.rowsWritten;
+    if (dwResult.error) {
+      if (finalStatus === 'success') finalStatus = 'partial';
+      const prevError = errorMessage ? `${errorMessage} | ` : '';
+      errorMessage = `${prevError}cube_healer dark_web summary failed (${rowsWritten} rows so far): ${dwResult.error}`;
+    }
+    const asResult = await buildAppStoreBrandSummary(env);
+    rowsWritten += asResult.rowsWritten;
+    if (asResult.error) {
+      if (finalStatus === 'success') finalStatus = 'partial';
+      const prevError = errorMessage ? `${errorMessage} | ` : '';
+      errorMessage = `${prevError}cube_healer app_store summary failed (${rowsWritten} rows so far): ${asResult.error}`;
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (finalStatus === 'success') finalStatus = 'partial';
+    const prevError = errorMessage ? `${errorMessage} | ` : '';
+    errorMessage = `${prevError}cube_healer brand summary dispatch failed: ${errMsg}`;
+  }
+
   // ── Weekly ANALYZE ──────────────────────────────────────────
   // D1 doesn't auto-run ANALYZE, so sqlite_stat1 only updates when we
   // explicitly ask. Without fresh stats the query planner falls back to

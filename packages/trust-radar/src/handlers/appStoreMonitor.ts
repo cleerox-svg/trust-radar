@@ -529,22 +529,34 @@ export async function handleAppStoreOverview(
       }>(),
     ]);
 
-    // Stage 2: bulk per-brand stats. Two GROUP BY / IN-list queries instead
-    // of 2 × N round-trips. For 50 brands, drops 100 sub-requests to 2.
+    // Stage 2: per-brand stats from app_store_brand_summary + monitor
+    // schedule. Two IN-list indexed reads instead of GROUP BY across the
+    // raw listings table. Cube refreshed every 6h by cube_healer; the
+    // 5-min KV cache absorbs staleness.
     const brandIds = brands.results.map(b => b.id);
     const placeholders = brandIds.map(() => "?").join(",");
 
-    let classificationByBrand = new Map<string, Array<{ classification: string; severity: string; count: number }>>();
+    let summaryByBrand = new Map<string, {
+      total_active: number; impersonation_active: number; suspicious_active: number;
+      legitimate_active: number; official_active: number;
+      critical_active: number; high_active: number;
+    }>();
     let scheduleByBrand = new Map<string, { last_checked: string | null; next_check: string | null }>();
 
     if (brandIds.length > 0) {
-      const [classRows, schedRows] = await Promise.all([
+      const [summaryRows, schedRows] = await Promise.all([
         session.prepare(`
-          SELECT brand_id, classification, severity, COUNT(*) AS count
-          FROM app_store_listings
-          WHERE brand_id IN (${placeholders}) AND status = 'active'
-          GROUP BY brand_id, classification, severity
-        `).bind(...brandIds).all<{ brand_id: string; classification: string; severity: string; count: number }>(),
+          SELECT brand_id, total_active,
+                 impersonation_active, suspicious_active, legitimate_active, official_active,
+                 critical_active, high_active
+          FROM app_store_brand_summary
+          WHERE brand_id IN (${placeholders})
+        `).bind(...brandIds).all<{
+          brand_id: string;
+          total_active: number; impersonation_active: number; suspicious_active: number;
+          legitimate_active: number; official_active: number;
+          critical_active: number; high_active: number;
+        }>(),
         session.prepare(`
           SELECT brand_id, last_checked, next_check
           FROM brand_monitor_schedule
@@ -554,31 +566,21 @@ export async function handleAppStoreOverview(
         `).bind(...brandIds).all<{ brand_id: string; last_checked: string | null; next_check: string | null }>(),
       ]);
 
-      classificationByBrand = classRows.results.reduce((m, r) => {
-        const arr = m.get(r.brand_id) ?? [];
-        arr.push({ classification: r.classification, severity: r.severity, count: r.count });
-        m.set(r.brand_id, arr);
-        return m;
-      }, new Map<string, Array<{ classification: string; severity: string; count: number }>>());
-
-      scheduleByBrand = schedRows.results.reduce((m, r) => {
-        m.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
-        return m;
-      }, new Map<string, { last_checked: string | null; next_check: string | null }>());
+      for (const r of summaryRows.results) summaryByBrand.set(r.brand_id, r);
+      for (const r of schedRows.results) scheduleByBrand.set(r.brand_id, { last_checked: r.last_checked, next_check: r.next_check });
     }
 
     const brandsWithStats = brands.results.map((brand) => {
-      const classRows = classificationByBrand.get(brand.id) ?? [];
-      const counts = { total: 0, impersonation: 0, suspicious: 0, legitimate: 0, official: 0, critical: 0, high: 0 };
-      for (const row of classRows) {
-        counts.total += row.count;
-        if (row.classification === "impersonation") counts.impersonation += row.count;
-        if (row.classification === "suspicious") counts.suspicious += row.count;
-        if (row.classification === "legitimate") counts.legitimate += row.count;
-        if (row.classification === "official") counts.official += row.count;
-        if (row.severity === "CRITICAL") counts.critical += row.count;
-        if (row.severity === "HIGH") counts.high += row.count;
-      }
+      const s = summaryByBrand.get(brand.id);
+      const counts = {
+        total: s?.total_active ?? 0,
+        impersonation: s?.impersonation_active ?? 0,
+        suspicious: s?.suspicious_active ?? 0,
+        legitimate: s?.legitimate_active ?? 0,
+        official: s?.official_active ?? 0,
+        critical: s?.critical_active ?? 0,
+        high: s?.high_active ?? 0,
+      };
       const sched = scheduleByBrand.get(brand.id);
       return {
         ...brand,
