@@ -225,8 +225,13 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<TopQuerie
   const databaseId = D1_DATABASE_ID;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  // Cloudflare's per-query analytics dataset. Field names per
-  // https://developers.cloudflare.com/d1/observability/queries-analytics/
+  // Cloudflare's per-query analytics dataset.
+  //
+  // `sum.queries` from PR #864 doesn't exist — CF rejects with
+  // `unknown field "queries"`. The query count is on the top-level
+  // `count` field (number of analytics samples in the group),
+  // sibling of `sum` and `dimensions` — same pattern as the
+  // workers/pages adaptive groups.
   const query = `
     query {
       viewer {
@@ -236,10 +241,10 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<TopQuerie
             orderBy: [sum_rowsRead_DESC]
             limit: ${limit}
           ) {
+            count
             sum {
               rowsRead
               rowsWritten
-              queries
             }
             dimensions {
               query
@@ -269,7 +274,8 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<TopQuerie
         viewer?: {
           accounts?: Array<{
             d1QueriesAdaptiveGroups?: Array<{
-              sum: { rowsRead: number; rowsWritten: number; queries: number };
+              count: number;
+              sum: { rowsRead: number; rowsWritten: number };
               dimensions: { query: string };
             }>;
           }>;
@@ -294,9 +300,9 @@ export async function fetchD1TopQueries(env: Env, limit = 20): Promise<TopQuerie
       query_sample: g.dimensions.query,
       rows_read: g.sum.rowsRead,
       rows_written: g.sum.rowsWritten,
-      query_count: g.sum.queries,
-      avg_rows_per_query: g.sum.queries > 0
-        ? Math.round(g.sum.rowsRead / g.sum.queries)
+      query_count: g.count,
+      avg_rows_per_query: g.count > 0
+        ? Math.round(g.sum.rowsRead / g.count)
         : 0,
     }));
     return { queries, error: null };
