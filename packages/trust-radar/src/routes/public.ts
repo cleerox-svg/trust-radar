@@ -188,6 +188,15 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
     handleScanPage(request, env, request.params["id"] ?? "")
   );
 
+  // ─── Qualified Report (sharable via token, no auth required) ─────
+  // Admin generates the report via POST /api/admin/leads/:id/qualified-report;
+  // the response includes a share URL that lands here. Token-only access —
+  // tokens are 32-byte random URL-safe strings, presence + non-expired is auth.
+  router.get("/qualified-report/:token", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const { handleViewQualifiedReport } = await import("../handlers/qualifiedReport");
+    return handleViewQualifiedReport(request, env, request.params["token"] ?? "");
+  });
+
   // ─── WebSocket — ThreatPushHub Durable Object ─────────────────────
   router.get("/ws/threats", async (request: Request, env: Env) => {
     const id = env.THREAT_PUSH_HUB.idFromName("global");

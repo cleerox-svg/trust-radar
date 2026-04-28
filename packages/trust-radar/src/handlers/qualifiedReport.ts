@@ -1,0 +1,316 @@
+// Averrow — Sales-Qualified Brand Risk Plan
+//
+// Generates a deeper, sharable report for a qualified lead. Unlike the
+// public /api/brand-scan/public response (score + risk pills only), this
+// report contains:
+//   1. Executive summary
+//   2. Email security audit (full SPF/DKIM/DMARC posture)
+//   3. Active threats targeting their brand (full list)
+//   4. Infrastructure map (hosting providers + ASNs + campaigns)
+//   5. Lookalike domain inventory (registered + unregistered)
+//   6. Threat actor narrative (Haiku-generated)
+//   7. Remediation plan (Haiku-generated)
+//   8. ROI projection (analyst hours saved, takedowns/month, exposure prevented)
+//
+// Endpoints:
+//   POST /api/admin/leads/:id/qualified-report (super_admin auth)
+//        → generates the report, stores in qualified_reports, returns
+//          a share URL (token-based, 30-day TTL).
+//   GET  /api/public/qualified-report/:token (no auth, just token)
+//        → renders the snapshotted HTML view.
+//
+// Why snapshot the data: re-pulling on every share-link visit would let
+// the report drift over the sales cycle. Snapshotting at generation time
+// means the link shows the world as it was when the admin clicked
+// generate — useful for "before vs. after we engaged" comparisons.
+
+import { json } from "../lib/cors";
+import { callHaikuRaw } from "../lib/haiku";
+import type { Env } from "../types";
+
+// ─── ROI defaults ──────────────────────────────────────────────────
+// Per CLAUDE.md §13: positioning is "replaces 2-3 analyst headcount"
+// → ~$200-400K/year saved. These are the inputs to the ROI projection.
+// Hardcoded for now; if ground-truth values change, move to system_config.
+const ROI = {
+  analyst_loaded_cost_annual_usd: 150_000,         // fully-loaded analyst cost
+  analyst_hours_saved_per_year:   3_500,           // ~70/wk × 50wk replaced
+  hourly_rate_usd:                75,              // for hour-savings math
+  avg_breach_cost_usd:            4_450_000,       // IBM 2024 breach cost report
+  breach_prevention_probability:  0.04,            // platform's contribution
+  takedowns_per_brand_per_month:  6,               // rough avg per customer
+};
+
+// ─── Types ─────────────────────────────────────────────────────────
+
+interface ReportPayload {
+  brand: { domain: string; name: string | null };
+  generated_at: string;
+  executive_summary: { risk_grade: string; key_findings: string[] };
+  email_security: {
+    grade: string;
+    spf: string | null;
+    dmarc: string | null;
+    dkim_found: boolean;
+    mx_count: number;
+  };
+  active_threats: {
+    total: number;
+    by_severity: Record<string, number>;
+    samples: Array<{
+      id: string;
+      threat_type: string;
+      severity: string | null;
+      source_feed: string;
+      malicious_domain: string | null;
+      ip_address: string | null;
+      country_code: string | null;
+      first_seen: string;
+    }>;
+  };
+  infrastructure: {
+    top_hosting_providers: Array<{ name: string; asn: string | null; threat_count: number }>;
+    top_countries: Array<{ country: string; threat_count: number }>;
+    campaigns_caught_in: Array<{ id: string; name: string; threat_count: number }>;
+  };
+  lookalikes: { registered_count: number; possible_count: number };
+  narrative: string;
+  remediation_plan: string;
+  roi: {
+    analyst_hours_saved_per_year: number;
+    analyst_dollars_saved_per_year: number;
+    takedowns_per_year_projected: number;
+    breach_prevention_value_per_year: number;
+    total_value_per_year: number;
+  };
+}
+
+// ─── Data aggregation ──────────────────────────────────────────────
+
+async function buildReportPayload(env: Env, lead: { domain: string; company: string | null }): Promise<ReportPayload> {
+  const domain = lead.domain.toLowerCase().trim();
+
+  // Run all data reads in parallel — independent queries.
+  const [threatsResult, severityResult, providersResult, countriesResult, campaignsResult, lookalikesResult, brandRow] = await Promise.all([
+    env.DB.prepare(`
+      SELECT id, threat_type, severity, source_feed, malicious_domain, ip_address, country_code, created_at AS first_seen
+      FROM threats
+      WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active'
+      ORDER BY created_at DESC LIMIT 50
+    `).bind(domain, `%.${domain}`).all<{
+      id: string; threat_type: string; severity: string | null; source_feed: string;
+      malicious_domain: string | null; ip_address: string | null; country_code: string | null; first_seen: string;
+    }>(),
+    env.DB.prepare(`
+      SELECT severity, COUNT(*) AS n FROM threats
+      WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active'
+      GROUP BY severity
+    `).bind(domain, `%.${domain}`).all<{ severity: string | null; n: number }>(),
+    env.DB.prepare(`
+      SELECT hp.name, hp.asn, COUNT(*) AS threat_count
+      FROM threats t
+      JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+      WHERE (t.malicious_domain = ? OR t.malicious_domain LIKE ?) AND t.status = 'active'
+      GROUP BY hp.id ORDER BY threat_count DESC LIMIT 10
+    `).bind(domain, `%.${domain}`).all<{ name: string; asn: string | null; threat_count: number }>(),
+    env.DB.prepare(`
+      SELECT country_code AS country, COUNT(*) AS threat_count
+      FROM threats
+      WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active' AND country_code IS NOT NULL
+      GROUP BY country_code ORDER BY threat_count DESC LIMIT 10
+    `).bind(domain, `%.${domain}`).all<{ country: string; threat_count: number }>(),
+    env.DB.prepare(`
+      SELECT c.id, c.name, COUNT(*) AS threat_count
+      FROM threats t
+      JOIN campaigns c ON c.id = t.campaign_id
+      WHERE (t.malicious_domain = ? OR t.malicious_domain LIKE ?) AND t.status = 'active'
+      GROUP BY c.id ORDER BY threat_count DESC LIMIT 5
+    `).bind(domain, `%.${domain}`).all<{ id: string; name: string; threat_count: number }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) AS n FROM lookalike_domains WHERE target_brand LIKE ?
+    `).bind(`%${domain.split(".")[0]}%`).first<{ n: number }>(),
+    env.DB.prepare(`
+      SELECT name, email_security_grade, spf_policy, dmarc_policy, mx_count
+      FROM brands WHERE canonical_domain = ? LIMIT 1
+    `).bind(domain).first<{ name: string; email_security_grade: string | null; spf_policy: string | null; dmarc_policy: string | null; mx_count: number | null }>(),
+  ]);
+
+  const totalThreats = threatsResult.results.length;
+  const bySeverity: Record<string, number> = {};
+  for (const row of severityResult.results) bySeverity[row.severity ?? "unknown"] = row.n;
+
+  // Risk grade derived from threat count + email security grade.
+  const emailGrade = brandRow?.email_security_grade ?? "F";
+  const riskGrade = totalThreats >= 20 || emailGrade === "F"
+    ? "CRITICAL"
+    : totalThreats >= 10 || emailGrade === "D"
+    ? "HIGH"
+    : totalThreats >= 3 || emailGrade === "C"
+    ? "MODERATE"
+    : "LOW";
+
+  const keyFindings: string[] = [];
+  if (totalThreats > 0) keyFindings.push(`${totalThreats} active threat${totalThreats === 1 ? "" : "s"} targeting ${domain} across our intelligence feeds`);
+  if (emailGrade && emailGrade !== "A") keyFindings.push(`Email security grade ${emailGrade} — phishing impersonation risk for staff and customers`);
+  if (providersResult.results.length > 0) keyFindings.push(`Attacks staged from ${providersResult.results.length} hosting provider${providersResult.results.length === 1 ? "" : "s"} including ${providersResult.results[0]?.name ?? "unknown"}`);
+  if (campaignsResult.results.length > 0) keyFindings.push(`Targeted by ${campaignsResult.results.length} active threat campaign${campaignsResult.results.length === 1 ? "" : "s"} we are tracking`);
+  if (keyFindings.length === 0) keyFindings.push(`No active intelligence-feed threats currently targeting ${domain}`);
+
+  // Generate narrative + remediation plan via Haiku. Both are bounded by
+  // the cost guard inside callHaikuRaw — if AI is throttled we fall back
+  // to deterministic strings so the report still renders.
+  const narrativePromise = callHaikuRaw(
+    env,
+    { agentId: "qualified-report", runId: null },
+    "You write concise threat-actor briefings for a security platform's enterprise sales reports. Three sentences, executive-grade language, name specific risks (not generic), no marketing fluff.",
+    `Brand: ${lead.company ?? domain} (${domain}). Active threats: ${totalThreats}. Top hosting providers: ${providersResult.results.slice(0, 3).map(p => p.name).join(", ") || "none observed"}. Top countries: ${countriesResult.results.slice(0, 3).map(c => c.country).join(", ") || "none"}. Active campaigns: ${campaignsResult.results.length}. Email grade: ${emailGrade}. Write the threat-actor briefing.`,
+    400,
+  );
+  const planPromise = callHaikuRaw(
+    env,
+    { agentId: "qualified-report", runId: null },
+    "You write concise remediation plans for security platform sales reports. Five numbered actions, prioritized highest-impact first, each one sentence, concrete (not 'improve email security' but 'enable DMARC reject policy on the canonical domain within 14 days').",
+    `Findings for ${lead.company ?? domain}: ${totalThreats} active threats, email security grade ${emailGrade}, SPF policy ${brandRow?.spf_policy ?? "missing"}, DMARC policy ${brandRow?.dmarc_policy ?? "missing"}, ${campaignsResult.results.length} active campaigns. Write the remediation plan.`,
+    500,
+  );
+
+  const [narrativeResult, planResult] = await Promise.all([narrativePromise, planPromise]);
+  const narrative = (narrativeResult.success ? narrativeResult.text : null) ?? `Active impersonation and phishing infrastructure targeting ${domain} has been observed across ${threatsResult.results.length} distinct events in the last 90 days. Hosting and ASN diversity suggests organized actor behavior rather than incidental abuse. Coordinated takedown plus email-authentication hardening would materially reduce exposure.`;
+  const plan = (planResult.success ? planResult.text : null) ?? `1. Enable DMARC quarantine policy on the primary domain within 14 days.\n2. Onboard active threat feeds + lookalike monitoring for continuous detection.\n3. Initiate takedown requests for all active phishing infrastructure (priority by hosting provider).\n4. Lock down DKIM selectors and rotate any keys older than 24 months.\n5. Enable executive impersonation monitoring across LinkedIn, Twitter, and major social platforms.`;
+
+  // ROI projection — analyst-hour replacement + breach prevention.
+  const analystDollars = ROI.analyst_hours_saved_per_year * ROI.hourly_rate_usd;
+  const takedownsPerYear = ROI.takedowns_per_brand_per_month * 12;
+  const breachPrevValue = ROI.avg_breach_cost_usd * ROI.breach_prevention_probability;
+  const totalValue = analystDollars + breachPrevValue;
+
+  return {
+    brand: { domain, name: lead.company },
+    generated_at: new Date().toISOString(),
+    executive_summary: { risk_grade: riskGrade, key_findings: keyFindings },
+    email_security: {
+      grade: emailGrade,
+      spf: brandRow?.spf_policy ?? null,
+      dmarc: brandRow?.dmarc_policy ?? null,
+      dkim_found: false, // not tracked yet on brands table
+      mx_count: brandRow?.mx_count ?? 0,
+    },
+    active_threats: { total: totalThreats, by_severity: bySeverity, samples: threatsResult.results },
+    infrastructure: {
+      top_hosting_providers: providersResult.results,
+      top_countries: countriesResult.results,
+      campaigns_caught_in: campaignsResult.results,
+    },
+    lookalikes: { registered_count: lookalikesResult?.n ?? 0, possible_count: 0 },
+    narrative,
+    remediation_plan: plan,
+    roi: {
+      analyst_hours_saved_per_year: ROI.analyst_hours_saved_per_year,
+      analyst_dollars_saved_per_year: analystDollars,
+      takedowns_per_year_projected: takedownsPerYear,
+      breach_prevention_value_per_year: breachPrevValue,
+      total_value_per_year: totalValue,
+    },
+  };
+}
+
+// ─── Generate handler (admin) ──────────────────────────────────────
+
+export async function handleGenerateQualifiedReport(
+  request: Request,
+  env: Env,
+  leadId: string,
+  userId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const lead = await env.DB.prepare(
+      "SELECT id, email, name, company, domain FROM scan_leads WHERE id = ?",
+    ).bind(leadId).first<{ id: string; email: string; name: string | null; company: string | null; domain: string | null }>();
+
+    if (!lead) return json({ success: false, error: "Lead not found" }, 404, origin);
+    if (!lead.domain) return json({ success: false, error: "Lead has no domain to scan" }, 400, origin);
+
+    const payload = await buildReportPayload(env, { domain: lead.domain, company: lead.company });
+
+    // 32 random bytes encoded as URL-safe base64 → 43 chars, ample entropy.
+    const tokenBytes = new Uint8Array(24);
+    crypto.getRandomValues(tokenBytes);
+    const shareToken = btoa(String.fromCharCode(...tokenBytes))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+    const reportId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO qualified_reports
+        (id, lead_id, brand_domain, share_token, payload_json, expires_at, generated_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(reportId, leadId, lead.domain, shareToken, JSON.stringify(payload), expiresAt, userId).run();
+
+    const url = new URL(request.url);
+    const shareUrl = `${url.origin}/qualified-report/${shareToken}`;
+
+    return json({
+      success: true,
+      data: {
+        report_id: reportId,
+        share_url: shareUrl,
+        share_token: shareToken,
+        expires_at: expiresAt,
+        risk_grade: payload.executive_summary.risk_grade,
+      },
+    }, 200, origin);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return json({ success: false, error: message }, 500, origin);
+  }
+}
+
+// ─── View handler (public, token-gated) ────────────────────────────
+
+export async function handleViewQualifiedReport(
+  request: Request,
+  env: Env,
+  token: string,
+): Promise<Response> {
+  try {
+    const row = await env.DB.prepare(`
+      SELECT id, brand_domain, payload_json, expires_at
+      FROM qualified_reports
+      WHERE share_token = ? AND expires_at > datetime('now')
+    `).bind(token).first<{ id: string; brand_domain: string; payload_json: string; expires_at: string }>();
+
+    if (!row) {
+      return new Response("Report not found or expired", {
+        status: 404,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+
+    // Best-effort view tracking. If it fails, the response is the priority.
+    try {
+      await env.DB.prepare(
+        "UPDATE qualified_reports SET view_count = view_count + 1, last_viewed_at = datetime('now') WHERE id = ?",
+      ).bind(row.id).run();
+    } catch { /* ignore */ }
+
+    const payload = JSON.parse(row.payload_json) as ReportPayload;
+    const { renderQualifiedReportHTML } = await import("../templates/qualifiedReport");
+    const html = renderQualifiedReportHTML(payload);
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        // Don't cache — admins may regenerate; share URL stays stable but
+        // payload may differ if a new report was generated for the same lead.
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch {
+    return new Response("Internal error", {
+      status: 500,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+}

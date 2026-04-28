@@ -39,6 +39,7 @@ import { handleBudgetStatus, handleBudgetBreakdown, handleBudgetConfigPatch } fr
 import { handlePlatformDiagnostics } from "../handlers/diagnostics";
 import { handleCartographerHealth } from "../handlers/cartographer-health";
 import { handleD1Health } from "../handlers/d1-health";
+import { handleGenerateQualifiedReport } from "../handlers/qualifiedReport";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -81,6 +82,15 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleD1Health(request, env);
+  });
+
+  // Sales-qualified Brand Risk Plan — generate a deeper, sharable
+  // report for a qualified scan_leads row. Returns a share URL with
+  // a 30-day TTL token; admin sends the URL to the prospect post-call.
+  router.post("/api/admin/leads/:id/qualified-report", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGenerateQualifiedReport(request, env, request.params["id"] ?? "", ctx.userId);
   });
 
   // ─── Admin Users ──────────────────────────────────────────────────
