@@ -243,7 +243,11 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"));
 
   try {
-    // KV cache: nodes query aggregates threat_cube_geo — cache for 5 minutes.
+    // KV cache: nodes query aggregates threat_cube_geo — cache for 15
+    // minutes. Bumped from 5min as part of D1-budget cleanup; the cube
+    // is rebuilt every 10 min by Navigator so 15min staleness is at
+    // worst one tick old, and Navigator-driven cache warms now miss
+    // ~3x less often.
     const cacheKey = `observatory_nodes:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
@@ -272,7 +276,7 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
     }>();
 
     const data = { success: true, data: rows.results ?? [] };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -291,7 +295,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
 
   try {
-    // KV cache: arcs queries hit raw threats table — cache for 2 minutes.
+    // KV cache: arcs query is the single most expensive Observatory
+    // read (raw threats JOIN brands, was uncapped). Cache for 15 min;
+    // the globe doesn't visibly change second-to-second.
     const cacheKey = `observatory_arcs:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
@@ -356,7 +362,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       .filter((a): a is NonNullable<typeof a> => a !== null);
 
     const data = { success: true, data: arcs };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -539,7 +545,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
       },
     };
 
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -590,7 +596,7 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
     `).bind(...params).all();
 
     const data = { success: true, data: rows.results ?? [] };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
