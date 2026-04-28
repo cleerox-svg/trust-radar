@@ -11,6 +11,7 @@
 
 import { json } from "../lib/cors";
 import { getDbContext, getReadSession, attachBookmark } from '../lib/db';
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 
 // ── Brand HQ coordinates — real locations ────────────────────────────────────
@@ -250,8 +251,14 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
     // ~3x less often.
     const cacheKey = `observatory_nodes:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      // Cache hit — record zero D1 reads so attribution still shows
+      // request volume.
+      recordD1Reads(env, "observatory_nodes", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const rows = await session.prepare(`
       SELECT
         ROUND(lat_bucket, 1) AS lat,
@@ -274,9 +281,11 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
       critical: number; high: number; medium: number; low: number;
       country_code: string | null; top_threat_type: string | null;
     }>();
+    addToTally(tally, rows.meta);
 
     const data = { success: true, data: rows.results ?? [] };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
+    recordD1Reads(env, "observatory_nodes", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -300,8 +309,12 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     // the globe doesn't visibly change second-to-second.
     const cacheKey = `observatory_arcs:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "observatory_arcs", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     // Cap at 10K corridors. The globe can't visualize more than that
     // legibly anyway (overdraw collapses individual arcs into a blob),
     // and removing the cap was burning ~50M D1 row-reads per day on
@@ -336,6 +349,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       target_sector: string | null; volume: number;
       first_seen: string; last_seen: string;
     }>();
+    addToTally(tally, rows.meta);
 
     const resultRows = rows.results ?? [];
 
@@ -363,6 +377,7 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
 
     const data = { success: true, data: arcs };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
+    recordD1Reads(env, "observatory_arcs", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -383,8 +398,12 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
     // KV cache: live feed query — cache for 2 minutes (data changes frequently).
     const cacheKey = `observatory_live:${url.searchParams.get("source_feed") ?? "all"}:${limit}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "observatory_live", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const rows = await session.prepare(`
       SELECT
         t.id,
@@ -410,9 +429,11 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
       lat: number; lng: number; country_code: string | null;
       created_at: string; target_brand: string | null;
     }>();
+    addToTally(tally, rows.meta);
 
     const data = { success: true, data: rows.results ?? [] };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
+    recordD1Reads(env, "observatory_live", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -517,8 +538,12 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
     // (up to 2 minutes of stale raw-sourced values post-deploy).
     const cacheKey = `observatory_stats:${period}:${sourceFeed ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "observatory_stats", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const [threats, countries, campaigns, brands] = await Promise.all([
       session.prepare(
         `SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
@@ -533,6 +558,11 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
         `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threats WHERE target_brand_id IS NOT NULL AND status = 'active' AND created_at > datetime('now', ?)${sf.sql}`
       ).bind(interval, ...sf.params).first<{ n: number }>(),
     ]);
+    // .first() doesn't expose meta — count queries but not rows_read.
+    // The biggest of these (DISTINCT target_brand_id over threats) can
+    // touch tens of thousands of rows; flagged for future migration to
+    // a cube or pre-computed counter.
+    tally.queries += 4;
 
     const data = {
       success: true,
@@ -546,6 +576,7 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
     };
 
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
+    recordD1Reads(env, "observatory_stats", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -574,11 +605,15 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     params.push(limit);
 
-    // KV cache: lightweight query but fires on every Observatory mount — cache for 5 minutes.
+    // KV cache: lightweight query but fires on every Observatory mount — cache for 15 minutes.
     const cacheKey = `observatory_operations:${status ?? "all"}:${limit}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "observatory_operations", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const rows = await session.prepare(`
       SELECT ic.id, ic.cluster_name, ic.threat_count,
              ic.status, ic.confidence_score, ic.agent_notes,
@@ -594,9 +629,11 @@ export async function handleObservatoryOperations(request: Request, env: Env): P
         ic.threat_count DESC
       LIMIT ?
     `).bind(...params).all();
+    addToTally(tally, rows.meta);
 
     const data = { success: true, data: rows.results ?? [] };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 900 });
+    recordD1Reads(env, "observatory_operations", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);

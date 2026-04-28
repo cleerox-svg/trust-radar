@@ -11,6 +11,7 @@ import { computeBrandExposureScore } from "../lib/brand-scoring";
 import { generateBrandKeywords } from "../lib/brand-utils";
 import { getBrandById, getBrandByDomain, getBrandThreatCount } from "../db/brands";
 import { getDbContext, getReadSession, attachBookmark } from "../lib/db";
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 import type { OrgScope } from "../middleware/auth";
 
@@ -23,8 +24,12 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
     // KV cache: brand stats rarely change — cache for 2 minutes
     const cacheKey = "brand_stats";
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "brand_stats", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const total = await session.prepare("SELECT COUNT(*) AS n FROM brands").first<{ n: number }>();
 
     const newThisWeek = await session.prepare(
@@ -55,6 +60,9 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
       },
     };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    // 4 sequential .first() queries — meta isn't exposed.
+    tally.queries += 4;
+    recordD1Reads(env, "brand_stats", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -85,8 +93,12 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       ? `brand_list:${tab}:${sort}:${limit}:${scopeHash}`
       : `brand_list:${tab}:${sort}:${limit}:${offset}:${search ?? ""}:${sector ?? ""}:${scopeHash}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "brand_list", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
+    const tally = newTally();
     const conditions: string[] = [];
     const params: unknown[] = [];
 
@@ -143,6 +155,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       ORDER BY ${sortClause}
       LIMIT ? OFFSET ?
     `).bind(...params).all();
+    addToTally(tally, rows.meta);
 
     // Sparklines via brand cube — single bulk query instead of N correlated subqueries.
     // Fetches 14-day daily counts for all returned brand IDs from threat_cube_brand,
@@ -160,6 +173,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
           GROUP BY target_brand_id, date(hour_bucket)
           ORDER BY target_brand_id, day ASC
         `).bind(...brandIds).all<{ target_brand_id: string; day: string; daily_count: number }>();
+        addToTally(tally, sparkRows.meta);
         for (const row of sparkRows.results) {
           if (!sparkMap.has(row.target_brand_id)) sparkMap.set(row.target_brand_id, []);
           sparkMap.get(row.target_brand_id)!.push(row.daily_count);
@@ -195,6 +209,10 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
         `SELECT COUNT(*) AS n FROM brands ${brandScopeFilter.clause}`
       ).bind(...brandScopeFilter.params).first<{ n: number }>(),
     ]);
+    // 3 .first() count queries — meta unavailable, but the
+    // `under_attack` one scans active threats (200K+ rows) and is the
+    // single most expensive read in this handler.
+    tally.queries += 3;
 
     const total = allCount;
 
@@ -209,6 +227,7 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
       },
     };
     await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 300 });
+    recordD1Reads(env, "brand_list", tally);
     return attachBookmark(json(result, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
