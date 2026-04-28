@@ -4,6 +4,7 @@
 
 import { json } from "../lib/cors";
 import { getDbContext, getReadSession, attachBookmark } from '../lib/db';
+import { newTally, addToTally, recordD1Reads } from "../lib/analytics";
 import type { Env } from "../types";
 import type { OrgScope } from "../middleware/auth";
 
@@ -17,7 +18,12 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
     const scopeHash = scope ? scope.brand_ids.slice(0, 3).join(",") : "global";
     const cacheKey = `dashboard_overview:${scopeHash}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "dashboard_overview", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+
+    const tally = newTally();
 
     // Build scope-aware threat filter
     const threatScope = scope && scope.brand_ids.length > 0
@@ -82,6 +88,11 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
       },
     };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    // 7 parallel .first() queries — meta isn't exposed by .first(),
+    // but at least record the request count + query count so the
+    // attribution table flags this endpoint when traffic spikes.
+    tally.queries += 7;
+    recordD1Reads(env, "dashboard_overview", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
@@ -102,7 +113,10 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
     // KV cache — 5 min TTL
     const cacheKey = `dashboard_top_brands:${limit}:${scopeHash}`;
     const cached = await env.CACHE.get(cacheKey);
-    if (cached) return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    if (cached) {
+      recordD1Reads(env, "dashboard_top_brands", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
 
     const brandFilter = scope && scope.brand_ids.length > 0
       ? { clause: `WHERE b.id IN (${scope.brand_ids.map(() => "?").join(", ")})`, params: [...scope.brand_ids, limit] }
@@ -112,6 +126,7 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
       return attachBookmark(json({ success: true, data: [] }, 200, origin), session);
     }
 
+    const tally = newTally();
     const rows = await session.prepare(`
       SELECT b.id AS brand_id, b.name, b.sector,
              COUNT(t.id) AS threat_count,
@@ -126,9 +141,11 @@ export async function handleDashboardTopBrands(request: Request, env: Env, scope
       ORDER BY threat_count DESC
       LIMIT ?
     `).bind(...brandFilter.params).all();
+    addToTally(tally, rows.meta);
 
     const data = { success: true, data: rows.results };
     await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    recordD1Reads(env, "dashboard_top_brands", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
