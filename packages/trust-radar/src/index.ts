@@ -214,6 +214,29 @@ export default {
       }
 
       // ─── Internal agent trigger endpoints ─────────────────────────
+      // ─── Internal cube/cache rebuild endpoints (POST) ─────────
+      // Out-of-band rebuild for the dark-web + app-store brand summary
+      // cubes. Cheap and idempotent — INSERT OR REPLACE keyed on
+      // brand_id. Use when you don't want to wait for cube_healer's
+      // next 6-hour tick (cron `12 */6 * * *`).
+      if (url.pathname === '/api/internal/cubes/brand-summaries/rebuild' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const { buildDarkWebBrandSummary, buildAppStoreBrandSummary } = await import('./lib/cube-builder');
+        const [dw, as] = await Promise.all([
+          buildDarkWebBrandSummary(env),
+          buildAppStoreBrandSummary(env),
+        ]);
+        return Response.json({
+          triggered: true,
+          dark_web_brand_summary: dw,
+          app_store_brand_summary: as,
+        });
+      }
+
       if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
@@ -227,24 +250,6 @@ export default {
           const mod = agentModules["cartographer"];
           if (mod) ctx.waitUntil(executeAgent(env, mod, { trigger: 'manual' }, "api", "event"));
           return Response.json({ triggered: true, agent: 'cartographer' });
-        }
-
-        // Focused on-demand rebuild of just the brand summary cubes
-        // (dark_web_brand_summary + app_store_brand_summary). Cheap and
-        // idempotent — INSERT OR REPLACE keyed on brand_id. Use this
-        // when you don't want to wait for the next cube_healer tick at
-        // hour:12 every 6h. Skips the heavier 30-day rebuild entirely.
-        if (url.pathname === '/api/internal/cubes/brand-summaries/rebuild') {
-          const { buildDarkWebBrandSummary, buildAppStoreBrandSummary } = await import('./lib/cube-builder');
-          const [dw, as] = await Promise.all([
-            buildDarkWebBrandSummary(env),
-            buildAppStoreBrandSummary(env),
-          ]);
-          return Response.json({
-            triggered: true,
-            dark_web_brand_summary: dw,
-            app_store_brand_summary: as,
-          });
         }
 
         if (url.pathname === '/api/internal/agents/nexus/run') {
