@@ -1,37 +1,52 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowWidth';
 import { useUnreadCount, useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
 import type { Notification } from '@/hooks/useNotifications';
 import { relativeTime } from '@/lib/time';
+import { Badge } from '@/design-system/components';
+import { USER_TOGGLEABLE_EVENTS, type NotificationEventKey } from '@averrow/shared';
 import { Dropdown } from './Dropdown';
 import { BottomSheet } from './BottomSheet';
 
-type FilterType = 'all' | 'brand_threat' | 'feed_health' | 'intelligence_digest';
+// Filter pills are now generated from the @averrow/shared registry —
+// all 5 user-toggleable events + an "All" pill. Adding a new event in
+// notification-events.ts auto-surfaces here. System events
+// (email_security_change, circuit_breaker_tripped) appear in the feed
+// but aren't filterable from the bell — they're not user-controllable
+// in any other surface either.
+type FilterType = 'all' | NotificationEventKey;
 
-const FILTER_LABELS: Record<FilterType, string> = {
-  all: 'All',
-  brand_threat: 'Threats',
-  feed_health: 'Feeds',
-  intelligence_digest: 'Intel',
-};
-
-function severityBorderColor(severity: string): string {
+function severityToBadgeSeverity(severity: string): 'critical' | 'high' | 'medium' | 'low' | 'info' {
   switch (severity) {
     case 'critical':
-    case 'high': return 'rgba(200,60,60,0.6)';
-    case 'medium': return 'rgba(251,146,60,0.4)';
-    default: return 'rgba(0,212,255,0.3)';
+    case 'high':
+    case 'medium':
+    case 'low':
+    case 'info':
+      return severity;
+    default:
+      return 'info';
+  }
+}
+
+function severityBorderToken(severity: string): string {
+  switch (severity) {
+    case 'critical': return 'var(--sev-critical-border)';
+    case 'high':     return 'var(--sev-high-border)';
+    case 'medium':   return 'var(--sev-medium-border)';
+    case 'low':      return 'var(--sev-low-border)';
+    default:         return 'var(--sev-info-border)';
   }
 }
 
 function severityDotClass(severity: string): string {
   switch (severity) {
     case 'critical': return 'dot-pulse-red';
-    case 'high': return 'dot-pulse-amber';
-    case 'medium': return 'dot-pulse-amber';
-    default: return 'dot-pulse-afterburner';
+    case 'high':
+    case 'medium':   return 'dot-pulse-amber';
+    default:         return 'dot-pulse-afterburner';
   }
 }
 
@@ -42,7 +57,7 @@ function NotificationItem({ notification, onRead }: { notification: Notification
       onClick={() => onRead(notification.id)}
       className="w-full text-left px-4 py-3 transition-colors hover:bg-white/5 touch-target"
       style={{
-        borderLeft: isUnread ? `2px solid ${severityBorderColor(notification.severity)}` : '2px solid transparent',
+        borderLeft: isUnread ? `2px solid ${severityBorderToken(notification.severity)}` : '2px solid transparent',
         background: isUnread ? 'rgba(255,255,255,0.03)' : 'transparent',
       }}
     >
@@ -54,19 +69,17 @@ function NotificationItem({ notification, onRead }: { notification: Notification
           <p className="text-[13px] leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>
             {notification.title}
           </p>
-          <p className="text-[11px] text-white/40 mt-1 line-clamp-1">
+          <p className="text-[11px] mt-1 line-clamp-1" style={{ color: 'var(--text-tertiary)' }}>
             {notification.message}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-[10px] font-mono uppercase" style={{ color: 'var(--text-secondary)' }}>
-              {notification.type.replace('_', ' ')}
+              {notification.type.replace(/_/g, ' ')}
             </span>
-            <span className="text-[10px] text-white/40">·</span>
-            <span className="text-[10px] font-mono text-white/50 uppercase">
-              {notification.severity}
-            </span>
-            <span className="text-[10px] text-white/40">·</span>
-            <span className="text-[10px] font-mono text-white/50">
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>·</span>
+            <Badge severity={severityToBadgeSeverity(notification.severity)} size="xs" />
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>·</span>
+            <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
               {relativeTime(notification.created_at)}
             </span>
           </div>
@@ -89,6 +102,17 @@ function NotificationList({
   const { data } = useNotifications(true);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+
+  // Filter pills generated from the registry — `all` + each
+  // user-toggleable event. Adding a new event to
+  // `@averrow/shared/notification-events` auto-surfaces a pill here.
+  const filterOptions = useMemo(
+    () => [
+      { key: 'all' as const, label: 'All' },
+      ...USER_TOGGLEABLE_EVENTS.map((e) => ({ key: e.key, label: e.label })),
+    ],
+    [],
+  );
 
   const notifications = data?.notifications ?? [];
   const filtered = filter === 'all'
@@ -119,8 +143,8 @@ function NotificationList({
         </p>
       </div>
 
-      <div className="flex gap-1 px-4 pb-3 flex-shrink-0">
-        {(Object.keys(FILTER_LABELS) as FilterType[]).map(key => {
+      <div className="flex flex-wrap gap-1 px-4 pb-3 flex-shrink-0">
+        {filterOptions.map(({ key, label }) => {
           const isActive = filter === key;
           return (
             <button
@@ -134,11 +158,11 @@ function NotificationList({
                 border: isActive
                   ? '1px solid rgba(229, 168, 50, 0.60)'
                   : '1px solid var(--border-base)',
-                color: isActive ? '#000' : 'var(--text-secondary)',
+                color: isActive ? 'var(--text-on-amber, #0A0F1E)' : 'var(--text-secondary)',
                 fontWeight: 800,
               }}
             >
-              {FILTER_LABELS[key]}
+              {label}
             </button>
           );
         })}
@@ -201,7 +225,13 @@ export function NotificationBell() {
       >
         <Bell className="w-5 h-5 text-white/70" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 bg-[#C83C3C] rounded-full flex items-center justify-center text-[10px] font-bold font-mono text-white dot-pulse-red">
+          <span
+            className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono dot-pulse-red"
+            style={{
+              background: 'var(--sev-critical)',
+              color: '#fff',
+            }}
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

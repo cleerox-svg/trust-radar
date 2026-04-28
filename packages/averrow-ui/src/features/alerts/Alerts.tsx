@@ -44,23 +44,35 @@ function extractPlatform(title: string): string {
   return 'Social';
 }
 
-const platformColors: Record<string, string> = {
-  TikTok: 'bg-[#00d4ff]/15 text-[#00d4ff] border-[#00d4ff]/30',
-  YouTube: 'bg-red-500/15 text-red-400 border-red-500/30',
-  GitHub: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
-  LinkedIn: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  X: 'bg-white/10 text-white/80 border-white/20',
-  Instagram: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
-  Facebook: 'bg-blue-600/15 text-blue-400 border-blue-600/30',
-  Social: 'bg-contrail/10 text-[rgba(255,255,255,0.60)] border-contrail/20',
-};
+// Platform brand colors. Inline styles (not Tailwind arbitrary-value
+// classes) so they survive Tailwind config changes. These are the
+// social platforms' official accents — kept as hex for brand
+// recognition. Anything not in the map falls back to a neutral
+// design-system blue.
+function platformBadgeStyle(platform: string): React.CSSProperties {
+  const accent = (
+    platform === 'TikTok'    ? '#00d4ff' :
+    platform === 'YouTube'   ? '#ef4444' :
+    platform === 'GitHub'    ? '#a78bfa' :
+    platform === 'LinkedIn'  ? '#0a8ab5' :
+    platform === 'Instagram' ? '#ec4899' :
+    platform === 'Facebook'  ? '#3b82f6' :
+    platform === 'X'         ? 'rgba(255,255,255,0.80)' :
+                               'var(--blue)'  // Social fallback
+  );
+  return {
+    background: `${accent}26`, // ~15% opacity
+    color: accent,
+    border: `1px solid ${accent}4d`, // ~30% opacity
+  };
+}
 
-const severityBadgeMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
-  CRITICAL: 'critical',
-  HIGH: 'high',
-  MEDIUM: 'medium',
-  LOW: 'low',
-};
+// alerts.severity is now lowercase post-migration 0120, so the
+// uppercase→lowercase translation map is gone. Direct cast.
+function severityToBadge(s: string): Severity {
+  if (s === 'critical' || s === 'high' || s === 'medium' || s === 'low') return s;
+  return 'low'; // defensive fallback for legacy rows
+}
 
 // ── Filter Pills ────────────────────────────────────────────────
 
@@ -174,7 +186,7 @@ function BrandGroupCard({
               const platform = extractPlatform(alert.title);
               const isSelected = selectedAlertId === alert.id;
 
-              const sev = (severityBadgeMap[alert.severity] ?? 'low') as Severity;
+              const sev = severityToBadge(alert.severity);
               return (
                 <DataRow
                   key={alert.id}
@@ -183,24 +195,31 @@ function BrandGroupCard({
                   onClick={() => onSelectAlert(alert)}
                   className={cn('flex items-center gap-3', isSelected && 'bg-afterburner-muted')}
                 >
-                  {/* Severity dot */}
-                  <span className={cn(
-                    'w-2 h-2 rounded-full flex-shrink-0',
-                    alert.severity === 'CRITICAL' && 'bg-[#f87171] dot-pulse-red',
-                    alert.severity === 'HIGH' && 'bg-[#fb923c] dot-pulse-amber',
-                    alert.severity === 'MEDIUM' && 'bg-[#fbbf24]',
-                    alert.severity === 'LOW' && 'bg-contrail',
-                  )} />
+                  {/* Severity dot — driven by tokens, post-0120 lowercase. */}
+                  <span
+                    className={cn(
+                      'w-2 h-2 rounded-full flex-shrink-0',
+                      alert.severity === 'critical' && 'dot-pulse-red',
+                      alert.severity === 'high' && 'dot-pulse-amber',
+                    )}
+                    style={{
+                      background:
+                        alert.severity === 'critical' ? 'var(--sev-critical)' :
+                        alert.severity === 'high'     ? 'var(--sev-high)'     :
+                        alert.severity === 'medium'   ? 'var(--sev-medium)'   :
+                                                         'var(--sev-low)',
+                    }}
+                  />
 
                   {/* Handle + platform */}
                   <div className="flex-1 min-w-0">
                     <div>
                       <span className="font-mono text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>{handle}</span>
-                      <span className="font-mono text-[10px] text-white/40 ml-1.5">on</span>
-                      <span className={cn(
-                        'ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border',
-                        platformColors[platform] ?? platformColors.Social,
-                      )}>
+                      <span className="font-mono text-[10px] ml-1.5" style={{ color: 'var(--text-tertiary)' }}>on</span>
+                      <span
+                        className="ml-1.5 inline-flex items-center font-mono text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                        style={platformBadgeStyle(platform)}
+                      >
                         {platform}
                       </span>
                     </div>
@@ -231,7 +250,7 @@ function BrandGroupCard({
                   )}
 
                   {/* Severity badge */}
-                  <Badge variant={severityBadgeMap[alert.severity] ?? 'low'}>{alert.severity}</Badge>
+                  <Badge severity={sev}>{alert.severity}</Badge>
 
                   {/* Status */}
                   <span className={cn(
@@ -318,14 +337,24 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Badge variant={severityBadgeMap[alert.severity] ?? 'low'}>{alert.severity}</Badge>
-          <span className={cn(
-            'font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded',
-            alert.status === 'new' && 'bg-[#fb923c]/15 text-[#fb923c]',
-            alert.status === 'acknowledged' && 'bg-afterburner-muted text-[#E5A832]',
-            alert.status === 'resolved' && 'bg-[#4ade80]/15 text-[#4ade80]',
-            alert.status === 'false_positive' && 'bg-white/5 text-white/40',
-          )}>
+          <Badge severity={severityToBadge(alert.severity)}>{alert.severity}</Badge>
+          <span
+            className="font-mono text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded"
+            style={{
+              background:
+                alert.status === 'new' ? 'var(--sev-high-bg)' :
+                alert.status === 'acknowledged' ? 'var(--amber-glow)' :
+                alert.status === 'resolved' ? 'var(--sev-info-bg)' :
+                alert.status === 'false_positive' ? 'rgba(255,255,255,0.05)' :
+                'transparent',
+              color:
+                alert.status === 'new' ? 'var(--sev-high)' :
+                alert.status === 'acknowledged' ? 'var(--amber)' :
+                alert.status === 'resolved' ? 'var(--sev-info)' :
+                alert.status === 'false_positive' ? 'var(--text-tertiary)' :
+                'var(--text-secondary)',
+            }}
+          >
             {alert.status === 'false_positive' ? 'dismissed' : alert.status}
           </span>
           <Badge status="running" label="Social Impersonation" size="xs" />
@@ -354,10 +383,10 @@ function AlertDetail({ alert, onClose, onUpdate, isUpdating }: AlertDetailProps)
 
           <div>
             <div className="font-mono text-[9px] text-white/40 uppercase tracking-wide mb-0.5">Platform</div>
-            <span className={cn(
-              'inline-flex items-center font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border',
-              platformColors[platform] ?? platformColors.Social,
-            )}>
+            <span
+              className="inline-flex items-center font-mono text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+              style={platformBadgeStyle(platform)}
+            >
               {platform}
             </span>
           </div>
