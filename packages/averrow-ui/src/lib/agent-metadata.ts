@@ -35,7 +35,10 @@ export type AgentId =
   | 'brand_deep_scan'
   | 'honeypot_generator'
   | 'brand_enricher'
-  | 'lookalike_scanner';
+  | 'lookalike_scanner'
+  | 'admin_classify'
+  | 'url_scan'
+  | 'scan_report';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -309,6 +312,33 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#F59E0B',
     category: 'intelligence',
     pipelinePosition: 29,
+  },
+  admin_classify: {
+    id: 'admin_classify',
+    displayName: 'Admin Classify',
+    codename: 'admin_classify',
+    subtitle: 'Synchronous AI — admin-triggered backfill that Haiku-classifies threats with NULL confidence_score (batch, up to 200 calls per run, rule-based fallback)',
+    color: '#FB923C',
+    category: 'sync',
+    pipelinePosition: 30,
+  },
+  url_scan: {
+    id: 'url_scan',
+    displayName: 'URL Scan',
+    codename: 'url_scan',
+    subtitle: 'Synchronous AI — public URL scan insight generator (Haiku, structured JSON, 10s timeout)',
+    color: '#0A8AB5',
+    category: 'sync',
+    pipelinePosition: 31,
+  },
+  scan_report: {
+    id: 'scan_report',
+    displayName: 'Scan Report',
+    codename: 'scan_report',
+    subtitle: 'Synchronous AI — executive narrative for the public Brand Exposure Report (Haiku, 512-token bounded prose)',
+    color: '#A78BFA',
+    category: 'sync',
+    pipelinePosition: 32,
   },
 };
 

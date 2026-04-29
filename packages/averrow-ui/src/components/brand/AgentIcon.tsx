@@ -532,6 +532,89 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <line x1="26" y1="21" x2="30" y2="25" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.4"/>
     </svg>
   ),
+
+  // Admin Classify — backfill that tags unclassified threats with a
+  // confidence + severity. Visual: a stack of unlabelled rows on the
+  // left feeding into a tag/label icon on the right.
+  admin_classify: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* unclassified rows (left, blank) */}
+      <rect x="3" y="7" width="14" height="3" rx="0.6" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <rect x="3" y="12" width="14" height="3" rx="0.6" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <rect x="3" y="17" width="14" height="3" rx="0.6" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <rect x="3" y="22" width="14" height="3" rx="0.6" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <rect x="3" y="27" width="14" height="3" rx="0.6" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      {/* arrow into the tag */}
+      <path d="M18 18 L22 18" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M22 16 L24 18 L22 20 Z" fill="currentColor" />
+      {/* tag/label outline */}
+      <path
+        d="M25 12 L31 12 L34 18 L31 24 L25 24 Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        fillOpacity="0.18"
+        fill="currentColor"
+      />
+      {/* tag eyelet */}
+      <circle cx="27" cy="18" r="1" fill="white" />
+    </svg>
+  ),
+
+  // URL Scan — public URL inspection. Visual: a globe with a
+  // magnifying glass overlay; classic inspection metaphor.
+  url_scan: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* globe */}
+      <circle cx="14" cy="16" r="9" stroke="currentColor" strokeWidth="1.3" opacity="0.65" />
+      <ellipse cx="14" cy="16" rx="4" ry="9" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="5" y1="16" x2="23" y2="16" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      {/* magnifying glass — lens */}
+      <circle cx="22" cy="22" r="5" stroke="currentColor" strokeWidth="1.6" fill="#0B1120" />
+      <circle cx="22" cy="22" r="2.5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      {/* magnifier handle */}
+      <line
+        x1="26"
+        y1="26"
+        x2="32"
+        y2="32"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
+
+  // Scan Report — executive narrative for the public Brand Exposure
+  // Report. Visual: a document with a prose paragraph + a small
+  // exposure gauge in the corner.
+  scan_report: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* document */}
+      <path
+        d="M7 4 L23 4 L29 10 L29 32 L7 32 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.7"
+      />
+      {/* dog-ear */}
+      <path d="M23 4 L23 10 L29 10" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
+      {/* prose lines */}
+      <line x1="11" y1="15" x2="25" y2="15" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <line x1="11" y1="18" x2="25" y2="18" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <line x1="11" y1="21" x2="22" y2="21" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      {/* small exposure gauge — semicircle in the bottom corner */}
+      <path
+        d="M13 28 A4 4 0 0 1 21 28"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        opacity="0.55"
+      />
+      <line x1="17" y1="28" x2="20" y2="25.5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="17" cy="28" r="0.9" fill="currentColor" />
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {

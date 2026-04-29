@@ -21,8 +21,9 @@ import { generatePermutations, checkLookalikeDNS } from '../lib/dnstwist';
 import type { LookalikeCheckResult } from '../lib/dnstwist';
 import { checkSocialHandles } from '../lib/social-check';
 import type { SocialCheckResult } from '../lib/social-check';
-import { callHaikuRaw } from '../lib/haiku';
 import { computeExposureScore } from '../lib/scoring-utils';
+import { runSyncAgent } from '../lib/agentRunner';
+import { scanReportAgent, type ScanReportOutput } from '../agents/scan-report';
 import type { Env } from '../types';
 
 // ─── Report Types ───────────────────────────────────────────────
@@ -129,29 +130,44 @@ async function queryThreatFeeds(
 
 // ─── AI Assessment ──────────────────────────────────────────────
 
+/** Strip characters the scan_report input schema doesn't allow.
+ *  Anything outside the agent's brand-name charset becomes a space,
+ *  collapsed runs trimmed. Empty result → 'Brand'. */
+function sanitizeBrandName(input: string): string {
+  const cleaned = input.replace(/[^A-Za-z0-9 &.,'\-/()]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleaned.slice(0, 120) || 'Brand';
+}
+
+function localFallback(report: Omit<BrandExposureReport, 'ai_assessment'>): string {
+  return `${report.brand_name} has an email security grade of ${report.email_security.grade} with ${report.domain_risk.similar_domains_found} registered lookalike domains detected. ${report.threat_feeds.total_hits > 0 ? `The domain appears in ${report.threat_feeds.total_hits} threat feed entries.` : 'No current threat feed mentions were found.'} Overall exposure score: ${report.exposure_score}/100 (${report.risk_level}).`;
+}
+
 async function generateAIAssessment(
   env: Env,
   report: Omit<BrandExposureReport, 'ai_assessment'>,
 ): Promise<string> {
-  const systemPrompt = `You are a cybersecurity analyst writing a Brand Exposure Assessment for a non-technical executive. Write a concise 3-4 sentence narrative summary of the brand's digital security posture. Mention specific findings (email grade, lookalike domains found, threat feed mentions, social handle gaps). Be direct and actionable. Do NOT use markdown, bullet points, or headers. Write plain prose only.`;
-
-  const userMessage = `Write a Brand Exposure Assessment for ${report.brand_name} (${report.domain}):
-- Email Security Grade: ${report.email_security.grade}
-- SPF: ${report.email_security.spf.status}, DKIM: ${report.email_security.dkim.status}, DMARC: ${report.email_security.dmarc.status}
-- MX Provider: ${report.email_security.mx_provider || 'Unknown'}
-- Registered Lookalike Domains: ${report.domain_risk.similar_domains_found}
-- Threat Feed Hits: ${report.threat_feeds.total_hits} (PhishTank: ${report.threat_feeds.phishtank}, URLhaus: ${report.threat_feeds.urlhaus}, OpenPhish: ${report.threat_feeds.openphish})
-- Social Handle Issues: ${report.social_presence.issues} platforms with available/unclaimed handles
-- Exposure Score: ${report.exposure_score}/100 (${report.risk_level})`;
-
   try {
-    const result = await callHaikuRaw(env, { agentId: "scan-report", runId: null }, systemPrompt, userMessage, 512);
-    if (result.success && result.text) {
-      return result.text;
-    }
-    return `${report.brand_name} has an email security grade of ${report.email_security.grade} with ${report.domain_risk.similar_domains_found} registered lookalike domains detected. ${report.threat_feeds.total_hits > 0 ? `The domain appears in ${report.threat_feeds.total_hits} threat feed entries.` : 'No current threat feed mentions were found.'} Overall exposure score: ${report.exposure_score}/100 (${report.risk_level}).`;
+    const { data } = await runSyncAgent<ScanReportOutput>(env, scanReportAgent, {
+      brandName: sanitizeBrandName(report.brand_name),
+      domain: report.domain,
+      emailGrade: report.email_security.grade || 'F',
+      spfStatus: report.email_security.spf.status,
+      dkimStatus: report.email_security.dkim.status,
+      dmarcStatus: report.email_security.dmarc.status,
+      mxProvider: report.email_security.mx_provider || 'Unknown',
+      similarDomainsFound: report.domain_risk.similar_domains_found,
+      threatFeedTotal: report.threat_feeds.total_hits,
+      threatFeedPhishtank: report.threat_feeds.phishtank,
+      threatFeedUrlhaus: report.threat_feeds.urlhaus,
+      threatFeedOpenphish: report.threat_feeds.openphish,
+      socialIssues: report.social_presence.issues,
+      exposureScore: report.exposure_score,
+      riskLevel: report.risk_level,
+    });
+    if (data?.assessment) return data.assessment;
+    return localFallback(report);
   } catch {
-    return `${report.brand_name} has an email security grade of ${report.email_security.grade}. ${report.domain_risk.similar_domains_found} lookalike domains were found registered. Exposure score: ${report.exposure_score}/100 (${report.risk_level}).`;
+    return localFallback(report);
   }
 }
 
