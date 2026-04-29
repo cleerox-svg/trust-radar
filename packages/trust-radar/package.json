@@ -6,6 +6,7 @@
   "scripts": {
     "build:manifest": "tsx scripts/build-architect-manifest.ts",
     "check:resource-drift": "tsx scripts/check-resource-drift.ts",
+    "audit:agent-standard": "tsx scripts/audit-agent-standard.ts",
     "build": "pnpm build:manifest && wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "pnpm build:manifest && wrangler deploy",

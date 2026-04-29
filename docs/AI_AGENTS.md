@@ -278,6 +278,46 @@ The Cube Healer performs a full 30-day bulk rebuild of all three OLAP cube table
 
 ---
 
+## Surveillance & Discovery Agents
+
+These cron-driven scanners feed the threat mesh. Each delegates to a scanner module in `src/scanners/` or a dedicated lib helper; they're registered as `AgentModule`s so FC supervision, circuit breakers, and `agent_runs` lifecycle apply uniformly.
+
+| Agent | Cadence | Purpose |
+|---|---|---|
+| **Curator** | Event-driven | Platform hygiene — email security scanning, safe-domain cleanup, social-profile discovery |
+| **Watchdog** | Event-driven | Social-mention threat classifier — Haiku-classifies unclassified mentions, escalates high/critical findings |
+| **Mockingbird** (`social_monitor`) | Every 6h | Catches social impersonators across Twitter / LinkedIn / Instagram / TikTok / GitHub / YouTube |
+| **Outrider** (`social_discovery`) | Every 6h | Discovers brand-owned social handles before Mockingbird monitors them |
+| **Marshal** (`app_store_monitor`) | Every 6h | iOS App Store impersonation scanner — bundle-ID + name similarity |
+| **Sounder** (`dark_web_monitor`) | Every 6h | Pastebin / breach-archive monitoring for brand mentions |
+| **Recon** (`auto_seeder`) | Weekly (Sun 05:07 UTC) | Plants spam-trap addresses into harvester channels and tracks per-location yield |
+| **Lookalike Scanner** (`lookalike_scanner`) | Hourly | Cron-driven scanner — DNS / HTTP / MX checks + Haiku assessment of newly-registered typosquat candidates |
+| **Enricher** (`enricher`) | Hourly | Domain geo, brand logo / HQ, brand sector / RDAP enrichment — runs every hourly tick |
+
+---
+
+## Synchronous AI Agents
+
+The Phase 3 sync-agent class (AGENT_STANDARD §2). Each is HTTP-handler-driven (`trigger: "api"`) — invoked via `runSyncAgent()` from a route handler instead of dispatched on a cron. Lifecycle is identical (one `agent_runs` row per call, AI calls land in `budget_ledger` under the agent's id) but the call path is request → handler → `runSyncAgent` → AI → response. All 13 are Haiku-backed with input/output schemas (Zod) and deterministic fallbacks.
+
+| Agent | Surface | Description |
+|---|---|---|
+| **Public Trust Check** (`public_trust_check`) | `POST /api/v1/public/assess` | Anonymous homepage trust-score lookups (prompt-injection-hardened) |
+| **Qualified Report** (`qualified_report`) | Admin-triggered | Customer-facing brand risk reports (narrative + remediation, Haiku × 2) |
+| **Brand Analysis** (`brand_analysis`) | Brand detail page | Per-brand threat assessment (structured JSON) |
+| **Brand Report** (`brand_report`) | Per-brand exposure report | Executive summary + recommendations (Haiku × 2) |
+| **Brand Deep Scan** (`brand_deep_scan`) | Per-request batch | Y/N classification of unlinked threat URLs against a brand identity (up to 200 internal calls) |
+| **Honeypot Generator** (`honeypot_generator`) | Spam-trap renderer | Renders complete honeypot trap websites with embedded mailtos (Haiku × 3) |
+| **Brand Enricher** (`brand_enricher`) | Brand registration | Classifies brands into a fixed sector taxonomy (20-token bounded reply) |
+| **Admin Classify** (`admin_classify`) | Admin backfill | Haiku classifies threats with `NULL` confidence_score (batch, up to 200 calls per run, rule-based fallback) |
+| **URL Scan** (`url_scan`) | Public URL scan endpoint | Generates short security insights with structured JSON output |
+| **Scan Report** (`scan_report`) | Brand exposure report | Executive narrative for the public Brand Exposure Report (512-token bounded prose) |
+| **Social AI Assessor** (`social_ai_assessor`) | Mockingbird + brand detail | Haiku classifies social profiles for brand impersonation (called by both the scanner and on-demand reassessment) |
+| **Geo Campaign Assessment** (`geo_campaign_assessment`) | Geopolitical campaign page | 4-paragraph executive intel assessment (1024-token bounded prose) |
+| **Evidence Assembler** (`evidence_assembler`) | Sparrow + admin manual | Generates structured takedown evidence packages from a takedown + collected intel |
+
+---
+
 ## Agent Scheduling Summary
 
 The hourly mesh cron is `7 * * * *`. All time gates below use hour-only checks on `event.scheduledTime.getUTCHours()` — never minute gates (see `CLAUDE.md §6 — Cron-audit rule`).

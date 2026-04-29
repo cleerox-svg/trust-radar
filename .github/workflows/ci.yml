@@ -50,6 +50,16 @@ jobs:
         run: pnpm build:manifest && pnpm check:resource-drift
         if: matrix.package == 'trust-radar'
 
+      # Phase 5.2 AGENT_STANDARD §22 enforcement — cross-file
+      # consistency rules the TS compiler can't verify (metadata
+      # parity, icon coverage, group membership, pipelinePosition
+      # uniqueness, exempt justifications, doc coverage). Companion
+      # to the resource-drift check above.
+      - name: AGENT_STANDARD §22 audit
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm audit:agent-standard
+        if: matrix.package == 'trust-radar'
+
   test-react-ui:
     name: Test React UI
     runs-on: ubuntu-latest
