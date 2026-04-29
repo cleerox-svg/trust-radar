@@ -34,8 +34,8 @@ verdicts here.
 - §4 Click destination audit ✓
 - §5 Settings audit ✓
 - §6 Industry research ✓
-- §7 Redesign principles
-- §8 Decisions log
+- §7 Redesign principles ✓
+- §8 Decisions log ✓
 - §9 Phase plan (N0–N6)
 - §10 Schema changes
 - §11 AI intel notification opportunities
@@ -645,5 +645,223 @@ and the phase in §9 where it lands.
 | AI-summarised digest | AWS | `notification_narrator` sync agent (Q5b parked) | post-N6 backlog |
 | Keyword routing | Slack | parked | §14 backlog |
 | Escalation policies | PagerDuty | parked (needs on-call concept) | §14 backlog |
+
+---
+
+## 7. Redesign principles
+
+Eight principles. Every PR in N1-N6 either implements one of these
+or is out of scope. Disagreements debated here, not later.
+
+### 7.1 Notifications are a triage queue, not a feed.
+
+Read state alone gives operators no way to zero out their inbox.
+The 4-state machine (`unread → read → snoozed → done`) gives every
+row an obvious lifecycle: see it, decide what to do, act or punt.
+Done-count is the meaningful metric, not unread-count.
+
+### 7.2 Every notification answers "why am I seeing this?".
+
+A `reason_text` field is mandatory on every row. Examples:
+
+- Tenant: "You monitor Acme."
+- Tenant: "Your team subscribes to the finance sector."
+- Super_admin: "Platform alert — operational only."
+- Super_admin: "Cross-brand pattern affecting 3 of your tenants."
+
+Without the reason, operators routinely ask "did I configure
+this?" and the answer is unclear. With it, every notification is
+self-explanatory and the user can mute its source if the reason is
+not relevant.
+
+### 7.3 Severity drives routing.
+
+Channel routing (in-app / push / email) is a function of severity,
+not of type. The defaults:
+
+- `critical` → in-app + push (time-sensitive) + email; bypasses
+  quiet hours when the user opts in.
+- `high` → in-app + push.
+- `medium` → in-app + email digest.
+- `low` → in-app + email digest (opt-in).
+- `info` → in-app only; rolled into the daily digest if there is one.
+
+Users override per type in §10's `notification_preferences_v2`.
+
+### 7.4 Subscription model, not broadcast.
+
+Every notification has a target audience expressed as
+`audience` + `(brand_id | org_id | user_id)`. The LIST endpoint
+joins through `notification_subscriptions` to filter what each
+user sees. Tenants only see brands they monitor; super_admins
+default to operational-only with an opt-in for the firehose.
+
+### 7.5 Group by entity.
+
+3 changes to Acme within 1h = one expandable inbox row, not 3.
+The `group_key` column drives this. Default key: `${type}:${brand_id}`.
+Operators chose the time-window (1h, 4h, 24h) per type in §10.
+
+### 7.6 AI intel surfaces only with a "so what".
+
+Raw signals never become notifications; signals with explicit
+`recommended_action` framing do. Predictive alerts ("Acme likely
+targeted this weekend"), cross-brand patterns ("4 finance tenants
+hit critical today"), sector trends, and recommended actions are
+all candidates. They land as new types in the `intel_*` family
+(§11).
+
+### 7.7 Action buttons on every row.
+
+Every notification surface — bell dropdown, inbox page, push
+notification — exposes 1-2 action buttons. Default actions per
+severity:
+
+- `critical` / `high`: `Open` + `Snooze 1h`
+- `medium` / `low` / `info`: `Open` + `Done`
+
+The `Open` action navigates to `link` + marks the row read in one
+operation. Snooze sets `snoozed_until`; Done sets `done_at`. The
+row's contextual menu (kebab) adds: Mute this brand / Mute this
+type / Snooze longer / Move to digest.
+
+### 7.8 Digest mode for low-severity, realtime for critical.
+
+The default user gets `realtime` for critical+, `daily` digest for
+medium+, drops `low` and `info` (opt-in). Power users override per
+channel in §10. The digest is a single notification of type
+`notification_digest` with bullet entries linking to each
+underlying row in the inbox — clicking a digest entry deep-links to
+the inbox-filtered view, not just to the source entity.
+
+---
+
+## 8. Decisions log
+
+The operator's answers to the Q1-Q9 sign-off questions, with
+rationale and the phase each answer drives.
+
+### Q1. State model — `unread → read → snoozed → done` (4 states). ✅ approved
+
+**Rationale:** matches Linear's triage workflow. Snooze and done as
+first-class states are the only way operators can confidently zero
+out the inbox; binary read/unread leaves notifications stuck in
+"I read it but haven't acted on it" limbo.
+
+**Drives:** N2 schema (`state` column, `snoozed_until`, `done_at`).
+N4 UI (4-action button row, snooze picker, done check).
+
+### Q2. Subscription default — Critical+High only by default; configurable. ✅ approved
+
+**Rationale:** new users get a curated stream, not a firehose. They
+can opt up to medium/low per brand or globally. Combines
+GitHub's "Watching" granularity with PagerDuty's severity-driven
+defaults.
+
+**Drives:** N5 default seed for `notification_subscriptions` rows
+(level=`default`, severity_floor=`high`). N5 settings UI for
+adjustment. N3 backend routing reads the floor.
+
+### Q3. Super_admin firehose — `audience='super_admin'` + `audience='all'` by default with a "show tenant notifications too" opt-in toggle. ✅ approved
+
+**Rationale:** super_admins drown in tenant signal today. Default
+should be operational-only (platform health, cross-brand patterns,
+critical platform alerts). The opt-in toggle preserves debugging
+access without making it the default cognitive load.
+
+**Drives:** N3 LIST endpoint reads
+`notification_preferences_v2.show_tenant_notifications`. N5
+settings UI exposes the toggle.
+
+### Q4. Email security boundary — boundary-crossing only (D/F→A/B or A/B→D/F). ✅ approved with note: "ready to pivot to per-brand configurable later"
+
+**Rationale:** the screenshot showed "improved" notifications
+firing for trivial F→D moves. The boundary policy ensures only
+operationally meaningful transitions notify. The "ready to pivot"
+note marks per-brand configurability as a Phase N5 follow-up.
+
+**Drives:** N1 cartographer.ts:626 logic change (boundary
+detection + dedup metadata + 24h cap). N5 settings — per-brand
+"which transitions matter" override (parked under §14 backlog
+until N5 lands).
+
+### Q5. AI intel source — static templates for v1; `notification_narrator` sync agent as planned follow-up. ✅ approved
+
+**Rationale:** static templates are predictable, cheap, easy to
+tune. AI-generated copy carries hallucination risk on the surface
+that operators trust most. The narrator agent is the right tool
+for the weekly digest where copy variance is appropriate.
+
+**Drives:** N6 implements static templates per type with variable
+slots (what / why_it_matters / recommended_action). Backlog item
+**Q5b** scheduled post-N6: build `notification_narrator` sync
+agent for the weekly digest.
+
+### Q6. Snooze granularity — per-notification + per-type + per-brand. ✅ approved
+
+**Rationale:** "snooze all Acme notifications for 24h" is the
+real-world need during a planned outage or scheduled maintenance
+window. Per-type snooze handles "I know about this category, stop
+telling me." Per-row is the default action button.
+
+**Drives:** N4 UI (snooze picker on every row + on the kebab menu
++ in the per-brand subscription page). N5 schema —
+`notification_subscriptions` already has the structure; just need
+`snoozed_until` on subscription rows alongside notification rows.
+
+### Q7. Mobile / push — use existing PWA push (VAPID); add iOS/Android channels. ✅ approved
+
+**Rationale:** the PWA already has VAPID + push wired (see
+`packages/trust-radar/src/lib/push.ts`). Channel definitions in
+the SW give users OS-native control without us writing native
+apps. iOS interruption levels via the W3C
+`UNNotificationInterruptionLevel` mapping in §6.6.
+
+**Drives:** N4 (push) — SW channel install, severity-to-level
+map, action buttons in `notificationclick`. N5 settings — per-
+channel toggles read OS state where possible (Android exposes
+channel state via the Notification API).
+
+### Q8. Email channel — realtime for critical+high, daily digest for medium+low; configurable per user. ✅ approved as default
+
+**Rationale:** email is the channel users least want flooded.
+Critical+high realtime preserves urgency; everything else rolled
+up into a per-day summary that's actionable in one read.
+
+**Drives:** N5
+`notification_preferences_v2.email_severity_floor` (default
+`high`) and `digest_mode` (default `daily`). N6 implements the
+digest renderer.
+
+### Q9. Document first — yes, write `docs/NOTIFICATIONS_AUDIT.md` first. ✅ approved (this document)
+
+**Rationale:** matches `AGENT_AUDIT.md` pattern. Sign-off
+artifact reduces churn over the multi-PR sequence. Mid-flight
+disagreements are debated against the doc, not against
+half-shipped code.
+
+**Drives:** N0 sequence — this doc, built up across small commits
+(restart from earlier API-error session because the assembled
+single-shot writeup kept timing out).
+
+### Operator-added scope (Q10, post-Q9 input)
+
+> "Also I would consider the Dashboard in Admin as a notification
+> component as it emails out a briefing. The email briefing
+> hasn't been happening but some of what's in that dashboard
+> report might be notification worthy. Like hitting D1 issues,
+> Worker issues that can't be fixed by FC, things like that."
+
+**Rationale:** the admin Dashboard surfaces operational signals
+that today only reach the operator if they manually visit the
+page. Many are notification-worthy (D1 budget approaching skip
+threshold, feeds entering at-risk, agents stalled, FC failing to
+recover, briefing cron not firing). The broken email briefing is
+itself a candidate for a self-monitoring notification ("we
+haven't sent a briefing in 36 hours").
+
+**Drives:** New §13 platform-health signals. N6 includes the
+email-briefing investigation as a fix, plus the platform-health
+notification family.
 
 
