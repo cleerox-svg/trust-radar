@@ -38,7 +38,9 @@ export type AgentId =
   | 'lookalike_scanner'
   | 'admin_classify'
   | 'url_scan'
-  | 'scan_report';
+  | 'scan_report'
+  | 'social_ai_assessor'
+  | 'geo_campaign_assessment';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -339,6 +341,24 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#A78BFA',
     category: 'sync',
     pipelinePosition: 32,
+  },
+  social_ai_assessor: {
+    id: 'social_ai_assessor',
+    displayName: 'Social AI Assessor',
+    codename: 'social_ai_assessor',
+    subtitle: 'Synchronous AI — Haiku classifies social profiles for brand impersonation (called by both the Mockingbird scanner and on-demand reassessment from the brand detail page)',
+    color: '#3CB878',
+    category: 'sync',
+    pipelinePosition: 33,
+  },
+  geo_campaign_assessment: {
+    id: 'geo_campaign_assessment',
+    displayName: 'Geo Campaign Assessment',
+    codename: 'geo_campaign_assessment',
+    subtitle: 'Synchronous AI — 4-paragraph executive intel assessment of an active geopolitical cyber campaign (Haiku, 1024-token bounded prose)',
+    color: '#FB7185',
+    category: 'sync',
+    pipelinePosition: 34,
   },
 };
 
