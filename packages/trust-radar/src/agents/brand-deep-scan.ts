@@ -150,6 +150,10 @@ export const brandDeepScanAgent: AgentModule = {
   costGuard: "enforced",
   // Up to 200 internal Y/N classifications per request × usage volume.
   budget: { monthlyTokenCap: 50_000_000 },
+  // Sync agent — the handler chunks the threats-row writes (see
+  // handlers/brands.ts handleBrandDeepScan).
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

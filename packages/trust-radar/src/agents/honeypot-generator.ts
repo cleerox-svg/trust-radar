@@ -115,6 +115,9 @@ export const honeypotGeneratorAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Sync agent — pure AI rendering, no D1 surface.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

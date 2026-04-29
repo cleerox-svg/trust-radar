@@ -84,6 +84,22 @@ export const sentinelAgent: AgentModule = {
   // Per-tick high volume — classifies each new threat from feed
   // ingestion. Sized for ~50-200 calls per hourly run.
   budget: { monthlyTokenCap: 100_000_000 },
+  reads: [
+    { kind: "d1_table", name: "brand_profiles" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "monitored_brands" },
+    { kind: "d1_table", name: "social_monitor_results" },
+    { kind: "d1_table", name: "social_profiles" },
+    { kind: "d1_table", name: "threat_actor_infrastructure" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "social_monitor_results" },
+    { kind: "d1_table", name: "threat_actor_infrastructure" },
+    { kind: "d1_table", name: "threat_actor_targets" },
+    { kind: "d1_table", name: "threat_actors" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

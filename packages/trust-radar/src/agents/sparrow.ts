@@ -25,6 +25,22 @@ export const sparrowAgent: AgentModule = {
   // Includes evidence-assembler internal AI calls (Phase 4.6 will
   // split that into a separate sync agent with its own budget).
   budget: { monthlyTokenCap: 5_000_000 },
+  reads: [
+    { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "social_profiles" },
+    { kind: "d1_table", name: "takedown_evidence" },
+    { kind: "d1_table", name: "takedown_providers" },
+    { kind: "d1_table", name: "takedown_requests" },
+    { kind: "d1_table", name: "url_scan_results" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "takedown_evidence" },
+    { kind: "d1_table", name: "takedown_requests" },
+    { kind: "d1_table", name: "url_scan_results" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

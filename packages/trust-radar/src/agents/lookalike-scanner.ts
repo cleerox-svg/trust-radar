@@ -30,6 +30,9 @@ export const lookalikeScannerAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 20_000_000 },
+  // Delegates to scanners/lookalike-domains.ts checkLookalikeBatch.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

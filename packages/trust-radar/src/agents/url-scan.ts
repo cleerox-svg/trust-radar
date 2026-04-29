@@ -117,6 +117,9 @@ export const urlScanAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 10_000_000 },
+  // Sync agent — handler runs the deterministic scan and writes scans.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

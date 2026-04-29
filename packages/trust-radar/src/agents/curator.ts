@@ -36,6 +36,15 @@ export const curatorAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 1_000_000 },
+  reads: [
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "social_profiles" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "social_profiles" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -425,6 +425,12 @@ export const navigatorAgent: AgentModule = {
   costGuard: 'exempt',
   // No AI calls — DNS / KV / cube only. Cap=0 surfaces regressions.
   budget: { monthlyTokenCap: 0 },
+  // Direct SQL surface is one UPDATE on agent_events; the cube + DNS
+  // work goes through lib/cube-builder + lib/dns-resolver helpers.
+  reads: [],
+  writes: [
+    { kind: 'd1_table', name: 'agent_events' },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     // The orchestrator passes scheduledTime via input so per-tick

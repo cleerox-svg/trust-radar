@@ -27,6 +27,9 @@ export const appStoreMonitorAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Direct SQL surface is empty — module delegates to scanners/.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

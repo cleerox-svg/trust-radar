@@ -152,6 +152,9 @@ export const geoCampaignAssessmentAgent: AgentModule = {
   parallelMax: 2,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 2_000_000 },
+  // Sync agent — handler reads campaign + threat stats.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

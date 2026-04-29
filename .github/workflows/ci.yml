@@ -41,6 +41,15 @@ jobs:
         run: pnpm test
         if: matrix.package == 'trust-radar'
 
+      # Phase 4.3 drift CI gate — fails when an agent's declared
+      # `reads` / `writes` diverge from the architect manifest's static
+      # SQL extraction. Forces the per-module declarations and the
+      # actual file content to stay in sync as agents evolve.
+      - name: Resource declaration drift check
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm build:manifest && pnpm check:resource-drift
+        if: matrix.package == 'trust-radar'
+
   test-react-ui:
     name: Test React UI
     runs-on: ubuntu-latest

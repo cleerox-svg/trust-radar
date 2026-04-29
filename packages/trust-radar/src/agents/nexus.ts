@@ -474,6 +474,19 @@ export const nexusAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 10_000_000 },
+  reads: [
+    { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_events" },
+    { kind: "d1_table", name: "agent_runs" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "infrastructure_clusters" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

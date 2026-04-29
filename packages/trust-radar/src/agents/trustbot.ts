@@ -16,6 +16,12 @@ export const trustbotAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  reads: [
+    { kind: "d1_table", name: "feed_schedules" },
+    { kind: "d1_table", name: "radar_agent_runs" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const query = (ctx.input.query as string) ?? "";

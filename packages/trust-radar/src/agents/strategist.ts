@@ -21,6 +21,17 @@ export const strategistAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  reads: [
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "campaigns" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_outputs" },
+    { kind: "d1_table", name: "campaigns" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

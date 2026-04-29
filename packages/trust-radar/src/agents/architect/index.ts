@@ -67,6 +67,10 @@ export const architectAgent: AgentModule = {
   costGuard: "enforced",
   // Retired 2026-04-29; cap=0 so any accidental dispatch surfaces.
   budget: { monthlyTokenCap: 0 },
+  // Retired — empty resource declarations. Drift CI gate ignores
+  // architect since it's not in agentModules anymore.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

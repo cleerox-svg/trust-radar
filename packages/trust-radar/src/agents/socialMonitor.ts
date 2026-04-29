@@ -30,6 +30,9 @@ export const socialMonitorAgent: AgentModule = {
   // The scanner's own AI use is small — most spend lands on
   // social_ai_assessor (called as a sync sub-agent per profile).
   budget: { monthlyTokenCap: 5_000_000 },
+  // Direct SQL surface is empty — delegates to scanners/social-monitor.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -169,6 +169,9 @@ export const publicTrustCheckAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 1_000_000 },
+  // Sync agent — handler reads brand + threat counts before dispatch.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
