@@ -211,6 +211,14 @@ export interface SeedingSource {
   location: string;
   seeds: number;
   catches: number;
+  /** addresses on this location that caught at least one email */
+  productive_count: number;
+  /** most recent capture across all addresses on this location, null
+   *  if the location has never produced */
+  last_catch_at: string | null;
+  /** seeded_at of the oldest address on this location — used to flag
+   *  locations that are old enough to be considered dead weight */
+  earliest_seed: string | null;
 }
 
 export interface HoneypotPageVisits {

@@ -374,13 +374,31 @@ export const handleSpamTrapReparseAuth = handler(async (_request, env, ctx) => {
 // ── GET /api/spam-trap/seeding-sources ────────────────────────────
 
 export const handleSpamTrapSeedingSources = handler(async (_request, env, ctx) => {
-  // Seeding source breakdown by seeded_location
+  // Per-location yield tracking — surfaces which seeding locations
+  // (paste sites, broker pages, honeypot URLs, GitHub gists, etc) are
+  // actually producing captures vs which are dead weight. Drives the
+  // SOURCES tab in the spam-trap UI and informs which vectors the
+  // seeding-at-scale job should prioritize.
+  //
+  //   productive_count : addresses on this location that have caught
+  //                      at least one email (the trap is "live" here)
+  //   last_catch_at    : most recent capture across all addresses on
+  //                      this location — null if it's never produced
+  //   earliest_seed    : when the oldest address on this location was
+  //                      planted; used to mark dead locations that are
+  //                      old enough to have aged out of harvest lists
   const sources = await env.DB.prepare(`
-    SELECT seeded_location as location, COUNT(*) as seeds, COALESCE(SUM(total_catches), 0) as catches
+    SELECT
+      seeded_location AS location,
+      COUNT(*) AS seeds,
+      COALESCE(SUM(total_catches), 0) AS catches,
+      SUM(CASE WHEN total_catches > 0 THEN 1 ELSE 0 END) AS productive_count,
+      MAX(last_catch_at) AS last_catch_at,
+      MIN(seeded_at) AS earliest_seed
     FROM seed_addresses
     WHERE seeded_location IS NOT NULL
     GROUP BY seeded_location
-    ORDER BY seeds DESC
+    ORDER BY catches DESC, seeds DESC
   `).all();
 
   // Honeypot visit stats
