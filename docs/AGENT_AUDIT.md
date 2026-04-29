@@ -303,6 +303,14 @@ The architect manifest's static-analysis gives us auto-population for `reads`/`w
 - Per-agent budget enforcement (pre-flight check) — §11.
 - `pnpm new-agent` scaffolder — §21.
 - `audit-agent-standard.ts` enforcement script + CI gate — §22.
+- **Agent config UI uplift** (post-audit follow-up). Surface the audit's findings directly in the Agents admin/config screens so the operator sees compliance state, run signal, cost trend, decommission verdicts, and the `reads`/`writes` resource graph inline — not in a markdown file. Specifically:
+  - **Compliance badges** on each agent card (✓ resource decls / ✓ output schema / ✓ per-agent budget) so non-compliant agents are immediately visible.
+  - **Cost trend sparkline** + monthly-to-cap gauge on each card (fed from the per-agent budget block).
+  - **Run signal panel** in the detail view: 7d run history, p50/p99 latency, partial/killed rate. The data is already in `agent_runs` — needs surfacing.
+  - **Decommission warning banner** when an agent matches a heuristic (no successful run in 30d, 0 records over 14d, etc.) — earlier signal than the once-per-quarter audit.
+  - **Resource graph** chip set for declared `reads`/`writes`, click-through to the audit doc's row for context.
+  - **Output preview** carousel showing the last 5 `agent_outputs.summary` rows so the operator can spot-check quality without needing a separate tool. (Closes the "Output content review" gap deferred from this audit.)
+  - **Failure-pattern alert** when partial-rate or kill-rate exceeds the §16 SLO. Mostly addresses the social_monitor + flight_control cases flagged in §6.2.
 
 ### Total estimate
 
