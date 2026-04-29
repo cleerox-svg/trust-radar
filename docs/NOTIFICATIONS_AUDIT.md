@@ -1735,8 +1735,16 @@ N1–N6. They'll be picked up by their owning initiatives:
 | 2026-04-29 | §13 | Platform-health signals (~12 `platform_*` types) | N0g-3 |
 | 2026-04-29 | §14, §15, §16 | Backlog + compliance + changelog (closing) | N0h |
 | 2026-04-29 | — | N1 — stop spam + wire link click (cartographer boundary policy + bell/archive click navigation) | #926 |
-| 2026-04-29 | — | N2 — schema + state machine migration (`0127_notifications_n2.sql`) | this PR |
+| 2026-04-29 | — | N2 — schema + state machine migration (`0127_notifications_n2.sql`) | #927 |
+| 2026-04-29 | — | N3 — backend routing + tenant scoping (subscription-aware createNotification, state-machine endpoints, snooze + done) | #928 |
+| 2026-04-29 | — | N4 — triage inbox UI redesign (Inbox/Snoozed/Done/All tabs, hover actions, reason + recommended_action surface) | #929 |
+| 2026-04-29 | — | N5 — subscriptions + per-brand watch + digest (preferences_v2 + subscriptions endpoints, channel routing UI, super_admin opt-in) | #930 |
+| 2026-04-29 | — | N6a — AI intel templates + first wire-up (5 `intel_*` types, DMARC=none → `intel_recommended_action`) | #931 |
+| 2026-04-29 | — | N6b — platform-health templates + first wire-ups (12 `platform_*` types, auto-paused feeds + stalled agents) | #932 |
+| 2026-04-29 | — | N6c — briefing self-monitor (`platform_briefing_silent` + migration `0128`) | this PR |
 
-**Status: SIGNED OFF.** N1 + N2 shipped. Ready to proceed to N3
-(backend routing + tenant scoping) on the next session.
+**Status: SIGNED OFF.** N0–N6 all shipped. Notifications initiative
+complete; follow-ups (more `intel_*` emit sites, more `platform_*`
+emit sites, narrator agent, full email-briefing replumb) tracked in
+§14 backlog.
 

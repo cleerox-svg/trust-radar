@@ -51,6 +51,7 @@ export type NotificationEventKey =
   | 'platform_enrichment_stuck_pile'
   | 'platform_ai_spend_burst'
   | 'platform_resend_bounces'
+  | 'platform_briefing_silent'
   // ── N6c — digest envelope (§12.3) ──
   | 'notification_digest';
 
@@ -290,6 +291,14 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     label: 'Email Bounces',
     description: 'Resend failed/delivered ratio >10% in 7d',
     dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_briefing_silent',
+    label: 'Daily Briefing Silent',
+    description: 'Cron briefing has not delivered in 36+ hours',
+    dedupWindow: '-12 hours',
     defaultEnabled: true,
     userToggleable: false,
   },

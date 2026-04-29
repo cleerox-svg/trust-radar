@@ -19,6 +19,7 @@ import {
   emitPlatformNotification,
   renderPlatformAgentStalled,
   renderPlatformFeedAutoPaused,
+  renderPlatformBriefingSilent,
 } from "../lib/platform-templates";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { getOrComputeMetric } from "../lib/system-metrics";
@@ -185,6 +186,7 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "feed_pull_history" },
     { kind: "d1_table", name: "feed_status" },
     { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "threat_briefings" },
     { kind: "d1_table", name: "threats" },
   ],
   writes: [
@@ -431,6 +433,32 @@ export const flightControlAgent: AgentModule = {
         } catch { /* notification failures never break FC */ }
       }
     }
+
+    // ── N6c: briefing-silent self-monitor ────────────────────────
+    // The daily threat briefing is dispatched at hour 13:00 UTC by
+    // the orchestrator cron. If no successful row exists in
+    // threat_briefings for the last 36h, fire a critical
+    // platform_briefing_silent notification. group_key dedup keeps
+    // this firing at most once per 12 hours.
+    try {
+      const lastBriefing = await db.prepare(
+        `SELECT MAX(generated_at) AS last_at
+           FROM threat_briefings
+          WHERE emailed = 1
+            AND generated_at >= datetime('now', '-72 hours')`
+      ).first<{ last_at: string | null }>();
+      const hoursSince = lastBriefing?.last_at
+        ? Math.round((Date.now() - Date.parse(lastBriefing.last_at)) / 3_600_000)
+        : 73;
+      if (hoursSince >= 36) {
+        await emitPlatformNotification(env, 'platform_briefing_silent',
+          renderPlatformBriefingSilent({
+            hours_since_last_briefing: hoursSince,
+            expected_within_hours: 24,
+          })
+        );
+      }
+    } catch { /* notification failures never break FC */ }
 
     // ── Auto-tripped agent surfacing ──────────────────────────────
     // Same pattern as auto-paused feeds: a single roll-up log line

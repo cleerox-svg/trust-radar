@@ -81,6 +81,11 @@ export interface PlatformResendBouncesVars {
   delivered_7d: number;
 }
 
+export interface PlatformBriefingSilentVars {
+  hours_since_last_briefing: number;
+  expected_within_hours: number; // canonical 24
+}
+
 // ─── Renderers (every one returns audience='super_admin') ────────────
 
 const PLATFORM_LINK = '/admin/agents'; // common landing for ops triage
@@ -213,6 +218,19 @@ export function renderPlatformAiSpendBurst(v: PlatformAiSpendBurstVars): Rendere
     group_key: `platform_ai_spend_burst:${todayKey()}`,
     audience: 'super_admin',
     severity: 'high',
+  };
+}
+
+export function renderPlatformBriefingSilent(v: PlatformBriefingSilentVars): RenderedTemplate {
+  return {
+    title: `Daily briefing has not sent in ${v.hours_since_last_briefing}h`,
+    message: `Expected delivery every ${v.expected_within_hours}h. The 13:00 UTC cron may have failed silently or the email path is bouncing.`,
+    reason_text: `Platform alert — operational only.`,
+    recommended_action: `Check threat_briefings for today's row. Inspect agent_runs.error_message for the briefing_email job. Review §12 of NOTIFICATIONS_AUDIT.md for the failure mode catalogue.`,
+    link: '/admin/diagnostics',
+    group_key: `platform_briefing_silent:${todayKey()}`,
+    audience: 'super_admin',
+    severity: 'critical',
   };
 }
 
