@@ -16,6 +16,7 @@ import { ActivitySparkline } from '@/components/ui/ActivitySparkline';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { HistoryView } from '@/components/agents/HistoryView';
 import { ConfigView } from '@/components/agents/ConfigView';
+import { AgentDeclarationsPanel } from '@/components/agents/AgentDeclarationsPanel';
 import { relativeTime, formatDuration } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import { getAgentMetadata, type AgentId } from '@/lib/agent-metadata';
@@ -585,6 +586,13 @@ function AgentDetailPanel({ agent }: { agent: Agent }) {
         ) : (
           <div className="text-white/40 font-mono text-[11px]">No recent outputs</div>
         )}
+      </div>
+
+      {/* Phase 5.5 — module declarations (budget, supervision,
+          reads/writes, output types). Surfaces the AgentModule's
+          declared fields so operators can compare intent vs actual. */}
+      <div className="mt-4">
+        <AgentDeclarationsPanel agentId={agent.name} />
       </div>
     </Card>
   );

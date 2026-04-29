@@ -45,6 +45,7 @@ import {
   handleListPendingApprovals, handleGetApproval, handleGetReviewBundle,
   handleApproveAgent, handleRejectAgent, handleRequestChangesAgent,
 } from "../handlers/agent-approvals";
+import { handleAgentModuleMetadata } from "../handlers/agent-module-metadata";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -112,6 +113,16 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleRequestChangesAgent(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+
+  // ─── Agent module-metadata endpoint (Phase 5.5) ────────────────
+  // Returns the AgentModule's declared fields (supervision, budget,
+  // reads/writes, outputs, etc.) plus the current-month rollup for
+  // budget-vs-spend rendering on the agent detail UI.
+  router.get("/api/admin/agents/:id/module-metadata", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAgentModuleMetadata(request, env, request.params["id"] ?? "");
   });
   router.get("/api/admin/cartographer-health", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
