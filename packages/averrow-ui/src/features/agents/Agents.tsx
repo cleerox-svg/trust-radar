@@ -278,28 +278,71 @@ function FlightControlCard({
           </div>
         </div>
 
-        {/* Center: Agent mesh bubbles */}
+        {/* Center: Agent mesh bubbles, grouped by metadata category. */}
+        {/* Groups appear in pipeline order (intelligence → response → ops → meta).
+            Agents without metadata fall into "Other" so nothing disappears. */}
         <div className="flex-1">
           <div className="font-mono text-[9px] text-white/40 uppercase tracking-widest mb-3">Agent Mesh</div>
-          <div className="flex flex-wrap gap-2">
-            {allAgents.filter(a => a.name !== 'flight_control').map(a => {
-              const m = getAgentMetadata(a.name);
-              return (
-                <div
-                  key={a.name}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--border-base)',
-                  }}
-                >
-                  <AgentStatusBadge status={a.status} />
-                  <span className="font-mono text-[10px] text-white/60" style={{ color: m?.color ?? a.color }}>
-                    {m?.displayName ?? a.display_name}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="space-y-3">
+            {(() => {
+              const groupOrder: Array<{ key: string; label: string }> = [
+                { key: 'intelligence', label: 'Detection & Intelligence' },
+                { key: 'response',     label: 'Response' },
+                { key: 'ops',          label: 'Operations' },
+                { key: 'meta',         label: 'Meta' },
+                { key: 'other',        label: 'Other' },
+              ];
+
+              // Bucket every non-FC agent by its metadata category.
+              // Unknown / missing metadata → 'other' so the agent still
+              // renders (defensive — never make an agent disappear from
+              // the mesh just because we forgot to wire its metadata).
+              const buckets: Record<string, typeof allAgents> = {
+                intelligence: [], response: [], ops: [], meta: [], other: [],
+              };
+              for (const a of allAgents) {
+                if (a.name === 'flight_control') continue;
+                const meta = getAgentMetadata(a.name);
+                const cat = (meta?.category as string | undefined) ?? 'other';
+                (buckets[cat] ?? buckets.other).push(a);
+              }
+
+              return groupOrder.map(({ key, label }) => {
+                const agents = buckets[key] ?? [];
+                if (agents.length === 0) return null;
+                return (
+                  <div key={key}>
+                    <div className="font-mono text-[8px] text-white/30 uppercase tracking-widest mb-1.5">
+                      {label}
+                      <span className="text-white/20 ml-2 normal-case tracking-normal">{agents.length}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {agents.map(a => {
+                        const m = getAgentMetadata(a.name);
+                        return (
+                          <div
+                            key={a.name}
+                            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid var(--border-base)',
+                            }}
+                          >
+                            <AgentStatusBadge status={a.status} />
+                            <span
+                              className="font-mono text-[10px]"
+                              style={{ color: m?.color ?? a.color }}
+                            >
+                              {m?.displayName ?? a.display_name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
 
