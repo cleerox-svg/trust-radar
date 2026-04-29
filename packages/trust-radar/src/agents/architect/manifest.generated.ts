@@ -103,7 +103,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 129,
-      "last_modified": "2026-04-29T05:00:36.061Z"
+      "last_modified": "2026-04-29T05:04:28.337Z"
     },
     {
       "name": "brand-report",
@@ -249,6 +249,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "ai_models_referenced": [],
       "loc": 195,
       "last_modified": "2026-04-29T04:59:28.357Z"
+    },
+    {
+      "name": "lookalike-scanner",
+      "path": "packages/trust-radar/src/agents/lookalike-scanner.ts",
+      "entrypoint": "lookalikeScannerAgent",
+      "triggers": [
+        "cron"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 62,
+      "last_modified": "2026-04-29T05:05:41.841Z"
     },
     {
       "name": "narrator",
@@ -888,6 +901,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "lookalike-scanner",
         "narrator",
         "nexus",
         "observer",
@@ -909,6 +923,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "lookalike-scanner",
         "narrator",
         "nexus",
         "observer",
@@ -930,6 +945,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "lookalike-scanner",
         "narrator",
         "nexus",
         "observer",
@@ -958,7 +974,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 27,
+    "agents": 28,
     "feeds": 40,
     "crons": 3,
     "workers": 1

@@ -246,6 +246,34 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Lookalike Scanner — typosquat candidate scoring. Two domains
+  // stacked: original (filled) + lookalike (outlined) with one
+  // letter highlighted to evoke the typo / homoglyph.
+  lookalike_scanner: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* original domain box (filled) */}
+      <rect x="3" y="8" width="30" height="8" rx="1.5" fill="currentColor" fillOpacity="0.18" stroke="currentColor" strokeWidth="1.2" />
+      {/* original domain "letters" — 6 small filled cells */}
+      <rect x="6" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="9" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="12" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="15" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="18" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="21" y="11" width="2" height="2" fill="currentColor" opacity="0.85" />
+      {/* lookalike domain box (outline) */}
+      <rect x="3" y="20" width="30" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      {/* lookalike domain — same first 5 letters, 4th letter is a different (homoglyph-ish) variant highlighted */}
+      <rect x="6" y="23" width="2" height="2" fill="currentColor" opacity="0.65" />
+      <rect x="9" y="23" width="2" height="2" fill="currentColor" opacity="0.65" />
+      <rect x="12" y="23" width="2" height="2" fill="currentColor" opacity="0.65" />
+      <rect x="15" y="22" width="2" height="4" stroke="currentColor" strokeWidth="0.9" opacity="0.95" />
+      <rect x="18" y="23" width="2" height="2" fill="currentColor" opacity="0.65" />
+      <rect x="21" y="23" width="2" height="2" fill="currentColor" opacity="0.65" />
+      {/* warning marker on the homoglyph letter */}
+      <circle cx="16" cy="20" r="1" fill="currentColor" />
+    </svg>
+  ),
+
   // Brand Enricher — sector classification. A central node with three
   // labelled tags branching out (finance / tech / other) — visual
   // metaphor for picking one bucket from a fixed taxonomy.

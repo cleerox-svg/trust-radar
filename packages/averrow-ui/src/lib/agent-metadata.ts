@@ -34,7 +34,8 @@ export type AgentId =
   | 'brand_report'
   | 'brand_deep_scan'
   | 'honeypot_generator'
-  | 'brand_enricher';
+  | 'brand_enricher'
+  | 'lookalike_scanner';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -299,6 +300,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#A78BFA',
     category: 'sync',
     pipelinePosition: 28,
+  },
+  lookalike_scanner: {
+    id: 'lookalike_scanner',
+    displayName: 'Lookalike Scanner',
+    codename: 'lookalike_scanner',
+    subtitle: 'Cron-driven scanner — DNS/HTTP/MX checks + Haiku AI assessment of newly-registered typosquat candidates',
+    color: '#F59E0B',
+    category: 'intelligence',
+    pipelinePosition: 29,
   },
 };
 
