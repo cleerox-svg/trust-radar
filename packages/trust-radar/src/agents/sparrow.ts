@@ -41,6 +41,8 @@ export const sparrowAgent: AgentModule = {
     { kind: "d1_table", name: "takedown_requests" },
     { kind: "d1_table", name: "url_scan_results" },
   ],
+  outputs: [{ type: "insight" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

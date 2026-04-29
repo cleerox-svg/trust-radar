@@ -154,6 +154,8 @@ export const brandDeepScanAgent: AgentModule = {
   // handlers/brands.ts handleBrandDeepScan).
   reads: [],
   writes: [],
+  outputs: [{ type: "classification" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

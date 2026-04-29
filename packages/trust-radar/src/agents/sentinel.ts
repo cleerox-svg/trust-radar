@@ -100,6 +100,8 @@ export const sentinelAgent: AgentModule = {
     { kind: "d1_table", name: "threat_actors" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [{ type: "classification" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

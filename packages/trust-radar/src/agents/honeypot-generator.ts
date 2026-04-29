@@ -118,6 +118,8 @@ export const honeypotGeneratorAgent: AgentModule = {
   // Sync agent — pure AI rendering, no D1 surface.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

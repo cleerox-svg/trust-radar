@@ -148,6 +148,8 @@ export const cartographerAgent: AgentModule = {
     { kind: "d1_table", name: "provider_threat_stats" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [{ type: "score" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

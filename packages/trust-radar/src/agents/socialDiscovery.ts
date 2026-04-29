@@ -31,6 +31,8 @@ export const socialDiscoveryAgent: AgentModule = {
   // Direct SQL surface is empty — delegates to lib helpers.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

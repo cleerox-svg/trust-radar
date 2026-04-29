@@ -21,8 +21,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 204,
-      "last_modified": "2026-04-29T12:25:20.091Z"
+      "loc": 206,
+      "last_modified": "2026-04-29T12:34:37.563Z"
     },
     {
       "name": "analyst",
@@ -50,8 +50,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 1063,
-      "last_modified": "2026-04-29T12:23:30.635Z"
+      "loc": 1065,
+      "last_modified": "2026-04-29T12:34:42.935Z"
     },
     {
       "name": "appStoreMonitor",
@@ -63,8 +63,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 59,
-      "last_modified": "2026-04-29T12:25:25.231Z"
+      "loc": 61,
+      "last_modified": "2026-04-29T12:34:49.463Z"
     },
     {
       "name": "auto-seeder",
@@ -76,8 +76,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 102,
-      "last_modified": "2026-04-29T12:25:32.347Z"
+      "loc": 104,
+      "last_modified": "2026-04-29T12:34:55.475Z"
     },
     {
       "name": "brand-analysis",
@@ -89,8 +89,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 243,
-      "last_modified": "2026-04-29T12:25:36.791Z"
+      "loc": 245,
+      "last_modified": "2026-04-29T12:35:00.623Z"
     },
     {
       "name": "brand-deep-scan",
@@ -102,8 +102,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 242,
-      "last_modified": "2026-04-29T12:29:28.655Z"
+      "loc": 244,
+      "last_modified": "2026-04-29T12:35:08.723Z"
     },
     {
       "name": "brand-enricher",
@@ -115,8 +115,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 139,
-      "last_modified": "2026-04-29T12:25:49.383Z"
+      "loc": 141,
+      "last_modified": "2026-04-29T12:35:13.711Z"
     },
     {
       "name": "brand-report",
@@ -128,8 +128,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 241,
-      "last_modified": "2026-04-29T12:25:56.695Z"
+      "loc": 243,
+      "last_modified": "2026-04-29T12:35:18.287Z"
     },
     {
       "name": "cartographer",
@@ -161,8 +161,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 950,
-      "last_modified": "2026-04-29T12:23:38.231Z"
+      "loc": 952,
+      "last_modified": "2026-04-29T12:35:25.411Z"
     },
     {
       "name": "cube-healer",
@@ -183,8 +183,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threat_cube_status"
       ],
       "ai_models_referenced": [],
-      "loc": 298,
-      "last_modified": "2026-04-29T12:23:44.951Z"
+      "loc": 300,
+      "last_modified": "2026-04-29T12:35:33.423Z"
     },
     {
       "name": "curator",
@@ -205,8 +205,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 176,
-      "last_modified": "2026-04-29T12:23:49.875Z"
+      "loc": 178,
+      "last_modified": "2026-04-29T12:35:39.631Z"
     },
     {
       "name": "darkWebMonitor",
@@ -218,8 +218,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 59,
-      "last_modified": "2026-04-29T12:26:01.147Z"
+      "loc": 61,
+      "last_modified": "2026-04-29T12:35:45.631Z"
     },
     {
       "name": "flightControl",
@@ -247,8 +247,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history"
       ],
       "ai_models_referenced": [],
-      "loc": 1242,
-      "last_modified": "2026-04-29T12:23:57.883Z"
+      "loc": 1244,
+      "last_modified": "2026-04-29T12:35:57.727Z"
     },
     {
       "name": "geo-campaign-assessment",
@@ -260,8 +260,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 250,
-      "last_modified": "2026-04-29T12:26:06.983Z"
+      "loc": 252,
+      "last_modified": "2026-04-29T12:36:03.583Z"
     },
     {
       "name": "honeypot-generator",
@@ -273,8 +273,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 202,
-      "last_modified": "2026-04-29T12:26:12.011Z"
+      "loc": 204,
+      "last_modified": "2026-04-29T12:36:08.583Z"
     },
     {
       "name": "lookalike-scanner",
@@ -286,8 +286,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 69,
-      "last_modified": "2026-04-29T12:26:18.795Z"
+      "loc": 71,
+      "last_modified": "2026-04-29T12:36:14.079Z"
     },
     {
       "name": "narrator",
@@ -312,8 +312,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threat_narratives"
       ],
       "ai_models_referenced": [],
-      "loc": 483,
-      "last_modified": "2026-04-29T12:24:04.559Z"
+      "loc": 485,
+      "last_modified": "2026-04-29T12:36:19.219Z"
     },
     {
       "name": "nexus",
@@ -338,8 +338,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 520,
-      "last_modified": "2026-04-29T12:24:16.659Z"
+      "loc": 522,
+      "last_modified": "2026-04-29T12:36:25.251Z"
     },
     {
       "name": "observer",
@@ -373,8 +373,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "agent_outputs"
       ],
       "ai_models_referenced": [],
-      "loc": 956,
-      "last_modified": "2026-04-29T12:24:24.427Z"
+      "loc": 958,
+      "last_modified": "2026-04-29T12:36:30.203Z"
     },
     {
       "name": "pathfinder",
@@ -398,8 +398,8 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 688,
-      "last_modified": "2026-04-29T12:24:30.651Z"
+      "loc": 690,
+      "last_modified": "2026-04-29T12:36:35.443Z"
     },
     {
       "name": "public-trust-check",
@@ -411,8 +411,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 292,
-      "last_modified": "2026-04-29T12:26:23.039Z"
+      "loc": 294,
+      "last_modified": "2026-04-29T12:36:41.231Z"
     },
     {
       "name": "qualified-report",
@@ -424,8 +424,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 279,
-      "last_modified": "2026-04-29T12:26:27.947Z"
+      "loc": 281,
+      "last_modified": "2026-04-29T12:36:46.407Z"
     },
     {
       "name": "scan-report",
@@ -437,8 +437,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 214,
-      "last_modified": "2026-04-29T12:26:33.059Z"
+      "loc": 216,
+      "last_modified": "2026-04-29T12:36:52.983Z"
     },
     {
       "name": "seed-strategist",
@@ -459,8 +459,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "seed_campaigns"
       ],
       "ai_models_referenced": [],
-      "loc": 223,
-      "last_modified": "2026-04-29T12:24:36.543Z"
+      "loc": 225,
+      "last_modified": "2026-04-29T12:37:00.155Z"
     },
     {
       "name": "sentinel",
@@ -487,8 +487,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 585,
-      "last_modified": "2026-04-29T12:24:48.943Z"
+      "loc": 587,
+      "last_modified": "2026-04-29T12:37:07.643Z"
     },
     {
       "name": "social-ai-assessor",
@@ -500,8 +500,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 366,
-      "last_modified": "2026-04-29T12:26:40.779Z"
+      "loc": 368,
+      "last_modified": "2026-04-29T12:37:12.731Z"
     },
     {
       "name": "socialDiscovery",
@@ -513,8 +513,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 60,
-      "last_modified": "2026-04-29T12:26:45.567Z"
+      "loc": 62,
+      "last_modified": "2026-04-29T12:37:18.423Z"
     },
     {
       "name": "socialMonitor",
@@ -526,8 +526,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 62,
-      "last_modified": "2026-04-29T12:26:51.375Z"
+      "loc": 64,
+      "last_modified": "2026-04-29T12:37:26.003Z"
     },
     {
       "name": "sparrow",
@@ -554,8 +554,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "url_scan_results"
       ],
       "ai_models_referenced": [],
-      "loc": 741,
-      "last_modified": "2026-04-29T12:24:55.219Z"
+      "loc": 743,
+      "last_modified": "2026-04-29T12:37:31.123Z"
     },
     {
       "name": "strategist",
@@ -577,8 +577,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 565,
-      "last_modified": "2026-04-29T12:25:01.239Z"
+      "loc": 567,
+      "last_modified": "2026-04-29T12:37:36.655Z"
     },
     {
       "name": "trustbot",
@@ -595,8 +595,8 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 174,
-      "last_modified": "2026-04-29T12:25:07.063Z"
+      "loc": 176,
+      "last_modified": "2026-04-29T12:37:41.339Z"
     },
     {
       "name": "url-scan",
@@ -608,8 +608,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 224,
-      "last_modified": "2026-04-29T12:26:56.003Z"
+      "loc": 226,
+      "last_modified": "2026-04-29T12:37:48.187Z"
     },
     {
       "name": "watchdog",
@@ -628,8 +628,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 358,
-      "last_modified": "2026-04-29T12:25:12.599Z"
+      "loc": 360,
+      "last_modified": "2026-04-29T12:37:53.619Z"
     }
   ],
   "feeds": [

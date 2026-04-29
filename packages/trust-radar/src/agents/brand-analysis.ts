@@ -139,6 +139,8 @@ export const brandAnalysisAgent: AgentModule = {
   // context and writes nothing back.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

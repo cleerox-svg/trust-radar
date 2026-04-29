@@ -32,6 +32,8 @@ export const seedStrategistAgent: AgentModule = {
     { kind: "d1_table", name: "seed_addresses" },
     { kind: "d1_table", name: "seed_campaigns" },
   ],
+  outputs: [{ type: "insight" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

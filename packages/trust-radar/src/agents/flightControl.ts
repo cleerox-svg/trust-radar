@@ -185,6 +185,8 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "agent_activity_log" },
     { kind: "d1_table", name: "backlog_history" },
   ],
+  outputs: [],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

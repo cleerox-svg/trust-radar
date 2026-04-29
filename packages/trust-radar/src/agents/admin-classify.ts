@@ -106,6 +106,8 @@ export const adminClassifyAgent: AgentModule = {
   // the call site (handlers/admin.ts handleBackfillClassifications).
   reads: [],
   writes: [],
+  outputs: [{ type: "classification" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

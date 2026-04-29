@@ -69,6 +69,8 @@ export const brandEnricherAgent: AgentModule = {
   // which does its own SQL via the lib helper.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

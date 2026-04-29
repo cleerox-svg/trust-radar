@@ -172,6 +172,8 @@ export const publicTrustCheckAgent: AgentModule = {
   // Sync agent — handler reads brand + threat counts before dispatch.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

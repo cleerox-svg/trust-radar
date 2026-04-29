@@ -294,6 +294,8 @@ export const narratorAgent: AgentModule = {
   writes: [
     { kind: "d1_table", name: "threat_narratives" },
   ],
+  outputs: [{ type: "insight" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

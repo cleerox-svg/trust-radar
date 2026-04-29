@@ -48,6 +48,8 @@ export const autoSeederAgent: AgentModule = {
   // Delegates SQL to lib/auto-seeder-planter.
   reads: [],
   writes: [],
+  outputs: [{ type: "insight" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

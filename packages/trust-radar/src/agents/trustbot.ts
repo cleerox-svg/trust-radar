@@ -22,6 +22,8 @@ export const trustbotAgent: AgentModule = {
     { kind: "d1_table", name: "threats" },
   ],
   writes: [],
+  outputs: [],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const query = (ctx.input.query as string) ?? "";

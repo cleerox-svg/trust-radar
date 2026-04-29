@@ -45,6 +45,8 @@ export const curatorAgent: AgentModule = {
     { kind: "d1_table", name: "social_profiles" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

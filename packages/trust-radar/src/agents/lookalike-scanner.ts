@@ -33,6 +33,8 @@ export const lookalikeScannerAgent: AgentModule = {
   // Delegates to scanners/lookalike-domains.ts checkLookalikeBatch.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

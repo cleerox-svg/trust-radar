@@ -30,6 +30,8 @@ export const appStoreMonitorAgent: AgentModule = {
   // Direct SQL surface is empty — module delegates to scanners/.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

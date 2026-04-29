@@ -640,6 +640,8 @@ export const pathfinderAgent: AgentModule = {
     { kind: "d1_table", name: "threats" },
   ],
   writes: [],
+  outputs: [{ type: "insight" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

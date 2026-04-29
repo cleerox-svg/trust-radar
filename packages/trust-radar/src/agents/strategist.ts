@@ -32,6 +32,8 @@ export const strategistAgent: AgentModule = {
     { kind: "d1_table", name: "campaigns" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [{ type: "correlation" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

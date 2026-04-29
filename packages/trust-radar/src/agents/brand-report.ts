@@ -176,6 +176,8 @@ export const brandReportAgent: AgentModule = {
   // Sync agent — handler reads brand context.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

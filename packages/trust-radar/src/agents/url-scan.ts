@@ -120,6 +120,8 @@ export const urlScanAgent: AgentModule = {
   // Sync agent — handler runs the deterministic scan and writes scans.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
