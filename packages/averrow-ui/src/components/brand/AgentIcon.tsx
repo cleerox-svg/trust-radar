@@ -217,6 +217,35 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Qualified Report — synchronous AI agent for admin-triggered
+  // customer-facing brand risk reports. Document with a checkbox-list
+  // body (the remediation plan) and a stylised foiled seal in the
+  // upper-right corner (the executive sign-off vibe).
+  qualified_report: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* document outline */}
+      <path
+        d="M9 5 L23 5 L29 11 L29 31 L9 31 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.75"
+      />
+      {/* dog-eared corner fold */}
+      <path d="M23 5 L23 11 L29 11" stroke="currentColor" strokeWidth="1.2" opacity="0.45" />
+      {/* numbered checklist rows — 4 visible, evoking the 5-action plan */}
+      <rect x="13" y="16" width="2" height="2" stroke="currentColor" strokeWidth="0.8" opacity="0.65" />
+      <line x1="17" y1="17" x2="25" y2="17" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="13" y="20" width="2" height="2" stroke="currentColor" strokeWidth="0.8" opacity="0.65" />
+      <line x1="17" y1="21" x2="25" y2="21" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="13" y="24" width="2" height="2" stroke="currentColor" strokeWidth="0.8" opacity="0.65" />
+      <line x1="17" y1="25" x2="23" y2="25" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+      {/* foiled seal — upper-right corner */}
+      <circle cx="27" cy="9" r="2.6" fill="currentColor" fillOpacity="0.85" />
+      <circle cx="27" cy="9" r="1.1" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="0.6" />
+    </svg>
+  ),
+
   // Public Trust Check — synchronous AI agent for the homepage
   // /api/v1/public/assess endpoint. Lightning bolt (sync / instant)
   // crossing a stylised waveform / response pulse (AI text response).

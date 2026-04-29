@@ -78,7 +78,7 @@ const AGENT_GROUPS: AgentGroup[] = [
     // 15 such call-sites into this group, one per PR.
     id: 'sync',
     label: 'Synchronous AI',
-    agentIds: ['public_trust_check'],
+    agentIds: ['public_trust_check', 'qualified_report'],
   },
   // 'meta' group (architect) retired 2026-04-29 — see agent-metadata.ts.
 ];
