@@ -114,6 +114,18 @@ export interface ApprovalRequest {
   expiresInHours?: number;
 }
 
+/** Agent category — drives presentation grouping on the Agents page
+ *  and FC card mesh. Adds 'sync' to the standard's stock list because
+ *  the synchronous-AI class added in Phase 3 deserves its own bucket
+ *  in the UI. */
+export type AgentCategory =
+  | "orchestration"
+  | "intelligence"
+  | "response"
+  | "ops"
+  | "meta"
+  | "sync";
+
 /** Lifecycle state of an agent (AGENT_STANDARD §5).
  *
  *   - 'active'  — registered + scheduled, runs normally.
@@ -237,6 +249,21 @@ export interface AgentModule {
    *  loop and the Agents page filter by this — 'retired' modules
    *  are excluded from supervision. */
   status: AgentStatus;
+
+  // ── Presentation (AGENT_STANDARD §3, §7) ────────────────────────
+  /** Drives the Agents page group / FC card mesh bucketing. Phase 4.5
+   *  ports this from averrow-ui's agent-metadata.ts so the backend is
+   *  the single source of truth; Phase 5 will surface it via the
+   *  agents API and the UI fetches instead of reading a hardcoded
+   *  registry. */
+  category: AgentCategory;
+  /** Sort key on the Agents page + FC mesh. Lower = earlier in the
+   *  pipeline. Conventionally:
+   *    0       — flight_control (supervisor, top of mesh)
+   *    1-21    — pre-Phase-3 cron + intelligence + ops agents
+   *    22-34   — Phase 3 sync agents (chronological add order)
+   *    35+     — utility / retired modules */
+  pipelinePosition: number;
 
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }

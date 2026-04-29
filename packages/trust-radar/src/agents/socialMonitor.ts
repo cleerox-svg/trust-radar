@@ -35,6 +35,8 @@ export const socialMonitorAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 16,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -156,6 +156,8 @@ export const brandDeepScanAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "classification" }, { type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 26,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

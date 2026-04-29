@@ -433,6 +433,8 @@ export const navigatorAgent: AgentModule = {
   ],
   outputs: [],
   status: 'active',
+  category: 'intelligence',
+  pipelinePosition: 2,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     // The orchestrator passes scheduledTime via input so per-tick

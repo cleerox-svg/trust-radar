@@ -75,6 +75,8 @@ export const analystAgent: AgentModule = {
   ],
   outputs: [{ type: "classification" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 5,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

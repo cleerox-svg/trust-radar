@@ -642,6 +642,8 @@ export const pathfinderAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "insight" }],
   status: "active",
+  category: "ops",
+  pipelinePosition: 9,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

@@ -70,6 +70,8 @@ export const watchdogAgent: AgentModule = {
   ],
   outputs: [],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 12,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

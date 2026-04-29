@@ -32,6 +32,8 @@ export const appStoreMonitorAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 17,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

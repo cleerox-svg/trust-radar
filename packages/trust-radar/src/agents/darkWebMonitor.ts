@@ -32,6 +32,8 @@ export const darkWebMonitorAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 18,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -71,6 +71,8 @@ export const brandEnricherAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 28,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

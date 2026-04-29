@@ -34,6 +34,8 @@ export const seedStrategistAgent: AgentModule = {
   ],
   outputs: [{ type: "insight" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 20,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

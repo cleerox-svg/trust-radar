@@ -33,6 +33,8 @@ export const socialDiscoveryAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 15,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

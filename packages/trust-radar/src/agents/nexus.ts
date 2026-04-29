@@ -489,6 +489,8 @@ export const nexusAgent: AgentModule = {
   ],
   outputs: [{ type: "correlation" }, { type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 4,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
