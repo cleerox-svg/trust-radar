@@ -6,7 +6,7 @@ import type { PublicStats } from "../lib/public-stats";
 // render without crashing. Production calls pass dynamic numbers from
 // lib/public-stats.ts (KV-cached).
 const STATIC_STATS: PublicStats = {
-  agents_deployed: "17",
+  agents_deployed: "18",
   feeds_protecting: "33+",
   threats_detected: "210K+",
   brands_monitored: "9.6K+",

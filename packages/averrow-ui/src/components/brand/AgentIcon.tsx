@@ -217,6 +217,30 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Recon — Auto-Seeder. Spam-trap seeding agent: a central planting
+  // point with seed addresses scattered out across harvester territory.
+  // Connecting lines from origin to each seed evoke "we know exactly
+  // where each trap was deployed."
+  auto_seeder: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* central origin / "planting" point */}
+      <circle cx="18" cy="18" r="2.6" fill="currentColor" />
+      <circle cx="18" cy="18" r="5" stroke="currentColor" strokeWidth="1" opacity="0.35" />
+      {/* connecting lines to scattered seeds */}
+      <line x1="18" y1="18" x2="6" y2="8" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="18" y1="18" x2="29" y2="6" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="18" y1="18" x2="31" y2="22" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="18" y1="18" x2="22" y2="32" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="18" y1="18" x2="6" y2="28" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      {/* scattered trap seeds */}
+      <circle cx="6" cy="8" r="1.8" fill="currentColor" />
+      <circle cx="29" cy="6" r="1.8" fill="currentColor" />
+      <circle cx="31" cy="22" r="1.8" fill="currentColor" />
+      <circle cx="22" cy="32" r="1.8" fill="currentColor" />
+      <circle cx="6" cy="28" r="1.8" fill="currentColor" />
+    </svg>
+  ),
+
   // Outrider — Social Discovery. Scout arrow pushing forward, breadcrumb dots behind.
   social_discovery: (s) => (
     <svg width={s} height={s} viewBox="0 0 36 36" fill="none">

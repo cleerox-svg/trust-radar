@@ -25,6 +25,7 @@ import { appStoreMonitorAgent } from "./appStoreMonitor";
 import { darkWebMonitorAgent } from "./darkWebMonitor";
 import { socialMonitorAgent } from "./socialMonitor";
 import { socialDiscoveryAgent } from "./socialDiscovery";
+import { autoSeederAgent } from "./auto-seeder";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -47,4 +48,5 @@ export const agentModules: Record<string, AgentModule> = {
   "dark_web_monitor": darkWebMonitorAgent,
   "social_monitor": socialMonitorAgent,
   "social_discovery": socialDiscoveryAgent,
+  "auto_seeder": autoSeederAgent,
 };

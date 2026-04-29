@@ -31,6 +31,24 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return;
   }
 
+  // ─── Auto-seeder tick: weekly spam-trap bulk seeding (23 5 * * 0) ───
+  // Sundays at 05:23 UTC. Plants new spam-trap addresses into harvester
+  // channels (paste sites, broker pages, GitHub gists, WHOIS, etc) and
+  // attributes each address to a seeding_location for per-location yield
+  // tracking. Distinct from the daily AI Seed Strategist (planning) —
+  // this is the execution arm. Currently a placeholder; PR-b fills in
+  // the real seeding body.
+  if (event.cron === '23 5 * * 0') {
+    try {
+      const { autoSeederAgent } = await import('../agents/auto-seeder');
+      const { executeAgent } = await import('../lib/agentRunner');
+      await executeAgent(env, autoSeederAgent, {}, 'cron', 'scheduled');
+    } catch (err) {
+      logger.error('auto_seeder_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+
   // ─── Hourly tick: full agent mesh (7 * * * *, 15min CPU ceiling) ───
   // Shifted from :00 to :07 in Wave 1A so the hourly mesh no longer collides
   // with the */5 Navigator that fires at :00. Parity-checker was removed as a

@@ -12,7 +12,7 @@ trust-radar/
 │   ├── trust-radar/        → Primary Cloudflare Worker (API + SPA)
 │   │   ├── src/
 │   │   │   ├── index.ts            → Router + Worker entry point
-│   │   │   ├── agents/             → AI agent modules (8 agents)
+│   │   │   ├── agents/             → AI agent modules (16 agents)
 │   │   │   ├── feeds/              → Threat feed ingestion modules (17 feeds)
 │   │   │   ├── handlers/           → Route handler functions
 │   │   │   ├── lib/                → Shared utilities (JWT, CORS, DNS, etc.)

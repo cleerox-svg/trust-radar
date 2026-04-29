@@ -50,9 +50,10 @@ not_found_handling = "404-page"
 # user reads for 3-10s every hour.
 #
 # Schedule:     :00 Navigator | :07 hourly mesh | :12/:18/... cube-healer (6-hourly)
+#               | Sun 05:23 auto-seeder (weekly bulk spam-trap seeding)
 # Eliminated:   parity-checker dedicated cron (demoted to daily in Wave 6)
 [triggers]
-crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *"]
+crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *", "23 5 * * 0"]
 
 # ─── Workflows (durable multi-step processing) ──────────────
 [[workflows]]

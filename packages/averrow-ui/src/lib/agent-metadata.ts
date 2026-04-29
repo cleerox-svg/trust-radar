@@ -25,7 +25,8 @@ export type AgentId =
   | 'social_discovery'
   | 'social_monitor'
   | 'app_store_monitor'
-  | 'dark_web_monitor';
+  | 'dark_web_monitor'
+  | 'auto_seeder';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -208,6 +209,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#94A3B8',
     category: 'intelligence',
     pipelinePosition: 18,
+  },
+  auto_seeder: {
+    id: 'auto_seeder',
+    displayName: 'Recon',
+    codename: 'auto_seeder',
+    subtitle: 'Spam-trap seeding agent — plants honeypot addresses into harvester channels and tracks per-location yield',
+    color: '#10B981',
+    category: 'intelligence',
+    pipelinePosition: 19,
   },
 };
 

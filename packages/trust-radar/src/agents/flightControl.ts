@@ -171,6 +171,15 @@ const STALL_THRESHOLDS: Record<string, number> = {
   seed_strategist:    1500,  // 25h — fires at hour===6 inside runObserverBriefing
                              //       (currently auto-paused via agent_configs anyway)
 
+  // ─── Weekly (auto-seeder, Sunday 05:23 UTC) ──────────────────────
+  // Threshold = 7d × 1.2 = ~12100 min. Single missed tick won't
+  // trigger spurious recovery; a hung run gets recovered within one
+  // extra week. FC stall-recovery would re-dispatch via executeAgent
+  // off-schedule, which is the correct behaviour for an agent that
+  // mutates seeding state — better to plant a week early than skip
+  // a week if the cron itself is failing.
+  auto_seeder:        12100,
+
   // ─── Event-driven (no cron schedule) ─────────────────────────────
   // FC dispatches these when conditions warrant. The stall-recovery
   // loop should NOT auto-fire them — that defeats the event-driven

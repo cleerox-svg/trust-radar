@@ -4,6 +4,7 @@ import { MobileCommandCenter } from '@/components/mobile/MobileCommandCenter';
 import { useObservatoryStats } from '@/hooks/useObservatory';
 import { useAlertStats } from '@/hooks/useAlerts';
 import { useAgents } from '@/hooks/useAgents';
+import { AGENT_LIST } from '@/lib/agent-metadata';
 import { useBrandStats, useBrands } from '@/hooks/useBrands';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useIntelligenceBriefings } from '@/hooks/useTrends';
@@ -185,7 +186,7 @@ function HomeDashboard() {
         />
         <StatCard
           label="Agents Running"
-          value={`${agentsOnline}/${safeAgents.length || 11}`}
+          value={`${agentsOnline}/${safeAgents.length || AGENT_LIST.length}`}
           sublabel={`${safeAgents.filter(a => a.jobs_24h > 0).length} active · 24h`}
           accentColor="#0A8AB5"
         />
