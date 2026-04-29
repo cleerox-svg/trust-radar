@@ -577,6 +577,62 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       }
     }
 
+    // ── Index health: verify migration 0123 indexes exist + show
+    //    the planner's chosen plan for the offending Group 1 query.
+    //    Triggered after we observed UPDATE WHERE ip_address=? AND
+    //    source_feed=? still scanning ~213K rows/call post-deploy.
+    //    Sequential (not in the parallel block) so we can include
+    //    a structured error per probe without aborting the rest of
+    //    diagnostics.
+    type IndexInfo = { name: string; sql: string | null };
+    type ExplainRow = { id: number; parent: number; notused: number; detail: string };
+    let indexHealth: {
+      threats_indexes: IndexInfo[];
+      agent_outputs_indexes: IndexInfo[];
+      budget_ledger_indexes: IndexInfo[];
+      threat_cube_status_exists: boolean;
+      explain_emerging_threats_update: ExplainRow[] | null;
+      error: string | null;
+    } = {
+      threats_indexes: [],
+      agent_outputs_indexes: [],
+      budget_ledger_indexes: [],
+      threat_cube_status_exists: false,
+      explain_emerging_threats_update: null,
+      error: null,
+    };
+    try {
+      const [threatsIdx, outputsIdx, ledgerIdx, statusCube, explainPlan] = await Promise.all([
+        env.DB.prepare(
+          `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='threats' ORDER BY name`
+        ).all<IndexInfo>(),
+        env.DB.prepare(
+          `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='agent_outputs' ORDER BY name`
+        ).all<IndexInfo>(),
+        env.DB.prepare(
+          `SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='budget_ledger' ORDER BY name`
+        ).all<IndexInfo>(),
+        env.DB.prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='threat_cube_status' LIMIT 1`
+        ).first<{ name: string }>(),
+        env.DB.prepare(
+          `EXPLAIN QUERY PLAN
+           UPDATE threats SET last_seen = datetime('now')
+           WHERE ip_address = ? AND source_feed = 'emerging_threats'`
+        ).bind('1.2.3.4').all<ExplainRow>(),
+      ]);
+      indexHealth = {
+        threats_indexes: threatsIdx.results,
+        agent_outputs_indexes: outputsIdx.results,
+        budget_ledger_indexes: ledgerIdx.results,
+        threat_cube_status_exists: !!statusCube,
+        explain_emerging_threats_update: explainPlan.results,
+        error: null,
+      };
+    } catch (err) {
+      indexHealth.error = err instanceof Error ? err.message : String(err);
+    }
+
     // ── Build feeds-at-risk list ────────────────────────────────────
     const feedsAtRisk = feedStatus.results
       .filter(f => f.consecutive_failures >= Math.floor(f.threshold * 0.6))
@@ -687,6 +743,14 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         // when the fetch fails without grepping worker logs.
         d1_top_queries_24h: d1TopQueries.queries,
         d1_top_queries_error: d1TopQueries.error,
+
+        // One-shot index health probe added 2026-04-29 to debug why
+        // the migration-0123 composite index isn't being used by the
+        // four ip_address+source_feed UPDATE queries. Returns the
+        // current sqlite_master index list for threats/agent_outputs/
+        // budget_ledger plus EXPLAIN QUERY PLAN of the offending
+        // UPDATE. Safe to leave in place — runs five small reads.
+        index_health: indexHealth,
       },
     }, 200, origin);
   } catch (err) {
