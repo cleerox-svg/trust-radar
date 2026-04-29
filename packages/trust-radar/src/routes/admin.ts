@@ -41,6 +41,10 @@ import { handleCartographerHealth } from "../handlers/cartographer-health";
 import { handleD1Health } from "../handlers/d1-health";
 import { handleGenerateQualifiedReport } from "../handlers/qualifiedReport";
 import { handleSendLeadOutreach, handleConvertLeadToTenant } from "../handlers/leadConversion";
+import {
+  handleListPendingApprovals, handleGetApproval, handleGetReviewBundle,
+  handleApproveAgent, handleRejectAgent, handleRequestChangesAgent,
+} from "../handlers/agent-approvals";
 
 export function registerAdminRoutes(router: RouterType<IRequest>): void {
   // ─── Admin Stats & Health ─────────────────────────────────────────
@@ -73,6 +77,41 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handlePlatformDiagnostics(request, env);
+  });
+
+  // ─── Agent deployment approval (AGENT_STANDARD §12.1) ──────────
+  // Phase 5.4a — endpoints only. Phase 5.4b will integrate the runner
+  // gate that creates pending rows on first run + the /agents/:id/review
+  // UI. All routes are super_admin-gated.
+  router.get("/api/admin/agents/approvals/pending", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListPendingApprovals(request, env);
+  });
+  router.get("/api/admin/agents/approvals/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetApproval(request, env, request.params["id"] ?? "");
+  });
+  router.get("/api/admin/agents/approvals/:id/review-bundle", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetReviewBundle(request, env, request.params["id"] ?? "");
+  });
+  router.post("/api/admin/agents/approvals/:id/approve", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleApproveAgent(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+  router.post("/api/admin/agents/approvals/:id/reject", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRejectAgent(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+  router.post("/api/admin/agents/approvals/:id/request-changes", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleRequestChangesAgent(request, env, request.params["id"] ?? "", ctx.userId);
   });
   router.get("/api/admin/cartographer-health", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
