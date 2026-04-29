@@ -1,8 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, AlertTriangle } from 'lucide-react';
+import { Bell, AlertTriangle, Clock, Check } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowWidth';
-import { useUnreadCount, useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
+import {
+  useUnreadCount, useNotifications, useMarkRead, useMarkAllRead,
+  useSnoozeNotification, useMarkDone,
+} from '@/hooks/useNotifications';
 import { useAlertTriageSummary } from '@/hooks/useAlerts';
 import type { Notification } from '@/hooks/useNotifications';
 import { relativeTime } from '@/lib/time';
@@ -54,15 +57,18 @@ function severityDotClass(severity: string): string {
 function NotificationItem({
   notification,
   onActivate,
+  onSnooze,
+  onDone,
 }: {
   notification: Notification;
   onActivate: (n: Notification) => void;
+  onSnooze: (id: string) => void;
+  onDone: (id: string) => void;
 }) {
-  const isUnread = !notification.read_at;
+  const isUnread = notification.state === 'unread';
   return (
-    <button
-      onClick={() => onActivate(notification)}
-      className="w-full text-left px-4 py-3 transition-colors hover:bg-white/5 touch-target"
+    <div
+      className="group relative w-full px-4 py-3 transition-colors hover:bg-white/5"
       style={{
         borderLeft: isUnread ? `2px solid ${severityBorderToken(notification.severity)}` : '2px solid transparent',
         background: isUnread ? 'rgba(255,255,255,0.03)' : 'transparent',
@@ -72,13 +78,22 @@ function NotificationItem({
         {isUnread && (
           <span className={`dot-pulse mt-1.5 flex-shrink-0 ${severityDotClass(notification.severity)}`} style={{ width: 6, height: 6 }} />
         )}
-        <div className="min-w-0 flex-1">
+        <button
+          onClick={() => onActivate(notification)}
+          className="flex-1 min-w-0 text-left touch-target"
+          aria-label={notification.link ? `Open "${notification.title}"` : notification.title}
+        >
           <p className="text-[13px] leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}>
             {notification.title}
           </p>
           <p className="text-[11px] mt-1 line-clamp-1" style={{ color: 'var(--text-tertiary)' }}>
             {notification.message}
           </p>
+          {notification.recommended_action && (
+            <p className="text-[11px] mt-1 font-mono line-clamp-1" style={{ color: 'var(--amber)' }}>
+              {'→ '}{notification.recommended_action}
+            </p>
+          )}
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-[10px] font-mono uppercase" style={{ color: 'var(--text-secondary)' }}>
               {notification.type.replace(/_/g, ' ')}
@@ -90,9 +105,30 @@ function NotificationItem({
               {relativeTime(notification.created_at)}
             </span>
           </div>
+        </button>
+        {/* §7.7 row actions — appear on hover (mouse) or always (touch) */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSnooze(notification.id); }}
+            className="p-1.5 rounded hover:bg-white/[0.06] touch-target"
+            style={{ color: 'var(--text-tertiary)' }}
+            aria-label="Snooze 1 hour"
+            title="Snooze 1h"
+          >
+            <Clock className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDone(notification.id); }}
+            className="p-1.5 rounded hover:bg-white/[0.06] touch-target"
+            style={{ color: 'var(--text-tertiary)' }}
+            aria-label="Mark done"
+            title="Done"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -110,6 +146,8 @@ function NotificationList({
   const { data: triage } = useAlertTriageSummary();
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+  const snooze = useSnoozeNotification();
+  const markDone = useMarkDone();
 
   // Filter pills generated from the registry — `all` + each
   // user-toggleable event. Adding a new event to
@@ -131,11 +169,21 @@ function NotificationList({
   // and closes the bell. Without a link this is just a mark-as-read
   // — the dead-end behavior the audit (§4) flagged.
   const handleActivate = (n: Notification) => {
-    if (!n.read_at) markRead.mutate(n.id);
+    if (n.state === 'unread') markRead.mutate(n.id);
     if (n.link) {
       navigate(n.link);
       onClose();
     }
+  };
+
+  const handleSnooze = (id: string) => {
+    // 1h default snooze (§7.7). Custom durations land in N5.
+    const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    snooze.mutate({ id, until });
+  };
+
+  const handleDone = (id: string) => {
+    markDone.mutate(id);
   };
 
   // Triage row — surfaces unresolved alerts at the most-discoverable
@@ -257,7 +305,13 @@ function NotificationList({
           </div>
         ) : (
           filtered.map(n => (
-            <NotificationItem key={n.id} notification={n} onActivate={handleActivate} />
+            <NotificationItem
+              key={n.id}
+              notification={n}
+              onActivate={handleActivate}
+              onSnooze={handleSnooze}
+              onDone={handleDone}
+            />
           ))
         )}
       </div>

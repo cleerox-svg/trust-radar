@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, X } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, Check, Bell } from 'lucide-react';
 import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_EVENTS,
@@ -23,10 +23,10 @@ import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
   useNotificationsArchive, useMarkRead, useMarkAllRead,
-  type Notification,
+  useSnoozeNotification, useMarkDone,
+  type Notification, type NotificationStateFilter,
 } from '@/hooks/useNotifications';
 import { relativeTime } from '@/lib/time';
-import { Bell } from 'lucide-react';
 
 type TypeFilter = 'all' | NotificationEventKey;
 type SeverityFilter = 'all' | NotificationSeverity;
@@ -38,6 +38,15 @@ const SEVERITY_OPTIONS: readonly { key: SeverityFilter; label: string }[] = [
   { key: 'medium',   label: 'Medium' },
   { key: 'low',      label: 'Low' },
   { key: 'info',     label: 'Info' },
+];
+
+// N4: state-machine tabs (Linear-style triage). Maps 1:1 to the
+// backend ?state=... filter on the LIST endpoint.
+const STATE_TABS: readonly { key: NotificationStateFilter; label: string }[] = [
+  { key: 'inbox',   label: 'Inbox' },
+  { key: 'snoozed', label: 'Snoozed' },
+  { key: 'done',    label: 'Done' },
+  { key: 'all',     label: 'All' },
 ];
 
 function severityToBadge(s: string): NotificationSeverity {
@@ -54,6 +63,7 @@ function typeLabel(type: string): string {
 
 export function Notifications() {
   const navigate = useNavigate();
+  const [stateFilter, setStateFilter] = useState<NotificationStateFilter>('inbox');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [searchInput, setSearchInput] = useState('');
@@ -75,6 +85,7 @@ export function Notifications() {
   );
 
   const filters = {
+    state: stateFilter,
     ...(typeFilter !== 'all' ? { type: typeFilter } : {}),
     ...(severityFilter !== 'all' ? { severity: severityFilter } : {}),
     ...(appliedSearch ? { q: appliedSearch } : {}),
@@ -84,10 +95,16 @@ export function Notifications() {
   const { data, isLoading, isFetching } = useNotificationsArchive(filters);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+  const snooze = useSnoozeNotification();
+  const markDone = useMarkDone();
 
   // Filter changes reset pagination. Only re-runs when filter values
   // actually change — `appliedSearch` (debounced submit) instead of
   // raw `searchInput` (on every keystroke).
+  const onChangeStateFilter = (next: NotificationStateFilter) => {
+    setStateFilter(next);
+    setCursorStack([null]);
+  };
   const onChangeTypeFilter = (next: TypeFilter) => {
     setTypeFilter(next);
     setCursorStack([null]);
@@ -139,14 +156,38 @@ export function Notifications() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <h1 className="font-mono text-[10px] uppercase tracking-[0.15em] font-bold" style={{ color: 'var(--text-muted)' }}>
-            All Notifications
+            Notifications
           </h1>
         </div>
-        {(data?.unread_count ?? 0) > 0 && (
+        {(data?.unread_count ?? 0) > 0 && stateFilter === 'inbox' && (
           <Button variant="ghost" size="sm" onClick={() => markAllRead.mutate()}>
             Mark all read ({data?.unread_count})
           </Button>
         )}
+      </div>
+
+      {/* State tabs — Inbox / Snoozed / Done / All */}
+      <div className="flex items-center gap-1 mb-4 border-b border-white/[0.06]">
+        {STATE_TABS.map(({ key, label }) => {
+          const active = stateFilter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => onChangeStateFilter(key)}
+              className="px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-all touch-target"
+              style={{
+                color: active ? 'var(--amber)' : 'var(--text-secondary)',
+                borderBottom: active
+                  ? '2px solid var(--amber)'
+                  : '2px solid transparent',
+                fontWeight: active ? 700 : 400,
+                marginBottom: -1,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -241,12 +282,24 @@ export function Notifications() {
         <Card>
           <EmptyState
             icon={<Bell className="w-10 h-10" />}
-            title={appliedSearch || typeFilter !== 'all' || severityFilter !== 'all'
-              ? 'No notifications match these filters'
-              : 'No notifications yet'}
-            subtitle={appliedSearch || typeFilter !== 'all' || severityFilter !== 'all'
-              ? 'Try a different filter or clear the search.'
-              : 'Future events will land here.'}
+            title={
+              appliedSearch || typeFilter !== 'all' || severityFilter !== 'all'
+                ? 'No notifications match these filters'
+                : stateFilter === 'inbox'
+                  ? 'Inbox zero'
+                  : stateFilter === 'snoozed'
+                    ? 'Nothing snoozed'
+                    : stateFilter === 'done'
+                      ? 'Nothing done yet'
+                      : 'No notifications yet'
+            }
+            subtitle={
+              appliedSearch || typeFilter !== 'all' || severityFilter !== 'all'
+                ? 'Try a different filter or clear the search.'
+                : stateFilter === 'inbox'
+                  ? 'You\'re all caught up.'
+                  : 'Items move here as you triage them.'
+            }
           />
         </Card>
       ) : (
@@ -257,9 +310,16 @@ export function Notifications() {
                 key={n.id}
                 notification={n}
                 onActivate={() => {
-                  if (!n.read_at) markRead.mutate(n.id);
+                  if (n.state === 'unread') markRead.mutate(n.id);
                   if (n.link) navigate(n.link);
                 }}
+                onSnooze={() => {
+                  // Snooze 1h is the default per §7.7. Custom durations
+                  // come in N5 via the kebab menu.
+                  const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+                  snooze.mutate({ id: n.id, until });
+                }}
+                onDone={() => markDone.mutate(n.id)}
               />
             ))}
           </div>
@@ -326,49 +386,61 @@ function FilterPill({
 function NotificationRow({
   notification,
   onActivate,
+  onSnooze,
+  onDone,
 }: {
   notification: Notification;
   onActivate: () => void;
+  onSnooze: () => void;
+  onDone: () => void;
 }) {
-  const isUnread = !notification.read_at;
+  const isUnread = notification.state === 'unread';
+  const isSnoozed = notification.state === 'snoozed';
+  const isDone = notification.state === 'done';
   const hasLink = !!notification.link;
   const sev = severityToBadge(notification.severity);
 
-  // Row is clickable when unread (mark-as-read) OR when it has a
-  // link (navigate even after read). Read+linkless rows stay
-  // non-interactive — same as before.
-  const isInteractive = isUnread || hasLink;
-
   return (
-    <button
-      onClick={isInteractive ? onActivate : undefined}
-      className="w-full text-left px-3 py-3 rounded transition-colors hover:bg-white/[0.03] touch-target"
+    <div
+      className="group relative w-full px-3 py-3 rounded transition-colors hover:bg-white/[0.03]"
       style={{
         borderLeft: isUnread
           ? `2px solid var(--sev-${sev}-border, var(--sev-info-border))`
           : '2px solid transparent',
         background: isUnread ? 'rgba(255,255,255,0.02)' : 'transparent',
-        cursor: isInteractive ? 'pointer' : 'default',
-        opacity: isUnread ? 1 : 0.65,
+        opacity: isDone ? 0.55 : isSnoozed ? 0.75 : 1,
       }}
-      aria-label={
-        hasLink
-          ? `Open "${notification.title}"`
-          : isUnread
-            ? `Mark "${notification.title}" as read`
-            : notification.title
-      }
     >
       <div className="flex items-start gap-3">
         <Badge severity={sev} size="xs" />
-        <div className="min-w-0 flex-1">
+
+        {/* Title + message + reason + recommended_action + meta */}
+        <button
+          onClick={onActivate}
+          className="flex-1 min-w-0 text-left touch-target"
+          style={{ cursor: hasLink ? 'pointer' : 'default' }}
+          aria-label={hasLink ? `Open "${notification.title}"` : notification.title}
+        >
           <p className="text-[13px] leading-snug" style={{ color: 'var(--text-primary)' }}>
             {notification.title}
           </p>
           <p className="text-[11px] mt-1 line-clamp-2" style={{ color: 'var(--text-tertiary)' }}>
             {notification.message}
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
+
+          {/* Static template fields (Q5) — render only when populated */}
+          {notification.reason_text && (
+            <p className="text-[10px] mt-1.5 italic" style={{ color: 'var(--text-tertiary)' }}>
+              {notification.reason_text}
+            </p>
+          )}
+          {notification.recommended_action && (
+            <p className="text-[11px] mt-1.5 font-mono" style={{ color: 'var(--amber)' }}>
+              {'→ '}{notification.recommended_action}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
               {typeLabel(notification.type)}
             </span>
@@ -376,15 +448,52 @@ function NotificationRow({
             <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
               {relativeTime(notification.created_at)}
             </span>
-            {!isUnread && (
+            {isSnoozed && notification.snoozed_until && (
               <>
                 <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>·</span>
-                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>read</span>
+                <span className="text-[10px] font-mono inline-flex items-center gap-1" style={{ color: 'var(--sev-medium)' }}>
+                  <Clock className="w-3 h-3" />
+                  until {relativeTime(notification.snoozed_until)}
+                </span>
+              </>
+            )}
+            {isDone && (
+              <>
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>·</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>done</span>
               </>
             )}
           </div>
-        </div>
+        </button>
+
+        {/* Action buttons (§7.7) — Snooze 1h + Done. Hidden when
+            already done. Visible always on touch; on hover for
+            mouse users. */}
+        {!isDone && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            {!isSnoozed && (
+              <button
+                onClick={onSnooze}
+                className="p-1.5 rounded touch-target hover:bg-white/[0.05]"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-label="Snooze 1 hour"
+                title="Snooze 1h"
+              >
+                <Clock className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={onDone}
+              className="p-1.5 rounded touch-target hover:bg-white/[0.05]"
+              style={{ color: 'var(--text-tertiary)' }}
+              aria-label="Mark done"
+              title="Done"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
-    </button>
+    </div>
   );
 }

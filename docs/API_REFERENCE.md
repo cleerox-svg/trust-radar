@@ -360,7 +360,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/notifications` | User | List notifications |
+| GET | `/api/notifications` | User | List notifications. Query params: `state=inbox\|snoozed\|done\|all` (default `inbox` hides done + unexpired snoozed), `unread=true`, `type`, `severity`, `q`, `cursor`, `limit` |
 | GET | `/api/notifications/unread-count` | User | Unread count |
 | GET | `/api/notifications/preferences` | User | Notification preferences |
 | PUT | `/api/notifications/preferences` | User | Update preferences |
