@@ -182,6 +182,7 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "backlog_history" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "feed_configs" },
+    { kind: "d1_table", name: "feed_pull_history" },
     { kind: "d1_table", name: "feed_status" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "threats" },

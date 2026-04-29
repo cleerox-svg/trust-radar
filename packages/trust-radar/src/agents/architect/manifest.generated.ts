@@ -161,8 +161,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 954,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "loc": 997,
+      "last_modified": "2026-04-29T19:31:07.805Z"
     },
     {
       "name": "cube-healer",
@@ -251,6 +251,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history",
         "brands",
         "feed_configs",
+        "feed_pull_history",
         "feed_status",
         "social_mentions",
         "threats"
@@ -260,8 +261,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history"
       ],
       "ai_models_referenced": [],
-      "loc": 1246,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "loc": 1295,
+      "last_modified": "2026-04-29T19:39:44.305Z"
     },
     {
       "name": "geo-campaign-assessment",
