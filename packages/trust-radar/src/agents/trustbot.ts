@@ -12,6 +12,9 @@ export const trustbotAgent: AgentModule = {
   color: "#60A5FA",
   trigger: "manual",
   requiresApproval: false,
+  stallThresholdMinutes: 5,
+  parallelMax: 4,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const query = (ctx.input.query as string) ?? "";

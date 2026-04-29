@@ -276,6 +276,9 @@ export const narratorAgent: AgentModule = {
   color: "#8A8F9C",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -165,6 +165,9 @@ export const publicTrustCheckAgent: AgentModule = {
   color: "#A855F7",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 5,
+  parallelMax: 4,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

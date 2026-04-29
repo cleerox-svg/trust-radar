@@ -18,6 +18,9 @@ export const seedStrategistAgent: AgentModule = {
   color: "#F59E0B",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

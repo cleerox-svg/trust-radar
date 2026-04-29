@@ -52,6 +52,9 @@ export const analystAgent: AgentModule = {
   color: "#E8923C",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 75,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

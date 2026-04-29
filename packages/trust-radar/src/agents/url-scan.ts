@@ -113,6 +113,9 @@ export const urlScanAgent: AgentModule = {
   color: "#0A8AB5",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 5,
+  parallelMax: 4,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -121,6 +121,23 @@ export interface AgentModule {
   color: string;
   trigger: TriggerType;
   requiresApproval?: boolean;
+
+  // ── Supervision (FC reads these — AGENT_STANDARD §3) ──────────
+  /** Minutes after a run is considered stalled. Replaces the
+   *  STALL_THRESHOLDS map that used to live in flightControl.ts. FC
+   *  re-dispatches stalled scheduled agents; sync agents use this
+   *  for the runaway-call alarm only. */
+  stallThresholdMinutes: number;
+  /** Maximum concurrent runs FC will permit. Default 1 for cron-driven
+   *  agents; sync agents may scale up to handle multiple HTTP
+   *  callers in parallel. */
+  parallelMax: number;
+  /** 'enforced' = subject to platform AI cost guard.
+   *  'exempt'   = bypass platform throttle (architecture review only —
+   *               flight_control / cube_healer / navigator / enricher
+   *               do not call AI; sync exempts require justification). */
+  costGuard: "enforced" | "exempt";
+
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }
 

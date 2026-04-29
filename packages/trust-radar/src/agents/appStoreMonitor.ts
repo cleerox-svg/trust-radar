@@ -23,6 +23,9 @@ export const appStoreMonitorAgent: AgentModule = {
   color: "#0A8AB5",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 420,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

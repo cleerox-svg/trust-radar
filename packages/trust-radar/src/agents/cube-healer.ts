@@ -135,6 +135,10 @@ export const cubeHealerAgent: AgentModule = {
   description: 'OLAP cube maintenance — periodic 30-day rebuild + brand summaries',
   color: '#0EA5E9',
   trigger: 'scheduled',
+  requiresApproval: false,
+  stallThresholdMinutes: 60,
+  parallelMax: 1,
+  costGuard: 'exempt',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

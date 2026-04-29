@@ -18,6 +18,9 @@ export const observerAgent: AgentModule = {
   color: "#78A0C8",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

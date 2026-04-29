@@ -39,6 +39,9 @@ export const autoSeederAgent: AgentModule = {
   color: "#10B981",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 12100,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

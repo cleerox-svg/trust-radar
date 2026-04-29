@@ -26,6 +26,9 @@ export const lookalikeScannerAgent: AgentModule = {
   color: "#F59E0B",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 75,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

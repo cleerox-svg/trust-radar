@@ -23,6 +23,9 @@ export const darkWebMonitorAgent: AgentModule = {
   color: "#C83C3C",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 420,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
