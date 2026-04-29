@@ -94,33 +94,56 @@ while true; do
     exit 2
   fi
 
-  # Parse summary line (last line of NDJSON output).
-  SUMMARY=$(tail -n 1 "$TMP")
-  if [ -z "$SUMMARY" ]; then
+  # Parse summary line. The endpoint normally writes one as the final
+  # NDJSON line, but in practice the Cloudflare Worker sometimes closes
+  # the stream after the last per-hour line without emitting the
+  # summary (CPU/streaming-deadline edge case). Fall back to scanning
+  # for any line carrying `done`, or — failing that — use the last
+  # processed hour as the resume cursor so we can keep going.
+  if [ ! -s "$TMP" ]; then
     echo "Error: empty response body" >&2
     rm -f "$TMP"
     exit 3
   fi
 
-  # The summary line is the one carrying `done` — guard against malformed.
-  DONE=$(echo "$SUMMARY" | jq -r '.done // empty')
-  if [ -z "$DONE" ]; then
-    echo "Error: no summary line in response" >&2
-    cat "$TMP" >&2
-    rm -f "$TMP"
-    exit 3
+  SUMMARY=$(grep -E '"done":\s*(true|false)' "$TMP" | tail -n 1 || true)
+  DONE=""
+  PASS_HOURS=0
+  PASS_ROWS=0
+  RESUME_NEXT=""
+
+  if [ -n "$SUMMARY" ]; then
+    DONE=$(echo "$SUMMARY" | jq -r '.done // empty')
+    PASS_HOURS=$(echo "$SUMMARY" | jq -r '.total_hours // 0')
+    PASS_ROWS=$(echo "$SUMMARY" | jq -r '.total_rows // 0')
+    RESUME_NEXT=$(echo "$SUMMARY" | jq -r '.resume_from // empty')
   fi
 
-  PASS_HOURS=$(echo "$SUMMARY" | jq -r '.total_hours // 0')
-  PASS_ROWS=$(echo "$SUMMARY" | jq -r '.total_rows // 0')
-  RESUME_FROM=$(echo "$SUMMARY" | jq -r '.resume_from // empty')
+  if [ -z "$DONE" ]; then
+    # No summary line. Recover by reading the last hour-line's `hour`
+    # field — that's the cursor we'd resume from on the next pass.
+    LAST_HOUR=$(grep -E '"hour":' "$TMP" | tail -n 1 | jq -r '.hour // empty' 2>/dev/null || true)
+    if [ -z "$LAST_HOUR" ]; then
+      echo "Error: response had no summary AND no hour lines" >&2
+      cat "$TMP" >&2
+      rm -f "$TMP"
+      exit 3
+    fi
+    PASS_HOURS=$(grep -c -E '"hour":' "$TMP" || echo 0)
+    PASS_ROWS=$(grep -E '"hour":' "$TMP" | jq -s 'map((.geo_rows // 0) + (.provider_rows // 0) + (.brand_rows // 0) + (.status_rows // 0)) | add // 0')
+    DONE="false"
+    RESUME_NEXT="$LAST_HOUR"
+    printf 'pass %2d: hours=%-4s rows=%-8s done=%s (no summary, fell back to last-hour cursor)\n' \
+      "$PASS" "$PASS_HOURS" "$PASS_ROWS" "$DONE"
+  else
+    printf 'pass %2d: hours=%-4s rows=%-8s done=%s%s\n' \
+      "$PASS" "$PASS_HOURS" "$PASS_ROWS" "$DONE" \
+      "${RESUME_NEXT:+ resume_from=$RESUME_NEXT}"
+  fi
 
+  RESUME_FROM="$RESUME_NEXT"
   TOTAL_HOURS=$((TOTAL_HOURS + PASS_HOURS))
   TOTAL_ROWS=$((TOTAL_ROWS + PASS_ROWS))
-
-  printf 'pass %2d: hours=%-4s rows=%-8s done=%s%s\n' \
-    "$PASS" "$PASS_HOURS" "$PASS_ROWS" "$DONE" \
-    "${RESUME_FROM:+ resume_from=$RESUME_FROM}"
 
   rm -f "$TMP"
 
