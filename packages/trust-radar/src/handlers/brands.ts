@@ -3,7 +3,10 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
-import { analyzeBrandThreats, callHaikuRaw } from "../lib/haiku";
+import { callHaikuRaw } from "../lib/haiku";
+import { runSyncAgent } from "../lib/agentRunner";
+import { brandAnalysisAgent } from "../agents/brand-analysis";
+import type { BrandAnalysisOutput } from "../agents/brand-analysis";
 import { discoverSocialProfiles } from "../lib/social-discovery";
 import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
@@ -812,29 +815,43 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
       }
     }
 
-    const result = await analyzeBrandThreats(env, { agentId: "brand-analysis", runId: null }, {
-      brand_name: brand.name,
-      threat_count: stats?.total ?? 0,
-      providers: providerRows.results.map(r => r.name),
-      domains: domainRows.results.map(r => r.malicious_domain),
-      threat_types: threatTypes,
-      campaigns: campaignRows.results.map(r => r.name),
-    });
+    // Phase 3.3 of agent audit: brand-analysis is now a sync agent.
+    // The agent owns input validation (sanitises brand name +
+    // provider/domain/campaign lists), the AI call, output schema
+    // validation, and a deterministic fallback. Handler stays
+    // responsible for caching the result on the brands row.
+    const agentRun = await runSyncAgent<BrandAnalysisOutput>(
+      env,
+      brandAnalysisAgent,
+      {
+        brandName: brand.name,
+        threatCount: stats?.total ?? 0,
+        providers: providerRows.results.map(r => r.name),
+        domains: domainRows.results.map(r => r.malicious_domain),
+        threatTypes,
+        campaigns: campaignRows.results.map(r => r.name),
+      },
+    );
 
-    if (result.success && result.data) {
-      const analysisJson = JSON.stringify(result.data);
+    if (agentRun.data) {
+      // Persist in the same JSON shape the brand detail page already
+      // expects (analysis / risk_level / key_findings — snake_case).
+      const persisted = {
+        analysis: agentRun.data.analysis,
+        risk_level: agentRun.data.riskLevel,
+        key_findings: agentRun.data.keyFindings,
+      };
       await env.DB.prepare(
         "UPDATE brands SET threat_analysis = ?, analysis_updated_at = datetime('now') WHERE id = ?",
-      ).bind(analysisJson, brandId).run();
+      ).bind(JSON.stringify(persisted), brandId).run();
 
       return json({
         success: true,
-        data: { ...result.data, cached: false, updated_at: new Date().toISOString() },
-        tokens_used: result.tokens_used,
+        data: { ...persisted, cached: false, updated_at: new Date().toISOString() },
       }, 200, origin);
     }
 
-    return json({ success: false, error: result.error || "Analysis generation failed" }, 500, origin);
+    return json({ success: false, error: agentRun.error ?? "Analysis generation failed" }, 500, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
