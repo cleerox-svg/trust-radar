@@ -23,13 +23,36 @@
  */
 
 export type NotificationEventKey =
+  // ── User-toggleable ──
   | 'brand_threat'
   | 'campaign_escalation'
   | 'feed_health'
   | 'intelligence_digest'
   | 'agent_milestone'
+  // ── System events ──
   | 'email_security_change'
-  | 'circuit_breaker_tripped';
+  | 'circuit_breaker_tripped'
+  // ── N6a — AI intel family (NOTIFICATIONS_AUDIT.md §11) ──
+  | 'intel_predictive'
+  | 'intel_cross_brand_pattern'
+  | 'intel_sector_trend'
+  | 'intel_recommended_action'
+  | 'intel_threat_actor_surface'
+  // ── N6b — platform-health family (super_admin; §13) ──
+  | 'platform_d1_budget_warn'
+  | 'platform_d1_budget_breach'
+  | 'platform_kv_budget_warn'
+  | 'platform_worker_cpu_burst'
+  | 'platform_feed_at_risk'
+  | 'platform_feed_auto_paused'
+  | 'platform_agent_stalled'
+  | 'platform_cron_orchestrator_missed'
+  | 'platform_cron_navigator_missed'
+  | 'platform_enrichment_stuck_pile'
+  | 'platform_ai_spend_burst'
+  | 'platform_resend_bounces'
+  // ── N6c — digest envelope (§12.3) ──
+  | 'notification_digest';
 
 export type NotificationChannelKey = 'browser_notifications' | 'push_notifications';
 
@@ -122,6 +145,161 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     label: 'Agent Auto-Paused',
     description: 'An agent was auto-paused after consecutive failures',
     dedupWindow: '-1 hour',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+
+  // ─── N6a — AI intel family (system, per-tenant + super_admin) ──────
+  // All five types are dedup'd by group_key in createNotification, so
+  // dedupWindow here is only the FALLBACK for legacy metadata-LIKE
+  // dedup (which intel_* types never use — they always set group_key).
+  // Listed for registry completeness; the actual gating happens in
+  // intel-templates.ts.
+  {
+    key: 'intel_predictive',
+    label: 'Predictive Targeting',
+    description: 'Likely-targeted prediction from cluster analysis',
+    dedupWindow: '-12 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'intel_cross_brand_pattern',
+    label: 'Cross-Brand Pattern',
+    description: 'Coordinated campaign affecting multiple tenants',
+    dedupWindow: '-24 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'intel_sector_trend',
+    label: 'Sector Trend',
+    description: 'Weekly sector-level threat trend digest',
+    dedupWindow: '-7 days',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'intel_recommended_action',
+    label: 'Recommended Action',
+    description: 'Specific operational recommendation for a brand',
+    dedupWindow: '-3 days',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'intel_threat_actor_surface',
+    label: 'Threat Actor Activity',
+    description: 'Tracked threat actor expanded infrastructure',
+    dedupWindow: '-12 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+
+  // ─── N6b — platform-health family (super_admin only) ───────────────
+  {
+    key: 'platform_d1_budget_warn',
+    label: 'D1 Budget Warning',
+    description: 'D1 daily reads crossed warning threshold',
+    dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_d1_budget_breach',
+    label: 'D1 Budget Breach',
+    description: 'D1 daily reads exceeded plan',
+    dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_kv_budget_warn',
+    label: 'KV Budget Warning',
+    description: 'KV reads/writes crossed warning threshold',
+    dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_worker_cpu_burst',
+    label: 'Worker CPU Burst',
+    description: 'Agent run exceeded CPU ms ceiling',
+    dedupWindow: '-1 hour',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_feed_at_risk',
+    label: 'Feed At Risk',
+    description: 'Feed approaching auto-pause threshold',
+    dedupWindow: '-6 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_feed_auto_paused',
+    label: 'Feed Auto-Paused',
+    description: 'Feed disabled after consecutive failures',
+    dedupWindow: '-12 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_agent_stalled',
+    label: 'Agent Stalled',
+    description: 'Agent run stuck in running state >15 min',
+    dedupWindow: '-1 hour',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_cron_orchestrator_missed',
+    label: 'Orchestrator Cron Missed',
+    description: 'No orchestrator run in last 90 min',
+    dedupWindow: '-1 hour',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_cron_navigator_missed',
+    label: 'Navigator Cron Missed',
+    description: 'No navigator run in last 15 min',
+    dedupWindow: '-30 minutes',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_enrichment_stuck_pile',
+    label: 'Enrichment Stuck Pile',
+    description: 'Threats enriched but missing geo data',
+    dedupWindow: '-6 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_ai_spend_burst',
+    label: 'AI Spend Burst',
+    description: 'AI spend in last 24h crossed threshold',
+    dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_resend_bounces',
+    label: 'Email Bounces',
+    description: 'Resend failed/delivered ratio >10% in 7d',
+    dedupWindow: '-1 day',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+
+  // ─── N6c — digest envelope ─────────────────────────────────────────
+  {
+    key: 'notification_digest',
+    label: 'Digest',
+    description: 'Periodic summary of recent notifications',
+    dedupWindow: '-12 hours',
     defaultEnabled: true,
     userToggleable: false,
   },
