@@ -431,6 +431,8 @@ export const navigatorAgent: AgentModule = {
   writes: [
     { kind: 'd1_table', name: 'agent_events' },
   ],
+  outputs: [],
+  status: 'active',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     // The orchestrator passes scheduledTime via input so per-tick

@@ -151,6 +151,8 @@ export const cubeHealerAgent: AgentModule = {
     { kind: 'd1_table', name: 'threat_cube_provider' },
     { kind: 'd1_table', name: 'threat_cube_status' },
   ],
+  outputs: [],
+  status: 'active',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

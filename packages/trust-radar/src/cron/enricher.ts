@@ -119,6 +119,8 @@ export const enricherAgent: AgentModule = {
   // Delegates SQL to lib/enricher-tasks helpers.
   reads: [],
   writes: [],
+  outputs: [],
+  status: 'active',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

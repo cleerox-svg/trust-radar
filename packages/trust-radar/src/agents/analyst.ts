@@ -73,6 +73,8 @@ export const analystAgent: AgentModule = {
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [{ type: "classification" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

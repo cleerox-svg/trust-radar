@@ -71,6 +71,12 @@ export const architectAgent: AgentModule = {
   // architect since it's not in agentModules anymore.
   reads: [],
   writes: [],
+  outputs: [],
+  // RETIRED 2026-04-29 (Phase 2.2). Module kept around as a typecheck
+  // reference; not in agentModules. FC's getAgentsToMonitor only
+  // returns registered modules, so 'retired' here doesn't surface in
+  // dispatch logic — the field is the formal lifecycle marker.
+  status: "retired",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

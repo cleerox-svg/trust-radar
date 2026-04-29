@@ -33,6 +33,8 @@ export const socialMonitorAgent: AgentModule = {
   // Direct SQL surface is empty — delegates to scanners/social-monitor.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

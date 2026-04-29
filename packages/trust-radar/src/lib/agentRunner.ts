@@ -98,7 +98,7 @@ export interface AgentResult {
 }
 
 export interface AgentOutputEntry {
-  type: "insight" | "classification" | "correlation" | "score" | "trend_report" | "diagnostic" | "hygiene_report";
+  type: AgentOutputType;
   summary: string;
   severity?: "critical" | "high" | "medium" | "low" | "info";
   details?: Record<string, unknown>;
@@ -112,6 +112,42 @@ export interface ApprovalRequest {
   description: string;
   details: Record<string, unknown>;
   expiresInHours?: number;
+}
+
+/** Lifecycle state of an agent (AGENT_STANDARD §5).
+ *
+ *   - 'active'  — registered + scheduled, runs normally.
+ *   - 'paused'  — circuit-breaker tripped or operator-paused; FC
+ *                 honours `agent_configs.enabled = 0` independently,
+ *                 so this is a module-level intent.
+ *   - 'shadow'  — runs but its agent_outputs aren't acted on. Used
+ *                 during a re-roll-out where you want signal without
+ *                 side effects. Today no agents are in shadow mode.
+ *   - 'retired' — module is kept around for git history but not in
+ *                 agentModules. The architect module is the only one
+ *                 today (Phase 2.2).
+ */
+export type AgentStatus = "active" | "paused" | "shadow" | "retired";
+
+/** Output type union — each entry an agent emits to agent_outputs. */
+export type AgentOutputType =
+  | "insight"
+  | "classification"
+  | "correlation"
+  | "score"
+  | "trend_report"
+  | "diagnostic"
+  | "hygiene_report";
+
+/** Per-output declaration. The optional schema lets agents validate
+ *  their `details` payload before INSERT — Phase 4.4 ships only the
+ *  type list; Phase 5 wires schema-aware persistence. */
+export interface AgentOutputDecl {
+  type: AgentOutputType;
+  /** Optional Zod schema for the `details` payload. When present,
+   *  Phase 5's audit-agent-standard.ts will require runner-level
+   *  validation. */
+  schema?: unknown;
 }
 
 /** Resource declaration — what an agent reads from / writes to.
@@ -186,6 +222,21 @@ export interface AgentModule {
    *  fresh extraction on each build and fails CI on drift. */
   reads: ResourceDecl[];
   writes: ResourceDecl[];
+
+  // ── Output contract (AGENT_STANDARD §9) ────────────────────────
+  /** Output types the agent's execute() emits via
+   *  `result.agentOutputs[].type`. Empty array = no agent_outputs
+   *  rows expected. Drives Phase 5's runner-level schema validation
+   *  (per-type Zod) and the Agents page's "what does this emit?"
+   *  surface. */
+  outputs: AgentOutputDecl[];
+
+  // ── Lifecycle status (AGENT_STANDARD §5) ───────────────────────
+  /** Module-level lifecycle intent. Distinct from agent_configs.enabled
+   *  (which is the runtime circuit-breaker state). FC's recovery
+   *  loop and the Agents page filter by this — 'retired' modules
+   *  are excluded from supervision. */
+  status: AgentStatus;
 
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }

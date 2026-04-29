@@ -122,6 +122,8 @@ export const scanReportAgent: AgentModule = {
   // and feeds the aggregated facts into the prompt.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

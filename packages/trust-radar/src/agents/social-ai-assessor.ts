@@ -251,6 +251,8 @@ export const socialAiAssessorAgent: AgentModule = {
   // Sync agent — caller (scanner or handler) reads/writes social_profiles.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

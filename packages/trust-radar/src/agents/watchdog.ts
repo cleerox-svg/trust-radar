@@ -68,6 +68,8 @@ export const watchdogAgent: AgentModule = {
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

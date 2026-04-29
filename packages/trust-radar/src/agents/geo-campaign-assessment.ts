@@ -155,6 +155,8 @@ export const geoCampaignAssessmentAgent: AgentModule = {
   // Sync agent — handler reads campaign + threat stats.
   reads: [],
   writes: [],
+  outputs: [{ type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

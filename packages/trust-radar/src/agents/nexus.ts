@@ -487,6 +487,8 @@ export const nexusAgent: AgentModule = {
     { kind: "d1_table", name: "infrastructure_clusters" },
     { kind: "d1_table", name: "threats" },
   ],
+  outputs: [{ type: "correlation" }, { type: "diagnostic" }],
+  status: "active",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
