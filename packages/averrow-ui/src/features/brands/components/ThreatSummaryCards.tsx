@@ -32,8 +32,28 @@ export function ThreatSummaryCards({ threats }: { threats: any[] }) {
       color: typeConfig[type]?.color || '#78A0C8',
     }));
 
+  // Auto-size the grid to the actual number of cards so 2 cards
+  // don't render in a 4-column grid leaving 50% empty (the alignment
+  // bug visible on docusign.net where only phishing+malware exist).
+  // Cap at 4 columns to keep the row tidy on wide screens.
+  const colsClass =
+    cards.length >= 4 ? 'grid-cols-2 lg:grid-cols-4'
+    : cards.length === 3 ? 'grid-cols-3'
+    : cards.length === 2 ? 'grid-cols-2'
+    : 'grid-cols-1';
+
+  if (cards.length === 0) {
+    return (
+      <div className="bg-instrument border border-white/[0.06] rounded-lg p-6 text-center">
+        <div className="font-mono text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+          No active threats
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className={`grid ${colsClass} gap-3`}>
       {cards.map(card => (
         <div key={card.type}
           className="bg-instrument border border-white/[0.06] rounded-lg p-4 transition-all hover:border-white/10"
