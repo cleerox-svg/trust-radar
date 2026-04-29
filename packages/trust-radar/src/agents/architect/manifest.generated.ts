@@ -262,8 +262,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history"
       ],
       "ai_models_referenced": [],
-      "loc": 1323,
-      "last_modified": "2026-04-29T19:50:14.581Z"
+      "loc": 1404,
+      "last_modified": "2026-04-29T20:01:37.473Z"
     },
     {
       "name": "geo-campaign-assessment",
