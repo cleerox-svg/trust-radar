@@ -1,5 +1,4 @@
 import { Fragment, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus } from '@/hooks/useAgents';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, PipelineEntry } from '@/hooks/useAgents';
 import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
@@ -72,11 +71,7 @@ const AGENT_GROUPS: AgentGroup[] = [
     label: 'Platform Operations',
     agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer'],
   },
-  {
-    id: 'meta',
-    label: 'Meta',
-    agentIds: ['architect'],
-  },
+  // 'meta' group (architect) retired 2026-04-29 — see agent-metadata.ts.
 ];
 
 // ─── Status helpers ─────────────────────────────────────────────────
@@ -676,7 +671,8 @@ function GroupHeader({ label, count }: { label: string; count: number }) {
 // ─── Monitor View (existing content, wrapped) ─────────────────
 function MonitorView() {
   const { data: agents } = useAgents();
-  const navigate = useNavigate();
+  // useNavigate previously used for the architect detail click-through;
+  // the agent retired 2026-04-29 and no other navigation is needed here.
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const flightControl = agents?.find(a => a.name === 'flight_control') ?? null;
@@ -714,12 +710,10 @@ function MonitorView() {
   const selectedAgentData = agents?.find(a => a.name === selectedAgent) ?? null;
 
   function handleSelect(agentName: string) {
-    if (agentName === 'architect') {
-      // Architect has its own dedicated detail view (Run button +
-      // report viewer); the rest use the inline health panel.
-      navigate('/agents/architect');
-      return;
-    }
+    // (architect's dedicated detail view click-through retired
+    //  2026-04-29 along with the agent itself; the route still
+    //  exists at /agents/architect for forensic access but is no
+    //  longer reachable from the Agents page.)
     setSelectedAgent(prev => (prev === agentName ? null : agentName));
   }
 

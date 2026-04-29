@@ -19,7 +19,13 @@ import { nexusAgent } from "./nexus";
 import { flightControlAgent } from "./flightControl";
 import { curatorAgent } from "./curator";
 import { watchdogAgent } from "./watchdog";
-import { architectAgent } from "./architect";
+// architectAgent — RETIRED 2026-04-29 (Phase 2.2 of agent audit).
+// Dead since 2026-04-11 (status='error', 0 runs in 7 days). Meta-agent
+// designed to audit other agents but the architect_bundles R2 bucket
+// is empty and zero diagnostic outputs in the last 30 days. Source
+// files retained at agents/architect/ per AGENT_STANDARD §20.1
+// (git history is the audit trail). To resurrect: re-add the import,
+// the agentModules entry, the agent-metadata row, and the group.
 import { narratorAgent } from "./narrator";
 import { appStoreMonitorAgent } from "./appStoreMonitor";
 import { darkWebMonitorAgent } from "./darkWebMonitor";
@@ -43,7 +49,7 @@ export const agentModules: Record<string, AgentModule> = {
   "flight_control": flightControlAgent,
   "curator": curatorAgent,
   "watchdog": watchdogAgent,
-  "architect": architectAgent,
+  // "architect": retired (see comment above)
   "narrator": narratorAgent,
   "app_store_monitor": appStoreMonitorAgent,
   "dark_web_monitor": darkWebMonitorAgent,
