@@ -26,7 +26,8 @@ export type AgentId =
   | 'social_monitor'
   | 'app_store_monitor'
   | 'dark_web_monitor'
-  | 'auto_seeder';
+  | 'auto_seeder'
+  | 'seed_strategist';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -218,6 +219,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#10B981',
     category: 'intelligence',
     pipelinePosition: 19,
+  },
+  seed_strategist: {
+    id: 'seed_strategist',
+    displayName: 'Seed Strategist',
+    codename: 'seed_strategist',
+    subtitle: 'AI plans spam-trap seeding strategy — coverage gaps, channel expansion, retire low-yield addresses',
+    color: '#06B6D4',
+    category: 'intelligence',
+    pipelinePosition: 20,
   },
 };
 
