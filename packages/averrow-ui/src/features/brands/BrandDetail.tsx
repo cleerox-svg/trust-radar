@@ -130,6 +130,31 @@ function toTitleCase(str: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// ── Derive a friendly vector label from threat fields ────────────────
+//
+// The `threats` schema doesn't carry an explicit `vector` column. We
+// derive one from threat_type + source_feed for the Threats-tab table.
+// Returns null when there's nothing meaningful to surface — caller
+// renders an em-dash.
+function deriveVectorLabel(t: { threat_type?: string; source_feed?: string }): string | null {
+  const feed = (t.source_feed ?? '').toLowerCase();
+  if (feed.includes('certstream')) return 'CT';
+  if (feed.includes('phishtank')) return 'Phishing';
+  if (feed.includes('openphish')) return 'Phishing';
+  if (feed.includes('urlhaus')) return 'Malware';
+  if (feed.includes('abuse')) return 'Abuse.ch';
+  if (feed.includes('threatfox')) return 'ThreatFox';
+  if (feed.includes('alienvault') || feed.includes('otx')) return 'OTX';
+  if (feed.includes('cins')) return 'CINS';
+  if (feed.includes('spam_trap')) return 'Spam Trap';
+  if (feed.includes('lookalike')) return 'Lookalike';
+  if (feed.includes('certstream')) return 'CT';
+  if (feed.includes('typosquat')) return 'Typosquat';
+  if (feed.includes('darkweb') || feed.includes('dark_web')) return 'Dark Web';
+  if (feed.includes('social')) return 'Social';
+  return null;
+}
+
 // ── Timeline Tooltip ───────────────────────────────────────────────────
 function TimelineTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -360,9 +385,33 @@ function getGradeClass(grade: string | null): string {
   return 'text-[#f87171]';
 }
 
+// Derive a BIMI grade client-side when brand.bimi_grade is null.
+// Mirrors the server-side scanBIMI scoring (email-security.ts:404):
+//   A+ = DMARC enforce + BIMI record + VMC verified
+//   A  = DMARC enforce + BIMI record (no VMC)
+//   B  = DMARC enforce, no BIMI
+//   C  = DMARC quarantine, no BIMI
+//   D  = DMARC none / reporting only
+//   F  = no DMARC
+function deriveBimiGrade(brand: any, emailSec: any): string | null {
+  if (brand?.bimi_grade) return brand.bimi_grade;
+  const dmarcPolicy = (emailSec?.dmarc?.policy ?? '').toLowerCase();
+  const hasBimi = !!brand?.bimi_record;
+  const vmcValid = !!brand?.bimi_vmc_valid;
+  if (!dmarcPolicy) return 'F';
+  if (dmarcPolicy === 'none') return 'D';
+  if (dmarcPolicy === 'quarantine') return 'C';
+  if (dmarcPolicy === 'reject') {
+    if (hasBimi && vmcValid) return 'A+';
+    if (hasBimi) return 'A';
+    return 'B';
+  }
+  return null;
+}
+
 function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec: any; grade: string | null; brand: any; onViewDetails?: () => void }) {
   const gradeClass = getGradeClass(grade);
-  const bimiGrade = brand?.bimi_grade ?? null;
+  const bimiGrade = deriveBimiGrade(brand, emailSec);
 
   // Count passing protocols for progress bar
   const protocolResults = EMAIL_PROTOCOLS.map(proto => getEmailStatus(proto, emailSec));
@@ -443,10 +492,13 @@ function EmailPostureCard({ emailSec, grade, brand, onViewDetails }: { emailSec:
           />
         </div>
 
-        {/* BIMI Grade */}
+        {/* BIMI Grade — distinct from the overall Email Grade in the
+            card header. The header grade scores SPF/DKIM/DMARC/MX
+            enforcement; this one scores BIMI + VMC adoption on top.
+            See email-security.ts:404 for the BIMI scoring scheme. */}
         <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
           <span className="text-white/40 text-[10px] font-mono uppercase tracking-wider">
-            Email Grade
+            BIMI Grade
           </span>
           <BIMIGradeBadge grade={bimiGrade} size="lg" tooltip />
         </div>
@@ -848,7 +900,7 @@ export function BrandDetail() {
                         {toTitleCase(t.threat_type || 'unknown')}
                       </span>
                       <span className="font-mono text-[10px] text-white/40 ml-2">
-                        {t.domain || t.target_url || ''}
+                        {t.malicious_domain || t.malicious_url || t.ip_address || ''}
                       </span>
                     </div>
                     <span className="font-mono text-[10px] text-white/30 flex-shrink-0">
@@ -955,7 +1007,13 @@ export function BrandDetail() {
 
                     {/* Threat rows */}
                     {visibleThreats.map((t: any) => {
-                      const secondaryLabel = t.url || t.domain || t.target_url || t.source || null;
+                      // API field names: malicious_domain / malicious_url
+                      // (handlers/brands.ts:619). The legacy field names
+                      // target_url / domain were never populated.
+                      const secondaryLabel = t.malicious_url || t.malicious_domain || t.ip_address || t.source_feed || null;
+                      // Derive a "vector" label from source_feed when the
+                      // schema doesn't carry one explicitly.
+                      const derivedVector = deriveVectorLabel(t);
                       return (
                         <div key={t.id}
                           data-severity={t.severity}
@@ -978,12 +1036,12 @@ export function BrandDetail() {
                             </div>
                           </div>
                           <div className="font-display text-xs font-semibold text-white/80 truncate">
-                            {t.target_url || t.domain || '\u2014'}
+                            {t.malicious_domain || t.malicious_url || t.ip_address || '\u2014'}
                           </div>
-                          {t.vector ? (
-                            <Badge variant="info" className="text-[8px] justify-center">{t.vector}</Badge>
+                          {derivedVector ? (
+                            <Badge variant="info" className="text-[8px] justify-center">{derivedVector}</Badge>
                           ) : (
-                            <span className="text-white/40 text-[10px]">\u2014</span>
+                            <span className="text-white/40 text-[10px]">{'\u2014'}</span>
                           )}
                           <div className="flex items-center justify-end gap-2 min-w-0">
                             <span className="font-mono text-[10px] text-white/40">
