@@ -21,6 +21,12 @@ head_sampling_rate = 1
 # Secrets (set via `wrangler secret put` or Cloudflare dashboard):
 #   AVERROW_INTERNAL_SECRET  — must match the value set on the trust-radar worker
 #   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
+#   MCP_TEST_JWT              — long-lived access JWT for a dedicated test user
+#                               account. Required by verify_ui_smoke + assert_endpoint
+#                               tools. Rotate from a logged-in browser session:
+#                               localStorage.getItem('averrow_token'). Default JWT
+#                               TTL is 12h, so rotation is manual until refresh-
+#                               token handling lands.
 
 # Deploy:
 #   cd packages/averrow-mcp
