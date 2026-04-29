@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, X, Clock, Check, Bell } from 'lucide-react';
+import { ArrowLeft, Search, X, Clock, Check, Bell, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_EVENTS,
@@ -304,25 +304,18 @@ export function Notifications() {
         </Card>
       ) : (
         <Card>
-          <div className="space-y-1 -mx-2">
-            {notifications.map((n) => (
-              <NotificationRow
-                key={n.id}
-                notification={n}
-                onActivate={() => {
-                  if (n.state === 'unread') markRead.mutate(n.id);
-                  if (n.link) navigate(n.link);
-                }}
-                onSnooze={() => {
-                  // Snooze 1h is the default per §7.7. Custom durations
-                  // come in N5 via the kebab menu.
-                  const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                  snooze.mutate({ id: n.id, until });
-                }}
-                onDone={() => markDone.mutate(n.id)}
-              />
-            ))}
-          </div>
+          <NotificationGroupedList
+            notifications={notifications}
+            onActivate={(n) => {
+              if (n.state === 'unread') markRead.mutate(n.id);
+              if (n.link) navigate(n.link);
+            }}
+            onSnooze={(id) => {
+              const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+              snooze.mutate({ id, until });
+            }}
+            onDone={(id) => markDone.mutate(id)}
+          />
 
           {/* Pagination */}
           <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between">
@@ -348,6 +341,111 @@ export function Notifications() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ─── B3: Group-by-entity collapse ──────────────────────────────────
+//
+// 3 notifications about Acme within an hour shouldn't render as 3 rows.
+// `group_key` (set by createNotification — e.g. `brand_threat:acme`)
+// drives the collapse: if a group has ≥2 members, render a head row
+// with a count badge and an expand toggle. Solo rows (no group_key, or
+// group_key with one member) render exactly like before.
+//
+// Per-row actions still operate on individual rows when expanded;
+// bulk actions on the whole group are §14 backlog.
+
+function NotificationGroupedList({
+  notifications, onActivate, onSnooze, onDone,
+}: {
+  notifications: Notification[];
+  onActivate: (n: Notification) => void;
+  onSnooze: (id: string) => void;
+  onDone: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Build groups in order — preserve the original list ordering by
+  // anchoring each group at its FIRST occurrence. A group with 1
+  // member is rendered as a plain row.
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string | null; members: Notification[] }>();
+    const order: string[] = [];
+    for (const n of notifications) {
+      const k = n.group_key ?? `__solo__:${n.id}`;
+      const existing = map.get(k);
+      if (existing) {
+        existing.members.push(n);
+      } else {
+        map.set(k, { key: n.group_key, members: [n] });
+        order.push(k);
+      }
+    }
+    return order.map((k) => ({ ...map.get(k)!, mapKey: k }));
+  }, [notifications]);
+
+  return (
+    <div className="space-y-1 -mx-2">
+      {groups.map((g) => {
+        const isCollapsedGroup = g.members.length >= 2;
+        const isOpen = expanded.has(g.mapKey);
+        const head = g.members[0]!;
+
+        if (!isCollapsedGroup) {
+          return (
+            <NotificationRow
+              key={head.id}
+              notification={head}
+              onActivate={() => onActivate(head)}
+              onSnooze={() => onSnooze(head.id)}
+              onDone={() => onDone(head.id)}
+            />
+          );
+        }
+
+        return (
+          <div key={g.mapKey}>
+            <div className="flex items-center gap-2 px-3 -mb-1 mt-2">
+              <button
+                onClick={() => {
+                  const next = new Set(expanded);
+                  if (next.has(g.mapKey)) next.delete(g.mapKey); else next.add(g.mapKey);
+                  setExpanded(next);
+                }}
+                className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider touch-target"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-expanded={isOpen}
+                aria-controls={`group-${g.mapKey}`}
+              >
+                {isOpen
+                  ? <ChevronDown className="w-3 h-3" />
+                  : <ChevronRight className="w-3 h-3" />}
+                {g.key ?? 'Group'} · {g.members.length}
+              </button>
+            </div>
+            {isOpen ? (
+              g.members.map((n) => (
+                <NotificationRow
+                  key={n.id}
+                  notification={n}
+                  onActivate={() => onActivate(n)}
+                  onSnooze={() => onSnooze(n.id)}
+                  onDone={() => onDone(n.id)}
+                />
+              ))
+            ) : (
+              <NotificationRow
+                key={head.id}
+                notification={head}
+                onActivate={() => onActivate(head)}
+                onSnooze={() => onSnooze(head.id)}
+                onDone={() => onDone(head.id)}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

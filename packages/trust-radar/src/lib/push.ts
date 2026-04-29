@@ -141,6 +141,13 @@ export interface PushPayload {
   severity?: 'critical' | 'high' | 'medium' | 'low' | 'info';
   /** Event registry key — for client-side filtering / analytics. */
   type?: string;
+  /**
+   * W3C Web Push action buttons. Pass an empty array to opt out
+   * of the SW's default Snooze/Done buttons. Chrome + Firefox
+   * honor; iOS Safari (PWA) ignores. Server-side default is
+   * undefined → SW renders default Snooze/Done.
+   */
+  actions?: Array<{ action: string; title: string; icon?: string }>;
 }
 
 export interface SendResult {
