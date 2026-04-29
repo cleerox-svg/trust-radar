@@ -98,6 +98,9 @@ export const adminClassifyAgent: AgentModule = {
   color: "#FB923C",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 30,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

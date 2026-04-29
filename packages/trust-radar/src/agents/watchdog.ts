@@ -56,6 +56,9 @@ export const watchdogAgent: AgentModule = {
   color: "#FF4500",
   trigger: "event",
   requiresApproval: false,
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

@@ -145,6 +145,9 @@ export const brandDeepScanAgent: AgentModule = {
   color: "#FCD34D",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 10,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

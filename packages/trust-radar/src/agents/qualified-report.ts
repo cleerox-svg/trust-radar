@@ -150,6 +150,9 @@ export const qualifiedReportAgent: AgentModule = {
   color: "#FB7185",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 5,
+  parallelMax: 2,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

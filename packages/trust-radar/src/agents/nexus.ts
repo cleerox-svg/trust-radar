@@ -470,6 +470,9 @@ export const nexusAgent: AgentModule = {
   color: "#00d4ff",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 300,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

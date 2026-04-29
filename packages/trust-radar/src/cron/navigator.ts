@@ -416,6 +416,13 @@ export const navigatorAgent: AgentModule = {
   description: 'DNS resolution — independent 5-min cron',
   color: '#38BDF8',
   trigger: 'scheduled',
+  requiresApproval: false,
+  // Navigator runs every 5 min — a 30-min threshold tolerates ~6
+  // missed ticks before FC flags it stalled. Cost guard exempt:
+  // Navigator does DNS / KV / cube work, no AI calls.
+  stallThresholdMinutes: 30,
+  parallelMax: 1,
+  costGuard: 'exempt',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     // The orchestrator passes scheduledTime via input so per-tick

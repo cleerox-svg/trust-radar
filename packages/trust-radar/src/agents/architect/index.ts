@@ -59,6 +59,12 @@ export const architectAgent: AgentModule = {
   color: "#E5A832",
   trigger: "manual",
   requiresApproval: false,
+  // Architect is RETIRED 2026-04-29 (Phase 2.2 of agent audit). The
+  // module is kept as a typecheck reference but is not in agentModules.
+  // Threshold is high so any accidental dispatch isn't auto-recovered.
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

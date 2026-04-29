@@ -24,6 +24,9 @@ export const socialMonitorAgent: AgentModule = {
   color: "#3CB878",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 420,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

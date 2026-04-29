@@ -104,6 +104,15 @@ export const enricherAgent: AgentModule = {
   description: 'Domain geo, brand logo/HQ, and brand sector/RDAP enrichment — runs every hourly tick',
   color: '#22D3EE',
   trigger: 'scheduled',
+  requiresApproval: false,
+  stallThresholdMinutes: 75,
+  parallelMax: 1,
+  // Enricher's brand_sector_rdap step DOES make Haiku calls via
+  // brand-enricher's classifySector — but those land under the
+  // brand_enricher sync-agent attribution (via runSyncAgent in
+  // handleBackfillBrandSector). The Enricher's direct AI surface
+  // is zero, so cost guard is exempt at the orchestrator layer.
+  costGuard: 'exempt',
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

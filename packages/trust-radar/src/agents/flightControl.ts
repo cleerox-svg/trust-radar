@@ -125,71 +125,22 @@ const SCALING = {
   analyst:      { low: 50,  medium: 200,  high: 500,  max_parallel: 1 },
 } as const;
 
-// Minutes before an agent is considered stalled by Flight Control's
-// stall-recovery loop (recoverStalledAgents).
+// Stall-threshold map moved to per-agent `stallThresholdMinutes`
+// declarations on each AgentModule (Phase 4.1 of agent audit, AGENT_STANDARD §3).
+// FC reads them via getStallThresholdMap() below, so a new agent's
+// threshold ships with the agent — no out-of-band table to keep in sync.
 //
-// CRITICAL: this constant must contain an entry for every agent in
-// `agentModules` — anything missing falls back to the 60-minute default
-// (see `?? 60` in getAgentHealth). For agents with intended cadences
-// longer than 1 hour, the default short-circuits their schedule:
-//   - FC ticks every hour (orchestrator cron `7 * * * *`)
-//   - At each tick, FC sees `lastRunAge > 60min` for the slow agent
-//   - FC dispatches it via executeAgent(..., 'flight_control_recovery')
-//   - The orchestrator's hour gates (e.g. `hour % 6 === 0`) are bypassed
+// Choose `stallThresholdMinutes` ≈ (intended interval × 1.2) so a single
+// skipped tick doesn't trigger spurious recovery, but a hung agent still
+// recovers within one extra interval.
 //
-// Choose threshold ≈ (intended interval × 1.2) so a single skipped tick
-// or jittered run timing doesn't trigger spurious recovery, but a
-// genuinely-hung agent still gets recovered within one extra interval.
-//
-// History: prior to PR #814 only six agents were listed here; the
-// other 10+ defaulted to 60 minutes and were re-dispatched every hour
-// regardless of their actual schedule, producing platform-wide
-// cadence drift visible in agent_runs (e.g. sparrow running every 3h
-// instead of every 6h, pathfinder running every 1-2h instead of daily).
-const STALL_THRESHOLDS: Record<string, number> = {
-  // ─── Per-tick agents (every hour, orchestrator cron) ─────────────
-  sentinel:           75,
-  analyst:            75,
-  cartographer:       75,
-  flight_control:     75,    // self — FC runs every tick, never stalls in practice
-
-  // ─── Every 4 hours (hour % 4 === 0) ──────────────────────────────
-  nexus:              300,   // 5h
-
-  // ─── Every 6 hours (hour % 6 === 0) ──────────────────────────────
-  strategist:         420,   // 7h
-  sparrow:            420,   // 7h (was 120 — too tight, caused FC to re-dispatch sparrow every 3h)
-  social_monitor:     420,
-  social_discovery:   420,
-  app_store_monitor:  420,
-  dark_web_monitor:   420,
-
-  // ─── Daily (hour === 0/3/6) ──────────────────────────────────────
-  observer:           1500,  // 25h — fires at hour===0 in runThreatFeedScan
-  narrator:           1500,  // 25h — fires at hour===6 inside runObserverBriefing
-  // pathfinder: demoted to manual trigger 2026-04-29 (Phase 2.6 of
-  // agent audit). FC's recovery loop skips manual-trigger agents —
-  // see `if (mod.trigger === 'manual') continue` above.
-  seed_strategist:    1500,  // 25h — fires at hour===6 inside runObserverBriefing
-                             //       (currently auto-paused via agent_configs anyway)
-
-  // ─── Weekly (auto-seeder, Sunday 05:23 UTC) ──────────────────────
-  // Threshold = 7d × 1.2 = ~12100 min. Single missed tick won't
-  // trigger spurious recovery; a hung run gets recovered within one
-  // extra week. FC stall-recovery would re-dispatch via executeAgent
-  // off-schedule, which is the correct behaviour for an agent that
-  // mutates seeding state — better to plant a week early than skip
-  // a week if the cron itself is failing.
-  auto_seeder:        12100,
-
-  // ─── Event-driven (no cron schedule) ─────────────────────────────
-  // FC dispatches these when conditions warrant. The stall-recovery
-  // loop should NOT auto-fire them — that defeats the event-driven
-  // dispatch model. High threshold so they're effectively excluded
-  // from recovery without needing a separate skip-list.
-  curator:            1500,
-  watchdog:           1500,
-};
+// History: prior to PR #814 only six agents were listed in the
+// table-form constant; the other 10+ defaulted to 60 minutes and were
+// re-dispatched every hour regardless of their actual schedule,
+// producing platform-wide cadence drift visible in agent_runs (e.g.
+// sparrow running every 3h instead of every 6h). PR #814 added all
+// agents to the table; Phase 4.1 moved the values onto the modules
+// themselves so they're typecheck-enforced.
 
 /**
  * Dynamically derived from the agent registry — all agents are monitored.
@@ -212,6 +163,9 @@ export const flightControlAgent: AgentModule = {
   color: "#00d4ff",
   trigger: "scheduled",
   requiresApproval: false,
+  stallThresholdMinutes: 75,
+  parallelMax: 1,
+  costGuard: "exempt",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
@@ -819,10 +773,20 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
 
 // ─── Agent Health ────────────────────────────────────────────────
 
+/** Read each agent's `stallThresholdMinutes` declaration from its
+ *  AgentModule. Replaces the hardcoded STALL_THRESHOLDS map that lived
+ *  here pre-Phase 4.1 — supervision data is now owned by the module
+ *  itself (AGENT_STANDARD §3) so any change ships with the agent. */
+async function getStallThresholdMap(): Promise<Map<string, number>> {
+  const { agentModules: mods } = await import("./index");
+  return new Map(Object.entries(mods).map(([id, mod]) => [id, mod.stallThresholdMinutes]));
+}
+
 async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
   const agentIds = await getAgentsToMonitor();
   // Build a placeholder list for the IN clause
   const placeholders = agentIds.map(() => '?').join(',');
+  const stallThresholds = await getStallThresholdMap();
 
   const [results, avgResults, configResults] = await Promise.all([
     db.prepare(`
@@ -867,7 +831,7 @@ async function getAgentHealth(db: D1Database): Promise<AgentHealth[]> {
   return agentIds.map(agentId => {
     const latest = results.results.find(r => r.agent_id === agentId);
     const config = configMap.get(agentId);
-    const thresholdMs = (STALL_THRESHOLDS[agentId] ?? 60) * 60 * 1000;
+    const thresholdMs = (stallThresholds.get(agentId) ?? 60) * 60 * 1000;
     const lastRunAge = latest?.last_run_at
       ? Date.now() - new Date(latest.last_run_at + 'Z').getTime()
       : Infinity;

@@ -78,6 +78,9 @@ export const sentinelAgent: AgentModule = {
   color: "#C83C3C",
   trigger: "event",
   requiresApproval: false,
+  stallThresholdMinutes: 75,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

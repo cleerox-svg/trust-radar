@@ -111,6 +111,9 @@ export const honeypotGeneratorAgent: AgentModule = {
   color: "#F472B6",
   trigger: "api",
   requiresApproval: false,
+  stallThresholdMinutes: 10,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

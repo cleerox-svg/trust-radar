@@ -32,6 +32,9 @@ export const curatorAgent: AgentModule = {
   color: "#4ADE80",
   trigger: "event",
   requiresApproval: false,
+  stallThresholdMinutes: 1500,
+  parallelMax: 1,
+  costGuard: "enforced",
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
