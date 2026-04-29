@@ -40,7 +40,8 @@ export type AgentId =
   | 'url_scan'
   | 'scan_report'
   | 'social_ai_assessor'
-  | 'geo_campaign_assessment';
+  | 'geo_campaign_assessment'
+  | 'evidence_assembler';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -359,6 +360,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#FB7185',
     category: 'sync',
     pipelinePosition: 34,
+  },
+  evidence_assembler: {
+    id: 'evidence_assembler',
+    displayName: 'Evidence Assembler',
+    codename: 'evidence_assembler',
+    subtitle: 'Synchronous AI — generates structured takedown evidence packages from a takedown + collected intel (called by Sparrow per-tick + admin manual trigger)',
+    color: '#4ADE80',
+    category: 'sync',
+    pipelinePosition: 35,
   },
 };
 

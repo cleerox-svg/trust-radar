@@ -18,7 +18,7 @@
  *   1. haiku.ts.classifyThreat       → agentId from caller
  *   2. haiku.ts.callHaikuRaw          → agentId from caller
  *   3. agents/social-ai-assessor      → agentId="social_ai_assessor"
- *   4. lib/evidence-assembler         → agentId="evidence-assembler"
+ *   4. agents/evidence-assembler      → agentId="evidence_assembler"
  *   5. lib/brand-enricher.classifySector → agentId="brand-enricher"
  *   6. honeypot-generator             → agentId="honeypot-generator"
  *   7. canonical wrapper directly     → arbitrary agentId
@@ -33,6 +33,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vite
 
 import { classifyThreat, callHaikuRaw } from "../src/lib/haiku";
 import { socialAiAssessorAgent, type SocialAiAssessorInput } from "../src/agents/social-ai-assessor";
+import { evidenceAssemblerAgent, type EvidenceAssemblerInput } from "../src/agents/evidence-assembler";
 import { classifySector } from "../src/lib/brand-enricher";
 import { generateHoneypotSite } from "../src/honeypot-generator";
 import { callAnthropic } from "../src/lib/anthropic";
@@ -299,5 +300,58 @@ describe("budget_ledger coverage — every migrated surface lands a row", () => 
     // Sonnet 4.5: $3 in / $15 out per M tokens.
     // 1000 in → $0.003, 200 out → $0.003, total → $0.006
     expect(rows[0]!.cost_usd).toBeCloseTo(0.006, 6);
+  });
+
+  it("agents/evidence-assembler writes a ledger row with agentId='evidence_assembler'", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(
+        buildJsonReply(
+          JSON.stringify({
+            target_summary:
+              "The reported account is impersonating Acme on Twitter using a near-identical handle and copied profile photo to harvest customer credentials.",
+            brand_impact:
+              "End-users redirected to phishing pages believing they're contacting Acme support; trust loss + credential harvest hits the bank's customers directly.",
+            technical_evidence:
+              "Profile created 2026-04-12, hosted IPs trace to AS39501 (known phishing infrastructure), threat-feed signals: 14 active phishing URLs cross-referencing the lookalike domain.",
+            recommended_action:
+              "File abuse report with Twitter under impersonation policy; request immediate suspension and preservation of activity logs.",
+            provider_submission_draft:
+              "Subject: Brand-impersonation takedown — @acme_official_real on Twitter. Hello, Averrow has confirmed the account in question is impersonating our customer Acme. Evidence is available on request. Please remove the account under your impersonation policy.",
+          }),
+        ),
+      ),
+    );
+
+    const input: EvidenceAssemblerInput = {
+      takedownId: "td-test-1",
+      targetType: "social_account",
+      targetValue: "@acme_official_real",
+      targetPlatform: "twitter",
+      targetUrl: "https://twitter.com/acme_official_real",
+      brandJson: JSON.stringify({ name: "Acme", canonical_domain: "acme.com" }),
+      relatedThreatsJson: JSON.stringify([{ type: "phishing", count: 14 }]),
+      urlScanJson: JSON.stringify("None"),
+      socialProfileJson: JSON.stringify({ platform: "twitter", handle: "acme_official_real" }),
+      whoisJson: JSON.stringify({ asn: "AS39501" }),
+      existingEvidenceJson: JSON.stringify([]),
+      providerJson: JSON.stringify({ provider_name: "twitter" }),
+    };
+
+    const { db, rows } = makeFakeDb();
+    const result = await evidenceAssemblerAgent.execute({
+      env: makeEnv(db) as never,
+      runId: "run-evidence-1",
+      agentName: "evidence_assembler",
+      input: input as unknown as Record<string, unknown>,
+      triggeredBy: null,
+    });
+
+    const output = result.output as { aiSucceeded: boolean; targetSummary: string };
+    expect(output.aiSucceeded).toBe(true);
+    expect(output.targetSummary.length).toBeGreaterThan(20);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.agent_id).toBe("evidence_assembler");
+    expect(rows[0]!.run_id).toBe("run-evidence-1");
+    expect(rows[0]!.cost_usd).toBeGreaterThan(0);
   });
 });

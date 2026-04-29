@@ -49,7 +49,7 @@ const EXPECTED_LEDGER_AGENT_IDS = [
   "brand-deep-scan",
   "brand-enricher",
   "brand-report",
-  "evidence-assembler",
+  "evidence_assembler",
   "geo_campaign_assessment",
   "honeypot-generator",
   "lookalike-scanner",
