@@ -29,7 +29,8 @@ export type AgentId =
   | 'seed_strategist'
   | 'enricher'
   | 'public_trust_check'
-  | 'qualified_report';
+  | 'qualified_report'
+  | 'brand_analysis';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -249,6 +250,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#FB7185',
     category: 'sync',
     pipelinePosition: 23,
+  },
+  brand_analysis: {
+    id: 'brand_analysis',
+    displayName: 'Brand Analysis',
+    codename: 'brand_analysis',
+    subtitle: 'Synchronous AI — per-brand threat assessments for the brand detail page (Haiku, structured JSON)',
+    color: '#FB923C',
+    category: 'sync',
+    pipelinePosition: 24,
   },
 };
 

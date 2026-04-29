@@ -36,7 +36,8 @@ export type AgentName =
   | "navigator"
   | "enricher"
   | "public_trust_check"
-  | "qualified_report";
+  | "qualified_report"
+  | "brand_analysis";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

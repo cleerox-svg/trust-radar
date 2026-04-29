@@ -246,6 +246,29 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Brand Analysis — synchronous AI agent for the brand detail page.
+  // Magnifying glass over a stylised shield (brand mark) — visual
+  // metaphor for "examining a brand's threat surface."
+  brand_analysis: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* shield (brand mark) */}
+      <path
+        d="M11 7 L18 5 L25 7 L25 17 C25 22 22 25 18 28 C14 25 11 22 11 17 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.5"
+      />
+      {/* shield-internal score line */}
+      <line x1="14" y1="13" x2="22" y2="13" stroke="currentColor" strokeWidth="0.9" opacity="0.5" />
+      <line x1="14" y1="16" x2="22" y2="16" stroke="currentColor" strokeWidth="0.9" opacity="0.35" />
+      {/* magnifying glass — body */}
+      <circle cx="22" cy="22" r="6" stroke="currentColor" strokeWidth="1.6" />
+      {/* magnifying glass — handle */}
+      <line x1="26.5" y1="26.5" x2="32" y2="32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+
   // Public Trust Check — synchronous AI agent for the homepage
   // /api/v1/public/assess endpoint. Lightning bolt (sync / instant)
   // crossing a stylised waveform / response pulse (AI text response).

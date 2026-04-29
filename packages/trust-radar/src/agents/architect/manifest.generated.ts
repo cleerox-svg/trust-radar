@@ -67,6 +67,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-29T02:55:52.672Z"
     },
     {
+      "name": "brand-analysis",
+      "path": "packages/trust-radar/src/agents/brand-analysis.ts",
+      "entrypoint": "brandAnalysisAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 235,
+      "last_modified": "2026-04-29T04:36:03.549Z"
+    },
+    {
       "name": "cartographer",
       "path": "packages/trust-radar/src/agents/cartographer.ts",
       "entrypoint": "cartographerAgent",
@@ -321,7 +334,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 272,
-      "last_modified": "2026-04-29T04:22:36.572Z"
+      "last_modified": "2026-04-29T04:33:30.665Z"
     },
     {
       "name": "seed-strategist",
@@ -893,7 +906,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 22,
+    "agents": 23,
     "feeds": 40,
     "crons": 3,
     "workers": 1
