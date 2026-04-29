@@ -19,6 +19,8 @@ const BrandDetail = React.lazy(() => import('@/features/brands/BrandDetail').the
 const Apps = React.lazy(() => import('@/features/apps/Apps').then(m => ({ default: m.Apps })));
 const DarkWeb = React.lazy(() => import('@/features/dark-web/DarkWeb').then(m => ({ default: m.DarkWeb })));
 const Agents = React.lazy(() => import('@/features/agents/Agents').then(m => ({ default: m.Agents })));
+const AgentApprovals = React.lazy(() => import('@/features/agents/AgentApprovals').then(m => ({ default: m.AgentApprovals })));
+const AgentReview = React.lazy(() => import('@/features/agents/AgentReview').then(m => ({ default: m.AgentReview })));
 const Takedowns = React.lazy(() => import('@/features/takedowns/Takedowns').then(m => ({ default: m.Takedowns })));
 const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m => ({ default: m.SpamTrap })));
 const Alerts = React.lazy(() => import('@/features/alerts/Alerts').then(m => ({ default: m.Alerts })));
@@ -135,6 +137,8 @@ export default function App() {
         <Route path="threat-actors/:actorId" element={lazyRoute(<ThreatActorDetail />)} />
         <Route path="trends" element={lazyRoute(<Trends />)} />
         <Route path="agents" element={lazyRoute(<Agents />)} />
+        <Route path="agents/approvals" element={lazyRoute(<AgentApprovals />)} />
+        <Route path="agents/:id/review" element={lazyRoute(<AgentReview />)} />
         <Route path="agents/architect" element={lazyRoute(<ArchitectDetail />)} />
         <Route path="alerts" element={lazyRoute(<Alerts />)} />
         <Route path="leads" element={lazyRoute(<Leads />)} />

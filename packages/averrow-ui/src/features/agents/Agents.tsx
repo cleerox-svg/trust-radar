@@ -1,5 +1,8 @@
 import { Fragment, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus } from '@/hooks/useAgents';
+import { usePendingApprovals } from '@/hooks/useAgentApprovals';
 import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, PipelineEntry } from '@/hooks/useAgents';
 import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
 import { SectionLabel } from '@/components/ui/SectionLabel';
@@ -22,6 +25,33 @@ import {
 } from 'recharts';
 
 type AgentTab = 'MONITOR' | 'HISTORY' | 'CONFIG';
+
+// ─── Pending-approvals link (Phase 5.4c) ─────────────────────────
+//
+// Surfaces the count of agents currently in pending /
+// changes_requested state and links to the queue page. Hidden when
+// there's nothing pending so the header stays clean.
+function PendingApprovalsLink() {
+  const { data } = usePendingApprovals();
+  const count = data?.total ?? 0;
+  if (count === 0) return null;
+  return (
+    <Link
+      to="/v2/agents/approvals"
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono text-[10px] font-bold uppercase tracking-wide hover:opacity-100"
+      style={{
+        background: 'rgba(229,168,50,0.12)',
+        color: 'var(--amber)',
+        border: '1px solid rgba(229,168,50,0.30)',
+        opacity: 0.95,
+      }}
+      title="Agents awaiting deployment review (AGENT_STANDARD §12.1)"
+    >
+      <ShieldCheck size={12} />
+      {count} pending
+    </Link>
+  );
+}
 
 // ─── Visual grouping ────────────────────────────────────────────────
 //
@@ -882,7 +912,12 @@ export function Agents() {
       <PageHeader
         title="AI Agent Operations"
         subtitle="AI agent mesh — threat intelligence automation"
-        actions={<LiveIndicator />}
+        actions={
+          <div className="flex items-center gap-3">
+            <PendingApprovalsLink />
+            <LiveIndicator />
+          </div>
+        }
       />
 
       {/* Tab switcher */}
