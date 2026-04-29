@@ -2,9 +2,77 @@ import { useState, useMemo } from 'react';
 import { useSpamTrapAddresses, useSeedingSources } from '@/hooks/useSpamTrap';
 import type { SeedAddress } from '@/hooks/useSpamTrap';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { Target, Search } from 'lucide-react';
+import { Target, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/design-system/components';
+import { relativeTime } from '@/lib/time';
+
+// ─── Yield buckets ────────────────────────────────────────────────
+//
+// Replaces the binary "active/inactive" status dot with a four-bucket
+// classification that surfaces what an operator actually wants to know:
+// is this address productive, stale, dead, or too new to judge?
+//
+//   CAUGHT  — caught at least once in the last 30 days. Still hot.
+//   STALE   — caught at some point but not in the last 30 days. May
+//             have aged out of harvester lists.
+//   DEAD    — seeded >30 days ago, has never caught anything. Channel
+//             is unproductive or the seeding location wasn't harvested.
+//   PENDING — seeded within the last 30 days, hasn't caught anything
+//             yet. Too early to judge.
+//
+// The 30-day cutoff is arbitrary but matches the trap-data window used
+// elsewhere (cube retention, agent_runs trend windows).
+
+type YieldBucket = 'caught' | 'stale' | 'dead' | 'pending';
+
+const BUCKET_LABEL: Record<YieldBucket, string> = {
+  caught: 'Caught',
+  stale: 'Stale',
+  dead: 'Dead seeds',
+  pending: 'Pending',
+};
+
+const BUCKET_DESCRIPTION: Record<YieldBucket, string> = {
+  caught: 'caught a real email in the last 30 days',
+  stale: 'caught at some point but quiet for >30 days',
+  dead: 'seeded >30 days ago, never caught anything — channel is unproductive',
+  pending: 'seeded recently, no captures yet — too early to judge',
+};
+
+const BUCKET_DOT_CLASS: Record<YieldBucket, string> = {
+  caught: 'dot-pulse dot-pulse-green',
+  stale: 'dot-pulse dot-pulse-amber',
+  dead: 'inline-block w-1.5 h-1.5 rounded-full bg-red-400/60',
+  pending: 'inline-block w-1.5 h-1.5 rounded-full bg-white/30',
+};
+
+const STALE_DAYS = 30;
+
+function classifyAddress(addr: SeedAddress, nowMs: number): YieldBucket {
+  if (addr.total_catches > 0 && addr.last_catch_at) {
+    const lastMs = new Date(addr.last_catch_at).getTime();
+    if (Number.isFinite(lastMs) && (nowMs - lastMs) / 86_400_000 <= STALE_DAYS) {
+      return 'caught';
+    }
+    return 'stale';
+  }
+  // Never caught — pending vs dead depends on seed age.
+  if (addr.seeded_at) {
+    const seededMs = new Date(addr.seeded_at).getTime();
+    if (Number.isFinite(seededMs) && (nowMs - seededMs) / 86_400_000 <= STALE_DAYS) {
+      return 'pending';
+    }
+  }
+  return 'dead';
+}
+
+function daysAgo(iso: string | null, nowMs: number): string {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return '—';
+  return relativeTime(iso);
+}
 
 const CHANNEL_COLORS: Record<string, string> = {
   employee: '#E5A832',
@@ -22,14 +90,28 @@ const SOURCE_COLORS: Record<string, string> = {
   directory: '#4ADE80',
 };
 
-const PAGE_SIZE = 15;
+const BUCKET_ORDER: YieldBucket[] = ['caught', 'stale', 'pending', 'dead'];
+
+// Default-expanded buckets — the productive ones. `dead` stays collapsed
+// because there are typically dozens to hundreds of dead seeds and
+// scrolling them is exactly what we're trying to eliminate.
+const DEFAULT_EXPANDED: YieldBucket[] = ['caught', 'stale'];
 
 export function HoneypotNetworkPanel() {
   const { data: addresses, isLoading, isError, refetch } = useSpamTrapAddresses();
   const { data: seedingData } = useSeedingSources();
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
   const [activeTab, setActiveTab] = useState<'network' | 'sources' | 'activity'>('network');
+  const [expanded, setExpanded] = useState<Set<YieldBucket>>(new Set(DEFAULT_EXPANDED));
+
+  const toggleBucket = (b: YieldBucket): void => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     if (!addresses) return [];
@@ -43,16 +125,47 @@ export function HoneypotNetworkPanel() {
     );
   }, [addresses, search]);
 
-  const channelCounts = useMemo(() => {
-    if (!addresses) return [];
-    const map: Record<string, number> = {};
-    for (const a of addresses) {
-      map[a.channel] = (map[a.channel] || 0) + 1;
+  // Bucket every filtered address by yield. Sort within each bucket by
+  // recency: caught/stale by last_catch_at desc, pending/dead by
+  // seeded_at desc (newest seeds first so old dead seeds drop to the
+  // bottom).
+  const buckets = useMemo(() => {
+    const nowMs = Date.now();
+    const result: Record<YieldBucket, SeedAddress[]> = {
+      caught: [], stale: [], pending: [], dead: [],
+    };
+    for (const a of filtered) {
+      result[classifyAddress(a, nowMs)].push(a);
     }
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const sortByRecentCatch = (a: SeedAddress, b: SeedAddress): number =>
+      new Date(b.last_catch_at ?? 0).getTime() - new Date(a.last_catch_at ?? 0).getTime();
+    const sortBySeed = (a: SeedAddress, b: SeedAddress): number =>
+      new Date(b.seeded_at ?? 0).getTime() - new Date(a.seeded_at ?? 0).getTime();
+    result.caught.sort(sortByRecentCatch);
+    result.stale.sort(sortByRecentCatch);
+    result.pending.sort(sortBySeed);
+    result.dead.sort(sortBySeed);
+    return result;
+  }, [filtered]);
+
+  // Per-channel: total seeded vs how many ever caught at least one
+  // email. Surfaces the productivity-by-channel signal that was hidden
+  // by the green-dot status column ("everything's healthy" → reality:
+  // most channels never catch anything).
+  const channelCounts = useMemo(() => {
+    if (!addresses) return [] as Array<{ channel: string; seeded: number; productive: number }>;
+    const map: Record<string, { seeded: number; productive: number }> = {};
+    for (const a of addresses) {
+      if (!map[a.channel]) map[a.channel] = { seeded: 0, productive: 0 };
+      map[a.channel].seeded += 1;
+      if (a.total_catches > 0) map[a.channel].productive += 1;
+    }
+    return Object.entries(map)
+      .map(([channel, v]) => ({ channel, ...v }))
+      .sort((a, b) => b.seeded - a.seeded);
   }, [addresses]);
 
-  const maxCount = channelCounts.length > 0 ? channelCounts[0][1] : 1;
+  const maxCount = channelCounts.length > 0 ? channelCounts[0].seeded : 1;
 
   // Group seeding sources by type prefix (spider:*, broker:*, etc.)
   const seedingGroups = useMemo(() => {
@@ -70,13 +183,8 @@ export function HoneypotNetworkPanel() {
 
   const maxSourceSeeds = seedingGroups.length > 0 ? seedingGroups[0][1].seeds : 1;
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  // Reset page when search changes
   const handleSearch = (val: string) => {
     setSearch(val);
-    setPage(0);
   };
 
   if (isError) {
@@ -149,22 +257,27 @@ export function HoneypotNetworkPanel() {
               <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-1">
                 Seeds by Channel
               </div>
-              {channelCounts.map(([channel, count]) => (
+              {channelCounts.map(({ channel, seeded, productive }) => (
                 <div key={channel} className="flex items-center gap-2">
                   <span className="font-mono text-[10px] text-white/50 w-[100px] truncate">
                     {channel}
                   </span>
-                  <div className="flex-1 h-4 bg-white/5 rounded-sm overflow-hidden">
+                  <div className="flex-1 h-4 bg-white/5 rounded-sm overflow-hidden relative">
                     <div
                       className="h-full rounded-sm transition-all"
                       style={{
-                        width: `${(count / maxCount) * 100}%`,
+                        width: `${(seeded / maxCount) * 100}%`,
                         backgroundColor: CHANNEL_COLORS[channel] || 'rgba(255,255,255,0.3)',
+                        opacity: productive > 0 ? 1 : 0.35,
                       }}
                     />
                   </div>
-                  <span className="font-mono text-[10px] text-white/40 w-6 text-right">
-                    {count}
+                  <span
+                    className="font-mono text-[10px] w-[44px] text-right tabular-nums"
+                    style={{ color: productive > 0 ? '#4ADE80' : 'rgba(255,255,255,0.30)' }}
+                    title={`${productive} of ${seeded} addresses on this channel have caught at least once`}
+                  >
+                    {productive}/{seeded}
                   </span>
                 </div>
               ))}
@@ -343,85 +456,16 @@ export function HoneypotNetworkPanel() {
         </div>
       )}
 
-      {/* Table — only on network tab */}
+      {/* Collapsible bucket groups — only on network tab */}
       {activeTab === 'network' && (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Address</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Channel</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Location</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2 pr-2">Catches</th>
-                  <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading
-                  ? Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}>
-                        <td className="py-2 pr-2"><Skeleton className="h-4 w-40" /></td>
-                        <td className="py-2 pr-2"><Skeleton className="h-4 w-20" /></td>
-                        <td className="py-2 pr-2"><Skeleton className="h-4 w-28" /></td>
-                        <td className="py-2 pr-2"><Skeleton className="h-4 w-8" /></td>
-                        <td className="py-2"><Skeleton className="h-4 w-4" /></td>
-                      </tr>
-                    ))
-                  : pageItems.map((addr: SeedAddress) => (
-                      <tr key={addr.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                        <td className="py-2 pr-2">
-                          <span
-                            className="font-mono text-[11px] text-[rgba(255,255,255,0.74)] block truncate max-w-[200px]"
-                            title={addr.address}
-                          >
-                            {addr.address.length > 30 ? addr.address.slice(0, 30) + '…' : addr.address}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-2">
-                          <span
-                            className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                            style={{
-                              background: 'var(--bg-input)',
-                              border: '1px solid var(--border-base)',
-                              color: CHANNEL_COLORS[addr.channel] || 'var(--text-secondary)',
-                            }}
-                          >
-                            {addr.channel}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-2">
-                          <span
-                            className="text-[11px] text-white/40 block truncate max-w-[220px]"
-                            title={addr.seeded_location || ''}
-                          >
-                            {addr.seeded_location
-                              ? addr.seeded_location.length > 35
-                                ? addr.seeded_location.slice(0, 35) + '…'
-                                : addr.seeded_location
-                              : '—'}
-                          </span>
-                        </td>
-                        <td className="py-2 pr-2">
-                          {addr.total_catches > 0 ? (
-                            <span className="font-mono text-[11px] text-red-400 font-semibold">{addr.total_catches}</span>
-                          ) : (
-                            <span className="font-mono text-[11px] text-white/40">—</span>
-                          )}
-                        </td>
-                        <td className="py-2">
-                          <span
-                            className={addr.status === 'active' ? 'dot-pulse dot-pulse-green' : 'dot-pulse dot-pulse-gray'}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Empty state */}
-          {!isLoading && filtered.length === 0 && (
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={search ? <Search /> : <Target />}
               title={search ? 'No matching addresses' : 'No seed addresses deployed'}
@@ -431,28 +475,131 @@ export function HoneypotNetworkPanel() {
               variant={search ? 'clean' : 'scanning'}
               compact
             />
-          )}
+          ) : (
+            <div className="space-y-2">
+              {BUCKET_ORDER.map((bucket) => {
+                const items = buckets[bucket];
+                if (items.length === 0) return null;
+                const isOpen = expanded.has(bucket);
+                const accent =
+                  bucket === 'caught' ? '#4ADE80'
+                  : bucket === 'stale' ? '#fbbf24'
+                  : bucket === 'pending' ? 'rgba(255,255,255,0.45)'
+                  : '#f87171';
+                return (
+                  <div key={bucket} className="rounded-lg border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                    <button
+                      onClick={() => toggleBucket(bucket)}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.03] transition-colors text-left"
+                    >
+                      {isOpen
+                        ? <ChevronDown className="w-3.5 h-3.5 text-white/50 shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-white/50 shrink-0" />}
+                      <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: accent }}>
+                        {BUCKET_LABEL[bucket]}
+                      </span>
+                      <span className="font-mono text-[10px] tabular-nums" style={{ color: accent }}>
+                        {items.length}
+                      </span>
+                      <span
+                        className="font-mono text-[9px] text-white/35 truncate"
+                        title={BUCKET_DESCRIPTION[bucket]}
+                      >
+                        — {BUCKET_DESCRIPTION[bucket]}
+                      </span>
+                    </button>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
-              <button
-                onClick={() => setPage(Math.max(0, page - 1))}
-                disabled={page === 0}
-                className="px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-xs font-mono text-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                Prev
-              </button>
-              <span className="font-mono text-[10px] text-white/50">
-                {page + 1} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
-                disabled={page >= totalPages - 1}
-                className="px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-xs font-mono text-white/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+                    {isOpen && (
+                      <div className="overflow-x-auto border-t border-white/[0.04]">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-white/[0.06]">
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pl-3 pb-1.5 pt-1.5 pr-2">Address</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-2">Channel</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-2">Location</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-2">Catches</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-2">Last catch</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-2">Seeded</th>
+                              <th className="font-mono text-[9px] uppercase tracking-wider text-white/50 pb-1.5 pt-1.5 pr-3"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {items.map((addr) => {
+                              const nowMs = Date.now();
+                              const addrBucket = classifyAddress(addr, nowMs);
+                              return (
+                                <tr key={addr.id} className="border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-colors">
+                                  <td className="py-1.5 pl-3 pr-2">
+                                    <span
+                                      className="font-mono text-[11px] text-[rgba(255,255,255,0.74)] block truncate max-w-[200px]"
+                                      title={addr.address}
+                                    >
+                                      {addr.address.length > 30 ? addr.address.slice(0, 30) + '…' : addr.address}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <span
+                                      className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                                      style={{
+                                        background: 'var(--bg-input)',
+                                        border: '1px solid var(--border-base)',
+                                        color: CHANNEL_COLORS[addr.channel] || 'var(--text-secondary)',
+                                      }}
+                                    >
+                                      {addr.channel}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <span
+                                      className="text-[11px] text-white/40 block truncate max-w-[180px]"
+                                      title={addr.seeded_location || ''}
+                                    >
+                                      {addr.seeded_location
+                                        ? addr.seeded_location.length > 28
+                                          ? addr.seeded_location.slice(0, 28) + '…'
+                                          : addr.seeded_location
+                                        : '—'}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {addr.total_catches > 0 ? (
+                                      <span className="font-mono text-[11px] text-red-400 font-semibold tabular-nums">{addr.total_catches}</span>
+                                    ) : (
+                                      <span className="font-mono text-[11px] text-white/30">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <span
+                                      className="font-mono text-[11px] text-white/55 tabular-nums"
+                                      title={addr.last_catch_at ?? 'never'}
+                                    >
+                                      {daysAgo(addr.last_catch_at, Date.now())}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <span
+                                      className="font-mono text-[11px] text-white/40 tabular-nums"
+                                      title={addr.seeded_at ?? 'unknown'}
+                                    >
+                                      {daysAgo(addr.seeded_at, Date.now())}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 pr-3 text-right">
+                                    <span
+                                      className={BUCKET_DOT_CLASS[addrBucket]}
+                                      title={`${BUCKET_LABEL[addrBucket]}: ${BUCKET_DESCRIPTION[addrBucket]}`}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
