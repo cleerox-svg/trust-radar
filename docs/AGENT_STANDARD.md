@@ -324,6 +324,50 @@ Sync agents render in their own AGENT_GROUPS entry: **"Synchronous AI"** group. 
 - **One-off card layouts** (every agent uses the same `<AgentCard agent={...} />` shared component).
 - **Agent counts hardcoded as integers** (`AGENT_LIST.length`, never `19`).
 
+### 7.6 Flight Control card — embedded Agent Mesh
+
+The `flight_control` agent owns a wider card at the top of the Agents page. Its body has a left/center/right layout:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  [Icon]  Flight Control  ●         │   AGENT MESH         │ Token   │
+│         Autonomous supervisor —    │  ┌── Detection &     │ budget  │
+│         parallel scaling, stall    │  │   Intelligence  N │  ▮▮▮▯   │
+│         recovery, token budget…    │  │  [pills…]         │         │
+│                                    │  ├── Response      N │ Backlog │
+│                                    │  │  [pill]           │ counters│
+│                                    │  ├── Operations   N │  …      │
+│                                    │  │  [pills…]         │         │
+│                                    │  ├── Meta          0 │         │
+│                                    │  │  (hidden if empty)│         │
+│                                    │  └── Other         N │         │
+│                                    │     [pills…]         │         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+The center "AGENT MESH" panel renders **every other agent** as a status pill — every non-`flight_control` row in `agentModules`. Pills are bucketed by `AGENT_METADATA[id].category` in pipeline order:
+
+1. `Detection & Intelligence` (intelligence)
+2. `Response` (response)
+3. `Operations` (ops)
+4. `Meta` (meta)
+5. `Other` — defensive fallback for any agent whose metadata is missing or has an unknown category. Agents must NEVER disappear from the mesh just because metadata wasn't wired correctly.
+
+Per-group rules:
+
+- Empty buckets (zero agents in the category) are hidden, not shown as empty headers.
+- Each header is a small uppercase label + agent count to the right (`OPERATIONS  5`).
+- Pill visual is unchanged across categories — same border, status dot, color, displayName.
+- Pipeline-position ordering within a bucket is not enforced (insertion order from `useAgents()` is fine for now).
+
+Pill structure (single source of truth — used here AND on the Agents page card grid):
+
+- `<AgentStatusBadge status={a.status} />` — status dot (active green / paused amber / shadow blue / retired grey).
+- Display name in `AGENT_METADATA[id].color`.
+- Border `var(--border-base)`, transparent background.
+
+If a new agent is added but the `Detection & Intelligence` / `Response` / `Operations` / `Meta` taxonomy doesn't fit, **first** propose extending the categories union in `AgentMetadata.category`. Don't add it as `'other'` and ship — that's a code smell and the audit will catch it.
+
 <a id="8-ai-guardrails"></a>
 ## 8. AI-specific guardrails
 
