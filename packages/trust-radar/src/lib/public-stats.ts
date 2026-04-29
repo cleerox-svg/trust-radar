@@ -7,12 +7,12 @@
 // the cache miss + reduces D1 traffic for high-traffic landing pages).
 //
 // Returns formatted strings (not raw numbers) so the template stays
-// dumb — eg: "33+" for feeds, "17" for agents, "210K+" for threats.
+// dumb — eg: "33+" for feeds, "18" for agents, "210K+" for threats.
 
 import type { Env } from "../types";
 
 export interface PublicStats {
-  agents_deployed: string;     // e.g. "17"
+  agents_deployed: string;     // e.g. "18"
   feeds_protecting: string;    // e.g. "33+"
   threats_detected: string;    // e.g. "210K+"
   brands_monitored: string;    // e.g. "9.6K+"
@@ -26,7 +26,7 @@ const CACHE_KEY = "public_stats:v1";
 const CACHE_TTL_S = 600; // 10 min
 
 const FALLBACK: PublicStats = {
-  agents_deployed: "17",
+  agents_deployed: "18",
   feeds_protecting: "33+",
   threats_detected: "210K+",
   brands_monitored: "9.6K+",
@@ -69,7 +69,7 @@ export async function getPublicStats(env: Env): Promise<PublicStats> {
     ]);
 
     const stats: PublicStats = {
-      agents_deployed: String(agents?.n ?? 17),
+      agents_deployed: String(agents?.n ?? 18),
       feeds_protecting: feeds?.n ? `${feeds.n}+` : FALLBACK.feeds_protecting,
       threats_detected: threats?.n ? formatBigNumber(threats.n) : FALLBACK.threats_detected,
       brands_monitored: brands?.n ? formatBigNumber(brands.n) : FALLBACK.brands_monitored,
