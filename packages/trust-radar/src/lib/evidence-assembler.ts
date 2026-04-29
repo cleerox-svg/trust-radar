@@ -7,8 +7,8 @@
  */
 
 import type { Env, TakedownRequest } from "../types";
-import { callAnthropicJSON, AnthropicError } from "./anthropic";
-import { HOT_PATH_HAIKU } from "./ai-models";
+import { runSyncAgent } from "./agentRunner";
+import { evidenceAssemblerAgent, type EvidenceAssemblerInput, type EvidenceAssemblerOutput } from "../agents/evidence-assembler";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -25,15 +25,6 @@ export interface EvidencePackage {
     content: string;
     metadata?: Record<string, unknown>;
   }>;
-}
-
-interface AiReport {
-  target_summary?: string;
-  brand_impact?: string;
-  technical_evidence?: string;
-  recommended_action?: string;
-  provider_submission_draft?: string;
-  raw_text?: string;
 }
 
 // ─── Main ───────────────────────────────────────────────────────
@@ -58,9 +49,34 @@ export async function assembleEvidence(
   // 2. Collect all available intelligence based on target type
   const intel = await collectIntelligence(env, takedown);
 
-  // 3. Call Haiku to generate structured evidence report
-  const prompt = buildEvidencePrompt(takedown, intel);
-  const aiReport = await callHaiku(env, prompt);
+  // 3. Hand the takedown + intel bundle to the evidence_assembler
+  //    sync agent. The agent owns the AI call (cost guard, schema
+  //    validation, deterministic fallback). Each call lands a
+  //    sync agent_runs row so FC supervision and budget_ledger
+  //    attribution work uniformly.
+  const agentInput: EvidenceAssemblerInput = {
+    takedownId,
+    targetType: takedown.target_type,
+    targetValue: takedown.target_value,
+    targetPlatform: takedown.target_platform || null,
+    targetUrl: takedown.target_url || null,
+    brandJson: truncateJson(intel.brand ?? "Unknown"),
+    relatedThreatsJson: truncateJson(intel.related_threats ?? []),
+    urlScanJson: truncateJson(intel.url_scan ?? "None"),
+    socialProfileJson: truncateJson(intel.social_profile ?? "None"),
+    whoisJson: truncateJson(intel.whois ?? "None"),
+    existingEvidenceJson: truncateJson(intel.existing_evidence ?? []),
+    providerJson: truncateJson(intel.provider ?? "Unknown"),
+  };
+  const { data: aiReport } = await runSyncAgent<EvidenceAssemblerOutput>(env, evidenceAssemblerAgent, agentInput);
+  // The agent always produces a valid output (deterministic fallback
+  // path on any AI failure). If `data` is null the agent's input
+  // schema rejected our bundle — surface the takedown's existing
+  // detail and let the operator inspect it.
+  const evidenceText =
+    aiReport?.targetSummary ||
+    takedown.evidence_detail ||
+    "";
 
   // 4. Save AI evidence report
   await env.DB.prepare(`
@@ -69,14 +85,14 @@ export async function assembleEvidence(
   `).bind(
     crypto.randomUUID(),
     takedownId,
-    aiReport.target_summary || aiReport.raw_text || "",
-    JSON.stringify(aiReport),
+    evidenceText,
+    JSON.stringify(aiReport ?? { error: "agent_input_rejected" }),
   ).run();
 
   // 5. Update takedown with enriched evidence
   const updatedDetail =
-    aiReport.provider_submission_draft ||
-    aiReport.target_summary ||
+    aiReport?.providerSubmissionDraft ||
+    aiReport?.targetSummary ||
     takedown.evidence_detail;
 
   await env.DB.prepare(`
@@ -88,17 +104,30 @@ export async function assembleEvidence(
   // 6. Build response
   return {
     takedown_id: takedownId,
-    target_summary: aiReport.target_summary || "",
-    brand_impact: aiReport.brand_impact || "",
-    technical_evidence: aiReport.technical_evidence || "",
-    recommended_action: aiReport.recommended_action || "",
-    provider_submission_draft: aiReport.provider_submission_draft || "",
+    target_summary: aiReport?.targetSummary || "",
+    brand_impact: aiReport?.brandImpact || "",
+    technical_evidence: aiReport?.technicalEvidence || "",
+    recommended_action: aiReport?.recommendedAction || "",
+    provider_submission_draft: aiReport?.providerSubmissionDraft || "",
     evidence_items: (intel.existing_evidence || []).map((e) => ({
       type: (e as Record<string, unknown>).evidence_type as string,
       title: (e as Record<string, unknown>).title as string,
       content: (e as Record<string, unknown>).content_text as string,
     })),
   };
+}
+
+// ─── Intel JSON helper ──────────────────────────────────────────
+//
+// The evidence_assembler agent's input schema length-caps each JSON
+// blob to keep the prompt predictable. Truncate here so a brand with
+// thousands of related threats doesn't bust the schema and force the
+// run to its deterministic fallback.
+
+function truncateJson(value: unknown, maxChars = 7500): string {
+  const json = JSON.stringify(value, null, 2);
+  if (json.length <= maxChars) return json;
+  return json.slice(0, maxChars - 30) + '..."<truncated>"]';
 }
 
 // ─── Intelligence Collection ────────────────────────────────────
@@ -188,70 +217,8 @@ async function collectIntelligence(
   return intel;
 }
 
-// ─── AI Report Generation ───────────────────────────────────────
-
-async function callHaiku(env: Env, prompt: string): Promise<AiReport> {
-  try {
-    const { parsed } = await callAnthropicJSON<AiReport>(env, {
-      agentId: "evidence-assembler",
-      runId: null,
-      model: HOT_PATH_HAIKU,
-      messages: [{ role: "user", content: prompt }],
-      maxTokens: 2000,
-      timeoutMs: 25_000,
-    });
-    return parsed;
-  } catch (err) {
-    // The wrapper throws AnthropicError on parse failure too. Fall back
-    // to raw_text so the caller still gets something usable.
-    if (err instanceof AnthropicError) {
-      return { raw_text: err.body ?? err.message };
-    }
-    return { raw_text: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-// ─── Prompt Builder ─────────────────────────────────────────────
-
-function buildEvidencePrompt(
-  takedown: TakedownRequest,
-  intel: IntelBundle,
-): string {
-  return `You are a cybersecurity analyst preparing evidence for a brand abuse takedown request. Generate a structured evidence package.
-
-TARGET:
-- Type: ${takedown.target_type}
-- Value: ${takedown.target_value}
-- Platform: ${takedown.target_platform || "N/A"}
-- URL: ${takedown.target_url || "N/A"}
-
-BRAND BEING PROTECTED:
-${JSON.stringify(intel.brand || "Unknown", null, 2)}
-
-THREAT INTELLIGENCE:
-${JSON.stringify(intel.related_threats || [], null, 2)}
-
-URL SCAN DATA:
-${JSON.stringify(intel.url_scan || "None", null, 2)}
-
-SOCIAL PROFILE DATA:
-${JSON.stringify(intel.social_profile || "None", null, 2)}
-
-INFRASTRUCTURE:
-${JSON.stringify(intel.whois || "None", null, 2)}
-
-EXISTING EVIDENCE:
-${JSON.stringify(intel.existing_evidence || [], null, 2)}
-
-PROVIDER:
-${JSON.stringify(intel.provider || "Unknown", null, 2)}
-
-Respond with ONLY a JSON object (no markdown, no backticks) containing:
-{
-  "target_summary": "2-3 sentence summary of what the target is and why it's malicious",
-  "brand_impact": "How this target harms the brand and its customers",
-  "technical_evidence": "Technical details: hosting, IP, domain age, WHOIS, threat signals",
-  "recommended_action": "Specific recommended takedown action",
-  "provider_submission_draft": "Ready-to-send abuse report text formatted for the hosting/platform provider. Include: reporter identity (Averrow, authorized brand protection service), target URL/account, evidence summary, request for removal. Professional tone."
-}`;
-}
+// AI report generation + prompt building moved to
+// agents/evidence-assembler.ts in Phase 4.6 — the agent owns the
+// entire AI surface (cost guard, schema validation, deterministic
+// fallback). The lib function below stays as the orchestrator that
+// collects intel and persists writes.

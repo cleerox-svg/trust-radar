@@ -704,6 +704,49 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <line x1="24" y1="15" x2="28" y2="15" stroke="currentColor" strokeWidth="0.9" opacity="0.65" />
     </svg>
   ),
+
+  // Evidence Assembler — assembles takedown evidence packages.
+  // Visual: an evidence folder / dossier with a paperclip + pages
+  // and a small AI sparkle marker indicating the AI-generated draft.
+  evidence_assembler: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* folder body */}
+      <path
+        d="M5 10 L13 10 L16 13 L31 13 L31 30 L5 30 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.75"
+      />
+      {/* page peeking out the top of the folder */}
+      <rect
+        x="9"
+        y="6"
+        width="14"
+        height="10"
+        stroke="currentColor"
+        strokeWidth="1"
+        fill="#0B1120"
+        strokeLinejoin="round"
+      />
+      <line x1="11" y1="9" x2="20" y2="9" stroke="currentColor" strokeWidth="0.9" opacity="0.7" />
+      <line x1="11" y1="11" x2="21" y2="11" stroke="currentColor" strokeWidth="0.9" opacity="0.7" />
+      <line x1="11" y1="13" x2="18" y2="13" stroke="currentColor" strokeWidth="0.9" opacity="0.7" />
+      {/* paperclip */}
+      <path
+        d="M22 17 C22 16 23 15 24 15 C25 15 26 16 26 17 L26 24 C26 25.5 24.5 27 23 27 C21.5 27 20 25.5 20 24"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        fill="none"
+      />
+      {/* AI sparkle in the corner */}
+      <path
+        d="M27 22 L27.6 23.4 L29 24 L27.6 24.6 L27 26 L26.4 24.6 L25 24 L26.4 23.4 Z"
+        fill="currentColor"
+        opacity="0.85"
+      />
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {

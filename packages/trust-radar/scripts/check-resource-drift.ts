@@ -84,6 +84,7 @@ const MANIFEST_NAME_OVERRIDES: Record<string, string> = {
   brand_report: "brand-report",
   cube_healer: "cube-healer",
   dark_web_monitor: "darkWebMonitor",
+  evidence_assembler: "evidence-assembler",
   flight_control: "flightControl",
   geo_campaign_assessment: "geo-campaign-assessment",
   honeypot_generator: "honeypot-generator",
