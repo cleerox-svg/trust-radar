@@ -328,6 +328,76 @@ export async function executeAgent(
     return { runId: "", status: "circuit_open", result: null, reason };
   }
 
+  // ── Deployment-approval gate (AGENT_STANDARD §12.1, Phase 5.4b) ──
+  // Refuse the run when the agent isn't an approved deployment yet.
+  // First-observed agents (no row in agent_approvals) auto-create a
+  // 'pending' row and block the run; rejected/changes_requested also
+  // block. The migration 0126 backfill already grandfathered the 35
+  // pre-5.4 agents as 'approved', so this gate is a no-op for them.
+  //
+  // We import lazily to keep the module graph DAG-shaped — agent-
+  // approvals.ts has no runner imports either way, but the lazy
+  // shape mirrors how lib/per-agent-budget loads in lib/anthropic.
+  const { getApprovalState, createPending } = await import("./agent-approvals");
+  let approval: Awaited<ReturnType<typeof getApprovalState>> = null;
+  let approvalGateAvailable = true;
+  try {
+    approval = await getApprovalState(env.DB, agentId);
+  } catch (err) {
+    // Fail open: when agent_approvals isn't queryable (test fake
+    // missing the table, transient D1 hiccup, migration not yet
+    // applied) we let the run proceed rather than crash. The
+    // grandfather backfill in migration 0126 means a real prod
+    // worker should always find a row for registered agents; an
+    // exception here indicates infra trouble worth surfacing as a
+    // log line but not the right place to fail the run.
+    console.warn(
+      `[agentRunner] ${agentId}: approval gate unavailable (${err instanceof Error ? err.message : String(err)}) — allowing run`,
+    );
+    approvalGateAvailable = false;
+  }
+  const blockingState = !approvalGateAvailable
+    ? null
+    : approval === null
+      ? "missing"
+      : approval.state === "approved"
+        ? null
+        : approval.state;
+
+  if (blockingState !== null) {
+    if (approval === null) {
+      // First sighting — create the pending row so reviewers see this
+      // agent in /api/admin/agents/approvals/pending. Best-effort:
+      // failure to insert shouldn't crash the run path, but DOES
+      // still block the agent from running until the row lands.
+      try { await createPending(env.DB, agentId); } catch (err) {
+        console.warn(
+          `[agentRunner] ${agentId}: createPending failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    const reason = approval === null
+      ? "pending_approval (auto-created on first run)"
+      : `${approval.state}${approval.reviewer_notes ? `: ${approval.reviewer_notes.slice(0, 80)}` : ""}`;
+    console.log(`[agentRunner] ${agentId}: deployment approval gate (${reason}) — skipping`);
+
+    // Same agent_activity_log entry shape as the circuit-breaker gate
+    // so the FC dashboard can render both.
+    try {
+      await env.DB.prepare(
+        `INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity, created_at)
+         VALUES (?, ?, 'approval_gate_skip', ?, ?, 'info', datetime('now'))`
+      ).bind(
+        crypto.randomUUID(),
+        agentId,
+        `Agent ${agentId} skipped — awaiting approval (${reason})`,
+        JSON.stringify({ agent_id: agentId, approval_state: approval?.state ?? "missing" }),
+      ).run();
+    } catch { /* never block on logging */ }
+
+    return { runId: "", status: "circuit_open", result: null, reason };
+  }
+
   // ── Normal execution path ──────────────────────────────────
   const runId = crypto.randomUUID();
 
