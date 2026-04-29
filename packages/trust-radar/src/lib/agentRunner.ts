@@ -40,7 +40,8 @@ export type AgentName =
   | "brand_analysis"
   | "brand_report"
   | "brand_deep_scan"
-  | "honeypot_generator";
+  | "honeypot_generator"
+  | "brand_enricher";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

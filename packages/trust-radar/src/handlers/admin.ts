@@ -964,7 +964,10 @@ export async function handleBackfillBrandSector(
   const origin = request.headers.get("Origin");
 
   try {
-    const { fetchRdap, classifySector } = await import("../lib/brand-enricher");
+    const { fetchRdap } = await import("../lib/brand-enricher");
+    const { runSyncAgent } = await import("../lib/agentRunner");
+    const { brandEnricherAgent } = await import("../agents/brand-enricher");
+    type SectorResult = { sector: string; aiSucceeded: boolean };
 
     if (!env.ANTHROPIC_API_KEY) {
       return json({
@@ -1009,14 +1012,20 @@ export async function handleBackfillBrandSector(
 
     for (const brand of batch.results) {
       try {
-        // Run RDAP + sector classification in parallel
+        // Run RDAP + sector classification in parallel. Phase 3.7 of
+        // agent audit: sector classification is now a sync agent.
         const [rdap, sector] = await Promise.allSettled([
           fetchRdap(brand.canonical_domain),
-          classifySector(env, brand.canonical_domain, brand.name),
+          runSyncAgent<SectorResult>(env, brandEnricherAgent, {
+            domain: brand.canonical_domain,
+            brandName: brand.name,
+          }),
         ]);
 
         const rdapData  = rdap.status === "fulfilled" ? rdap.value : null;
-        const sectorVal = sector.status === "fulfilled" ? sector.value : null;
+        const sectorVal = sector.status === "fulfilled" && sector.value.data
+          ? sector.value.data.sector
+          : null;
 
         // If both RDAP and sector classification returned nothing,
         // bump attempts counter and retry on the next tick instead of

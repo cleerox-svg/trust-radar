@@ -496,22 +496,27 @@ export async function handleAddMonitoredBrand(request: Request, env: Env, userId
     // Runs inline (ExecutionContext not plumbed here) but every sub-call
     // has a short timeout and Promise.allSettled — worst case ~8s.
     try {
-      const { enrichBrand, fetchRdap, classifySector } = await import(
-        "../lib/brand-enricher"
-      );
+      const { enrichBrand, fetchRdap } = await import("../lib/brand-enricher");
+      const { brandEnricherAgent } = await import("../agents/brand-enricher");
+      type SectorResult = { sector: string; aiSucceeded: boolean };
 
       const apiKey = env.ANTHROPIC_API_KEY;
       const [enrichRes, rdapRes, sectorRes] = await Promise.allSettled([
         enrichBrand(domain, env.CACHE, env),
         fetchRdap(domain),
+        // Phase 3.7 of agent audit: sector classification is a sync
+        // agent now. Wrapped in runSyncAgent for the agent_runs row +
+        // standard input/output schema validation.
         apiKey
-          ? classifySector(env, domain, brandName)
+          ? runSyncAgent<SectorResult>(env, brandEnricherAgent, { domain, brandName })
           : Promise.resolve(null),
       ]);
 
       const enrichment = enrichRes.status === "fulfilled" ? enrichRes.value : null;
       const rdapData   = rdapRes.status === "fulfilled"   ? rdapRes.value   : null;
-      const sectorVal  = sectorRes.status === "fulfilled" ? sectorRes.value : null;
+      const sectorVal  = sectorRes.status === "fulfilled" && sectorRes.value && "data" in sectorRes.value
+        ? sectorRes.value.data?.sector ?? null
+        : null;
 
       await env.DB.prepare(`
         UPDATE brands SET

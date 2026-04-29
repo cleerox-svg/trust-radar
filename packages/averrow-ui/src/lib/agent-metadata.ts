@@ -33,7 +33,8 @@ export type AgentId =
   | 'brand_analysis'
   | 'brand_report'
   | 'brand_deep_scan'
-  | 'honeypot_generator';
+  | 'honeypot_generator'
+  | 'brand_enricher';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -289,6 +290,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#F472B6',
     category: 'sync',
     pipelinePosition: 27,
+  },
+  brand_enricher: {
+    id: 'brand_enricher',
+    displayName: 'Brand Enricher',
+    codename: 'brand_enricher',
+    subtitle: 'Synchronous AI — classifies brands into a fixed sector taxonomy (finance / tech / ecommerce / …, Haiku, 20-token bounded reply)',
+    color: '#A78BFA',
+    category: 'sync',
+    pipelinePosition: 28,
   },
 };
 
