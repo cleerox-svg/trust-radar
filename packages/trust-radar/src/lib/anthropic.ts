@@ -30,6 +30,7 @@
  */
 
 import { BudgetManager } from "./budgetManager";
+import { checkAgentBudget } from "./per-agent-budget";
 import type { Env } from "../types";
 
 const ANTHROPIC_API_VERSION = "2023-06-01";
@@ -73,7 +74,13 @@ export interface AnthropicResponse {
 export type AnthropicEnv = Pick<
   Env,
   "ANTHROPIC_API_KEY" | "LRX_API_KEY" | "CF_ACCOUNT_ID" | "DB"
->;
+> & {
+  // Optional KV — Phase 5.1's per-agent budget gate uses CACHE for
+  // its 60s decision cache. Test fixtures + the retired architect
+  // env shape don't carry CACHE; the gate's try/catch handles
+  // absence by falling through to the slow path each call.
+  CACHE?: KVNamespace;
+};
 
 export interface AnthropicCallOptions {
   /** Attribution ID for the ledger row — stable string, e.g. "sentinel", "admin". */
@@ -171,6 +178,21 @@ export async function callAnthropic(
 
   const apiKey = resolveApiKey(env, agentId);
   const baseUrl = resolveBaseUrl(env, useGateway);
+
+  // ── Per-agent budget pre-flight (Phase 5.1) ─────────────────
+  // Refuses the call when the agent is over its declared
+  // monthlyTokenCap. KV-cached for 60s per agent so a sync agent
+  // burst pays at most one D1 read per minute. Fails open on D1/KV
+  // hiccups (better to over-spend by a minute than crash a
+  // customer-facing call). Unregistered agentIds (legacy kebab
+  // attribution) pass through.
+  if (env.DB) {
+    const decision = await checkAgentBudget(env, agentId);
+    if (!decision.ok) {
+      console.warn(`[anthropic] per-agent budget rejected — agentId=${agentId}: ${decision.reason}`);
+      throw new AnthropicError(`budget_cap_exceeded: ${decision.reason}`, agentId);
+    }
+  }
 
   const body: Record<string, unknown> = {
     model,

@@ -51,28 +51,64 @@ interface LedgerRow {
 
 function makeFakeDb() {
   const rows: LedgerRow[] = [];
+  // Phase 5.1: BudgetManager.recordCost now also UPSERTs an
+  // agent_budget_rollups row inside the same db.batch(). The fake
+  // db tracks rollups too so the gate's getAgentMonthlyTokens()
+  // returns realistic numbers in tests that drive a full call cycle.
+  const rollups = new Map<string, { tokens: number; cost: number; calls: number }>();
+
+  function captureLedger(args: readonly unknown[]) {
+    rows.push({
+      agent_id: String(args[1]),
+      run_id: args[2] == null ? null : String(args[2]),
+      model: String(args[3]),
+      input_tokens: Number(args[4]),
+      output_tokens: Number(args[5]),
+      cost_usd: Number(args[6]),
+    });
+  }
+  function captureRollup(args: readonly unknown[]) {
+    const agentId = String(args[0]);
+    const inTok = Number(args[1] ?? 0);
+    const outTok = Number(args[2] ?? 0);
+    const cost = Number(args[3] ?? 0);
+    const prev = rollups.get(agentId) ?? { tokens: 0, cost: 0, calls: 0 };
+    rollups.set(agentId, {
+      tokens: prev.tokens + inTok + outTok,
+      cost: prev.cost + cost,
+      calls: prev.calls + 1,
+    });
+  }
+
+  const stmt = (sql: string, args: readonly unknown[] = []) => ({
+    bind: (...nextArgs: unknown[]) => stmt(sql, nextArgs),
+    run: async () => {
+      if (/INSERT INTO budget_ledger/i.test(sql)) captureLedger(args);
+      else if (/INSERT INTO agent_budget_rollups/i.test(sql)) captureRollup(args);
+      return { meta: {} };
+    },
+    first: async () => {
+      // Per-agent monthly tokens lookup used by the gate.
+      if (/FROM agent_budget_rollups/i.test(sql) && /agent_id = \?/.test(sql)) {
+        const agentId = String(args[0]);
+        const r = rollups.get(agentId);
+        return r ? { tokens: r.tokens } : null;
+      }
+      return null;
+    },
+    all: async () => ({ results: [] }),
+  });
+
   const db = {
-    prepare: (sql: string) => ({
-      bind: (..._args: unknown[]) => ({
-        run: async () => {
-          if (/INSERT INTO budget_ledger/i.test(sql)) {
-            rows.push({
-              agent_id: String(_args[1]),
-              run_id: _args[2] == null ? null : String(_args[2]),
-              model: String(_args[3]),
-              input_tokens: Number(_args[4]),
-              output_tokens: Number(_args[5]),
-              cost_usd: Number(_args[6]),
-            });
-          }
-          return { meta: {} };
-        },
-        first: async () => null,
-        all: async () => ({ results: [] }),
-      }),
-    }),
+    prepare: (sql: string) => stmt(sql),
+    batch: async (statements: { run: () => Promise<unknown> }[]) => {
+      // D1 batch — sequential per Cloudflare semantics; the fake just
+      // fires .run() on each.
+      for (const s of statements) await s.run();
+      return statements.map(() => ({ meta: {} }));
+    },
   } as unknown as D1Database;
-  return { db, rows };
+  return { db, rows, rollups };
 }
 
 function makeFakeKv(): KVNamespace {
@@ -353,5 +389,78 @@ describe("budget_ledger coverage — every migrated surface lands a row", () => 
     expect(rows[0]!.agent_id).toBe("evidence_assembler");
     expect(rows[0]!.run_id).toBe("run-evidence-1");
     expect(rows[0]!.cost_usd).toBeGreaterThan(0);
+  });
+});
+
+// ─── Phase 5.1 — per-agent budget enforcement gate ──────────────
+
+describe("checkAgentBudget — Phase 5.1 pre-flight enforcement", () => {
+  beforeEach(() => {
+    // Fresh fetch spy each test — same shape the suite above uses.
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("passes through when an agent is registered + under cap", async () => {
+    const { checkAgentBudget } = await import("../src/lib/per-agent-budget");
+    const { db } = makeFakeDb();
+    // public_trust_check has monthlyTokenCap: 1_000_000; the fake's
+    // rollup is empty so getAgentMonthlyTokens returns 0.
+    const decision = await checkAgentBudget(makeEnv(db) as never, "public_trust_check");
+    expect(decision.ok).toBe(true);
+  });
+
+  it("rejects exempt agents (cap=0) on any AI call attempt", async () => {
+    const { checkAgentBudget } = await import("../src/lib/per-agent-budget");
+    const { db } = makeFakeDb();
+    // flight_control / cube_healer / navigator / enricher all
+    // have monthlyTokenCap: 0 — the call attempt itself is the
+    // signal that something regressed.
+    const decision = await checkAgentBudget(makeEnv(db) as never, "flight_control");
+    expect(decision.ok).toBe(false);
+    if (decision.ok === false) {
+      expect(decision.reason).toMatch(/exempt/);
+    }
+  });
+
+  it("rejects agents over their declared monthly token cap", async () => {
+    const { checkAgentBudget } = await import("../src/lib/per-agent-budget");
+    const { db, rollups } = makeFakeDb();
+    // Pre-load the rollup as if public_trust_check has already
+    // burned through its 1M token cap.
+    rollups.set("public_trust_check", { tokens: 1_500_000, cost: 1.5, calls: 50 });
+
+    const decision = await checkAgentBudget(makeEnv(db) as never, "public_trust_check");
+    expect(decision.ok).toBe(false);
+    if (decision.ok === false) {
+      expect(decision.reason).toMatch(/over monthly token cap/);
+      expect(decision.reason).toMatch(/1,500,000/);
+    }
+  });
+
+  it("passes through unregistered agentIds (legacy kebab attribution)", async () => {
+    const { checkAgentBudget } = await import("../src/lib/per-agent-budget");
+    const { db } = makeFakeDb();
+    // 'admin-classify' (kebab) is no longer in agentModules; the
+    // gate should not enforce a cap on it.
+    const decision = await checkAgentBudget(makeEnv(db) as never, "admin-classify");
+    expect(decision.ok).toBe(true);
+  });
+
+  it("recordCost UPSERT updates the rollup so subsequent gate reads see new total", async () => {
+    const { db, rollups } = makeFakeDb();
+    const { BudgetManager } = await import("../src/lib/budgetManager");
+    const budget = new BudgetManager(db);
+
+    await budget.recordCost("public_trust_check", "run-1", "claude-haiku-4-5-20251001", 10_000, 5_000);
+    await budget.recordCost("public_trust_check", "run-2", "claude-haiku-4-5-20251001", 20_000, 10_000);
+
+    const r = rollups.get("public_trust_check");
+    expect(r?.tokens).toBe(45_000);
+    expect(r?.calls).toBe(2);
+    // public_trust_check cap is 1M tokens — should still pass.
+    const { checkAgentBudget } = await import("../src/lib/per-agent-budget");
+    const decision = await checkAgentBudget(makeEnv(db) as never, "public_trust_check");
+    expect(decision.ok).toBe(true);
   });
 });

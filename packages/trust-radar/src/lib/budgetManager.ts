@@ -125,7 +125,15 @@ export class BudgetManager {
     return merged;
   }
 
-  /** Record a cost entry in the ledger. */
+  /** Record a cost entry in the ledger.
+   *
+   *  Phase 5.1: also UPSERTs the per-agent monthly rollup
+   *  (agent_budget_rollups) inside the same logical write so the
+   *  rollup stays consistent with the ledger. Rollup is the source
+   *  of truth for the pre-flight per-agent budget enforcement gate
+   *  (`getAgentMonthlyTokens` below) — keeps that hot path off
+   *  budget_ledger SUMs entirely.
+   */
   async recordCost(
     agentId: string,
     runId: string | null,
@@ -134,33 +142,83 @@ export class BudgetManager {
     outputTokens: number
   ): Promise<number> {
     const cost = estimateCost(model, inputTokens, outputTokens);
-    await this.db.prepare(`
-      INSERT INTO budget_ledger (id, agent_id, run_id, model, input_tokens, output_tokens, cost_usd)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      crypto.randomUUID(), agentId, runId, model, inputTokens, outputTokens, cost
-    ).run();
+
+    // D1 doesn't support multi-statement transactions in a single
+    // .prepare() call, but .batch() runs the statements atomically
+    // within the same writer round-trip. Either both writes land or
+    // neither does (D1 batch semantics).
+    await this.db.batch([
+      this.db.prepare(`
+        INSERT INTO budget_ledger (id, agent_id, run_id, model, input_tokens, output_tokens, cost_usd)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(), agentId, runId, model, inputTokens, outputTokens, cost
+      ),
+      this.db.prepare(`
+        INSERT INTO agent_budget_rollups (
+          agent_id, year_month,
+          total_input_tokens, total_output_tokens, total_cost_usd, call_count,
+          updated_at
+        )
+        VALUES (?, strftime('%Y-%m', 'now'), ?, ?, ?, 1, datetime('now'))
+        ON CONFLICT(agent_id, year_month) DO UPDATE SET
+          total_input_tokens  = total_input_tokens  + excluded.total_input_tokens,
+          total_output_tokens = total_output_tokens + excluded.total_output_tokens,
+          total_cost_usd      = total_cost_usd      + excluded.total_cost_usd,
+          call_count          = call_count + 1,
+          updated_at          = datetime('now')
+      `).bind(agentId, inputTokens, outputTokens, cost),
+    ]);
+
     return cost;
   }
 
-  /** Get total spend for the current month from our ledger. */
+  /** Get total spend for the current month from our ledger.
+   *
+   *  Phase 5.1: reads from `agent_budget_rollups` instead of
+   *  scanning budget_ledger. The rollup is one row per agent per
+   *  month; SUM-ing N agent rows is two orders of magnitude cheaper
+   *  than SUM-ing thousands of ledger rows. Drops the platform-wide
+   *  cost-guard hot-path read by ~32M rows/24h (the #5 D1 reader
+   *  in the diagnostic).
+   */
   async getMonthlySpend(): Promise<number> {
     const result = await this.db.prepare(`
-      SELECT COALESCE(SUM(cost_usd), 0) as total
-      FROM budget_ledger
-      WHERE created_at >= datetime('now', 'start of month')
+      SELECT COALESCE(SUM(total_cost_usd), 0) AS total
+      FROM agent_budget_rollups
+      WHERE year_month = strftime('%Y-%m', 'now')
     `).first<{ total: number }>();
     return result?.total ?? 0;
   }
 
-  /** Get spend breakdown by agent for the current month. */
+  /** Per-agent monthly token total (input + output combined). Used by
+   *  the Phase 5.1 pre-flight enforcement gate inside lib/anthropic.ts.
+   *  Hits the agent_budget_rollups primary key directly — O(log n)
+   *  even at 100K+ ledger rows. Returns 0 if the agent hasn't recorded
+   *  any spend this month. */
+  async getAgentMonthlyTokens(agentId: string): Promise<number> {
+    const row = await this.db.prepare(`
+      SELECT total_input_tokens + total_output_tokens AS tokens
+      FROM agent_budget_rollups
+      WHERE agent_id = ?
+        AND year_month = strftime('%Y-%m', 'now')
+    `).bind(agentId).first<{ tokens: number }>();
+    return row?.tokens ?? 0;
+  }
+
+  /** Get spend breakdown by agent for the current month.
+   *
+   *  Phase 5.1: rollup-backed. Same rationale as getMonthlySpend()
+   *  above — one row per agent makes this an index scan, not a
+   *  budget_ledger GROUP BY scan. */
   async getSpendByAgent(): Promise<{ agent_id: string; cost_usd: number; calls: number }[]> {
     const result = await this.db.prepare(`
-      SELECT agent_id, SUM(cost_usd) as cost_usd, COUNT(*) as calls
-      FROM budget_ledger
-      WHERE created_at >= datetime('now', 'start of month')
-      GROUP BY agent_id
-      ORDER BY cost_usd DESC
+      SELECT agent_id,
+             total_cost_usd AS cost_usd,
+             call_count     AS calls
+      FROM agent_budget_rollups
+      WHERE year_month = strftime('%Y-%m', 'now')
+      ORDER BY total_cost_usd DESC
     `).all<{ agent_id: string; cost_usd: number; calls: number }>();
     return result.results;
   }

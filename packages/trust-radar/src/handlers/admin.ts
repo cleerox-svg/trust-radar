@@ -107,13 +107,18 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
         cost_usd: number;
         last_call_at: string;
       }>(),
+      // Phase 5.1: read the current-month token totals from the
+      // agent_budget_rollups materialised view instead of SUM-ing a
+      // 30-day window on budget_ledger. Single index scan vs. a
+      // ~32M-rows-read full sum (the #5 D1 reader before this PR).
       env.DB.prepare(`
         SELECT agent_id,
-               SUM(input_tokens) + SUM(output_tokens) as tokens_30d
-        FROM budget_ledger
-        WHERE created_at >= datetime('now', '-30 days')
-        GROUP BY agent_id
-      `).all<{ agent_id: string; tokens_30d: number }>(),
+               total_input_tokens + total_output_tokens AS tokens_month,
+               total_cost_usd                          AS cost_month,
+               call_count                              AS calls_month
+        FROM agent_budget_rollups
+        WHERE year_month = strftime('%Y-%m', 'now')
+      `).all<{ agent_id: string; tokens_month: number; cost_month: number; calls_month: number }>(),
       env.DB.prepare(`
         SELECT COUNT(*) as calls,
                COALESCE(SUM(cost_usd), 0) as cost_usd
@@ -123,14 +128,15 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
     ]);
 
     const byAgentMap = new Map(byAgent24h.results.map(r => [r.agent_id, r]));
-    const tokens30dMap = new Map(byAgent30d.results.map(r => [r.agent_id, r.tokens_30d ?? 0]));
+    const rollupMap = new Map(byAgent30d.results.map(r => [r.agent_id, r]));
 
     const expected_agents = EXPECTED_LEDGER_AGENT_IDS.map(agentId => {
       const row = byAgentMap.get(agentId);
-      const tokens30d = tokens30dMap.get(agentId) ?? 0;
+      const rollup = rollupMap.get(agentId);
+      const tokensMonth = rollup?.tokens_month ?? 0;
       const declared = capByAgentId.get(agentId);
       const cap = declared?.cap ?? null;
-      const pctOfCap = cap && cap > 0 ? Math.round((tokens30d / cap) * 100) : null;
+      const pctOfCap = cap && cap > 0 ? Math.round((tokensMonth / cap) * 100) : null;
       const overAlert = pctOfCap !== null && declared && pctOfCap >= Math.round(declared.alertAt * 100);
       return {
         agent_id: agentId,
@@ -138,8 +144,14 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
         calls_24h: row?.calls ?? 0,
         cost_usd_24h: row?.cost_usd ?? 0,
         last_call_at: row?.last_call_at ?? null,
-        // Phase 4.2 budget declaration vs actual:
-        tokens_30d: tokens30d,
+        // Phase 5.1 — current-month rollup vs declared cap.
+        // 'tokens_month' is the calendar month total (matches the
+        // gate's enforcement window); 'tokens_30d' kept as alias
+        // for any external dashboards still reading the old key.
+        tokens_month: tokensMonth,
+        tokens_30d: tokensMonth,
+        cost_usd_month: rollup?.cost_month ?? 0,
+        calls_month: rollup?.calls_month ?? 0,
         monthly_token_cap: cap,
         pct_of_cap: pctOfCap,
         over_alert_threshold: overAlert ?? false,
