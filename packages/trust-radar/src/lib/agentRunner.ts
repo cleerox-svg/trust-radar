@@ -30,7 +30,8 @@ export type AgentName =
   | "app_store_monitor"
   | "dark_web_monitor"
   | "social_monitor"
-  | "social_discovery";
+  | "social_discovery"
+  | "auto_seeder";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
