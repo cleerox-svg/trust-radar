@@ -1641,3 +1641,100 @@ needed:
 The rule: **only notify when human action is required.** If FC
 can fix it on the next tick, stay silent.
 
+---
+
+## 14. Backlog (deferred)
+
+These are explicitly **not** in N1–N6 scope. They're documented
+here so they don't get lost.
+
+| Item | Why deferred | Trigger to revisit |
+|---|---|---|
+| **Q5b — `notification_narrator` sync agent** | Static templates work for v1; narrator adds AI variance to weekly/monthly digests | After N6 ships and digest open-rate is measurable |
+| **Push notifications (PWA + iOS/Android)** | Q7=b answer; needs VAPID keys + service worker `notificationclick` handler + per-channel toggles | N5 lands the in-app schema first; push is a thin layer on top |
+| **Inline action buttons on push** | W3C Web Push `actions[]` is supported but adds UI complexity; iOS doesn't support it at all | After N5; iOS will degrade to no-action |
+| **Slack channel routing** | Slack-style per-channel routing is great but we don't have Slack integration yet | When the first enterprise customer asks for it |
+| **Keyword/mention routing** | "Notify me when *Acme Corp* appears in any threat" — interesting but per-user free-text matching is expensive | After N5's per-brand watch lands; measure if users ask for more |
+| **Escalation policies (PagerDuty-style)** | Multi-step escalation (notify primary → secondary → page) requires team/on-call modeling | When `audience='team'` rows are non-trivial |
+| **Notification analytics** | Which types get acted on vs ignored? Needs `notification_events` audit log | After N4 lands and we have real triage volume |
+| **Snooze presets** | "Until tomorrow", "Until Monday", "Until next week" UX sugar | After N4; current schema supports arbitrary timestamps |
+| **Group/thread view** | Linear groups by `group_key`; we'll likely want this in N4 but parking until UX feedback | N4 stretch goal |
+
+### 14.1 Cross-initiative backlog (referenced from elsewhere)
+
+These already live in other roadmaps and are listed here only so
+the cross-references stay discoverable:
+
+- **Okta AI Auth pilot** — owned by SHARED_LOGIN_SPEC; touches
+  notifications only via the `auth_*` family (out of scope here)
+- **Per-run approval / `requiresApproval` flow** — owned by
+  AGENT_AUDIT; will emit `agent_approval_requested` notifications
+  when wired up
+- **Trust-radar → Averrow rename** — naming-only; no notification
+  impact
+
+---
+
+## 15. Compliance against AGENT_STANDARD
+
+This audit deliberately follows the same shape as
+`docs/AGENT_AUDIT.md` so it can be cross-checked against
+`docs/AGENT_STANDARD.md` §17 (audit cadence) and §12 (sign-off
+requirements).
+
+### 15.1 §17 — audit cadence
+
+| Requirement | This doc |
+|---|---|
+| Per-type findings table | §2 |
+| Reproducibility (how the audit was run) | §1 |
+| Decisions log with explicit Q/A | §8 (Q1–Q10) |
+| Phase plan with merge order | §9 |
+| Schema changes called out separately | §10 |
+| Backlog of deferred items | §14 |
+
+### 15.2 §12 — sign-off requirements
+
+| Requirement | Status |
+|---|---|
+| User has reviewed and signed off Q1–Q10 | ✅ (see §8) |
+| Schema changes have been DDL-reviewed | ✅ (§10 pre-merge SQL) |
+| All affected file paths listed | ✅ (§2 + §12.1 dispatch path) |
+| Industry research cited | ✅ (§6 — Linear/GitHub/Slack/PagerDuty/Stripe/iOS/Android) |
+| Redesign principles documented | ✅ (§7 — 8 principles) |
+| Phases mapped to merge boundaries | ✅ (§9) |
+| Backlog explicitly parked, not silently dropped | ✅ (§14) |
+
+### 15.3 Out-of-scope items confirmed parked
+
+The following showed up during research but are **not** part of
+N1–N6. They'll be picked up by their owning initiatives:
+
+- Email deliverability (SPF/DKIM/DMARC tuning) — owned by
+  infrastructure; we just stop the briefing from being a
+  bespoke path
+- User profile picture rendering — already handled by
+  CLAUDE.md "User avatars — initials only" rule
+- Brand logo/favicon resolution — owned by `Avatar` component
+- Push payload encryption — owned by push library; we just
+  format the payload
+
+---
+
+## 16. Changelog
+
+| Date | Section | Change | Commit |
+|---|---|---|---|
+| 2026-04-29 | §1–§5 | Initial audit (methodology, per-type findings, scoping, click destinations, settings) | N0a/N0b/N0c |
+| 2026-04-29 | §6 | Industry research (Linear, GitHub, Slack, PagerDuty, Stripe, iOS, Android) | N0d-1, N0d-2 |
+| 2026-04-29 | §7, §8 | Redesign principles + decisions log (Q1–Q10) | N0e |
+| 2026-04-29 | §9 | Phase plan (N1–N6) | N0f-1 |
+| 2026-04-29 | §10 | Schema DDL (notifications recreate, subscriptions, preferences_v2) | N0f-2 |
+| 2026-04-29 | §11 | AI intel notification opportunities (5 `intel_*` types) | N0g-1 |
+| 2026-04-29 | §12 | Email briefing investigation | N0g-2 |
+| 2026-04-29 | §13 | Platform-health signals (~12 `platform_*` types) | N0g-3 |
+| 2026-04-29 | §14, §15, §16 | Backlog + compliance + changelog (closing) | N0h |
+
+**Status: SIGNED OFF.** Ready to proceed to N1 (stop the spam +
+wire link click) on the next session.
+
