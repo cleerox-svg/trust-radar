@@ -196,6 +196,24 @@ function readFirst(state: MockState, sql: string, args: unknown[]): unknown {
     return { value: state.system_config["agent_consecutive_failure_threshold"] ?? "3" };
   }
 
+  // Phase 5.4b deployment-approval gate: every test agent is treated
+  // as approved (matches the migration 0126 grandfather backfill so
+  // these tests focus on circuit-breaker semantics, not approval).
+  if (/FROM agent_approvals\s+WHERE agent_id =/i.test(sql)) {
+    const agentId = String(args[0]);
+    return {
+      agent_id: agentId,
+      state: "approved",
+      requested_at: "2026-04-29T00:00:00Z",
+      reviewed_at: "2026-04-29T00:00:00Z",
+      reviewed_by: "system_grandfather",
+      reviewer_notes: null,
+      source_pr: null,
+      created_at: "2026-04-29T00:00:00Z",
+      updated_at: "2026-04-29T00:00:00Z",
+    };
+  }
+
   return null;
 }
 
