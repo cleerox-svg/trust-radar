@@ -30,9 +30,9 @@ verdicts here.
 
 - §1 Methodology ✓
 - §2 Per-type findings (current state) ✓
-- §3 Tenant scoping audit
-- §4 Click destination audit
-- §5 Settings audit
+- §3 Tenant scoping audit ✓
+- §4 Click destination audit ✓
+- §5 Settings audit ✓
 - §6 Industry research
 - §7 Redesign principles
 - §8 Decisions log
@@ -156,5 +156,211 @@ await createNotification(ctx.env, {
 Reference shape: tenant-scoped (per-brand notification routed by
 brand_id → monitored_brands → user lookup) + carries a useful link.
 This is the shape every type should converge on.
+
+---
+
+## 3. Tenant scoping audit
+
+### 3.1 LIST endpoint SQL (`handlers/notifications.ts:68-94`)
+
+```sql
+SELECT id, type, severity, title, message, link, read_at, created_at, metadata
+  FROM notifications
+  WHERE user_id = ?
+    [AND read_at IS NULL]
+    [AND type = ?]
+    [AND severity = ?]
+    [AND (LOWER(title) LIKE ? OR LOWER(message) LIKE ?)]
+    [AND created_at < ?]
+  ORDER BY created_at DESC
+  LIMIT ?
+```
+
+The query is correct **for what's there** — but the schema gives
+nothing else to scope by. No `brand_id`. No `org_id`. No
+`audience` field. Tenant scoping is entirely a function of which
+`user_id` rows the broadcast loop wrote.
+
+### 3.2 The broadcast fan-out (`lib/notifications.ts:93-101`)
+
+```typescript
+let userIds: string[];
+if (opts.userId) {
+  userIds = [opts.userId];
+} else {
+  const users = await db.prepare(
+    "SELECT id FROM users WHERE status = 'active'"
+  ).all<{ id: string }>();
+  userIds = users.results.map(u => u.id);
+}
+// ... loop INSERTs one row per userId
+```
+
+When called without `userId`, this writes one row per active user
+in the entire platform. With ~N tenants × ~M users per tenant ×
+~K active brands per tenant, every cartographer email-grade tick
+writes N×M rows — even though only the brand's owners care.
+
+### 3.3 The schema (`migrations/0018_notifications.sql`, replaced by `0107`)
+
+```sql
+CREATE TABLE notifications (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT REFERENCES users(id) ON DELETE CASCADE,
+  type         TEXT NOT NULL CHECK (type IN ( ... )),
+  severity     TEXT NOT NULL DEFAULT 'info',
+  title        TEXT NOT NULL,
+  message      TEXT NOT NULL,
+  link         TEXT,
+  read_at      TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  metadata     TEXT
+);
+```
+
+Missing for tenant scoping:
+- `brand_id` (queryable; today brand_id is buried in `metadata` JSON)
+- `org_id` (zero presence in the schema)
+- `audience` enum (`tenant` / `super_admin` / `all` / `team`) so the LIST endpoint can route correctly
+- `state` enum (`unread` / `read` / `snoozed` / `done`) — see §4 + §7
+- `reason_text` ("you monitor Acme") + `recommended_action` ("rotate DKIM")
+- `group_key` for entity collapsing (one expandable row instead of three)
+
+§10 lists every column the redesigned schema will carry.
+
+### 3.4 Super_admin behaviour today
+
+Super_admins are not special-cased anywhere in the LIST endpoint.
+A super_admin sees only the rows tagged with their own `user_id`.
+Operationally significant signals (cron skipping pre-warms, feeds
+auto-pausing, agent circuit breakers tripping) reach the bell only
+because the call site happens to broadcast to all active users —
+super_admins are caught in the broadcast incidentally, not because
+the design routes operational notifications to them.
+
+That coincidence breaks under tenant scoping (§3.2 fix removes the
+broadcast). Without explicit super_admin routing, the operational
+alerts stop reaching the operator. This is what §13 (platform-
+health signals) addresses.
+
+---
+
+## 4. Click destination audit
+
+### 4.1 The `link` field exists end-to-end
+
+- Schema: `migrations/0018_notifications.sql:14` declares `link TEXT`
+- `lib/notifications.ts` accepts it on the create call
+- `handlers/notifications.ts:71` returns it on every LIST row
+- `hooks/useNotifications.ts` plumbs it through TanStack Query
+- React components destructure it in their `Notification` type
+
+…and then **never use it**. Click is a dead end at the leaf.
+
+### 4.2 `NotificationBell.tsx:54-90`
+
+```tsx
+<button
+  onClick={() => onRead(notification.id)}
+  // ...
+>
+  {/* renders title, message, type, severity, created_at —
+      never touches notification.link */}
+</button>
+```
+
+Single click handler: `markRead`. No navigation. No expanded view.
+No context menu. The user dismisses by reading; if they want to act
+on a notification they have to navigate to the relevant page
+themselves and find the right entity.
+
+### 4.3 `Notifications.tsx:319-370` (All Notifications page)
+
+Same anti-pattern — the row is a `<button>` whose onClick fires
+`markRead`. No link navigation, no expand, no action menu.
+
+### 4.4 Population of `link` per type
+
+| Type | `link` populated? |
+|---|---|
+| `brand_threat` (certstream) | ✅ `/brands/${brandId}` |
+| `brand_threat` (dmarc) | ❌ null |
+| `campaign_escalation` | ✅ `/campaigns/${campaignId}` |
+| `feed_health` | ✅ `/admin/feeds` |
+| `intelligence_digest` | ❌ null |
+| `agent_milestone` | ✅ `/agents` |
+| `email_security_change` | ❌ null |
+| `circuit_breaker_tripped` | ✅ `/admin/agents` (FC) / `/admin/budget` (sub-call) |
+
+Even where `link` is populated correctly, the UI ignores it. Even
+where the UI ignored a valid link, half of the types don't bother
+to populate it. Both ends are broken.
+
+### 4.5 What "click" should do (research-derived; see §6)
+
+1. Click → navigate to `link`. Mark read in the same operation.
+2. If notification has an explicit `recommended_action` (§7), the
+   action button label changes from "Open" to e.g. "Rotate DKIM".
+3. Right-click / kebab menu offers: Snooze (1h / 24h / 7d), Mark
+   done, Mute this type, Mute this brand.
+4. Bulk-select for batch dismiss / batch mark done.
+
+---
+
+## 5. Settings audit
+
+### 5.1 `NotificationPreferences.tsx` — current toggles
+
+| Preference | Granularity | Default |
+|---|---|---|
+| Brand Threats | global per user | on |
+| Campaign Escalations | global per user | on |
+| Feed Health Alerts | global per user | on |
+| Intelligence Digests | global per user | on |
+| Agent Milestones | global per user | on |
+| Push notifications | binary on/off + device list | off (until prompted) |
+| Quiet hours start | wall clock | 22:00 |
+| Quiet hours end | wall clock | 07:00 |
+| Quiet hours timezone | IANA tz | user's browser tz |
+| Critical bypasses quiet hours | binary | on |
+
+That's 5 type toggles + 1 push toggle + 4 quiet-hours fields.
+Total dimensions: 7 of the 8 declared types are togglable
+(`circuit_breaker_tripped` isn't; it's a system event), and that's
+the only axis exposed to the user.
+
+### 5.2 What's missing
+
+- **Per-brand** mute / watch / ignore (the GitHub model — pick
+  which brands you care about; default behaviour for brands you
+  don't watch falls back to a severity floor).
+- **Per-severity floor** ("only notify me ≥ high" or "only
+  notify me ≥ critical for brands I don't actively watch").
+- **Digest mode** (realtime / hourly / daily / weekly). Most non-
+  critical types are perfect candidates for daily summary instead
+  of per-event firehose.
+- **Per-channel routing** (in-app / push / email / SMS). Today
+  it's "push on/off"; granular routing per type per severity is
+  table stakes for an alerting system.
+- **Snooze defaults** ("when I snooze, default 24h not 1h").
+- **Super_admin firehose toggle** (Q3 in the operator's
+  decisions log) — a super_admin should see operational
+  notifications by default and choose to opt into tenant traffic.
+- **Notification rules / filters** (Slack/Linear pattern):
+  user-defined "if type=X and severity≥Y and brand=Z, route to
+  channel C with priority P". Power-user feature for ops teams.
+
+### 5.3 Schema gap
+
+The current `notification_preferences` table (defined in the same
+0018 migration block; see `handlers/notifications.ts:184-282` for
+the read/write paths) is one row per user with a flat set of
+columns matching the toggles above. It cannot express any of the
+missing dimensions in §5.2 without schema changes — not just per-
+brand, but per-channel and digest mode.
+
+§10 introduces `notification_subscriptions` (one row per
+user × brand) and a richer `notification_preferences_v2` (digest
+mode, channel routing, severity floors).
 
 
