@@ -246,6 +246,29 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Brand Deep Scan — synchronous batch AI agent for Y/N
+  // classification of unlinked threats against a brand. Visual:
+  // a row of dots (the threat batch) crossed by a bracket-scanner
+  // sweeping over them — half marked green ✓, half X.
+  brand_deep_scan: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* batch row of items (dots representing threats) */}
+      <circle cx="6"  cy="18" r="1.6" fill="currentColor" opacity="0.55" />
+      <circle cx="11" cy="18" r="1.6" fill="currentColor" opacity="0.85" />
+      <circle cx="16" cy="18" r="1.6" fill="currentColor" opacity="0.55" />
+      <circle cx="21" cy="18" r="1.6" fill="currentColor" opacity="0.85" />
+      <circle cx="26" cy="18" r="1.6" fill="currentColor" opacity="0.45" />
+      <circle cx="31" cy="18" r="1.6" fill="currentColor" opacity="0.65" />
+      {/* match check above the matched dots */}
+      <path d="M9 11 L11 13 L14 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19 11 L21 13 L24 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      {/* scanner brackets sweeping the row */}
+      <path d="M3 24 L3 28 L7 28" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M33 24 L33 28 L29 28" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="9" y1="28" x2="27" y2="28" stroke="currentColor" strokeWidth="0.8" opacity="0.45" strokeDasharray="1.5 1.5" />
+    </svg>
+  ),
+
   // Brand Report — synchronous AI agent for the per-brand exposure
   // report. Document with three rising bars on it (executive summary
   // + numbered recommendations evoke a printable report).

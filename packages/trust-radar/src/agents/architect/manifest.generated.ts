@@ -80,6 +80,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-29T04:42:10.725Z"
     },
     {
+      "name": "brand-deep-scan",
+      "path": "packages/trust-radar/src/agents/brand-deep-scan.ts",
+      "entrypoint": "brandDeepScanAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 233,
+      "last_modified": "2026-04-29T04:47:43.669Z"
+    },
+    {
       "name": "brand-report",
       "path": "packages/trust-radar/src/agents/brand-report.ts",
       "entrypoint": "brandReportAgent",
@@ -90,7 +103,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 234,
-      "last_modified": "2026-04-29T04:43:02.705Z"
+      "last_modified": "2026-04-29T04:46:44.241Z"
     },
     {
       "name": "cartographer",
@@ -919,7 +932,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 24,
+    "agents": 25,
     "feeds": 40,
     "crons": 3,
     "workers": 1
