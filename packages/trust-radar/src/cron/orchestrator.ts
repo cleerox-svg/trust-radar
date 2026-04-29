@@ -1,7 +1,7 @@
 import { logger } from '../lib/logger';
 import { feedModules, enrichmentModules, socialModules } from '../feeds/index';
 import { createAlert } from '../lib/alerts';
-import { runCubeHealer } from '../agents/cube-healer';
+import { cubeHealerAgent } from '../agents/cube-healer';
 import type { Env } from '../types';
 
 interface CronJobResult {
@@ -27,7 +27,18 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // D1 writer contention. Overlaps "prev hour" with Navigator — safe because
   // INSERT OR REPLACE is idempotent.
   if (event.cron === '12 */6 * * *') {
-    await runCubeHealer(env, ctx);
+    // Phase 2.3 of agent audit: cube_healer is now a standard
+    // AgentModule dispatched through executeAgent — same lifecycle
+    // (agent_runs row, FC supervision, circuit breaker) as every
+    // other agent. Errors caught + recorded; never thrown upstream.
+    try {
+      const { executeAgent } = await import('../lib/agentRunner');
+      await executeAgent(env, cubeHealerAgent, {}, 'cron', 'scheduled');
+    } catch (err) {
+      logger.error('cube_healer_dispatch_error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     return;
   }
 
