@@ -217,6 +217,42 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Seed Strategist — AI planner for spam-trap seeding. A grid of
+  // coverage cells (some filled, some empty representing gaps) with
+  // a strategic crosshair on an empty cell — "AI identifies the
+  // unseeded territory and recommends where to plant next." Pairs
+  // visually with Recon (auto_seeder) which executes the plan.
+  seed_strategist: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* coverage grid — 4×4 cells */}
+      {[6, 13, 20, 27].flatMap((cx, i) => [6, 13, 20, 27].map((cy, j) => {
+        // pseudo-random fill pattern: filled if (i*4+j) is in this set
+        const filledIndexes = new Set([0, 2, 5, 6, 8, 11, 13]);
+        const idx = i * 4 + j;
+        const filled = filledIndexes.has(idx);
+        return (
+          <rect
+            key={`${cx}-${cy}`}
+            x={cx - 1.5}
+            y={cy - 1.5}
+            width="3"
+            height="3"
+            fill={filled ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="0.7"
+            opacity={filled ? 0.8 : 0.35}
+          />
+        );
+      }))}
+      {/* strategic crosshair on an empty cell — the next plant */}
+      <circle cx="20" cy="20" r="4" stroke="currentColor" strokeWidth="1.3" opacity="1" />
+      <line x1="20" y1="14" x2="20" y2="17" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="20" y1="23" x2="20" y2="26" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="14" y1="20" x2="17" y2="20" stroke="currentColor" strokeWidth="1.3" />
+      <line x1="23" y1="20" x2="26" y2="20" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  ),
+
   // Recon — Auto-Seeder. Spam-trap seeding agent: a central planting
   // point with seed addresses scattered out across harvester territory.
   // Connecting lines from origin to each seed evoke "we know exactly
