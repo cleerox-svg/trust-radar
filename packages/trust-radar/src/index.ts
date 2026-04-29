@@ -166,13 +166,21 @@ export default {
         }
         if (url.pathname === "/admin-portal") {
           ctx.waitUntil(logHoneypotVisit(env, request, "/admin-portal"));
-          return applySecurityHeaders(new Response(renderAdminPortalPage(), {
+          // Pull the live roster (auto-seeded weekly by the Recon agent)
+          // so harvesters scraping us see a different set on each visit
+          // window. readRoster() is best-effort — DB errors fall through
+          // to the built-in default roster inside the renderer.
+          const { readRoster } = await import('./lib/auto-seeder-planter');
+          const roster = await readRoster(env, 'auto-seeder:averrow.com:/admin-portal', 16);
+          return applySecurityHeaders(new Response(renderAdminPortalPage(roster), {
             headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" },
           }));
         }
         if (url.pathname === "/internal-staff") {
           ctx.waitUntil(logHoneypotVisit(env, request, "/internal-staff"));
-          return applySecurityHeaders(new Response(renderInternalStaffPage(), {
+          const { readRoster } = await import('./lib/auto-seeder-planter');
+          const roster = await readRoster(env, 'auto-seeder:averrow.com:/internal-staff', 16);
+          return applySecurityHeaders(new Response(renderInternalStaffPage(roster), {
             headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=86400" },
           }));
         }

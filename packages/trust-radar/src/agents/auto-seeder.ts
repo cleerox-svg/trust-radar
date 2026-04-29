@@ -1,27 +1,36 @@
 /**
- * Auto-Seeder Agent — weekly bulk seeding of spam-trap addresses.
+ * Recon (auto_seeder) — weekly bulk seeding of spam-trap addresses.
  *
- * The Seed Strategist (agents/seed-strategist.ts) plans seeding via AI:
- * which channels to expand, which addresses to retire. That's a low-
- * volume daily analysis job. The Auto-Seeder is the *execution* arm —
- * actually planting addresses at scale into the channels the Strategist
- * recommended (paste sites, broker pages, GitHub gists, WHOIS records,
- * etc) and recording where each address landed for per-location yield
- * tracking (PR #874).
+ * Plants synthetic Firstname.Lastname@<honeypot-domain> addresses
+ * into seed_addresses, attributed to seeded_location =
+ * 'auto-seeder:<domain>:<page>'. The /admin-portal and /internal-staff
+ * page handlers (src/index.ts) read this same seeded_location at
+ * render time and embed every active row as a visible mailto:
+ * link, so the next time a harvester scrapes us they pick up the
+ * fresh addresses.
  *
- * This module is a placeholder. It runs the agent_runs lifecycle, logs
- * a no-op execution, and returns a clean success result. PR-b (the
- * seeding-at-scale job) replaces the body with real seeding logic
- * without any cron or wiring changes — the dispatch path scaffolded
- * here stays identical.
+ * Per-page volume: SEEDS_PER_PAGE addresses / week × 2 pages × 52
+ * weeks ≈ 600 addresses/year. Plenty of trap surface even before
+ * we extend seeding to external paste sites / forums (a follow-up).
  *
- * Schedule: Sundays at 05:23 UTC. Off-peak, away from the existing
- * cron beats (:07 hourly, :12 every-6h, every-5min). Weekly cadence
- * is intentional — daily seeding overwhelms harvester ingestion windows
- * and costs more LLM tokens for the planning side.
+ * Cohort tag (YYYYMMDD of run start) is embedded in agent_outputs
+ * so an operator can see "this week's batch was N rows" without
+ * cross-referencing seed_addresses.
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
+import { plantBatch, cohortTag } from "../lib/auto-seeder-planter";
+
+const SEEDS_PER_PAGE = 6;
+
+// Each entry is one (domain, page) target — addresses planted under
+// the matching seeded_location are surfaced on that page's render.
+// Adding a new honeypot page is two changes: a new entry here + a
+// matching readRoster() call in the page handler.
+const TARGETS: Array<{ domain: string; page: string }> = [
+  { domain: "averrow.com", page: "/admin-portal" },
+  { domain: "averrow.com", page: "/internal-staff" },
+];
 
 export const autoSeederAgent: AgentModule = {
   name: "auto_seeder",
@@ -31,30 +40,52 @@ export const autoSeederAgent: AgentModule = {
   trigger: "scheduled",
   requiresApproval: false,
 
-  async execute(_ctx: AgentContext): Promise<AgentResult> {
-    // Placeholder body. PR-b will replace this with the real seeding
-    // logic: pull recent seed-strategist recommendations + active
-    // seeding_locations from the seed_campaigns config, then plant N
-    // addresses per channel with location attribution.
-    //
-    // Until then we run cleanly so the dispatch path + agent_runs
-    // visibility are real, and the cron schedule has lived through at
-    // least one tick before any meaningful change ships.
-    const outputs: AgentOutputEntry[] = [
-      {
-        type: "diagnostic",
-        summary:
-          "auto_seeder placeholder run — no addresses planted (PR-b will fill in seeding logic)",
-        severity: "info",
-        details: { placeholder: true, planned_for: "PR (b) seeding-at-scale" },
-      },
-    ];
+  async execute(ctx: AgentContext): Promise<AgentResult> {
+    const { env } = ctx;
+    const tag = cohortTag();
+    const outputs: AgentOutputEntry[] = [];
+    let totalCreated = 0;
+    const perTarget: Array<{ location: string; planted: number }> = [];
+
+    for (const target of TARGETS) {
+      const seedLocationKey = `auto-seeder:${target.domain}:${target.page}`;
+      try {
+        const planted = await plantBatch(env, {
+          domain: target.domain,
+          seedLocationKey,
+          count: SEEDS_PER_PAGE,
+          cohortTag: tag,
+        });
+        totalCreated += planted.length;
+        perTarget.push({ location: seedLocationKey, planted: planted.length });
+      } catch (err) {
+        // Defensive: plantBatch already catches per-row errors. A
+        // throw here means something further upstream failed (eg D1
+        // unavailable). Record per-target so the operator can tell
+        // whether the run was a total wash or just one bucket.
+        const errMsg = err instanceof Error ? err.message : String(err);
+        outputs.push({
+          type: "diagnostic",
+          summary: `Recon: planting failed for ${seedLocationKey} — ${errMsg}`,
+          severity: "high",
+          details: { seedLocationKey, error: errMsg },
+        });
+        perTarget.push({ location: seedLocationKey, planted: 0 });
+      }
+    }
+
+    outputs.push({
+      type: "insight",
+      summary: `Recon planted ${totalCreated} spam-trap addresses across ${TARGETS.length} honeypot pages (cohort ${tag})`,
+      severity: "info",
+      details: { cohortTag: tag, perTarget, seeds_per_page: SEEDS_PER_PAGE },
+    });
 
     return {
-      itemsProcessed: 0,
-      itemsCreated: 0,
+      itemsProcessed: TARGETS.length,
+      itemsCreated: totalCreated,
       itemsUpdated: 0,
-      output: { placeholder: true },
+      output: { cohortTag: tag, perTarget },
       agentOutputs: outputs,
     };
   },
