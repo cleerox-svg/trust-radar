@@ -33,7 +33,7 @@ verdicts here.
 - §3 Tenant scoping audit ✓
 - §4 Click destination audit ✓
 - §5 Settings audit ✓
-- §6 Industry research (part 1: inbox / subscription / escalation patterns) ✓
+- §6 Industry research ✓
 - §7 Redesign principles
 - §8 Decisions log
 - §9 Phase plan (N0–N6)
@@ -496,5 +496,154 @@ wait":
 - **No mandatory ACK in v1**: we'd need an on-call concept first.
   But the `done` state in our 4-state machine maps cleanly to
   "operationally acknowledged" once we add ops semantics.
+
+### 6.5 Stripe / GitHub / AWS — digest emails
+
+Three different products converged on the same pattern: realtime
+push only for critical, everything else rolled up. Stripe's daily
+"Activity for [account]" email summarises the previous day's
+charges, refunds, disputes in one digestible block. GitHub's
+"Daily digest" rolls up all subscribed-thread activity into one
+email per day (configurable to weekly). AWS's "Health Dashboard"
+goes further — it generates a per-region weekly digest with AI-
+summarised bullet points.
+
+The pattern works because:
+- Realtime is reserved for events the user genuinely cannot wait on
+  (failed charge, security alert, system outage).
+- Bundling reduces the cognitive cost of "what happened today?"
+  from 50 emails to 1.
+- Digest emails carry the same `link` to the relevant in-app view,
+  so users can click through if a roll-up entry needs attention.
+
+**What we adopt:**
+
+- **Digest mode** as a per-user preference: `realtime`, `hourly`,
+  `daily`, `weekly`. Default to `realtime` for critical+, `daily`
+  for medium+, drop low entirely (per-user opt-in).
+- Digest delivery is its own type (`notification_digest`), not a
+  rollup of the underlying type rows. The digest email body
+  enumerates the items but the items are still separately
+  navigable in the in-app inbox.
+- AI-summarised digests are deferred to Phase Q5b
+  (`notification_narrator` sync agent). The digest layout works
+  without AI — bulleted entries with severity, brand, and link.
+
+### 6.6 iOS — notification interruption levels
+
+iOS 15+ introduced `UNNotificationInterruptionLevel` as a 4-tier
+spectrum that determines how aggressively a notification can
+interrupt the user. The OS treats them differently:
+
+| Level | Bypasses Focus? | Sound | Locked screen | Use for |
+|---|---|---|---|---|
+| `passive` | no | none | shows in history only | low-importance roll-ups |
+| `active` (default) | no | yes (user-configurable) | yes | most notifications |
+| `time-sensitive` | partial — bypasses Focus *if user opts in per-app* | yes | yes | events tied to a deadline (delivery, ride, OTP) |
+| `critical` | **always**; bypasses Focus + Do Not Disturb | yes (forced) | yes | safety alerts (medical, security, weather emergencies) |
+
+`critical` requires Apple-granted entitlement; not available to most
+apps. `time-sensitive` is broadly available and is the right level
+for "this matters within the next hour".
+
+**What we adopt:**
+
+- Map our severity to iOS levels in the PWA notification helper:
+  - `info` → `passive`
+  - `low` → `active`
+  - `medium` → `active`
+  - `high` → `time-sensitive`
+  - `critical` → `time-sensitive` (we cannot reliably get
+    `critical` entitlement; users who want bypass can configure
+    Focus exemption per-app).
+- Honour the user's quiet hours in our preferences as a hard rule
+  except when the user has explicitly enabled "critical bypasses
+  quiet hours" (Q3 in §8) — match iOS's "Allow Time-Sensitive"
+  per-app toggle.
+
+### 6.7 Android — notification channels
+
+Android 8+ requires every notification to belong to a
+**notification channel**. The user (not the developer) controls
+each channel's sound, vibration, lock-screen visibility, and
+importance. Apps cannot bypass the user's channel settings.
+
+The mental model: each channel is a category the user can
+configure independently. WhatsApp creates `Messages` (high
+importance), `Group Notifications` (medium), `Other` (low). Slack
+creates one channel per workspace. Gmail creates one per IMAP
+label.
+
+**What we adopt:**
+
+- Define notification channels matching our type registry in the
+  PWA service worker:
+  - `Brand Threats` (high importance)
+  - `Campaign Escalations` (high)
+  - `Intelligence Digests` (medium)
+  - `Agent Milestones` (low)
+  - `Email Security Changes` (low)
+  - `Platform Health` (high — super_admin only)
+  - `Operational Alerts` (max — feed health, FC alerts; super_admin)
+- The user's channel settings on Android override our default
+  importance. We declare the **starting importance** per channel
+  and respect what the user configures.
+- One-time channel creation in the SW install handler. Adding new
+  channels later requires a service-worker update.
+
+### 6.8 PWA + native — notification action buttons
+
+Both iOS PWA notifications and Android `Notification.Action` allow
+inline action buttons that the user can tap without opening the
+app. The W3C Web Push API's `actions` array supports up to 2
+buttons on iOS, 3 on Android, each with an `action` ID + label +
+icon.
+
+Common patterns:
+
+- "Acknowledge" + "Snooze 1h"
+- "Open" + "Dismiss"
+- "Approve" + "Reject" (for approval queues — see Phase 5.4)
+
+The action handler runs in the service worker `notificationclick`
+event, so it can hit a backend API endpoint without launching the
+PWA. This is the difference between "I have to open the app to act
+on this" and "I can dismiss it from the lockscreen".
+
+**What we adopt:**
+
+- Every push notification carries 1-2 inline actions:
+  - severity ≥ high: `Open` + `Snooze 1h`
+  - severity ≤ medium: `Open` + `Done`
+  - intel digest: `View digest` + `Snooze 24h`
+- The `notificationclick` handler in the SW posts to
+  `/api/notifications/:id/action` with the chosen action ID,
+  authenticating via the same JWT the PWA uses for fetch calls.
+- Action handlers update the `state` column directly (snooze
+  sets `snoozed_until`, done sets `done_at`).
+
+### 6.9 Summary — patterns → redesign principles
+
+Maps each adopted pattern to the redesign principle in §7 it drives,
+and the phase in §9 where it lands.
+
+| Pattern | Source | Adopted as | Phase |
+|---|---|---|---|
+| 4-state machine | Linear | `state` column (`unread` / `read` / `snoozed` / `done`) | N2 (schema) + N4 (UI) |
+| Reason badges | Linear, GitHub | `reason_text` column on every row | N2 + N4 |
+| Inbox-as-primary-nav | Linear | `/v2/notifications/inbox` page | N4 |
+| Per-resource subscription | GitHub | `notification_subscriptions` table (per-user × per-brand) | N5 |
+| Subscription levels | GitHub | `watching` / `default` / `ignored` enum | N5 |
+| Severity-driven routing | PagerDuty | `notification_preferences_v2.{push,email,inapp}_severity_floor` | N2 + N5 |
+| Group key | PagerDuty | `group_key` column → entity collapsing in inbox | N2 + N4 |
+| Digest mode | Stripe / GitHub | `notification_preferences_v2.digest_mode` enum | N5 |
+| iOS interruption levels | Apple HIG | severity → interruption level map in PWA helper | N4 (push) |
+| Android notification channels | Android docs | Channel-per-type definition in SW install | N4 (push) |
+| Action buttons on push | W3C Web Push | 1-2 actions per push, handler in SW | N4 (push) |
+| Per-channel routing | Slack | `notification_preferences_v2` channel × type × severity | N5 |
+| Per-thread unsubscribe | GitHub | "Mute this brand" / "Mute this type" inline action | N4 + N5 |
+| AI-summarised digest | AWS | `notification_narrator` sync agent (Q5b parked) | post-N6 backlog |
+| Keyword routing | Slack | parked | §14 backlog |
+| Escalation policies | PagerDuty | parked (needs on-call concept) | §14 backlog |
 
 
