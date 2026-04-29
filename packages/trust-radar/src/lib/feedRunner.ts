@@ -267,6 +267,74 @@ export async function runFeed(
   }
 }
 
+// ─── Auto-recovery helper ────────────────────────────────────────
+
+/**
+ * Auto-recover feeds that were paused by `autoPauseFeed` but whose
+ * upstream may have since recovered. Fixes the gap where a feed
+ * with a transient-5xx fix gets stuck in 'enabled = 0' because the
+ * dispatch loop never runs it after pausing — so the failure
+ * counter never resets.
+ *
+ * Selection criteria (all must hold):
+ *   - feed_configs.enabled = 0
+ *   - feed_configs.paused_reason = 'auto:consecutive_failures'
+ *     (ONLY the auto path; manual / operator pauses are untouched)
+ *   - feed_status.last_failure_at IS NULL OR < now - 4 hours
+ *
+ * Action per matched feed:
+ *   - feed_configs: enabled = 1, paused_reason = NULL
+ *   - feed_status:  consecutive_failures = 0,
+ *                   health_status = 'healthy',
+ *                   last_error = NULL
+ *
+ * No notification fires — operators don't need a "thing recovered"
+ * popup; they get one already if the recovered feed promptly
+ * re-pauses (autoPauseFeed's existing notification path). The log
+ * line below gives forensic trail without notification noise.
+ *
+ * Returns the count of recovered feeds for the caller's diagnostics.
+ */
+async function autoRecoverStalePausedFeeds(env: Env): Promise<number> {
+  const stale = await env.DB.prepare(`
+    SELECT fc.feed_name FROM feed_configs fc
+    LEFT JOIN feed_status fs ON fs.feed_name = fc.feed_name
+    WHERE fc.enabled = 0
+      AND fc.paused_reason = 'auto:consecutive_failures'
+      AND (fs.last_failure_at IS NULL
+           OR fs.last_failure_at < datetime('now', '-4 hours'))
+  `).all<{ feed_name: string }>();
+
+  if (stale.results.length === 0) return 0;
+
+  for (const row of stale.results) {
+    try {
+      await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE feed_configs
+             SET enabled = 1,
+                 paused_reason = NULL,
+                 updated_at = datetime('now')
+           WHERE feed_name = ?
+             AND paused_reason = 'auto:consecutive_failures'`
+        ).bind(row.feed_name),
+        env.DB.prepare(
+          `UPDATE feed_status
+             SET consecutive_failures = 0,
+                 health_status = 'healthy',
+                 last_error = NULL
+           WHERE feed_name = ?`
+        ).bind(row.feed_name),
+      ]);
+      console.log(`[runAllFeeds] auto-recovered ${row.feed_name} (auto-paused, last failure > 4h ago)`);
+    } catch (err) {
+      console.error(`[runAllFeeds] auto-recovery failed for ${row.feed_name}:`, err);
+    }
+  }
+
+  return stale.results.length;
+}
+
 // ─── Auto-pause helper ───────────────────────────────────────────
 
 /**
@@ -367,6 +435,26 @@ export async function runAllFeeds(
   // Reset the global-threshold cache so a fresh coordinator pass
   // picks up any system_config edit made since the last run.
   resetGlobalThresholdCache();
+
+  // ── Auto-recover stale auto-paused feeds ─────────────────────
+  // When a feed's upstream throws 5xx repeatedly (e.g. crt.sh hit
+  // five HTTP 502s on 2026-04-27 and tripped ct_logs into
+  // auto-pause), the transient-error handler in the feed module
+  // prevents future failures from incrementing the counter. But
+  // the feed is already paused, so the dispatch loop never runs
+  // it, and the counter never resets. Manual unpause is the only
+  // path out.
+  //
+  // This loop closes that gap: any feed auto-paused for
+  // 'consecutive_failures' whose last failure is older than 4
+  // hours gets re-enabled with a clean counter. If the upstream
+  // has recovered, the feed ingests normally on the next
+  // dispatch and stays clean. If it's still down, autoPauseFeed
+  // re-pauses it on the very next failure — no harm done.
+  //
+  // Manual pauses (paused_reason starts with anything other than
+  // 'auto:') are NEVER touched by this recovery loop.
+  await autoRecoverStalePausedFeeds(env);
 
   // Fetch enabled feed configs
   const configs = await env.DB.prepare(
