@@ -287,7 +287,10 @@ navigator:    */5 * * * *    (every 5 min — DNS resolution, cube refresh, cach
                                historical agent_runs rows use agent_id='fast_tick')
 orchestrator: 7 * * * *     (hourly at :07 — feeds, agent dispatch, Workflows)
 cube-healer:  12 */6 * * *  (every 6 hours at :12 — 30-day bulk cube rebuild)
-auto-seeder:  23 5 * * 0    (Sundays at 05:23 — weekly spam-trap bulk seeding)
+auto-seeder:  (no dedicated cron — gated inside the hourly orchestrator
+               on Sundays at hour===5, runs at 05:07 UTC. CF rejects
+               the 5-field cron `23 5 * * 0` with code 10100, so this
+               is dispatched from the existing hourly cron path.)
 ```
 
 ### Agent dispatch (inside orchestrator hourly tick):

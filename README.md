@@ -73,7 +73,7 @@ Averrow runs entirely on Cloudflare's edge. There is no traditional backend serv
 | **Curator** | Library curation for the threat-actor corpus | On-demand |
 | **Watchdog** | Stale-run + enrichment-stall detection | Continuous |
 | **Cube Healer** | 30-day retroactive cube rebuild | Every 6 hours |
-| **Recon** (Auto-Seeder) | Bulk-plants spam-trap addresses into harvester channels with per-location yield tracking | Weekly (Sun 05:23 UTC) |
+| **Recon** (Auto-Seeder) | Bulk-plants spam-trap addresses into harvester channels with per-location yield tracking | Weekly (Sun 05:07 UTC, dispatched from hourly orchestrator) |
 
 ## Cron Triggers
 
@@ -82,9 +82,8 @@ From `packages/trust-radar/wrangler.toml`:
 | Schedule | Handler | Purpose |
 |---|---|---|
 | `*/5 * * * *` | Navigator | DNS backfill, cube refresh, cache warming |
-| `7 * * * *` | Orchestrator | Feed ingestion, agent mesh dispatch, Workflow triggers |
+| `7 * * * *` | Orchestrator | Feed ingestion, agent mesh dispatch, Workflow triggers, **weekly Recon dispatch (Sun 05:07)** |
 | `12 */6 * * *` | Cube Healer | 30-day bulk cube rebuild (drift remediation) |
-| `23 5 * * 0` | Recon (Auto-Seeder) | Weekly spam-trap bulk seeding |
 
 The orchestrator's `:07` offset (rather than `:00`) exists to stop Navigator, cube-healer, and the hourly mesh from colliding on the D1 writer. When changing cron schedules, audit minute-based gates in the handler — see the cron-audit rule in `CLAUDE.md` §6.
 
