@@ -31,24 +31,6 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return;
   }
 
-  // ─── Auto-seeder tick: weekly spam-trap bulk seeding (23 5 * * 0) ───
-  // Sundays at 05:23 UTC. Plants new spam-trap addresses into harvester
-  // channels (paste sites, broker pages, GitHub gists, WHOIS, etc) and
-  // attributes each address to a seeding_location for per-location yield
-  // tracking. Distinct from the daily AI Seed Strategist (planning) —
-  // this is the execution arm. Currently a placeholder; PR-b fills in
-  // the real seeding body.
-  if (event.cron === '23 5 * * 0') {
-    try {
-      const { autoSeederAgent } = await import('../agents/auto-seeder');
-      const { executeAgent } = await import('../lib/agentRunner');
-      await executeAgent(env, autoSeederAgent, {}, 'cron', 'scheduled');
-    } catch (err) {
-      logger.error('auto_seeder_error', { error: err instanceof Error ? err.message : String(err) });
-    }
-    return;
-  }
-
   // ─── Hourly tick: full agent mesh (7 * * * *, 15min CPU ceiling) ───
   // Shifted from :00 to :07 in Wave 1A so the hourly mesh no longer collides
   // with the */5 Navigator that fires at :00. Parity-checker was removed as a
@@ -153,6 +135,26 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
         logger.error('cron_sentinel_social_failed', { error: String(err) })
       )
     );
+  }
+
+  // ─── Weekly: Recon (auto_seeder) — Sundays at 05:00 UTC ───
+  // Dispatched from inside the hourly orchestrator instead of a
+  // dedicated cron entry because Cloudflare's cron parser rejects
+  // '23 5 * * 0' even though it's standard 5-field cron syntax (CF
+  // error 10100 at deploy time). Day-of-week + hour gate is fine
+  // per the cron-audit rule (CLAUDE.md §6) — it operates on the
+  // broader scheduledTime context rather than a minute literal.
+  // Hourly cron fires at :07 so the actual run time is 05:07 UTC.
+  // Per-tick, hour-only gates are re-checked against scheduledTime
+  // — never against `new Date()` — to survive cron jitter.
+  if (now.getUTCDay() === 0 && hour === 5) {
+    try {
+      const { autoSeederAgent } = await import('../agents/auto-seeder');
+      const { executeAgent } = await import('../lib/agentRunner');
+      await executeAgent(env, autoSeederAgent, {}, 'cron', 'scheduled');
+    } catch (err) {
+      logger.error('auto_seeder_error', { error: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   // Daily at 06:00 UTC: Observer briefing + threat narratives
