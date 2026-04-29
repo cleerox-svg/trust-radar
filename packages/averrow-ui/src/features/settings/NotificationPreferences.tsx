@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, BellRing, BellOff, Smartphone, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BellRing, BellOff, Smartphone, Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import {
   USER_TOGGLEABLE_EVENTS,
   NOTIFICATION_CHANNELS,
 } from '@averrow/shared';
-import { Card, SectionLabel } from '@/design-system/components';
+import { Card, SectionLabel, Button } from '@/design-system/components';
 import {
   getPushStatus, subscribePush, unsubscribePush,
   listPushDevices, removePushDevice,
   type PushStatus, type PushDevice,
 } from '@/lib/push';
+import {
+  useNotificationPreferencesV2, useUpdateNotificationPreferencesV2,
+  useNotificationSubscriptions, useUpdateSubscription, useDeleteSubscription,
+  type NotificationPreferencesV2, type SubscriptionLevel,
+} from '@/hooks/useNotifications';
+import { useAuth } from '@/lib/auth';
 
 const PREF_KEYS = [
   ...USER_TOGGLEABLE_EVENTS.map((e) => e.key),
@@ -261,6 +267,12 @@ export function NotificationPreferences() {
           <Toggle on={currentPrefs?.critical_breakthrough === true} />
         </button>
       </Card>
+
+      {/* ─── N5: Channel Routing — per-channel severity floors + digest ── */}
+      <ChannelRoutingSection />
+
+      {/* ─── N5: Watching — per-brand subscription list ────────────────── */}
+      <WatchingSection />
     </div>
   );
 }
@@ -376,4 +388,244 @@ function PushSection(props: PushSectionProps) {
       )}
     </Card>
   );
+}
+
+// ─── N5: Channel Routing — per-channel severity floors + digest ───────
+
+const SEVERITY_FLOOR_OPTIONS: { value: 'critical'|'high'|'medium'|'low'|'info'; label: string }[] = [
+  { value: 'critical', label: 'Critical only' },
+  { value: 'high',     label: 'High and above' },
+  { value: 'medium',   label: 'Medium and above' },
+  { value: 'low',      label: 'Low and above' },
+  { value: 'info',     label: 'Everything' },
+];
+
+const SEVERITY_FLOOR_OFF_OPTIONS: { value: 'critical'|'high'|'medium'|'low'|'info'|'off'; label: string }[] = [
+  { value: 'off',      label: 'Off' },
+  ...SEVERITY_FLOOR_OPTIONS,
+];
+
+const DIGEST_OPTIONS: { value: 'realtime'|'hourly'|'daily'|'weekly'|'off'; label: string }[] = [
+  { value: 'realtime', label: 'Realtime' },
+  { value: 'hourly',   label: 'Hourly' },
+  { value: 'daily',    label: 'Daily' },
+  { value: 'weekly',   label: 'Weekly' },
+  { value: 'off',      label: 'Off' },
+];
+
+const DIGEST_FLOOR_OPTIONS: { value: 'high'|'medium'|'low'|'info'; label: string }[] = [
+  { value: 'high',   label: 'High and above' },
+  { value: 'medium', label: 'Medium and above' },
+  { value: 'low',    label: 'Low and above' },
+  { value: 'info',   label: 'Everything' },
+];
+
+function ChannelRoutingSection() {
+  const { isSuperAdmin } = useAuth();
+  const { data: prefs } = useNotificationPreferencesV2();
+  const update = useUpdateNotificationPreferencesV2();
+
+  const set = <K extends keyof NotificationPreferencesV2>(
+    key: K,
+    value: NotificationPreferencesV2[K],
+  ) => update.mutate({ [key]: value } as Partial<NotificationPreferencesV2>);
+
+  // Loading + first-render state — render the card with placeholder
+  // copy so the operator knows the section exists but isn't editable
+  // until prefs land. Avoids a flash of zero content.
+  if (!prefs) {
+    return (
+      <Card className="mb-4">
+        <SectionLabel className="mb-3">Channel Routing</SectionLabel>
+        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Loading…</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mb-4">
+      <SectionLabel className="mb-3">Channel Routing</SectionLabel>
+      <p className="text-[11px] mb-4" style={{ color: 'var(--text-secondary)' }}>
+        Set the minimum severity each channel will deliver.
+        Critical events bypass these floors when the bypass toggle is on.
+      </p>
+
+      <FloorRow
+        label="In-app (bell + inbox)"
+        value={prefs.inapp_severity_floor}
+        options={SEVERITY_FLOOR_OPTIONS}
+        onChange={(v) => set('inapp_severity_floor', v as NotificationPreferencesV2['inapp_severity_floor'])}
+      />
+      <FloorRow
+        label="Push notifications"
+        value={prefs.push_severity_floor}
+        options={SEVERITY_FLOOR_OFF_OPTIONS}
+        onChange={(v) => set('push_severity_floor', v as NotificationPreferencesV2['push_severity_floor'])}
+      />
+      <FloorRow
+        label="Email"
+        value={prefs.email_severity_floor}
+        options={SEVERITY_FLOOR_OFF_OPTIONS}
+        onChange={(v) => set('email_severity_floor', v as NotificationPreferencesV2['email_severity_floor'])}
+      />
+
+      <div className="border-t border-white/[0.06] my-4" />
+
+      <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>
+        Digest mode rolls non-realtime notifications into a single email at
+        a fixed cadence.
+      </p>
+      <FloorRow
+        label="Digest cadence"
+        value={prefs.digest_mode}
+        options={DIGEST_OPTIONS}
+        onChange={(v) => set('digest_mode', v as NotificationPreferencesV2['digest_mode'])}
+      />
+      {prefs.digest_mode !== 'off' && prefs.digest_mode !== 'realtime' && (
+        <FloorRow
+          label="Digest severity floor"
+          value={prefs.digest_severity_floor}
+          options={DIGEST_FLOOR_OPTIONS}
+          onChange={(v) => set('digest_severity_floor', v as NotificationPreferencesV2['digest_severity_floor'])}
+        />
+      )}
+
+      {/* Q3 — super_admin opt-in for tenant firehose */}
+      {isSuperAdmin && (
+        <>
+          <div className="border-t border-white/[0.06] my-4" />
+          <button
+            onClick={() => set('show_tenant_notifications', prefs.show_tenant_notifications ? 0 : 1)}
+            className="w-full flex items-center justify-between py-3 px-1 touch-target"
+          >
+            <div className="flex items-center gap-2">
+              {prefs.show_tenant_notifications
+                ? <Eye className="w-3.5 h-3.5" style={{ color: 'var(--amber)' }} />
+                : <EyeOff className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />}
+              <div>
+                <p className="text-[13px] text-left" style={{ color: 'var(--text-primary)' }}>
+                  Show tenant notifications too
+                </p>
+                <p className="text-[11px] text-left mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  Super admins normally see operational alerts only. Enable this
+                  to also receive every tenant-scoped notification.
+                </p>
+              </div>
+            </div>
+            <Toggle on={prefs.show_tenant_notifications === 1} />
+          </button>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function FloorRow({
+  label, value, options, onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between py-2 gap-3">
+      <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-1.5 rounded-md text-[12px] font-mono"
+        style={{
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border-base)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// ─── N5: Watching — per-brand subscription list ───────────────────────
+
+function WatchingSection() {
+  const navigate = useNavigate();
+  const { data: subs, isLoading } = useNotificationSubscriptions();
+  const update = useUpdateSubscription();
+  const remove = useDeleteSubscription();
+
+  return (
+    <Card className="mb-4">
+      <SectionLabel className="mb-3">Watching</SectionLabel>
+      <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>
+        Per-brand watch level. <strong>Watching</strong> sends every severity.
+        <strong> Default</strong> sends critical and high. <strong>Ignored</strong>
+        mutes the brand entirely.
+      </p>
+
+      {isLoading ? (
+        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Loading…</p>
+      ) : !subs || subs.length === 0 ? (
+        <div className="py-6 text-center">
+          <p className="text-[12px] mb-2" style={{ color: 'var(--text-tertiary)' }}>
+            You're not watching any brands yet.
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/brands')}>
+            Browse brands
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {subs.map((s) => (
+            <div
+              key={s.brand_id}
+              className="flex items-center justify-between gap-3 py-2 px-1 border-b border-white/[0.04] last:border-0"
+            >
+              <button
+                onClick={() => navigate(`/brands/${s.brand_id}`)}
+                className="text-[13px] text-left flex-1 min-w-0 truncate touch-target"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {s.brand_name ?? s.brand_id}
+              </button>
+              <select
+                value={s.level}
+                onChange={(e) => update.mutate({ brandId: s.brand_id, level: e.target.value as SubscriptionLevel })}
+                className="px-2 py-1 rounded text-[11px] font-mono uppercase tracking-wider"
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-base)',
+                  color: levelColor(s.level),
+                }}
+              >
+                <option value="watching">Watching</option>
+                <option value="default">Default</option>
+                <option value="ignored">Ignored</option>
+              </select>
+              <button
+                onClick={() => remove.mutate(s.brand_id)}
+                className="p-1.5 rounded touch-target hover:bg-white/[0.05]"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-label="Remove subscription"
+                title="Remove"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function levelColor(level: SubscriptionLevel): string {
+  switch (level) {
+    case 'watching': return 'var(--amber)';
+    case 'ignored':  return 'var(--text-tertiary)';
+    default:         return 'var(--text-primary)';
+  }
 }

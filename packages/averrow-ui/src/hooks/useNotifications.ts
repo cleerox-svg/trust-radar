@@ -133,6 +133,101 @@ export function useMarkDone() {
   });
 }
 
+// ─── N5: preferences_v2 ───────────────────────────────────────────────
+
+export type SeverityFloor = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type SeverityFloorWithOff = SeverityFloor | 'off';
+export type DigestMode = 'realtime' | 'hourly' | 'daily' | 'weekly' | 'off';
+export type DigestSeverityFloor = 'high' | 'medium' | 'low' | 'info';
+
+export interface NotificationPreferencesV2 {
+  inapp_severity_floor: SeverityFloor;
+  push_severity_floor: SeverityFloorWithOff;
+  email_severity_floor: SeverityFloorWithOff;
+  digest_mode: DigestMode;
+  digest_severity_floor: DigestSeverityFloor;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  quiet_hours_timezone: string;
+  critical_bypasses_quiet: number;
+  show_tenant_notifications: number;
+}
+
+export function useNotificationPreferencesV2() {
+  return useQuery({
+    queryKey: ['notification-preferences-v2'],
+    queryFn: async (): Promise<NotificationPreferencesV2 | null> => {
+      const res = await api.get<NotificationPreferencesV2>('/api/notifications/preferences/v2');
+      return res.data ?? null;
+    },
+  });
+}
+
+export function useUpdateNotificationPreferencesV2() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Partial<NotificationPreferencesV2>) => {
+      await api.put('/api/notifications/preferences/v2', patch);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences-v2'] });
+    },
+  });
+}
+
+// ─── N5: subscriptions ────────────────────────────────────────────────
+
+export type SubscriptionLevel = 'watching' | 'default' | 'ignored';
+
+export interface Subscription {
+  brand_id: string;
+  brand_name: string | null;
+  level: SubscriptionLevel;
+  snoozed_until: string | null;
+  updated_at: string;
+}
+
+export function useNotificationSubscriptions() {
+  return useQuery({
+    queryKey: ['notification-subscriptions'],
+    queryFn: async (): Promise<Subscription[]> => {
+      const res = await api.get<Subscription[]>('/api/notifications/subscriptions');
+      return res.data ?? [];
+    },
+  });
+}
+
+export function useUpdateSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ brandId, level, snoozedUntil }: {
+      brandId: string;
+      level: SubscriptionLevel;
+      snoozedUntil?: string | null;
+    }) => {
+      await api.put(`/api/notifications/subscriptions/${brandId}`, {
+        level,
+        ...(snoozedUntil !== undefined ? { snoozed_until: snoozedUntil } : {}),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-subscriptions'] });
+    },
+  });
+}
+
+export function useDeleteSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (brandId: string) => {
+      await api.delete(`/api/notifications/subscriptions/${brandId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-subscriptions'] });
+    },
+  });
+}
+
 // Used by /v2/notifications archive page. Distinct from
 // useNotifications() (bell preview) because:
 //   - This one supports filters + search + cursor pagination.

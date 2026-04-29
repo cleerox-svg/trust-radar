@@ -147,13 +147,24 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
     // Per §10.2: subscriptions level 'ignored' opts the user out;
     // 'default' and 'watching' both receive (severity floor handled
     // separately downstream).
+    //
+    // Q3 / N5: super_admins with show_tenant_notifications=1 are
+    // ALSO recipients regardless of subscription — they explicitly
+    // opted into the tenant firehose.
     const users = await db.prepare(
       `SELECT DISTINCT u.id
          FROM users u
          JOIN notification_subscriptions ns ON ns.user_id = u.id
         WHERE u.status = 'active'
           AND ns.brand_id = ?
-          AND ns.level != 'ignored'`
+          AND ns.level != 'ignored'
+       UNION
+       SELECT u.id
+         FROM users u
+         JOIN notification_preferences_v2 p ON p.user_id = u.id
+        WHERE u.status = 'active'
+          AND u.role = 'super_admin'
+          AND p.show_tenant_notifications = 1`
     ).bind(brandId).all<{ id: string }>();
     userIds = users.results.map(u => u.id);
   } else {

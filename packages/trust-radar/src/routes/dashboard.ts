@@ -16,6 +16,8 @@ import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
   handleSnoozeNotification, handleMarkDone,
+  handleGetPreferencesV2, handleUpdatePreferencesV2,
+  handleListSubscriptions, handleUpdateSubscription, handleDeleteSubscription,
 } from "../handlers/notifications";
 import {
   handleSubscribePush, handleUnsubscribePush, handleUnsubscribeByEndpoint,
@@ -164,6 +166,35 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdatePreferences(request, env, ctx.userId);
+  });
+
+  // ─── N5: preferences_v2 — per-channel severity floors + digest mode ─
+  router.get("/api/notifications/preferences/v2", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetPreferencesV2(request, env, ctx.userId);
+  });
+  router.put("/api/notifications/preferences/v2", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdatePreferencesV2(request, env, ctx.userId);
+  });
+
+  // ─── N5: subscriptions — per-user × per-brand watch level ───────────
+  router.get("/api/notifications/subscriptions", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListSubscriptions(request, env, ctx.userId);
+  });
+  router.put("/api/notifications/subscriptions/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleUpdateSubscription(request, env, request.params["brandId"] ?? "", ctx.userId);
+  });
+  router.delete("/api/notifications/subscriptions/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleDeleteSubscription(request, env, request.params["brandId"] ?? "", ctx.userId);
   });
 
   // ─── Web Push (mounted as /api/notifications/* per the FarmTrack

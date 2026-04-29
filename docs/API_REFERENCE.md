@@ -368,6 +368,11 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | POST | `/api/notifications/read-all` | User | Mark all as read |
 | POST | `/api/notifications/:id/snooze` | User | Snooze until ISO-8601 timestamp (body: `{until}`) |
 | POST | `/api/notifications/:id/done` | User | Mark done (Linear-style fourth state) |
+| GET | `/api/notifications/preferences/v2` | User | Per-channel severity floors + digest mode + super_admin opt-in (auto-seeds row if missing) |
+| PUT | `/api/notifications/preferences/v2` | User | Patch any subset of v2 fields |
+| GET | `/api/notifications/subscriptions` | User | List per-brand subscriptions joined with brand metadata |
+| PUT | `/api/notifications/subscriptions/:brandId` | User | Set level (watching\|default\|ignored), optional `snoozed_until` |
+| DELETE | `/api/notifications/subscriptions/:brandId` | User | Remove subscription |
 
 ## Trends
 

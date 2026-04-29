@@ -372,3 +372,233 @@ export async function handleUpdatePreferences(request: Request, env: Env, userId
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
 }
+
+// ─── N5: notification_preferences_v2 ──────────────────────────────────
+//
+// Replacement for the legacy flat-bool preferences. Per-channel
+// severity floors + digest mode + super_admin opt-in. The legacy
+// table stays in place (read-only) until the bell + email paths are
+// fully migrated; this lets v1 and v2 UIs coexist briefly.
+
+type SeverityFloor = 'critical' | 'high' | 'medium' | 'low' | 'info';
+type SeverityFloorWithOff = SeverityFloor | 'off';
+type DigestMode = 'realtime' | 'hourly' | 'daily' | 'weekly' | 'off';
+
+interface PreferencesV2Row {
+  inapp_severity_floor: SeverityFloor;
+  push_severity_floor: SeverityFloorWithOff;
+  email_severity_floor: SeverityFloorWithOff;
+  digest_mode: DigestMode;
+  digest_severity_floor: 'high' | 'medium' | 'low' | 'info';
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  quiet_hours_timezone: string;
+  critical_bypasses_quiet: number;
+  show_tenant_notifications: number;
+}
+
+const PREF_V2_DEFAULTS: PreferencesV2Row = {
+  inapp_severity_floor: 'info',
+  push_severity_floor: 'high',
+  email_severity_floor: 'high',
+  digest_mode: 'daily',
+  digest_severity_floor: 'medium',
+  quiet_hours_start: null,
+  quiet_hours_end: null,
+  quiet_hours_timezone: 'UTC',
+  critical_bypasses_quiet: 1,
+  show_tenant_notifications: 0,
+};
+
+const VALID_SEVERITY: ReadonlySet<SeverityFloor> = new Set(['critical','high','medium','low','info']);
+const VALID_SEVERITY_OFF: ReadonlySet<SeverityFloorWithOff> = new Set(['critical','high','medium','low','info','off']);
+const VALID_DIGEST: ReadonlySet<DigestMode> = new Set(['realtime','hourly','daily','weekly','off']);
+const VALID_DIGEST_FLOOR: ReadonlySet<'high'|'medium'|'low'|'info'> = new Set(['high','medium','low','info']);
+
+// GET /api/notifications/preferences/v2
+export async function handleGetPreferencesV2(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const row = await env.DB.prepare(
+      `SELECT inapp_severity_floor, push_severity_floor, email_severity_floor,
+              digest_mode, digest_severity_floor,
+              quiet_hours_start, quiet_hours_end, quiet_hours_timezone,
+              critical_bypasses_quiet, show_tenant_notifications
+         FROM notification_preferences_v2 WHERE user_id = ?`
+    ).bind(userId).first<PreferencesV2Row>();
+
+    // Auto-seed if missing (the N2 backfill covered active users at
+    // migration time but new users won't have a row).
+    if (!row) {
+      await env.DB.prepare(
+        `INSERT INTO notification_preferences_v2 (user_id) VALUES (?)
+         ON CONFLICT(user_id) DO NOTHING`
+      ).bind(userId).run();
+      return json({ success: true, data: PREF_V2_DEFAULTS }, 200, origin);
+    }
+    return json({ success: true, data: row }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// PUT /api/notifications/preferences/v2
+export async function handleUpdatePreferencesV2(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as Partial<PreferencesV2Row>;
+
+    // Validate every provided field against its allowlist before
+    // building the UPDATE — anything not in the allowlist is dropped.
+    const updates: string[] = [];
+    const bindings: unknown[] = [];
+
+    if (body.inapp_severity_floor !== undefined) {
+      if (!VALID_SEVERITY.has(body.inapp_severity_floor)) {
+        return json({ success: false, error: "Invalid inapp_severity_floor" }, 400, origin);
+      }
+      updates.push('inapp_severity_floor = ?'); bindings.push(body.inapp_severity_floor);
+    }
+    if (body.push_severity_floor !== undefined) {
+      if (!VALID_SEVERITY_OFF.has(body.push_severity_floor)) {
+        return json({ success: false, error: "Invalid push_severity_floor" }, 400, origin);
+      }
+      updates.push('push_severity_floor = ?'); bindings.push(body.push_severity_floor);
+    }
+    if (body.email_severity_floor !== undefined) {
+      if (!VALID_SEVERITY_OFF.has(body.email_severity_floor)) {
+        return json({ success: false, error: "Invalid email_severity_floor" }, 400, origin);
+      }
+      updates.push('email_severity_floor = ?'); bindings.push(body.email_severity_floor);
+    }
+    if (body.digest_mode !== undefined) {
+      if (!VALID_DIGEST.has(body.digest_mode)) {
+        return json({ success: false, error: "Invalid digest_mode" }, 400, origin);
+      }
+      updates.push('digest_mode = ?'); bindings.push(body.digest_mode);
+    }
+    if (body.digest_severity_floor !== undefined) {
+      if (!VALID_DIGEST_FLOOR.has(body.digest_severity_floor)) {
+        return json({ success: false, error: "Invalid digest_severity_floor" }, 400, origin);
+      }
+      updates.push('digest_severity_floor = ?'); bindings.push(body.digest_severity_floor);
+    }
+    if ('quiet_hours_start' in body) {
+      updates.push('quiet_hours_start = ?'); bindings.push(body.quiet_hours_start ?? null);
+    }
+    if ('quiet_hours_end' in body) {
+      updates.push('quiet_hours_end = ?'); bindings.push(body.quiet_hours_end ?? null);
+    }
+    if (body.quiet_hours_timezone !== undefined) {
+      updates.push('quiet_hours_timezone = ?'); bindings.push(body.quiet_hours_timezone);
+    }
+    if (body.critical_bypasses_quiet !== undefined) {
+      updates.push('critical_bypasses_quiet = ?'); bindings.push(body.critical_bypasses_quiet ? 1 : 0);
+    }
+    if (body.show_tenant_notifications !== undefined) {
+      updates.push('show_tenant_notifications = ?'); bindings.push(body.show_tenant_notifications ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return json({ success: false, error: "No valid fields provided" }, 400, origin);
+    }
+
+    updates.push("updated_at = datetime('now')");
+
+    await env.DB.prepare(
+      `INSERT INTO notification_preferences_v2 (user_id) VALUES (?)
+       ON CONFLICT(user_id) DO NOTHING`
+    ).bind(userId).run();
+
+    bindings.push(userId);
+    await env.DB.prepare(
+      `UPDATE notification_preferences_v2 SET ${updates.join(', ')} WHERE user_id = ?`
+    ).bind(...bindings).run();
+
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── N5: notification_subscriptions ───────────────────────────────────
+
+type SubscriptionLevel = 'watching' | 'default' | 'ignored';
+const VALID_SUB_LEVEL: ReadonlySet<SubscriptionLevel> = new Set(['watching','default','ignored']);
+
+interface SubscriptionRow {
+  brand_id: string;
+  brand_name: string | null;
+  level: SubscriptionLevel;
+  snoozed_until: string | null;
+  updated_at: string;
+}
+
+// GET /api/notifications/subscriptions
+//
+// Returns the user's per-brand subscription list joined with brand
+// metadata so the UI can render brand names without a second fetch.
+export async function handleListSubscriptions(request: Request, env: Env, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT ns.brand_id, b.name AS brand_name, ns.level, ns.snoozed_until, ns.updated_at
+         FROM notification_subscriptions ns
+         LEFT JOIN brands b ON b.id = ns.brand_id
+        WHERE ns.user_id = ?
+        ORDER BY ns.updated_at DESC`
+    ).bind(userId).all<SubscriptionRow>();
+    return json({ success: true, data: rows.results }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// PUT /api/notifications/subscriptions/:brandId
+// Body: { level: 'watching'|'default'|'ignored', snoozed_until?: string }
+export async function handleUpdateSubscription(request: Request, env: Env, brandId: string, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json() as { level?: SubscriptionLevel; snoozed_until?: string | null };
+    if (!body.level || !VALID_SUB_LEVEL.has(body.level)) {
+      return json({ success: false, error: "level required (watching|default|ignored)" }, 400, origin);
+    }
+    if (!brandId) {
+      return json({ success: false, error: "brandId required" }, 400, origin);
+    }
+    const brandRow = await env.DB.prepare("SELECT id FROM brands WHERE id = ?")
+      .bind(brandId).first<{ id: string }>();
+    if (!brandRow) {
+      return json({ success: false, error: "Brand not found" }, 404, origin);
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO notification_subscriptions (user_id, brand_id, level, snoozed_until, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id, brand_id) DO UPDATE
+         SET level = excluded.level,
+             snoozed_until = excluded.snoozed_until,
+             updated_at = datetime('now')`
+    ).bind(userId, brandId, body.level, body.snoozed_until ?? null).run();
+
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// DELETE /api/notifications/subscriptions/:brandId
+export async function handleDeleteSubscription(request: Request, env: Env, brandId: string, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    if (!brandId) {
+      return json({ success: false, error: "brandId required" }, 400, origin);
+    }
+    await env.DB.prepare(
+      "DELETE FROM notification_subscriptions WHERE user_id = ? AND brand_id = ?"
+    ).bind(userId, brandId).run();
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
