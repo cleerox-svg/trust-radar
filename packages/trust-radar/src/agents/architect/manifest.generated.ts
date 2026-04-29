@@ -501,7 +501,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 589,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "last_modified": "2026-04-29T14:07:55.619Z"
     },
     {
       "name": "social-ai-assessor",

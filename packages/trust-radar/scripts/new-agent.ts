@@ -380,25 +380,112 @@ if (args.trigger === "api") {
 
 writeFileSync(outPath, template, "utf8");
 
+// ─── Phase 5.3b — backend wiring patches ─────────────────────────
+//
+// Auto-patches the two files the TS compiler will fail on if they're
+// missing the new agent: the AgentName union (lib/agentRunner.ts)
+// and the agentModules registry (agents/index.ts). UI metadata +
+// icon + doc patches arrive in Phase 5.3c — until then, the
+// scaffolder still prints the manual checklist for those.
+
+interface PatchResult { file: string; status: "patched" | "already-present" | "skipped" | "failed"; detail?: string; }
+const patchResults: PatchResult[] = [];
+
+function patchAgentNameUnion(snake: string): PatchResult {
+  const path = resolve(__dirname, "..", "src", "lib", "agentRunner.ts");
+  const file = "lib/agentRunner.ts";
+  let src: string;
+  try { src = readFileSync(path, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  // Idempotency: check if the agent name is already in the union.
+  const presentRe = new RegExp(`\\|\\s*"${snake}"`);
+  if (presentRe.test(src)) return { file, status: "already-present" };
+
+  // Anchor: the closing line of the AgentName union has the form
+  //   | "<last_agent>";
+  // We append a new union member on a new line just before the
+  // semicolon, preserving the existing layout.
+  const closingRe = /(\| "[a-z_][a-z0-9_]*")(;\n)/;
+  const match = src.match(closingRe);
+  if (!match) return { file, status: "failed", detail: "could not locate AgentName union closing line" };
+
+  const replaced = src.replace(closingRe, `$1\n  | "${snake}"$2`);
+  writeFileSync(path, replaced, "utf8");
+  return { file, status: "patched" };
+}
+
+function patchAgentRegistry(snake: string, kebabName: string, camelVar: string): PatchResult {
+  const path = resolve(__dirname, "..", "src", "agents", "index.ts");
+  const file = "agents/index.ts";
+  let src: string;
+  try { src = readFileSync(path, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  // Idempotency: already imported?
+  const importRe = new RegExp(`import \\{ ${camelVar}Agent \\} from "\\./${kebabName}"`);
+  const registryRe = new RegExp(`"${snake}"\\s*:\\s*${camelVar}Agent`);
+  if (importRe.test(src) && registryRe.test(src)) return { file, status: "already-present" };
+
+  let nextSrc = src;
+
+  // 1. Insert the import after the last `import ... from "./..."` line.
+  if (!importRe.test(nextSrc)) {
+    const lastImportRe = /(import \{[^}]+\} from "\.\/[^"]+";\n)(?![\s\S]*import \{[^}]+\} from "\.\/[^"]+";)/;
+    const importMatch = nextSrc.match(lastImportRe);
+    if (!importMatch) return { file, status: "failed", detail: "could not locate last `from \"./...\"` import" };
+    nextSrc = nextSrc.replace(lastImportRe, `$1import { ${camelVar}Agent } from "./${kebabName}";\n`);
+  }
+
+  // 2. Insert the registry entry before the closing `};` of agentModules.
+  if (!registryRe.test(nextSrc)) {
+    // The registry entries match `  "name": fooAgent,` with a closing
+    // `};` line. Insert just before that closing brace.
+    const closingRe = /(\n  "[a-z_]+":\s*[a-zA-Z]+Agent,\n)(\};)/;
+    const regMatch = nextSrc.match(closingRe);
+    if (!regMatch) return { file, status: "failed", detail: "could not locate agentModules closing brace" };
+    nextSrc = nextSrc.replace(closingRe, `$1  "${snake}": ${camelVar}Agent,\n$2`);
+  }
+
+  writeFileSync(path, nextSrc, "utf8");
+  return { file, status: "patched" };
+}
+
+patchResults.push(patchAgentNameUnion(args.snakeName));
+patchResults.push(patchAgentRegistry(args.snakeName, kebab, snakeToCamel(args.snakeName)));
+
+// Surface the results to the operator. A failure here is recoverable
+// — the module file already landed; the operator can manually patch
+// the two files using the printed instructions below.
+const anyFailed = patchResults.some((r) => r.status === "failed");
+if (anyFailed) {
+  console.error("[new-agent] some backend wiring patches failed:");
+  for (const r of patchResults) {
+    if (r.status === "failed") console.error(`  - ${r.file}: ${r.detail}`);
+  }
+  console.error("Patch the failing files manually and continue with the UI wiring.");
+}
+
 console.log(
   [
     `[new-agent] wrote ${outPath}`,
     "",
+    "Backend wiring patches:",
+    ...patchResults.map((r) => {
+      const symbol = r.status === "patched" ? "✓ patched" : r.status === "already-present" ? "= already-present" : `✗ ${r.status}${r.detail ? ` (${r.detail})` : ""}`;
+      return `  ${symbol}  ${r.file}`;
+    }),
+    "",
     "Next steps:",
     `  1. Open ${outPath}, replace the TODO blocks with the agent's logic.`,
-    "  2. Wire the agent into the registry and UI:",
-    `     - lib/agentRunner.ts   → add "${args.snakeName}" to the AgentName union`,
-    `     - agents/index.ts      → import + register ${snakeToCamel(args.snakeName)}Agent`,
+    "  2. Wire the UI surfaces (Phase 5.3c will auto-patch these):",
     `     - averrow-ui/src/lib/agent-metadata.ts → add AGENT_METADATA entry`,
     `     - averrow-ui/src/features/agents/Agents.tsx → add to AGENT_GROUPS`,
     `     - averrow-ui/src/components/brand/AgentIcon.tsx → add an SVG`,
     `     - docs/AI_AGENTS.md    → add a row`,
     "",
-    "  3. Run pnpm audit:agent-standard — it lists the wiring gaps.",
+    "  3. Run pnpm audit:agent-standard — it lists the remaining gaps.",
     "  4. Run pnpm typecheck + pnpm test.",
     "  5. Open PR.",
-    "",
-    "Phase 5.3b will auto-patch the backend wiring (AgentName + agentModules);",
-    "Phase 5.3c will auto-patch the UI files + doc.",
   ].join("\n"),
 );
