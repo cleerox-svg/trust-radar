@@ -148,7 +148,7 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
         let aiAssessment = '';
 
         try {
-          const aiResult = await analyzeWithHaiku(env, { agentId: "lookalike-scanner", runId: null },
+          const aiResult = await analyzeWithHaiku(env, { agentId: "lookalike_scanner", runId: null },
             `Assess the threat level of this newly registered lookalike domain. Is it likely malicious brand impersonation or benign?
              Respond with JSON: {"threat_level": "LOW|MEDIUM|HIGH|CRITICAL", "assessment": "brief explanation", "indicators": ["list of suspicious indicators"]}`,
             {

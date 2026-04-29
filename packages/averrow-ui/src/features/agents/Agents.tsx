@@ -54,6 +54,7 @@ const AGENT_GROUPS: AgentGroup[] = [
       'dark_web_monitor',
       'seed_strategist',
       'auto_seeder',
+      'lookalike_scanner',
     ],
   },
   {

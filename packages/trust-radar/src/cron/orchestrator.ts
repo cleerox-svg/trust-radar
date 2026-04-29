@@ -896,8 +896,14 @@ async function runCTMonitor(env: Env): Promise<void> {
 }
 
 async function runLookalikeDomainCheck(env: Env): Promise<void> {
-  const { checkLookalikeBatch } = await import('../scanners/lookalike-domains');
-  await checkLookalikeBatch(env);
+  // Phase 3.8 of agent audit: lookalike-scanner now goes through
+  // the standard runner. ONE agent_runs row per hourly tick covers
+  // all rows scanned by the underlying checkLookalikeBatch loop.
+  // Per-row AI calls (Haiku) stay attributed to 'lookalike_scanner'
+  // in budget_ledger via the existing analyzeWithHaiku path.
+  const { lookalikeScannerAgent } = await import('../agents/lookalike-scanner');
+  const { executeAgent } = await import('../lib/agentRunner');
+  await executeAgent(env, lookalikeScannerAgent, {}, 'cron', 'scheduled');
 }
 
 async function runThreatNarratives(env: Env): Promise<void> {

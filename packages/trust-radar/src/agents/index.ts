@@ -43,6 +43,7 @@ import { brandReportAgent } from "./brand-report";
 import { brandDeepScanAgent } from "./brand-deep-scan";
 import { honeypotGeneratorAgent } from "./honeypot-generator";
 import { brandEnricherAgent } from "./brand-enricher";
+import { lookalikeScannerAgent } from "./lookalike-scanner";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -77,4 +78,5 @@ export const agentModules: Record<string, AgentModule> = {
   "brand_deep_scan": brandDeepScanAgent,
   "honeypot_generator": honeypotGeneratorAgent,
   "brand_enricher": brandEnricherAgent,
+  "lookalike_scanner": lookalikeScannerAgent,
 };
