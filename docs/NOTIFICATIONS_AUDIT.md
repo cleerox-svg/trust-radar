@@ -1475,4 +1475,169 @@ appropriate for the digest because:
 Out of scope for N6. Schema in §10 already supports it (the
 `notification_digest` envelope type + `metadata.digest_window`).
 
+---
+
+## 12. Email briefing investigation
+
+The user's Q10 expanded scope to include the **broken email
+briefing**: dispatched daily at hour 13 from the orchestrator,
+but recipients report inconsistent delivery and stale content.
+This section documents what we found in the dispatch path and
+what N6c will fix.
+
+### 12.1 Dispatch path
+
+```
+orchestrator (hour===13)
+  → handlers/briefing.ts: sendDailyBriefingEmails()
+  → lib/briefing-email.ts: buildBriefingForUser() per active user
+  → lib/email.ts: sendEmail() via Resend
+```
+
+Key files:
+- `packages/trust-radar/src/handlers/briefing.ts` — entry, dedup
+  against same-day cron briefings
+- `packages/trust-radar/src/lib/briefing-email.ts:555` — content
+  assembly; this is where stale/empty briefings originate
+- `packages/trust-radar/src/lib/email.ts` — Resend wrapper
+
+### 12.2 Failure modes observed
+
+| # | Symptom | Suspected cause |
+|---|---------|-----------------|
+| 1 | Email sent but body shows "no events in window" when there clearly were | Window math uses `now - 24h` against `created_at`, but feeds run on hour-aligned cycles → a tick at 13:07 misses the 13:00 ingestion that hasn't completed yet |
+| 2 | Same brand listed 5× in one email | No `GROUP BY brand_id` in the digest assembly query — one row per threat |
+| 3 | Recipients on inactive orgs still get email | User-status filter exists, but org-status filter doesn't |
+| 4 | "Top threat" section empty | Severity filter requires `severity IN ('critical','high')` but the assembly query doesn't pre-filter, so `LIMIT 5` returns 5 info-level rows |
+| 5 | Email never arrives | Resend rate-limit on shared domain; no retry; failure is logged to `agent_runs.error_message` but no surface in the UI |
+
+### 12.3 Decision — fold briefing into notifications
+
+Rather than fixing the email briefing as a standalone feature,
+N6c collapses it into the notifications system:
+
+1. Daily briefing becomes a **`notification_digest` envelope row**
+   (audience=`tenant`, severity=`info`) created at hour 13.
+2. The envelope's `metadata.digest_window` is `'24h'` and
+   `metadata.notification_ids[]` lists the underlying rows.
+3. Email is sent **only if** the user has
+   `notification_preferences_v2.channel_email = true` AND
+   `digest_mode = 'daily'` (per Q8 default).
+4. Users who chose `digest_mode = 'realtime'` get the per-event
+   emails as they happen, not a digest.
+5. Users who chose `channel_email = false` still see the digest
+   in the bell — no email.
+
+This kills the bespoke briefing path entirely. The schema in §10
+already covers it.
+
+### 12.4 N6c diagnostic checks (pre-merge)
+
+Before shipping N6c, run on a staging copy:
+
+```sql
+-- 1. Are there users whose org is inactive but who'd still receive?
+SELECT u.id, u.email, o.status
+FROM users u
+JOIN org_members om ON om.user_id = u.id
+JOIN organizations o ON o.id = om.org_id
+WHERE u.status = 'active' AND o.status != 'active';
+
+-- 2. How many digest rows would today's run produce?
+SELECT COUNT(DISTINCT user_id) AS recipients,
+       COUNT(*) AS notification_rows
+FROM notifications
+WHERE created_at >= datetime('now','-24 hours')
+  AND audience = 'tenant';
+
+-- 3. Resend log: how many bounces/failures in last 7 days?
+SELECT date(created_at) AS day,
+       COUNT(*) FILTER (WHERE status='failed') AS failed,
+       COUNT(*) FILTER (WHERE status='delivered') AS delivered
+FROM email_log
+WHERE created_at >= datetime('now','-7 days')
+GROUP BY day;
+```
+
+If row 3's `failed` is non-trivial, raise the SPF/DKIM warning
+to the team before flipping the digest flag.
+
+---
+
+## 13. Platform-health signals (super_admin)
+
+Q10 expanded scope: D1 issues, Worker issues that Flight Control
+can't auto-fix, and other platform-health events should become
+notifications. These are `audience='super_admin'` rows that
+mirror the diagnostics surface (CLAUDE.md §10) — but pushed into
+the bell instead of buried in a JSON endpoint.
+
+### 13.1 Type catalogue (~12 candidates)
+
+| Type | Trigger source | Severity | Recommended action |
+|---|---|---|---|
+| `platform_d1_budget_warn` | Flight Control: D1 daily reads >80% of plan | high | Review query plan; check for missing indexes; consider read-replica routing |
+| `platform_d1_budget_breach` | Flight Control: D1 daily reads >100% of plan | critical | Throttle non-essential agents; escalate to plan upgrade |
+| `platform_kv_budget_warn` | Flight Control: KV reads/writes >80% of plan | medium | Audit cache TTLs; reduce pre-warm scope |
+| `platform_worker_cpu_burst` | Flight Control: any agent run >50% CPU ms ceiling | high | Inspect `agent_runs.error_message`; consider Workflow refactor |
+| `platform_feed_at_risk` | Diagnostics: feed pct_to_auto_pause ≥ 80% | high | Investigate feed source; rotate API key if 401/403 pattern |
+| `platform_feed_auto_paused` | Feed loader: consecutive failure threshold hit | critical | Manual unpause via admin once root cause fixed |
+| `platform_agent_stalled` | Diagnostics: run stuck in 'running' >15 min | high | Check `agent_runs` for stall reason; force-fail and re-dispatch |
+| `platform_cron_orchestrator_missed` | Flight Control: no orchestrator run in last 90 min | critical | Check Cloudflare cron triggers in dashboard; verify wrangler.toml deployed |
+| `platform_cron_navigator_missed` | Flight Control: no navigator run in last 15 min | high | Same as above; navigator runs every 5 min |
+| `platform_enrichment_stuck_pile` | Diagnostics: stuck_pile > 100 (enriched but no geo) | medium | Run cube-healer manually; investigate Cartographer Phase 1 failures |
+| `platform_ai_spend_burst` | Diagnostics: ai_spend_24h > $X threshold | high | Inspect per-agent breakdown; pause Sonnet-heavy agents if needed |
+| `platform_resend_bounces` | Email log: failed/delivered ratio >10% in 7d | medium | Check SPF/DKIM; review bounced addresses |
+
+### 13.2 Why notifications, not just diagnostics
+
+The diagnostics endpoint (CLAUDE.md §10) is **pull**: someone has
+to run the script. Platform-health notifications are **push**:
+
+1. They surface in the same bell super_admins already check.
+2. They carry `recommended_action` so the operator knows what to
+   do next without context-switching to the runbook.
+3. They use the same 4-state machine (snooze a known-noisy alert,
+   mark done after the fix lands).
+4. They link to the relevant admin surface (`/admin/feeds`,
+   `/admin/agents`, etc.) via `notification.link`.
+
+### 13.3 Routing
+
+All `platform_*` types are `audience='super_admin'` and ignore
+the tenant filter (super_admins explicitly opt out via
+`show_tenant_notifications=false` per Q3). They're emitted by:
+
+- **Flight Control** (already runs every tick) — owns budget,
+  CPU, cron-missed, enrichment-stuck-pile detection.
+- **Feed loader** — owns at-risk and auto-paused.
+- **Diagnostics endpoint** — already computes most signals;
+  N6b adds an emit-on-threshold-cross hook.
+
+### 13.4 Dedup
+
+Platform alerts are highly susceptible to duplicate-spam. We use
+`group_key` (per §10 schema) keyed by:
+
+- `platform_<type>_<window>` for budget/spend (one per day)
+- `platform_feed_at_risk_<feed_id>` (one per feed, refreshes on
+  state change)
+- `platform_agent_stalled_<agent_id>_<run_id>` (one per stalled
+  run)
+
+Existing rows in the same `group_key` get **updated in place**
+(metadata + updated_at) rather than inserted — same pattern as
+N1's cartographer dedup fix.
+
+### 13.5 Out of scope (handled elsewhere)
+
+Flight Control already auto-remediates these — no notification
+needed:
+
+- Cube staleness (cube-healer rebuilds every 6h)
+- Single-tick feed failures (loader retries with backoff)
+- Single-tick agent failures (next tick re-dispatches)
+
+The rule: **only notify when human action is required.** If FC
+can fix it on the next tick, stay silent.
 
