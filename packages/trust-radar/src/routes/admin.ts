@@ -434,13 +434,21 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const seedCount = body.seedCount || 5;
 
     try {
-      const { generateTrapAddresses, generateTeamMembers, generateHoneypotSite } = await import("../honeypot-generator");
+      // Phase 3.6 of agent audit: honeypot rendering is now a sync
+      // agent. Address synthesis stays as pure helpers (no AI), only
+      // the three Haiku page renders go through the runner so the
+      // lifecycle is observable via agent_runs.
+      const { generateTrapAddresses, generateTeamMembers } = await import("../honeypot-generator");
+      const { runSyncAgent } = await import("../lib/agentRunner");
+      const { honeypotGeneratorAgent } = await import("../agents/honeypot-generator");
 
       const traps = generateTrapAddresses(body.hostname, seedCount);
       const trapAddresses = traps.map(t => ({ address: t.address, role: t.role }));
       const teamMembers = generateTeamMembers(body.hostname, trapAddresses, Math.min(seedCount, 5));
 
-      const site = await generateHoneypotSite(env, {
+      const agentRun = await runSyncAgent<{
+        index: string; contact: string; team: string; sitemap: string; robots: string;
+      }>(env, honeypotGeneratorAgent, {
         hostname: body.hostname,
         businessName: body.businessName,
         businessType: body.businessType,
@@ -448,6 +456,14 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
         trapAddresses,
         teamMembers,
       });
+
+      if (!agentRun.data) {
+        return Response.json(
+          { success: false, error: agentRun.error ?? "Honeypot site generation failed" },
+          { status: 500 },
+        );
+      }
+      const site = agentRun.data;
 
       await Promise.all([
         env.CACHE.put(`honeypot-site:${body.hostname}:index`, site.index, { expirationTtl: 86400 * 365 }),

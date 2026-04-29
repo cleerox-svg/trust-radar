@@ -32,7 +32,8 @@ export type AgentId =
   | 'qualified_report'
   | 'brand_analysis'
   | 'brand_report'
-  | 'brand_deep_scan';
+  | 'brand_deep_scan'
+  | 'honeypot_generator';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -279,6 +280,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#FCD34D',
     category: 'sync',
     pipelinePosition: 26,
+  },
+  honeypot_generator: {
+    id: 'honeypot_generator',
+    displayName: 'Honeypot Generator',
+    codename: 'honeypot_generator',
+    subtitle: 'Synchronous AI — renders complete honeypot trap websites (index + contact + team pages with embedded trap mailtos, Haiku × 3)',
+    color: '#F472B6',
+    category: 'sync',
+    pipelinePosition: 27,
   },
 };
 

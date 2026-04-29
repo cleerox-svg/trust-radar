@@ -246,6 +246,33 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Honeypot Generator — renders fake business websites with hidden
+  // trap mailtos. Visual: a stylised building façade with windows,
+  // and a tiny @ symbol in one window evoking the embedded trap.
+  honeypot_generator: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* building outline */}
+      <path
+        d="M6 12 L18 4 L30 12 L30 31 L6 31 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.65"
+      />
+      {/* windows — 2 rows × 3 cols */}
+      <rect x="9" y="15" width="3" height="3" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="14.5" y="15" width="3" height="3" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="20" y="15" width="3" height="3" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="9" y="20" width="3" height="3" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      <rect x="14.5" y="20" width="3" height="3" fill="currentColor" opacity="0.85" />
+      <rect x="20" y="20" width="3" height="3" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+      {/* tiny @ symbol in the highlighted (filled) window */}
+      <text x="14.7" y="22.7" fontSize="3" fill="white" fontWeight="700" style={{ fontFamily: 'monospace' }}>@</text>
+      {/* door */}
+      <rect x="15.5" y="25" width="5" height="6" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
+    </svg>
+  ),
+
   // Brand Deep Scan — synchronous batch AI agent for Y/N
   // classification of unlinked threats against a brand. Visual:
   // a row of dots (the threat batch) crossed by a bracket-scanner
