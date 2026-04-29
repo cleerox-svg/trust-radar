@@ -796,17 +796,12 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
     }
   }
 
-  // Pathfinder agent — daily at 03:00 UTC (KV throttle ensures once per 7 days)
-  if (hour === 3) {
-    try {
-      const pathfinderMod = allAgents["pathfinder"];
-      if (pathfinderMod) {
-        await executeAgent(env, pathfinderMod, {}, "cron", "scheduled");
-      }
-    } catch (err) {
-      logger.error('threat_feed_scan_pathfinder_error', { error: err instanceof Error ? err.message : String(err) });
-    }
-  }
+  // Pathfinder — DEMOTED TO MANUAL TRIGGER 2026-04-29 (Phase 2.6 of
+  // agent audit). The previous daily 03:00 UTC dispatch produced 1
+  // run/24h and 0 records over 7d; the lead-creation Phase 1 was
+  // throttled to once per 7 days via KV anyway. Operators now trigger
+  // explicitly via POST /api/agents/pathfinder/trigger when sales
+  // intelligence is desired. Resurrect by reverting this commit.
 
   // Daily snapshots — generate if none exist today
   try {

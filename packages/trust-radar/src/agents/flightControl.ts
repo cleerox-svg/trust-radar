@@ -167,7 +167,9 @@ const STALL_THRESHOLDS: Record<string, number> = {
   // ─── Daily (hour === 0/3/6) ──────────────────────────────────────
   observer:           1500,  // 25h — fires at hour===0 in runThreatFeedScan
   narrator:           1500,  // 25h — fires at hour===6 inside runObserverBriefing
-  pathfinder:         1500,  // 25h — fires at hour===3
+  // pathfinder: demoted to manual trigger 2026-04-29 (Phase 2.6 of
+  // agent audit). FC's recovery loop skips manual-trigger agents —
+  // see `if (mod.trigger === 'manual') continue` above.
   seed_strategist:    1500,  // 25h — fires at hour===6 inside runObserverBriefing
                              //       (currently auto-paused via agent_configs anyway)
 
@@ -1127,6 +1129,11 @@ async function recoverStalledAgents(
 
     const mod = agentModules[agent.agent_id];
     if (!mod) continue;
+    // Skip manual-trigger agents — they have no schedule, so a long
+    // silence is intentional, not a stall. Stall-recovery would just
+    // keep re-firing them every hour. (Phase 2.6 of agent audit:
+    // pathfinder demoted to manual.)
+    if (mod.trigger === 'manual') continue;
     // (architect was previously skipped explicitly here due to Anthropic
     // timeout; retired in Phase 2.2 of the agent audit, so the !mod guard
     // above now handles it implicitly.)
