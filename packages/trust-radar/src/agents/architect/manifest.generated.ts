@@ -372,8 +372,8 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 216,
-      "last_modified": "2026-04-29T20:28:24.111Z"
+      "loc": 186,
+      "last_modified": "2026-04-29T22:27:43.199Z"
     },
     {
       "name": "observer",
