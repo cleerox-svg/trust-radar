@@ -22,6 +22,7 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 import { scoreProvider } from "../lib/haiku";
 import { runEmailSecurityScan, saveEmailSecurityScan } from "../email-security";
 import { createNotification } from "../lib/notifications";
+import { emitIntelNotification, renderIntelRecommendedAction } from "../lib/intel-templates";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 // Alert-type registry — single source of truth for alert_type column
 // values. Importing the key here means any future rename of the
@@ -646,6 +647,29 @@ export const cartographerAgent: AgentModule = {
               } catch (notifErr) {
                 console.error('[cartographer] notification error:', notifErr);
               }
+            }
+          }
+
+          // N6a — intel_recommended_action: DMARC policy still 'none'
+          // is the canonical "you're not protected; do this" hygiene
+          // call-out per §11.1. Group key dedup keeps this firing at
+          // most every 3 days per brand (per registry).
+          if (result.dmarc.exists && result.dmarc.policy === 'none') {
+            const fullName = await env.DB.prepare('SELECT name FROM brands WHERE id = ?')
+              .bind(brand.id).first<{ name: string }>();
+            try {
+              const rendered = renderIntelRecommendedAction({
+                brand_id: String(brand.id),
+                brand_name: fullName?.name ?? brand.domain,
+                check_id: 'dmarc_policy_none',
+                what: `DMARC policy is set to none on ${brand.domain}`,
+                why_it_matters: `A DMARC policy of "none" means the domain reports impersonation attempts but doesn't block them. Attackers can spoof your email with no enforcement.`,
+                recommended_action: `Move DMARC to quarantine, then to reject after monitoring DMARC reports for two weeks. Documentation: https://dmarc.org/overview/`,
+                link: `/brands/${brand.id}/email-security`,
+              });
+              await emitIntelNotification(env, 'intel_recommended_action', rendered);
+            } catch (intelErr) {
+              console.error('[cartographer] intel notification error:', intelErr);
             }
           }
 
