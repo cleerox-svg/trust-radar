@@ -87,8 +87,17 @@ export interface PlatformBriefingSilentVars {
 }
 
 // ─── Renderers (every one returns audience='super_admin') ────────────
+//
+// Link targets must match real routes in averrow-ui/src/App.tsx:
+//   /agents (NOT /admin/agents)
+//   /feeds  (NOT /admin/feeds)
+//   /admin  (admin dashboard — covers diagnostics, budget for now;
+//            no dedicated /admin/diagnostics or /admin/budget exist)
+// Get this wrong and the push notification deep-links to a 404.
 
-const PLATFORM_LINK = '/admin/agents'; // common landing for ops triage
+const PLATFORM_AGENTS_LINK = '/agents';
+const PLATFORM_FEEDS_LINK = '/feeds';
+const PLATFORM_ADMIN_LINK = '/admin';
 
 export function renderPlatformD1BudgetWarn(v: PlatformD1BudgetVars): RenderedTemplate {
   return {
@@ -96,7 +105,7 @@ export function renderPlatformD1BudgetWarn(v: PlatformD1BudgetVars): RenderedTem
     message: `${v.reads_today.toLocaleString()} / ${v.daily_limit.toLocaleString()} reads today.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Review query plan; check for missing indexes; consider read-replica routing for hot endpoints.`,
-    link: '/admin/diagnostics',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_d1_budget_warn:${todayKey()}`,
     audience: 'super_admin',
     severity: 'high',
@@ -109,7 +118,7 @@ export function renderPlatformD1BudgetBreach(v: PlatformD1BudgetVars): RenderedT
     message: `${v.reads_today.toLocaleString()} / ${v.daily_limit.toLocaleString()} — non-essential agents will degrade until rollover.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Throttle non-essential agents; escalate to plan upgrade if pattern repeats.`,
-    link: '/admin/diagnostics',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_d1_budget_breach:${todayKey()}`,
     audience: 'super_admin',
     severity: 'critical',
@@ -122,7 +131,7 @@ export function renderPlatformKvBudgetWarn(v: PlatformKvBudgetVars): RenderedTem
     message: `${v.reads_today.toLocaleString()} ops today vs ${v.daily_limit.toLocaleString()} limit.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Audit cache TTLs; reduce pre-warm scope if Navigator is hitting the same keys repeatedly.`,
-    link: '/admin/diagnostics',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_kv_budget_warn:${todayKey()}`,
     audience: 'super_admin',
     severity: 'medium',
@@ -135,7 +144,7 @@ export function renderPlatformWorkerCpuBurst(v: PlatformWorkerCpuBurstVars): Ren
     message: `Run ${v.run_id} consumed >50% of CPU budget. Repeated bursts indicate a Workflow refactor candidate.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Inspect agent_runs.error_message for hints; consider splitting heavy phases into Workflow steps.`,
-    link: PLATFORM_LINK,
+    link: PLATFORM_AGENTS_LINK,
     group_key: `platform_worker_cpu_burst:${v.agent_id}:${v.run_id}`,
     audience: 'super_admin',
     severity: 'high',
@@ -148,7 +157,7 @@ export function renderPlatformFeedAtRisk(v: PlatformFeedAtRiskVars): RenderedTem
     message: `${v.consecutive_failures} consecutive failures (threshold ${v.threshold}). Investigate before it pauses.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Check the feed source; rotate API key if you see 401/403; verify network reachability.`,
-    link: '/admin/feeds',
+    link: PLATFORM_FEEDS_LINK,
     group_key: `platform_feed_at_risk:${v.feed_id}`,
     audience: 'super_admin',
     severity: 'high',
@@ -160,8 +169,8 @@ export function renderPlatformFeedAutoPaused(v: PlatformFeedAutoPausedVars): Ren
     title: `Feed ${v.feed_name} auto-paused after ${v.consecutive_failures} failures`,
     message: v.last_error ? `Last error: ${truncate(v.last_error, 240)}` : 'No error message captured.',
     reason_text: `Platform alert — operational only.`,
-    recommended_action: `Manual unpause via /admin/feeds once the root cause is fixed.`,
-    link: '/admin/feeds',
+    recommended_action: `Manual unpause via /feeds once the root cause is fixed.`,
+    link: PLATFORM_FEEDS_LINK,
     group_key: `platform_feed_auto_paused:${v.feed_id}`,
     audience: 'super_admin',
     severity: 'critical',
@@ -173,8 +182,8 @@ export function renderPlatformAgentStalled(v: PlatformAgentStalledVars): Rendere
     title: `${v.agent_id} stalled (${v.minutes_running} min)`,
     message: `Run ${v.run_id} stuck in 'running' state. Likely orphaned by a Worker timeout or unhandled exception.`,
     reason_text: `Platform alert — operational only.`,
-    recommended_action: `Force-fail the run via /admin/agents; the next tick will re-dispatch. Investigate the stall reason in agent_runs.`,
-    link: '/admin/agents',
+    recommended_action: `Force-fail the run via /agents; the next tick will re-dispatch. Investigate the stall reason in agent_runs.`,
+    link: PLATFORM_AGENTS_LINK,
     group_key: `platform_agent_stalled:${v.agent_id}:${v.run_id}`,
     audience: 'super_admin',
     severity: 'high',
@@ -188,7 +197,7 @@ export function renderPlatformCronMissed(v: PlatformCronMissedVars): RenderedTem
     message: `Expected every ${v.expected_interval_minutes} min. Cloudflare cron triggers may have stopped firing.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Check Cloudflare cron triggers in the dashboard; verify wrangler.toml is the deployed version.`,
-    link: '/admin/agents',
+    link: PLATFORM_AGENTS_LINK,
     group_key: `platform_cron_${v.cron}_missed:${todayKey()}`,
     audience: 'super_admin',
     severity: 'critical',
@@ -201,7 +210,7 @@ export function renderPlatformEnrichmentStuck(v: PlatformEnrichmentStuckVars): R
     message: `Threats marked enriched but missing geo data (threshold ${v.threshold}). Cube-healer rebuild may be needed.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Run cube-healer manually; investigate Cartographer Phase 1 failures in agent_runs.`,
-    link: '/admin/agents',
+    link: PLATFORM_AGENTS_LINK,
     group_key: `platform_enrichment_stuck_pile:${todayKey()}`,
     audience: 'super_admin',
     severity: 'medium',
@@ -214,7 +223,7 @@ export function renderPlatformAiSpendBurst(v: PlatformAiSpendBurstVars): Rendere
     message: `Top agent: ${v.top_agent} ($${v.top_agent_cost_usd.toFixed(2)}). Threshold $${v.threshold_usd.toFixed(2)}.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Inspect per-agent breakdown; pause Sonnet-heavy agents if needed; consider routing to Haiku.`,
-    link: '/admin/budget',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_ai_spend_burst:${todayKey()}`,
     audience: 'super_admin',
     severity: 'high',
@@ -227,7 +236,7 @@ export function renderPlatformBriefingSilent(v: PlatformBriefingSilentVars): Ren
     message: `Expected delivery every ${v.expected_within_hours}h. The 13:00 UTC cron may have failed silently or the email path is bouncing.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Check threat_briefings for today's row. Inspect agent_runs.error_message for the briefing_email job. Review §12 of NOTIFICATIONS_AUDIT.md for the failure mode catalogue.`,
-    link: '/admin/diagnostics',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_briefing_silent:${todayKey()}`,
     audience: 'super_admin',
     severity: 'critical',
@@ -240,7 +249,7 @@ export function renderPlatformResendBounces(v: PlatformResendBouncesVars): Rende
     message: `${v.failed_7d} failed / ${v.delivered_7d} delivered. SPF/DKIM may be misaligned.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Check SPF/DKIM alignment for the sending domain; review bounced addresses for invalid recipients.`,
-    link: '/admin/diagnostics',
+    link: PLATFORM_ADMIN_LINK,
     group_key: `platform_resend_bounces:${weekKey()}`,
     audience: 'super_admin',
     severity: 'medium',

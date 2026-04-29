@@ -94,7 +94,9 @@ export function renderIntelPredictive(v: IntelPredictiveVars): RenderedTemplate 
     message: `${v.lookalike_count} new lookalike domains for ${v.brand_name} on AS${v.asn} — same ASN as a prior campaign.`,
     reason_text: `You monitor ${v.brand_name}.`,
     recommended_action: `Pre-emptively file takedowns for the flagged domains. Brief support for likely uptick in customer reports.`,
-    link: `/operations/clusters/${v.cluster_id}`,
+    // No /operations/clusters route exists; closest landing is the
+    // brand detail page, where the affected brand's threats live.
+    link: `/brands/${v.brand_id}`,
     group_key: `intel_predictive:${v.brand_id}`,
     brand_id: v.brand_id,
     audience: 'tenant',
@@ -110,7 +112,9 @@ export function renderIntelCrossBrandPattern(v: IntelCrossBrandPatternVars): Ren
     message: `Pattern: ${v.dimension}. Baseline was ${v.baseline}. Affected: ${v.affected_brands.slice(0, 3).join(', ')}${v.affected_brands.length > 3 ? '…' : ''}.`,
     reason_text: `Platform alert — operational only.`,
     recommended_action: `Brief affected tenants. Consider sector-wide threat-actor attribution. Update default brand monitoring rules to flag ${v.dimension}.`,
-    link: `/admin/intel/cross-brand?sector=${encodeURIComponent(v.sector)}&window=24h`,
+    // No /admin/intel/cross-brand view exists yet; fall back to the
+    // admin dashboard until the dedicated page ships.
+    link: `/admin`,
     group_key: `intel_cross_brand_pattern:${v.sector}`,
     audience: 'super_admin',
     severity,
@@ -124,7 +128,9 @@ export function renderIntelSectorTrend(v: IntelSectorTrendVars): RenderedTemplat
     message: `Your monitored brands: ${v.affected_count} affected, ${v.unaffected_count} not yet.`,
     reason_text: `You monitor brands in the ${v.sector} sector.`,
     recommended_action: `Review email-security posture for unaffected brands. Validate DKIM rotation schedule.`,
-    link: `/intel/sector/${encodeURIComponent(v.sector)}?window=7d`,
+    // No /intel/sector view exists; the brands list is the closest
+    // analog (operator can filter by sector there).
+    link: `/brands`,
     group_key: `intel_sector_trend:${v.user_id}:${v.sector}`,
     audience: 'tenant',
     severity: 'medium',
@@ -137,7 +143,8 @@ export function renderIntelRecommendedAction(v: IntelRecommendedActionVars): Ren
     message: v.why_it_matters,
     reason_text: `You monitor ${v.brand_name}.`,
     recommended_action: v.recommended_action,
-    link: v.link ?? `/brands/${v.brand_id}/email-security`,
+    // Brand detail uses ?tab=email rather than a sub-path.
+    link: v.link ?? `/brands/${v.brand_id}?tab=email`,
     group_key: `intel_recommended_action:${v.brand_id}:${v.check_id}`,
     brand_id: v.brand_id,
     audience: 'tenant',
@@ -157,6 +164,9 @@ export function renderIntelThreatActorSurface(v: IntelThreatActorSurfaceVars): R
     message: `${v.actor_name} added ${v.new_ip_count} new IPs to their infrastructure today.`,
     reason_text: priorBlurb,
     recommended_action: `Add new IPs to block list. Review detection rules for ${v.actor_name}'s known TTPs.`,
+    // Route param is :actorId; we pass actor_slug here. If your
+    // threat_actors table uses slug-as-id, this resolves; otherwise
+    // the page handles unknown ids and falls back gracefully.
     link: `/threat-actors/${v.actor_slug}`,
     group_key: `intel_threat_actor_surface:${v.actor_slug}:${v.user_id}`,
     audience: 'tenant',
