@@ -64,7 +64,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 93,
-      "last_modified": "2026-04-29T02:33:11.294Z"
+      "last_modified": "2026-04-29T02:55:52.672Z"
     },
     {
       "name": "cartographer",
@@ -98,6 +98,28 @@ export const REPO_MANIFEST: RepoInventory = {
       "ai_models_referenced": [],
       "loc": 927,
       "last_modified": "2026-04-28T21:12:24.499Z"
+    },
+    {
+      "name": "cube-healer",
+      "path": "packages/trust-radar/src/agents/cube-healer.ts",
+      "entrypoint": "cubeHealerAgent",
+      "triggers": [
+        "cron"
+      ],
+      "reads": [
+        "CACHE",
+        "DB",
+        "threats"
+      ],
+      "writes": [
+        "threat_cube_brand",
+        "threat_cube_geo",
+        "threat_cube_provider",
+        "threat_cube_status"
+      ],
+      "ai_models_referenced": [],
+      "loc": 282,
+      "last_modified": "2026-04-29T03:42:53.716Z"
     },
     {
       "name": "curator",
@@ -160,8 +182,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history"
       ],
       "ai_models_referenced": [],
-      "loc": 1254,
-      "last_modified": "2026-04-29T02:24:24.402Z"
+      "loc": 1252,
+      "last_modified": "2026-04-29T03:40:37.028Z"
     },
     {
       "name": "narrator",
@@ -772,6 +794,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "appStoreMonitor",
         "auto-seeder",
         "cartographer",
+        "cube-healer",
         "darkWebMonitor",
         "flightControl",
         "narrator",
@@ -793,6 +816,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "appStoreMonitor",
         "auto-seeder",
         "cartographer",
+        "cube-healer",
         "darkWebMonitor",
         "flightControl",
         "narrator",
@@ -814,6 +838,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "appStoreMonitor",
         "auto-seeder",
         "cartographer",
+        "cube-healer",
         "darkWebMonitor",
         "flightControl",
         "narrator",
@@ -845,7 +870,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 19,
+    "agents": 20,
     "feeds": 40,
     "crons": 3,
     "workers": 1

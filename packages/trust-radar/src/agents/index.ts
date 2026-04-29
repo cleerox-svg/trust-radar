@@ -33,6 +33,7 @@ import { socialMonitorAgent } from "./socialMonitor";
 import { socialDiscoveryAgent } from "./socialDiscovery";
 import { autoSeederAgent } from "./auto-seeder";
 import { seedStrategistAgent } from "./seed-strategist";
+import { cubeHealerAgent } from "./cube-healer";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -57,4 +58,5 @@ export const agentModules: Record<string, AgentModule> = {
   "social_discovery": socialDiscoveryAgent,
   "auto_seeder": autoSeederAgent,
   "seed_strategist": seedStrategistAgent,
+  "cube_healer": cubeHealerAgent,
 };
