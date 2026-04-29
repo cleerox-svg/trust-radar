@@ -33,7 +33,7 @@ verdicts here.
 - §3 Tenant scoping audit ✓
 - §4 Click destination audit ✓
 - §5 Settings audit ✓
-- §6 Industry research
+- §6 Industry research (part 1: inbox / subscription / escalation patterns) ✓
 - §7 Redesign principles
 - §8 Decisions log
 - §9 Phase plan (N0–N6)
@@ -362,5 +362,139 @@ brand, but per-channel and digest mode.
 §10 introduces `notification_subscriptions` (one row per
 user × brand) and a richer `notification_preferences_v2` (digest
 mode, channel routing, severity floors).
+
+---
+
+## 6. Industry research
+
+What "excellent" looks like, with specific patterns and the concrete
+adoption call. Sources cited inline.
+
+### 6.1 Linear — inbox + state machine
+
+Linear treats notifications as a triage queue, not a feed. The
+inbox view sits as a primary navigation item next to "My Issues"
+and is the surface engineers visit first thing in the morning.
+
+Pattern: every notification has an explicit state — `unread`,
+`read`, `snoozed`, `done`. `done` is **not** the same as `read`.
+You read a notification to clear the badge; you mark it `done` to
+say "I've acted on this". Snoozed notifications disappear until a
+chosen time, then reappear in `unread`. Linear also offers **mute**
+at the source level (the issue, the project) so you stop receiving
+events without losing the existing pile.
+
+Each row carries a **reason badge** ("you were assigned", "you
+subscribed to this issue", "you're a project member") so you never
+ask "why am I seeing this?".
+
+**What we adopt:**
+
+- 4-state machine on the row (`unread → read → snoozed → done`).
+  The operator picked Q1=a; this matches.
+- Required `reason_text` field on every notification row.
+- Bulk operations on the inbox (mark-all-done, bulk-snooze).
+- Inbox is a primary nav item, not a hidden bell — see §9 (Phase
+  N4).
+
+### 6.2 GitHub — Watching / Participating / Ignored
+
+GitHub's per-repo subscription model is the standard for "scope
+your firehose to what you care about":
+
+- **Watching**: you receive every event in this repo.
+- **Participating**: you receive events for issues / PRs you're
+  actively involved in (commented, mentioned, assigned, authored).
+- **Ignored**: you receive nothing, including @-mentions.
+- **Custom**: subscribe only to specific event types (releases,
+  security alerts, etc.).
+
+Each notification carries a **reason badge** like Linear's:
+`Mention`, `Author`, `Review request`, `Assigned`, `Subscribed`,
+`Manual`, `Security alert`. The reason makes it possible to filter
+the inbox ("show only mentions").
+
+GitHub also offers per-thread unsubscribe — the notification itself
+has an "Unsubscribe from this thread" link in the footer, so you can
+cull noise without leaving the email / inbox view.
+
+**What we adopt:**
+
+- Per-brand subscription with three levels (`watching` / `default`
+  / `ignored`). The operator picked Q2=b ("Critical+High by
+  default") which we map to: brands the user monitors → `default`
+  level (sees critical+high) until they change it; brands they
+  don't monitor → no subscription row → no notifications at all.
+- "Watching" gets all severities for that brand.
+- "Ignored" mutes everything for that brand including critical
+  (with a sticky warning banner so the user knows what they've
+  silenced).
+- Per-thread unsubscribe — every notification row gets a "mute
+  this brand" / "mute this type" affordance.
+- Reason badges (`Brand Threat`, `Campaign`, `Health`, `Intel`,
+  `Action Required`).
+
+### 6.3 Slack — per-channel granularity + keyword routing
+
+Slack's notification model is the most granular in widespread use.
+Three independent dimensions:
+
+1. **Per-channel notification level**: `All new messages`,
+   `Mentions only`, `Nothing`, `Default` (inherits workspace).
+2. **Keyword highlighting**: arbitrary user-defined strings that
+   trigger a notification regardless of channel level.
+3. **Workspace-level overrides**: mobile vs desktop independently;
+   "Notify me on mobile only when I'm not active on desktop".
+
+The killer feature is **keyword routing** — power users define
+"page me on PROD-OUTAGE" or "alert on $brand-name" and the same
+substrate covers both casual chat and operational on-call.
+
+**What we adopt:**
+
+- Per-type granularity (we already have this; just need to
+  preserve it).
+- **Keyword routing for power users** — schedule for §14
+  backlog rather than v1, but call it out so the schema doesn't
+  paint us into a corner.
+- **Channel routing** — every preference row should specify which
+  delivery channels (in-app / push / email / SMS) get which types
+  at which severity floors. Not all users want everything in their
+  inbox AND on their phone AND in email.
+
+### 6.4 PagerDuty / Opsgenie — operational alerts
+
+The operational alerting world (PagerDuty, Opsgenie, VictorOps)
+established the standard pattern for "this matters NOW vs this can
+wait":
+
+- **Severity tiers** drive routing: P1 (critical) → page on-call
+  via SMS + phone call + push. P2 (high) → push + email. P3-P5 →
+  email or in-app only.
+- **State machine**: `triggered` → `acknowledged` → `resolved`.
+  Acknowledgement is **mandatory** for high-severity. If not
+  ACKed within N minutes the system **escalates** to the next
+  on-call.
+- **Alert grouping**: the same monitor firing 50 times in 5 minutes
+  becomes ONE incident with 50 events attached, not 50 incidents.
+  Without grouping, paging behaviour breaks under load.
+- **Maintenance windows**: planned downtime suppresses alerts for
+  named services + named time ranges so deploys don't wake people.
+- **Escalation policies**: "if the primary on-call doesn't ACK in 5
+  minutes, page the secondary; in 15 minutes, page the manager".
+
+**What we adopt:**
+
+- Severity-driven channel routing (§5.2 / §10's
+  `notification_preferences_v2`). Critical bypasses quiet hours
+  and goes everywhere; medium goes in-app + digest only.
+- **Group key** field on every notification row so 3 changes to
+  Acme within 1h collapse into one expandable inbox entry.
+- Escalation policies are a power-user feature — out of scope for
+  v1, parked in §14. The schema's `audience` field + group_key
+  mechanics don't preclude adding them later.
+- **No mandatory ACK in v1**: we'd need an on-call concept first.
+  But the `done` state in our 4-state machine maps cleanly to
+  "operationally acknowledged" once we add ops semantics.
 
 
