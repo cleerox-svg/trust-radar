@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { json } from "../lib/cors";
 import type { Env, ScanResult, ScanFlag, ScanMetadata, RiskLevel } from "../types";
+import type { UrlScanOutput } from "../agents/url-scan";
 import { extractDomain } from "../lib/domain-utils";
 
 const ScanSchema = z.object({
@@ -271,20 +272,25 @@ export async function handleScan(
   // Run fresh scan
   const scanData = await runScan(url, env);
 
-  // AI scan insight via Anthropic Haiku (best-effort, 10s timeout)
+  // AI scan insight via the url_scan synchronous agent (best-effort).
+  // The agent enforces input/output schema, applies a 10s AI timeout
+  // internally, and falls through to no-insight on any failure path.
   if (env.ANTHROPIC_API_KEY) {
     try {
-      const { analyzeWithHaiku } = await import("../lib/haiku");
-      const insight = await Promise.race([
-        analyzeWithHaiku(env, { agentId: "url-scan", runId: null },
-          `Analyze this URL scan and provide a brief security insight. Respond with JSON: { "summary": "...", "explanation": "...", "recommendations": ["..."] }`,
-          { url, trust_score: scanData.trust_score, risk_level: scanData.risk_level, flags: scanData.flags },
-        ),
-        new Promise<null>((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000)),
-      ]);
-      if (insight && "success" in insight && insight.success && insight.data) {
-        const d = insight.data as { structured?: { summary?: string; explanation?: string; recommendations?: string[] } };
-        if (d.structured) scanData.metadata.ai_insight = d.structured as { summary: string; explanation: string; recommendations: string[] };
+      const { runSyncAgent } = await import("../lib/agentRunner");
+      const { urlScanAgent } = await import("../agents/url-scan");
+      const { data } = await runSyncAgent<UrlScanOutput>(env, urlScanAgent, {
+        url,
+        trustScore: scanData.trust_score,
+        riskLevel: scanData.risk_level,
+        flags: scanData.flags.map((f) => `${f.type}: ${f.detail}`).slice(0, 40),
+      });
+      if (data?.aiSucceeded && data.insight) {
+        scanData.metadata.ai_insight = {
+          summary: data.insight.summary,
+          explanation: data.insight.explanation,
+          recommendations: data.insight.recommendations,
+        };
       }
     } catch { /* non-fatal */ }
   }

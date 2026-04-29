@@ -42,7 +42,10 @@ export type AgentName =
   | "brand_deep_scan"
   | "honeypot_generator"
   | "brand_enricher"
-  | "lookalike_scanner";
+  | "lookalike_scanner"
+  | "admin_classify"
+  | "url_scan"
+  | "scan_report";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

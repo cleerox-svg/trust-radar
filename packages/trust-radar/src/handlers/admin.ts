@@ -5,7 +5,8 @@ import { z } from "zod";
 import { json, corsHeaders } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env, UserRole, UserStatus } from "../types";
-import { classifyThreat } from "../lib/haiku";
+import { runSyncAgent } from "../lib/agentRunner";
+import { adminClassifyAgent, type AdminClassifyOutput } from "../agents/admin-classify";
 import { callAnthropicJSON } from "../lib/anthropic";
 import { estimateCost } from "../lib/budgetManager";
 import { HOT_PATH_HAIKU } from "../lib/ai-models";
@@ -586,38 +587,32 @@ export async function handleBackfillClassifications(request: Request, env: Env):
 
       if (batch.results.length === 0) break;
 
-      for (const threat of batch.results) {
-        const result = await classifyThreat(env, { agentId: "admin-classify", runId: null }, {
-          malicious_url: threat.malicious_url,
-          malicious_domain: threat.malicious_domain,
-          ip_address: threat.ip_address,
-          source_feed: threat.source_feed,
-          ioc_value: threat.ioc_value,
-        });
+      // Hand the entire batch to the admin_classify sync agent — one
+      // agent_runs row per batch, N internal AI calls. The agent owns
+      // input/output schema validation + rule-based fallback.
+      const { data: agentData } = await runSyncAgent<AdminClassifyOutput>(env, adminClassifyAgent, {
+        threats: batch.results.map((t) => ({
+          id: t.id,
+          malicious_url: t.malicious_url,
+          malicious_domain: t.malicious_domain,
+          ip_address: t.ip_address,
+          source_feed: t.source_feed,
+          ioc_value: t.ioc_value,
+          threat_type: t.threat_type,
+        })),
+      });
 
-        let confidence: number;
-        let severity: string;
+      const classifications = agentData?.classifications ?? [];
+      failed += (agentData?.aiAttempted ?? 0) - (agentData?.aiParsed ?? 0);
 
-        if (result.success && result.data) {
-          confidence = result.data.confidence;
-          severity = result.data.severity;
-        } else {
-          // Rule-based fallback
-          const highConf = ["phishtank", "threatfox", "feodo"];
-          const medConf = ["urlhaus", "openphish"];
-          confidence = highConf.includes(threat.source_feed) ? 90 : medConf.includes(threat.source_feed) ? 80 : 60;
-          severity = threat.threat_type === "c2" || threat.source_feed === "feodo" ? "critical"
-            : threat.threat_type === "malware_distribution" ? "high" : "medium";
-          failed++;
-        }
-
+      for (const c of classifications) {
         try {
           await env.DB.prepare(
             "UPDATE threats SET confidence_score = ?, severity = COALESCE(severity, ?) WHERE id = ?"
-          ).bind(confidence, severity, threat.id).run();
+          ).bind(c.confidence, c.severity, c.id).run();
           classified++;
         } catch (err) {
-          console.error(`[backfill-classify] update failed for ${threat.id}:`, err);
+          console.error(`[backfill-classify] update failed for ${c.id}:`, err);
         }
       }
 
