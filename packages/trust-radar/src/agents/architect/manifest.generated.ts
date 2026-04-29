@@ -183,7 +183,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 1259,
-      "last_modified": "2026-04-29T03:58:20.772Z"
+      "last_modified": "2026-04-29T04:00:27.636Z"
     },
     {
       "name": "narrator",
@@ -295,7 +295,20 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 671,
-      "last_modified": "2026-04-29T03:58:13.236Z"
+      "last_modified": "2026-04-29T04:00:27.636Z"
+    },
+    {
+      "name": "public-trust-check",
+      "path": "packages/trust-radar/src/agents/public-trust-check.ts",
+      "entrypoint": "publicTrustCheckAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 285,
+      "last_modified": "2026-04-29T04:12:19.353Z"
     },
     {
       "name": "seed-strategist",
@@ -867,7 +880,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 20,
+    "agents": 21,
     "feeds": 40,
     "crons": 3,
     "workers": 1

@@ -27,7 +27,8 @@ export type AgentId =
   | 'dark_web_monitor'
   | 'auto_seeder'
   | 'seed_strategist'
-  | 'enricher';
+  | 'enricher'
+  | 'public_trust_check';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -35,7 +36,7 @@ export interface AgentMetadata {
   codename: string | null;
   subtitle: string;
   color: string;
-  category: 'orchestration' | 'intelligence' | 'response' | 'ops' | 'meta';
+  category: 'orchestration' | 'intelligence' | 'response' | 'ops' | 'meta' | 'sync';
   pipelinePosition: number;
 }
 
@@ -229,6 +230,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#22D3EE',
     category: 'ops',
     pipelinePosition: 21,
+  },
+  public_trust_check: {
+    id: 'public_trust_check',
+    displayName: 'Public Trust Check',
+    codename: 'public_trust_check',
+    subtitle: 'Synchronous AI — anonymous /api/v1/public/assess homepage trust-score lookups (Haiku, prompt-injection-hardened)',
+    color: '#A855F7',
+    category: 'sync',
+    pipelinePosition: 22,
   },
 };
 
