@@ -619,9 +619,9 @@ async function run(env: Env): Promise<{
 export const pathfinderAgent: AgentModule = {
   name: "pathfinder",
   displayName: "Pathfinder",
-  description: "Sales intelligence & lead generation",
+  description: "Sales intelligence & lead generation — manual trigger only since 2026-04-29 (Phase 2.6 of agent audit)",
   color: "#28A050",
-  trigger: "scheduled",
+  trigger: "manual",
   requiresApproval: false,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {

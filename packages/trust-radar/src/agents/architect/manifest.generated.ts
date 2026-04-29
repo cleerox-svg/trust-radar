@@ -182,8 +182,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "backlog_history"
       ],
       "ai_models_referenced": [],
-      "loc": 1252,
-      "last_modified": "2026-04-29T03:40:37.028Z"
+      "loc": 1259,
+      "last_modified": "2026-04-29T03:58:20.772Z"
     },
     {
       "name": "narrator",
@@ -277,7 +277,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/agents/pathfinder.ts",
       "entrypoint": "pathfinderAgent",
       "triggers": [
-        "cron"
+        "manual"
       ],
       "reads": [
         "CACHE",
@@ -295,7 +295,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 671,
-      "last_modified": "2026-04-27T17:44:54.400Z"
+      "last_modified": "2026-04-29T03:58:13.236Z"
     },
     {
       "name": "seed-strategist",
@@ -800,7 +800,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "narrator",
         "nexus",
         "observer",
-        "pathfinder",
         "seed-strategist",
         "socialDiscovery",
         "socialMonitor",
@@ -822,7 +821,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "narrator",
         "nexus",
         "observer",
-        "pathfinder",
         "seed-strategist",
         "socialDiscovery",
         "socialMonitor",
@@ -844,7 +842,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "narrator",
         "nexus",
         "observer",
-        "pathfinder",
         "seed-strategist",
         "socialDiscovery",
         "socialMonitor",
