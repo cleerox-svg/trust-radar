@@ -60,6 +60,7 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
     const url = new URL(request.url);
     const limit = Math.min(50, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const unreadOnly = url.searchParams.get("unread") === "true";
+    const stateFilter = url.searchParams.get("state"); // 'inbox'|'snoozed'|'done'|'all'
     const type = url.searchParams.get("type");
     const severity = url.searchParams.get("severity");
     const q = url.searchParams.get("q")?.trim();
@@ -78,11 +79,19 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
                FROM notifications WHERE user_id = ?`;
     const params: unknown[] = [userId];
 
-    if (unreadOnly) {
+    // N4: explicit state filter for the triage inbox tabs
+    // (Inbox / Snoozed / Done / All). Falls back to legacy
+    // unread-only / inbox-default filtering when not provided.
+    if (stateFilter === 'snoozed') {
+      sql += ` AND state = 'snoozed' AND snoozed_until > datetime('now')`;
+    } else if (stateFilter === 'done') {
+      sql += ` AND state = 'done'`;
+    } else if (stateFilter === 'all') {
+      // No state predicate — return everything regardless of state.
+    } else if (unreadOnly) {
       sql += ` AND state = 'unread'`;
     } else {
-      // Inbox view: hide done rows by default (Linear-style), and
-      // hide snoozed rows whose snooze hasn't expired yet.
+      // 'inbox' (default): hide done rows and unexpired snoozed rows.
       sql += ` AND state != 'done'
                AND (state != 'snoozed' OR snoozed_until <= datetime('now'))`;
     }

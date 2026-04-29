@@ -34,6 +34,8 @@ export interface Notification {
   metadata: string | null;
 }
 
+export type NotificationStateFilter = 'inbox' | 'snoozed' | 'done' | 'all';
+
 export interface NotificationFeedFilters {
   /** Notification type — matches a key in @averrow/shared/notification-events. */
   type?: NotificationEventKey;
@@ -41,6 +43,12 @@ export interface NotificationFeedFilters {
   q?: string;
   /** ISO timestamp. Returns rows STRICTLY OLDER than this. */
   cursor?: string;
+  /**
+   * State filter for the triage inbox. 'inbox' (default) hides done +
+   * unexpired snoozed rows. 'snoozed' shows only currently-snoozed.
+   * 'done' shows only done. 'all' shows everything regardless of state.
+   */
+  state?: NotificationStateFilter;
 }
 
 export function useUnreadCount() {
@@ -148,6 +156,7 @@ export function useNotificationsArchive(filters: NotificationFeedFilters = {}) {
       if (filters.severity) params.set('severity', filters.severity);
       if (filters.q) params.set('q', filters.q);
       if (filters.cursor) params.set('cursor', filters.cursor);
+      if (filters.state) params.set('state', filters.state);
       const res = await api.get(`/api/notifications?${params.toString()}`) as unknown as {
         data: Notification[];
         unread_count: number;
