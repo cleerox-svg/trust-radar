@@ -2,10 +2,54 @@
  * Averrow — Honeypot Pages for Spider Traps
  * Served at /admin-portal and /internal-staff — paths listed as Disallow in robots.txt.
  * Malicious bots specifically crawl disallowed paths, making these effective honeypots.
+ *
+ * Both pages now accept an optional `roster` of seeded addresses. When
+ * supplied (the live caller passes the result of readRoster() from
+ * lib/auto-seeder-planter.ts), the page renders the up-to-date set so
+ * a harvester scraping us in week 4 sees a different list than one in
+ * week 1. When omitted (or empty), each page falls back to a built-in
+ * default roster so the page never renders blank.
  */
 import { wrapPage } from "./shared";
+import type { RosterEntry } from "../lib/auto-seeder-planter";
 
-export function renderAdminPortalPage(): string {
+const DEFAULT_ADMIN_ROSTER: RosterEntry[] = [
+  { name: "Robert Taylor",  title: "IT Director",       email: "robert.taylor.hp01@averrow.com" },
+  { name: "Lisa Martinez",  title: "DevOps Lead",       email: "lisa.martinez.hp02@trustradar.ca" },
+  { name: "Kevin Park",     title: "Infrastructure",    email: "kevin.park.hp03@averrow.com" },
+];
+
+const DEFAULT_STAFF_ROSTER: RosterEntry[] = [
+  { name: "Amanda White",   title: "Customer Success",  email: "amanda.white.hp04@trustradar.ca" },
+  { name: "Chris Johnson",  title: "Threat Research",   email: "chris.johnson.hp05@averrow.com" },
+  { name: "Rachel Kim",     title: "Product",           email: "rachel.kim.hp06@trustradar.ca" },
+  { name: "Tom Harris",     title: "Compliance",        email: "tom.harris.hp07@averrow.com" },
+];
+
+function renderRosterRows(roster: RosterEntry[]): string {
+  return roster.map(r => `
+    <div class="hp-contact-row">
+      <span class="name">${escapeHtml(r.name)} — ${escapeHtml(r.title)}</span>
+      <a class="email" href="mailto:${escapeHtml(r.email)}">${escapeHtml(r.email)}</a>
+    </div>`).join('');
+}
+
+/** Comment-form mailto list — secondary harvester surface. */
+function renderRosterComment(label: string, roster: RosterEntry[]): string {
+  return `<!-- ${label}: ${roster.map(r => r.email).join(' | ')} -->`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function renderAdminPortalPage(roster?: RosterEntry[]): string {
+  const useRoster = (roster && roster.length > 0) ? roster : DEFAULT_ADMIN_ROSTER;
   return wrapPage(
     "Admin Portal — Averrow",
     "Internal administration portal for Averrow platform management.",
@@ -63,26 +107,16 @@ export function renderAdminPortalPage(): string {
 
   <div class="hp-contacts">
     <h3>Admin Contacts</h3>
-    <div class="hp-contact-row">
-      <span class="name">Robert Taylor — IT Director</span>
-      <span class="email">robert.taylor.hp01@averrow.com</span>
-    </div>
-    <div class="hp-contact-row">
-      <span class="name">Lisa Martinez — DevOps Lead</span>
-      <span class="email">lisa.martinez.hp02@trustradar.ca</span>
-    </div>
-    <div class="hp-contact-row">
-      <span class="name">Kevin Park — Infrastructure</span>
-      <span class="email">kevin.park.hp03@averrow.com</span>
-    </div>
+    ${renderRosterRows(useRoster)}
   </div>
 </section>
-<!-- Admin support: robert.taylor.hp01@averrow.com | lisa.martinez.hp02@trustradar.ca -->
+${renderRosterComment("Admin support", useRoster)}
 `
   );
 }
 
-export function renderInternalStaffPage(): string {
+export function renderInternalStaffPage(roster?: RosterEntry[]): string {
+  const useRoster = (roster && roster.length > 0) ? roster : DEFAULT_STAFF_ROSTER;
   return wrapPage(
     "Internal Staff Directory — Averrow",
     "Internal staff directory for Averrow employees.",
@@ -93,25 +127,10 @@ export function renderInternalStaffPage(): string {
 
   <div class="hp-contacts">
     <h3>Department Leads</h3>
-    <div class="hp-contact-row">
-      <span class="name">Amanda White — Customer Success</span>
-      <span class="email">amanda.white.hp04@trustradar.ca</span>
-    </div>
-    <div class="hp-contact-row">
-      <span class="name">Chris Johnson — Threat Research</span>
-      <span class="email">chris.johnson.hp05@averrow.com</span>
-    </div>
-    <div class="hp-contact-row">
-      <span class="name">Rachel Kim — Product</span>
-      <span class="email">rachel.kim.hp06@trustradar.ca</span>
-    </div>
-    <div class="hp-contact-row">
-      <span class="name">Tom Harris — Compliance</span>
-      <span class="email">tom.harris.hp07@averrow.com</span>
-    </div>
+    ${renderRosterRows(useRoster)}
   </div>
 </section>
-<!-- Staff directory: amanda.white.hp04@trustradar.ca | chris.johnson.hp05@averrow.com -->
+${renderRosterComment("Staff directory", useRoster)}
 
 <style>
 .hp-section {

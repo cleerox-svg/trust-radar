@@ -63,8 +63,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [],
       "writes": [],
       "ai_models_referenced": [],
-      "loc": 62,
-      "last_modified": "2026-04-29T02:24:24.402Z"
+      "loc": 93,
+      "last_modified": "2026-04-29T02:33:11.294Z"
     },
     {
       "name": "cartographer",
