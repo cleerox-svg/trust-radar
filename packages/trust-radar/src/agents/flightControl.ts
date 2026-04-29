@@ -15,6 +15,11 @@ import type { Env } from "../types";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits, ThrottleLevel } from "../lib/budgetManager";
 import { createNotification } from "../lib/notifications";
+import {
+  emitPlatformNotification,
+  renderPlatformAgentStalled,
+  renderPlatformFeedAutoPaused,
+} from "../lib/platform-templates";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { getOrComputeMetric } from "../lib/system-metrics";
 
@@ -177,6 +182,7 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "backlog_history" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "feed_configs" },
+    { kind: "d1_table", name: "feed_pull_history" },
     { kind: "d1_table", name: "feed_status" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "threats" },
@@ -400,6 +406,30 @@ export const flightControlAgent: AgentModule = {
         `${autoPausedFeeds.results.length} feed${autoPausedFeeds.results.length === 1 ? '' : 's'} currently auto-paused: ${autoPausedFeeds.results.map(f => f.feed_name).join(', ')}`,
         { count: autoPausedFeeds.results.length, feeds: autoPausedFeeds.results.map(f => ({ feed_name: f.feed_name, consecutive_failures: f.consecutive_failures })) }
       );
+
+      // N6b — emit a platform_feed_auto_paused notification per feed.
+      // group_key=feed_id means a refresh for the same paused feed
+      // dedups within the registry window; only a NEW feed pausing
+      // (or a re-pause after recovery) breaks dedup.
+      for (const feed of autoPausedFeeds.results) {
+        try {
+          // Fetch last failure error message — best-effort, the
+          // notification is useful even without it.
+          const lastErr = await db.prepare(
+            `SELECT error_message FROM feed_pull_history
+              WHERE feed_name = ? AND status = 'failed'
+              ORDER BY started_at DESC LIMIT 1`
+          ).bind(feed.feed_name).first<{ error_message: string | null }>();
+          await emitPlatformNotification(env, 'platform_feed_auto_paused',
+            renderPlatformFeedAutoPaused({
+              feed_id: feed.feed_name,
+              feed_name: feed.feed_name,
+              consecutive_failures: feed.consecutive_failures,
+              last_error: lastErr?.error_message ?? null,
+            })
+          );
+        } catch { /* notification failures never break FC */ }
+      }
     }
 
     // ── Auto-tripped agent surfacing ──────────────────────────────
@@ -482,6 +512,25 @@ export const flightControlAgent: AgentModule = {
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
     const tripped = health.filter(h => h.circuit_state === 'tripped').map(h => h.agent_id);
     const healthyAgents = health.filter(h => !h.is_stalled && h.circuit_state === 'closed');
+
+    // N6b — emit platform_agent_stalled per stalled agent. Dedup via
+    // group_key=platform_agent_stalled:<agent_id>:<last_run_at> means
+    // the same stuck run only notifies once; if the run finally moves
+    // (success/fail) and a new one stalls, that's a new notification.
+    for (const stalledHealth of health.filter(h => h.is_stalled)) {
+      try {
+        const minutesRunning = stalledHealth.last_run_at
+          ? Math.round((Date.now() - Date.parse(stalledHealth.last_run_at)) / 60_000)
+          : 0;
+        await emitPlatformNotification(env, 'platform_agent_stalled',
+          renderPlatformAgentStalled({
+            agent_id: stalledHealth.agent_id,
+            run_id: stalledHealth.last_run_at ?? 'unknown',
+            minutes_running: minutesRunning,
+          })
+        );
+      } catch { /* notification failures never break FC */ }
+    }
 
     // Navigator is independent — its stale/dead state contributes to overall
     // platform status the same way a stalled managed agent does.
