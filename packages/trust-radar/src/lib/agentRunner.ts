@@ -45,7 +45,9 @@ export type AgentName =
   | "lookalike_scanner"
   | "admin_classify"
   | "url_scan"
-  | "scan_report";
+  | "scan_report"
+  | "social_ai_assessor"
+  | "geo_campaign_assessment";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

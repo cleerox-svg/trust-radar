@@ -22,7 +22,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 196,
-      "last_modified": "2026-04-29T05:14:22.961Z"
+      "last_modified": "2026-04-29T05:28:12.845Z"
     },
     {
       "name": "analyst",
@@ -251,6 +251,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-29T05:11:55.074Z"
     },
     {
+      "name": "geo-campaign-assessment",
+      "path": "packages/trust-radar/src/agents/geo-campaign-assessment.ts",
+      "entrypoint": "geoCampaignAssessmentAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 243,
+      "last_modified": "2026-04-29T05:31:08.241Z"
+    },
+    {
       "name": "honeypot-generator",
       "path": "packages/trust-radar/src/agents/honeypot-generator.ts",
       "entrypoint": "honeypotGeneratorAgent",
@@ -425,7 +438,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 206,
-      "last_modified": "2026-04-29T05:15:43.301Z"
+      "last_modified": "2026-04-29T05:28:12.845Z"
     },
     {
       "name": "seed-strategist",
@@ -476,6 +489,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "ai_models_referenced": [],
       "loc": 563,
       "last_modified": "2026-04-27T17:44:54.404Z"
+    },
+    {
+      "name": "social-ai-assessor",
+      "path": "packages/trust-radar/src/agents/social-ai-assessor.ts",
+      "entrypoint": "socialAiAssessorAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 357,
+      "last_modified": "2026-04-29T05:30:16.589Z"
     },
     {
       "name": "socialDiscovery",
@@ -583,7 +609,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 217,
-      "last_modified": "2026-04-29T05:14:58.457Z"
+      "last_modified": "2026-04-29T05:28:12.845Z"
     },
     {
       "name": "watchdog",
@@ -1013,7 +1039,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 31,
+    "agents": 33,
     "feeds": 40,
     "crons": 3,
     "workers": 1

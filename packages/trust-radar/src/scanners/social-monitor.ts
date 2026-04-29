@@ -16,7 +16,12 @@ import { createAlert } from '../lib/alerts';
 import { deliverWebhook } from '../lib/webhooks';
 import { logger } from '../lib/logger';
 import { discoverSocialProfiles } from '../lib/social-discovery';
-import { assessSocialProfile, type ProfileContext } from '../lib/social-ai-assessor';
+import { runSyncAgent } from '../lib/agentRunner';
+import {
+  socialAiAssessorAgent,
+  type SocialAiAssessorInput,
+  type SocialAiAssessorOutput,
+} from '../agents/social-ai-assessor';
 import { computeBrandExposureScore } from '../lib/brand-scoring';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -544,7 +549,7 @@ export async function runSocialMonitorBatch(env: Env): Promise<{
             officialHandles = brand.official_handles ? JSON.parse(brand.official_handles) : {};
           } catch { /* non-fatal */ }
 
-          const context: ProfileContext = {
+          const agentInput: SocialAiAssessorInput = {
             brandName: brand.brand_name,
             brandDomain: brand.domain,
             brandAliases,
@@ -558,14 +563,19 @@ export async function runSocialMonitorBatch(env: Env): Promise<{
             followersCount: null,
             verified: false,
             accountCreated: null,
-            existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`),
+            existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`).slice(0, 10),
             emailSecurityGrade: emailGrade?.grade || null,
-            activeCampaigns: campaigns.results.map(c => c.name),
+            activeCampaigns: campaigns.results.map(c => c.name).slice(0, 10),
             lookalikeDomainsFound: lookalikes?.n || 0,
             otherImpersonationProfiles: otherSuspicious?.n || 0,
           };
 
-          const assessment = await assessSocialProfile(env, context);
+          // Each per-profile assessment is its own social_ai_assessor
+          // sync run nested inside this social_monitor scheduled run.
+          // budget_ledger attribution lands on social_ai_assessor; the
+          // parent scanner keeps its own agent_runs row covering the loop.
+          const { data: assessment } = await runSyncAgent<SocialAiAssessorOutput>(env, socialAiAssessorAgent, agentInput);
+          if (!assessment) continue;
 
           const now2 = new Date().toISOString();
           await env.DB.prepare(`

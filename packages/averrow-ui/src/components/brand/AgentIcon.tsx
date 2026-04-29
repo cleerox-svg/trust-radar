@@ -615,6 +615,95 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <circle cx="17" cy="28" r="0.9" fill="currentColor" />
     </svg>
   ),
+
+  // Social AI Assessor — classifies social profiles for brand
+  // impersonation. Visual: a stylised user avatar with a small
+  // verification-style badge whose tick is replaced by a question
+  // mark, evoking "is this account legit?"
+  social_ai_assessor: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* avatar head */}
+      <circle cx="14" cy="13" r="4" stroke="currentColor" strokeWidth="1.4" opacity="0.75" />
+      {/* avatar shoulders */}
+      <path
+        d="M5 28 C5 22 9 19 14 19 C19 19 23 22 23 28"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.75"
+      />
+      {/* badge — verified-style burst with a question mark inside */}
+      <path
+        d="M27 8 L29.5 10.5 L33 11 L31 14 L31 17.5 L27.5 16.5 L24 17.5 L24 14 L22 11 L25.5 10.5 Z"
+        fill="currentColor"
+        fillOpacity="0.18"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <text
+        x="27.5"
+        y="15"
+        fontSize="6.5"
+        fontWeight="700"
+        fill="currentColor"
+        textAnchor="middle"
+        style={{ fontFamily: 'monospace' }}
+      >
+        ?
+      </text>
+      {/* Connecting line — AI assessment links the badge to the avatar */}
+      <line
+        x1="22"
+        y1="17"
+        x2="18"
+        y2="17"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeDasharray="1.5 1.5"
+        opacity="0.55"
+      />
+    </svg>
+  ),
+
+  // Geo Campaign Assessment — geopolitical campaign intel narrative.
+  // Visual: a globe with a pin / target and a small briefing document
+  // overlay in the corner.
+  geo_campaign_assessment: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* globe */}
+      <circle cx="14" cy="18" r="10" stroke="currentColor" strokeWidth="1.4" opacity="0.7" />
+      <ellipse cx="14" cy="18" rx="5" ry="10" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <line x1="4" y1="18" x2="24" y2="18" stroke="currentColor" strokeWidth="1" opacity="0.45" />
+      <path
+        d="M14 8 C10 12 10 24 14 28"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        opacity="0.4"
+      />
+      {/* targeting pin on the globe */}
+      <path
+        d="M11 14 C11 12 12.3 10.5 14 10.5 C15.7 10.5 17 12 17 14 C17 16 14 19 14 19 C14 19 11 16 11 14 Z"
+        fill="currentColor"
+        fillOpacity="0.85"
+      />
+      <circle cx="14" cy="14" r="1" fill="white" />
+      {/* briefing document, top-right */}
+      <rect
+        x="22"
+        y="6"
+        width="10"
+        height="12"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        fill="#0B1120"
+        strokeLinejoin="round"
+      />
+      <line x1="24" y1="9" x2="30" y2="9" stroke="currentColor" strokeWidth="0.9" opacity="0.65" />
+      <line x1="24" y1="12" x2="30" y2="12" stroke="currentColor" strokeWidth="0.9" opacity="0.65" />
+      <line x1="24" y1="15" x2="28" y2="15" stroke="currentColor" strokeWidth="0.9" opacity="0.65" />
+    </svg>
+  ),
 };
 
 export function AgentIcon({ agent, size = 24, className }: { agent: string; size?: number; className?: string }) {

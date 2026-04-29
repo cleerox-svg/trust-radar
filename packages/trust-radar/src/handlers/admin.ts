@@ -50,12 +50,12 @@ const EXPECTED_LEDGER_AGENT_IDS = [
   "brand-enricher",
   "brand-report",
   "evidence-assembler",
-  "geo-campaign-assessment",
+  "geo_campaign_assessment",
   "honeypot-generator",
   "lookalike-scanner",
   "public-trust-check",
   "scan-report",
-  "social-ai-assessor",
+  "social_ai_assessor",
   "url-scan",
 ] as const;
 

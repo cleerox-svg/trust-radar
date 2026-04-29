@@ -17,7 +17,7 @@
  * Surfaces covered:
  *   1. haiku.ts.classifyThreat       → agentId from caller
  *   2. haiku.ts.callHaikuRaw          → agentId from caller
- *   3. lib/social-ai-assessor         → agentId="social-ai-assessor"
+ *   3. agents/social-ai-assessor      → agentId="social_ai_assessor"
  *   4. lib/evidence-assembler         → agentId="evidence-assembler"
  *   5. lib/brand-enricher.classifySector → agentId="brand-enricher"
  *   6. honeypot-generator             → agentId="honeypot-generator"
@@ -32,7 +32,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import { classifyThreat, callHaikuRaw } from "../src/lib/haiku";
-import { assessSocialProfile, type ProfileContext } from "../src/lib/social-ai-assessor";
+import { socialAiAssessorAgent, type SocialAiAssessorInput } from "../src/agents/social-ai-assessor";
 import { classifySector } from "../src/lib/brand-enricher";
 import { generateHoneypotSite } from "../src/honeypot-generator";
 import { callAnthropic } from "../src/lib/anthropic";
@@ -188,16 +188,16 @@ describe("budget_ledger coverage — every migrated surface lands a row", () => 
     expect(rows[0]!.cost_usd).toBeGreaterThan(0);
   });
 
-  it("lib/social-ai-assessor writes a ledger row with agentId='social-ai-assessor'", async () => {
+  it("agents/social-ai-assessor writes a ledger row with agentId='social_ai_assessor'", async () => {
     fetchSpy.mockResolvedValueOnce(
       jsonResponse(
         buildJsonReply(
-          '{"classification":"impersonation","confidence":0.9,"action":"takedown","reasoning":"clearly fake","evidence_draft":"draft","signals":[],"cross_correlations":[]}',
+          '{"classification":"impersonation","confidence":0.9,"action":"takedown","reasoning":"clearly fake — handle squats the official acme namespace and bio claims partnership","evidence_draft":"draft","signals":[],"cross_correlations":[]}',
         ),
       ),
     );
 
-    const profile: ProfileContext = {
+    const input: SocialAiAssessorInput = {
       brandName: "Acme",
       brandDomain: "acme.com",
       brandAliases: [],
@@ -219,11 +219,19 @@ describe("budget_ledger coverage — every migrated surface lands a row", () => 
     };
 
     const { db, rows } = makeFakeDb();
-    const assessment = await assessSocialProfile(makeEnv(db) as never, profile);
+    const result = await socialAiAssessorAgent.execute({
+      env: makeEnv(db) as never,
+      runId: "run-social-1",
+      agentName: "social_ai_assessor",
+      input: input as unknown as Record<string, unknown>,
+      triggeredBy: null,
+    });
 
-    expect(assessment.classification).toBe("impersonation");
+    const output = result.output as { classification: string };
+    expect(output.classification).toBe("impersonation");
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.agent_id).toBe("social-ai-assessor");
+    expect(rows[0]!.agent_id).toBe("social_ai_assessor");
+    expect(rows[0]!.run_id).toBe("run-social-1");
     expect(rows[0]!.cost_usd).toBeGreaterThan(0);
   });
 

@@ -2,9 +2,13 @@
 
 import { json } from "../lib/cors";
 import { checkCostGuard } from "../lib/haiku";
-import { callAnthropicText } from "../lib/anthropic";
+import { runSyncAgent } from "../lib/agentRunner";
+import {
+  geoCampaignAssessmentAgent,
+  type GeoCampaignAssessmentInput,
+  type GeoCampaignAssessmentOutput,
+} from "../agents/geo-campaign-assessment";
 import type { Env } from "../types";
-import { HOT_PATH_HAIKU } from "../lib/ai-models";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -516,57 +520,37 @@ export async function handleGeoCampaignAssessment(request: Request, env: Env, sl
 
     const daysActive = Math.floor((Date.now() - new Date(campaign.start_date).getTime()) / (1000 * 60 * 60 * 24));
 
-    const systemPrompt = `You are a threat intelligence analyst at Averrow, a brand protection and threat intelligence platform. Generate a concise executive intelligence assessment (4 short paragraphs maximum) for the following active geopolitical cyber campaign. Be specific, cite the data, and write for a CISO audience.`;
+    const agentInput: GeoCampaignAssessmentInput = {
+      campaignName: campaign.name,
+      status: campaign.status,
+      startDate: campaign.start_date,
+      daysActive,
+      countries,
+      asns,
+      threatActors,
+      ttps,
+      targetBrands,
+      attackTypes,
+      threatStats,
+      notes:
+        typeof (campaign as unknown as Record<string, unknown>).notes === "string"
+          ? ((campaign as unknown as Record<string, unknown>).notes as string)
+          : "",
+    };
 
-    const userMessage = `Campaign: ${campaign.name}
-Status: ${campaign.status} since ${campaign.start_date} (${daysActive} days)
-Adversary: ${countries.join(", ") || "Unknown"}
-Known threat actors: ${threatActors.join(", ") || "None identified"}
-Observed TTPs: ${ttps.join(", ") || "None catalogued"}
-
-Current platform data:
-- Total threats from adversary infrastructure: ${threatStats.total}
-- Threats in last 7 days: ${threatStats.week}
-- Critical severity: ${threatStats.critical}
-- Brands targeted: ${targetBrands.join(", ") || "None specified"}
-- Attack types observed: ${attackTypes.join(", ") || "None detected"}
-- Known adversary ASNs: ${asns.join(", ") || "None tracked"}
-
-Additional context: ${(campaign as unknown as Record<string, unknown>).notes ?? "None"}
-
-Provide:
-1. SITUATION: Current threat posture and campaign activity level
-2. ASSESSMENT: What this means for the targeted organizations
-3. OUTLOOK: Expected evolution of the campaign
-4. RECOMMENDATION: Key defensive actions
-
-Keep it concise — 4 short paragraphs maximum.`;
-
-    try {
-      const { text, response } = await callAnthropicText(env, {
-        agentId: "geo-campaign-assessment",
-        runId: null,
-        model: HOT_PATH_HAIKU,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-        maxTokens: 1024,
-      });
-
-      if (!text) {
-        return json({ success: false, error: "No text content in AI response" }, 502, origin);
-      }
-
-      return json({
-        success: true,
-        data: {
-          assessment: text,
-          tokens_used: (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0),
-          generated_at: new Date().toISOString(),
-        },
-      }, 200, origin);
-    } catch (callErr) {
-      return json({ success: false, error: callErr instanceof Error ? callErr.message : "Anthropic call failed" }, 502, origin);
+    const { data, error } = await runSyncAgent<GeoCampaignAssessmentOutput>(env, geoCampaignAssessmentAgent, agentInput);
+    if (!data?.assessment) {
+      return json({ success: false, error: error || "Assessment generation failed" }, 502, origin);
     }
+
+    return json({
+      success: true,
+      data: {
+        assessment: data.assessment,
+        tokens_used: data.tokensUsed,
+        generated_at: new Date().toISOString(),
+      },
+    }, 200, origin);
   } catch {
     return json({ success: false, error: "Assessment generation failed" }, 500, origin);
   }

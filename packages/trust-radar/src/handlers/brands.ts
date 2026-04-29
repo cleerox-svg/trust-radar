@@ -9,7 +9,7 @@ import type { BrandAnalysisOutput } from "../agents/brand-analysis";
 import { brandDeepScanAgent } from "../agents/brand-deep-scan";
 import type { BrandDeepScanOutput } from "../agents/brand-deep-scan";
 import { discoverSocialProfiles } from "../lib/social-discovery";
-import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
+import { socialAiAssessorAgent, type SocialAiAssessorInput, type SocialAiAssessorOutput } from "../agents/social-ai-assessor";
 import { logger } from "../lib/logger";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
 import { generateBrandKeywords } from "../lib/brand-utils";
@@ -1464,7 +1464,7 @@ export async function handleReassessSocialProfile(
     try { if (brand.brand_keywords) brandKeywords = JSON.parse(brand.brand_keywords); } catch { /* */ }
     try { if (brand.official_handles) officialHandles = JSON.parse(brand.official_handles); } catch { /* */ }
 
-    const context: ProfileContext = {
+    const agentInput: SocialAiAssessorInput = {
       brandName: brand.name,
       brandDomain: brand.canonical_domain,
       brandAliases,
@@ -1478,14 +1478,17 @@ export async function handleReassessSocialProfile(
       followersCount: profile.followers_count ?? null,
       verified: !!profile.verified,
       accountCreated: null,
-      existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`),
+      existingThreats: threats.results.map(t => `${t.threat_type}: ${t.malicious_url}`).slice(0, 10),
       emailSecurityGrade: emailGrade?.grade || null,
-      activeCampaigns: campaigns.results.map(c => c.name),
+      activeCampaigns: campaigns.results.map(c => c.name).slice(0, 10),
       lookalikeDomainsFound: lookalikes?.n || 0,
       otherImpersonationProfiles: otherSuspicious?.n || 0,
     };
 
-    const assessment = await assessSocialProfile(env, context);
+    const { data: assessment } = await runSyncAgent<SocialAiAssessorOutput>(env, socialAiAssessorAgent, agentInput);
+    if (!assessment) {
+      return json({ success: false, error: "AI assessment unavailable" }, 503, origin);
+    }
 
     const now = new Date().toISOString();
     await env.DB.prepare(`
