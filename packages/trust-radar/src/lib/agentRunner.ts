@@ -32,7 +32,8 @@ export type AgentName =
   | "social_monitor"
   | "social_discovery"
   | "auto_seeder"
-  | "cube_healer";
+  | "cube_healer"
+  | "navigator";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

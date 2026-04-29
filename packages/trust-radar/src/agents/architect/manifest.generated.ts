@@ -119,7 +119,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 282,
-      "last_modified": "2026-04-29T03:42:53.716Z"
+      "last_modified": "2026-04-29T03:46:30.428Z"
     },
     {
       "name": "curator",

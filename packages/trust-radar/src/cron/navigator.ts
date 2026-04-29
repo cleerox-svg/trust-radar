@@ -22,6 +22,7 @@
 // Budget: ~15s typical (DNS 13-18s + cube <1s), well under the 30s hard ceiling.
 
 import type { Env } from '../types';
+import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from '../lib/agentRunner';
 import { runDomainGeoBackfillBatch } from '../lib/dns-backfill';
 import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour, buildStatusCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
@@ -71,11 +72,23 @@ function formatHourBucketUTC(d: Date): string {
   return `${year}-${month}-${day} ${hour}:00:00`;
 }
 
-export async function runNavigator(
+/** Internal result type returned by runNavigatorImpl(). The agent wrapper
+ *  (navigatorAgent.execute) converts this into an AgentResult so the
+ *  standard runner persists agent_runs + agent_outputs lifecycle. */
+interface NavigatorImplResult {
+  status: 'success' | 'partial' | 'failed';
+  eventsDrained: number;
+  itemsEnriched: number;
+  errorMessage: string | null;
+  cubeRows: number;
+  cubeErrors: string[];
+}
+
+async function runNavigatorImpl(
   env: Env,
   _ctx: ExecutionContext,
   scheduledTime: Date,
-): Promise<void> {
+): Promise<NavigatorImplResult> {
   const start = Date.now();
   const isOverCap = () => Date.now() - start > NAVIGATOR_SOFT_CAP_MS;
   console.log(`[navigator] start ${scheduledTime.toISOString()}`);
@@ -359,40 +372,104 @@ export async function runNavigator(
     }
   }
 
-  // ── 5. Log to agent_runs ──
-  // Written under agent_id='navigator'. Historical rows from before the
-  // rename use agent_id='fast_tick' — both IDs are valid for queries that
-  // span the transition period.
+  // ── 5. Build result struct ──
+  // The standard runner (executeAgent) writes the agent_runs row from
+  // navigatorAgent.execute()'s AgentResult. Per-stage failures travel
+  // back as agent_outputs diagnostics via the wrapper below.
   const durationMs = Date.now() - start;
-
-  // Concatenate DNS + cube errors into error_message so they surface in the
-  // agent_runs table without a schema change.
   const errorParts: string[] = [];
   if (errorMessage) errorParts.push(`dns: ${errorMessage}`);
   if (cubeResults.errors.length > 0) {
     errorParts.push(`cube: ${cubeResults.errors.join('; ')}`);
   }
   const finalErrorMessage = errorParts.length > 0 ? errorParts.join(' | ') : null;
-  try {
-    await env.DB.prepare(`
-      INSERT INTO agent_runs (id, agent_id, started_at, completed_at, duration_ms, status, records_processed, error_message)
-      VALUES (?, ?, datetime('now', '-' || ? || ' seconds'), datetime('now'), ?, ?, ?, ?)
-    `).bind(
-      crypto.randomUUID(),
-      NAVIGATOR_AGENT_ID,
-      Math.round(durationMs / 1000),
-      durationMs,
-      status,
-      // records_processed stays as the DNS enrichment count (primary metric);
-      // cube row counts live in the log line and error_message field.
-      dnsResult.enriched + eventsDrained,
-      finalErrorMessage,
-    ).run();
-  } catch (err) {
-    console.error('[navigator] agent_runs insert failed:', err);
-  }
 
   console.log(
     `[navigator] done status=${status} events_drained=${eventsDrained} processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} cube_rows=${cubeResults.totalRows} cube_ms=${cubeResults.totalMs} cube_errors=${cubeResults.errors.length} cache_warmed=${cacheWarmed} d1_skip=${skipNonEssential} d1_read24h=${budgetState?.rowsRead24h ?? 'unknown'} softCapHit=${dnsResult.softCapHit} duration=${durationMs}ms`,
   );
+
+  return {
+    status,
+    eventsDrained,
+    itemsEnriched: dnsResult.enriched,
+    errorMessage: finalErrorMessage,
+    cubeRows: cubeResults.totalRows,
+    cubeErrors: cubeResults.errors,
+  };
 }
+
+// ─── AgentModule wrapper ─────────────────────────────────────────
+//
+// Phase 2.4 of the agent audit: navigator was a hidden agent — its
+// own dedicated cron, its own raw INSERT into agent_runs, no
+// AgentModule. Now wraps the impl in the standard runner pattern
+// per AGENT_STANDARD §3-4.
+//
+// The dedicated `*/5 * * * *` cron entry is unchanged. The orchestrator
+// dispatches via executeAgent() instead of calling runNavigator()
+// directly, so the agent_runs lifecycle, FC stall recovery, and
+// circuit breaker all work uniformly.
+
+export const navigatorAgent: AgentModule = {
+  name: 'navigator',
+  displayName: 'Navigator',
+  description: 'DNS resolution — independent 5-min cron',
+  color: '#38BDF8',
+  trigger: 'scheduled',
+
+  async execute(ctx: AgentContext): Promise<AgentResult> {
+    // The orchestrator passes scheduledTime via input so per-tick
+    // hour-bucket math survives cron jitter (CLAUDE.md cron-audit
+    // rule — never derive from `new Date()`).
+    const inputScheduledTime = ctx.input.scheduledTime;
+    const scheduledTime =
+      typeof inputScheduledTime === 'string'
+        ? new Date(inputScheduledTime)
+        : inputScheduledTime instanceof Date
+          ? inputScheduledTime
+          : new Date();
+
+    // ExecutionContext is threaded through ctx.input._executionCtx
+    // (matches flightControlAgent's pattern). Falls back to a no-op
+    // for non-cron call sites — the impl only uses it for waitUntil
+    // best-effort tasks.
+    const execCtx = (ctx.input._executionCtx as ExecutionContext | undefined)
+      ?? ({ waitUntil: () => undefined, passThroughOnException: () => undefined } as unknown as ExecutionContext);
+
+    const result = await runNavigatorImpl(ctx.env, execCtx, scheduledTime);
+
+    // Surface partial-stage failures as severity='high' diagnostic
+    // agent_outputs so operators see them in the Agents UI even
+    // though agent_runs.status will land as 'success' (limitation
+    // documented in Phase 2.3 / cube_healer migration; lifted in
+    // Phase 4 when AgentResult gains a `partial: boolean` field).
+    const agentOutputs: AgentOutputEntry[] = [];
+    if (result.errorMessage) {
+      agentOutputs.push({
+        type: 'diagnostic',
+        summary: `Navigator partial failure: ${result.errorMessage}`,
+        severity: 'high',
+        details: {
+          eventsDrained: result.eventsDrained,
+          itemsEnriched: result.itemsEnriched,
+          cubeRows: result.cubeRows,
+          cubeErrors: result.cubeErrors,
+        },
+      });
+    }
+
+    return {
+      itemsProcessed: result.itemsEnriched + result.eventsDrained,
+      itemsCreated: result.cubeRows,
+      itemsUpdated: 0,
+      output: {
+        status: result.status,
+        eventsDrained: result.eventsDrained,
+        itemsEnriched: result.itemsEnriched,
+        cubeRows: result.cubeRows,
+        cubeErrors: result.cubeErrors.length,
+      },
+      agentOutputs,
+    };
+  },
+};
