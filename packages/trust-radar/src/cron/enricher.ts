@@ -1,26 +1,28 @@
 /**
- * Enricher — dedicated, observable, self-healing enrichment runner.
+ * Enricher — dedicated, observable enrichment runner.
  *
  * Owns three jobs that previously lived inline inside runThreatFeedScan
  * (domain geo) and runObserverBriefing (brand logo/HQ + sector/RDAP).
- * Pulling them out fixes three problems:
+ * Pulling them out:
+ *   1. Decouples enrichment from feed-ingest / observer success — a
+ *      feed failure no longer starves enrichment for a whole tick.
+ *   2. Gives Flight Control visibility into whether enrichment ran.
+ *   3. Tracks per-job duration so a slow job is distinguishable from
+ *      one that silently broke.
  *
- *   1. They were coupled to feed ingestion / observer success, so a
- *      single feed failure could starve enrichment for a whole tick.
- *   2. They never reached agent_activity_log — Flight Control could
- *      see the backlogs but had no idea whether anything was running.
- *   3. They had no per-job duration tracking, so it was impossible to
- *      tell from outside whether a job was slow vs. silently broken.
- *
- * Each job here:
- *   - Calls its underlying admin handler with a synthetic Request.
- *   - Records start, processed/enriched counts, and duration to
- *     agent_activity_log under agent_id='enricher'.
- *   - Catches its own errors and never throws upstream — one bad job
- *     must not poison the rest of the chain.
+ * Phase 2.5 of agent audit: enricher previously wrote per-job rows to
+ * `agent_activity_log` under `agent_id='enricher'` — a different table
+ * than every other agent's `agent_runs`. That made it the only truly
+ * hidden agent on the Agents page (the audit's §4 finding). Migrated to
+ * the standard AgentModule + executeAgent() pattern per AGENT_STANDARD
+ * §3-4: cumulative run lifecycle goes to agent_runs via the runner;
+ * per-job results surface as agent_outputs (severity='high' on
+ * failure, 'info' on success) so operators see the per-job detail
+ * through the standard UI channel instead of a separate log table.
  */
 
 import type { Env } from '../types';
+import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from '../lib/agentRunner';
 import {
   handleBackfillDomainGeo,
   handleBackfillBrandEnrichment,
@@ -29,37 +31,16 @@ import {
 
 type EnricherJob = 'domain_geo' | 'brand_logo_hq' | 'brand_sector_rdap';
 
-async function logEnricherEvent(
-  env: Env,
-  job: EnricherJob,
-  severity: 'info' | 'warning' | 'critical',
-  message: string,
-  metadata: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await env.DB.prepare(`
-      INSERT INTO agent_activity_log (id, agent_id, event_type, message, metadata_json, severity, created_at)
-      VALUES (?, 'enricher', ?, ?, ?, ?, datetime('now'))
-    `).bind(
-      crypto.randomUUID(),
-      `enricher_${job}`,
-      message,
-      JSON.stringify(metadata),
-      severity,
-    ).run();
-  } catch {
-    /* logging must never break the run */
-  }
-}
-
 interface EnricherJobResult {
+  job: EnricherJob;
   ok: boolean;
   processed: number;
   enriched: number;
   durationMs: number;
+  error: string | null;
 }
 
-async function runJob(
+async function runEnricherJob(
   env: Env,
   job: EnricherJob,
   handler: (req: Request, env: Env) => Promise<Response>,
@@ -83,73 +64,112 @@ async function runJob(
     const durationMs = Date.now() - start;
 
     if (!json.success) {
-      await logEnricherEvent(
-        env,
+      return {
         job,
-        'critical',
-        `enricher.${job} failed: ${json.error ?? 'unknown'}`,
-        { durationMs, error: json.error },
-      );
-      return { ok: false, processed: 0, enriched: 0, durationMs };
+        ok: false,
+        processed: 0,
+        enriched: 0,
+        durationMs,
+        error: json.error ?? 'unknown',
+      };
     }
 
     const processed = json.data?.processed ?? 0;
     // Each handler reports its "useful work" count under a different
-    // key — coalesce them all so we always log a comparable number.
+    // key — coalesce so we always log a comparable number.
     const enriched =
       json.data?.enriched ??
       json.data?.resolved ??
       json.data?.classified ??
       0;
-    const remaining = json.data?.remaining ?? null;
-
-    await logEnricherEvent(
-      env,
-      job,
-      'info',
-      `enricher.${job} processed=${processed} enriched=${enriched} remaining=${remaining ?? '?'} (${durationMs}ms)`,
-      { processed, enriched, remaining, durationMs },
-    );
-
-    return { ok: true, processed, enriched, durationMs };
+    return { job, ok: true, processed, enriched, durationMs, error: null };
   } catch (err) {
     const durationMs = Date.now() - start;
-    const msg = err instanceof Error ? err.message : String(err);
-    await logEnricherEvent(env, job, 'critical', `enricher.${job} threw: ${msg}`, {
+    return {
+      job,
+      ok: false,
+      processed: 0,
+      enriched: 0,
       durationMs,
-      error: msg,
-    });
-    return { ok: false, processed: 0, enriched: 0, durationMs };
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
-/**
- * Run all three enrichment jobs in order. Order matters:
- *   1. domain_geo runs first — biggest backlog, cheapest per-row work
- *      (single DoH lookup + bulk DB update).
- *   2. brand_logo_hq runs next — Clearbit HEAD + DNS + ipinfo lookup.
- *   3. brand_sector_rdap runs last — most expensive (Haiku call + RDAP),
- *      so if we run out of subrequests it's the cheapest job to skip.
- *
- * Each job is fully isolated. A failure in one never blocks the next.
- */
-export async function runEnricher(env: Env): Promise<void> {
-  await runJob(
-    env,
-    'domain_geo',
-    handleBackfillDomainGeo,
-    '/api/admin/backfill-domain-geo',
-  );
-  await runJob(
-    env,
-    'brand_logo_hq',
-    handleBackfillBrandEnrichment,
-    '/api/admin/backfill-brand-enrichment',
-  );
-  await runJob(
-    env,
-    'brand_sector_rdap',
-    handleBackfillBrandSector,
-    '/api/admin/backfill-brand-sector',
-  );
-}
+// ─── Agent module ───────────────────────────────────────────────
+
+export const enricherAgent: AgentModule = {
+  name: 'enricher',
+  displayName: 'Enricher',
+  description: 'Domain geo, brand logo/HQ, and brand sector/RDAP enrichment — runs every hourly tick',
+  color: '#22D3EE',
+  trigger: 'scheduled',
+
+  async execute(ctx: AgentContext): Promise<AgentResult> {
+    const { env } = ctx;
+    // Order matters:
+    //   1. domain_geo first — biggest backlog, cheapest per-row work.
+    //   2. brand_logo_hq next — Clearbit HEAD + DNS + ipinfo lookups.
+    //   3. brand_sector_rdap last — most expensive (Haiku + RDAP);
+    //      if we run out of subrequests this is the cheapest job to skip.
+    //
+    // Each job is fully isolated — a failure in one never blocks the
+    // next, matching the legacy runEnricher() behaviour.
+    const jobs: EnricherJobResult[] = [];
+    jobs.push(
+      await runEnricherJob(env, 'domain_geo', handleBackfillDomainGeo, '/api/admin/backfill-domain-geo'),
+    );
+    jobs.push(
+      await runEnricherJob(env, 'brand_logo_hq', handleBackfillBrandEnrichment, '/api/admin/backfill-brand-enrichment'),
+    );
+    jobs.push(
+      await runEnricherJob(env, 'brand_sector_rdap', handleBackfillBrandSector, '/api/admin/backfill-brand-sector'),
+    );
+
+    const totalProcessed = jobs.reduce((s, j) => s + j.processed, 0);
+    const totalEnriched = jobs.reduce((s, j) => s + j.enriched, 0);
+
+    // Per-job agent_outputs row. Failure = severity='high' diagnostic.
+    // Success with non-zero work = severity='info' insight. No-op job
+    // (zero processed, ok) emits nothing — would be noise.
+    const agentOutputs: AgentOutputEntry[] = [];
+    for (const j of jobs) {
+      if (!j.ok) {
+        agentOutputs.push({
+          type: 'diagnostic',
+          summary: `enricher.${j.job} failed: ${j.error ?? 'unknown'}`,
+          severity: 'high',
+          details: { job: j.job, error: j.error, durationMs: j.durationMs },
+        });
+      } else if (j.processed > 0) {
+        agentOutputs.push({
+          type: 'insight',
+          summary: `enricher.${j.job} processed=${j.processed} enriched=${j.enriched} (${j.durationMs}ms)`,
+          severity: 'info',
+          details: {
+            job: j.job,
+            processed: j.processed,
+            enriched: j.enriched,
+            durationMs: j.durationMs,
+          },
+        });
+      }
+    }
+
+    return {
+      itemsProcessed: totalProcessed,
+      itemsCreated: totalEnriched,
+      itemsUpdated: 0,
+      output: {
+        jobs: jobs.map((j) => ({
+          job: j.job,
+          ok: j.ok,
+          processed: j.processed,
+          enriched: j.enriched,
+          durationMs: j.durationMs,
+        })),
+      },
+      agentOutputs,
+    };
+  },
+};

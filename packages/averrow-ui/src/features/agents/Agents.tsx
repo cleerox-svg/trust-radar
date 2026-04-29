@@ -69,7 +69,7 @@ const AGENT_GROUPS: AgentGroup[] = [
   {
     id: 'operations',
     label: 'Platform Operations',
-    agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer'],
+    agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer', 'enricher'],
   },
   // 'meta' group (architect) retired 2026-04-29 — see agent-metadata.ts.
 ];

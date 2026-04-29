@@ -122,10 +122,16 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // Enricher runs every cron tick — owns domain_geo, brand_logo_hq,
   // brand_sector_rdap. Decoupled from feed ingest so its failures
   // don't poison feeds and vice versa.
+  //
+  // Phase 2.5 of agent audit: enricher is now a standard AgentModule
+  // dispatched through executeAgent — agent_runs row, FC supervision,
+  // circuit breaker all uniform with every other agent. The legacy
+  // agent_activity_log per-job rows are replaced by agent_outputs
+  // entries (severity='high' on failure, 'info' on non-zero progress).
   try {
-    const { runEnricher } = await import('./enricher');
-    const enricherResult = await runJob('enricher', () => runEnricher(env));
-    results.push(enricherResult);
+    const { enricherAgent } = await import('./enricher');
+    const { executeAgent } = await import('../lib/agentRunner');
+    await executeAgent(env, enricherAgent, {}, 'cron', 'scheduled');
   } catch (err) {
     logger.error('enricher_dispatch_error', {
       error: err instanceof Error ? err.message : String(err),

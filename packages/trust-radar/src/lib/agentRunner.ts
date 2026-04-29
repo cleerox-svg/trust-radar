@@ -33,7 +33,8 @@ export type AgentName =
   | "social_discovery"
   | "auto_seeder"
   | "cube_healer"
-  | "navigator";
+  | "navigator"
+  | "enricher";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

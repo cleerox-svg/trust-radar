@@ -217,6 +217,36 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Enricher — domain geo, brand logo/HQ, sector/RDAP enrichment.
+  // A row of three records with progressively more "fill" — left is
+  // blank, middle has one row, right is fully filled. Evokes "takes
+  // sparse records and fills in the blanks."
+  enricher: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* three record cards left-to-right with progressive fill */}
+      {/* card 1 — empty */}
+      <rect x="3" y="9" width="9" height="18" rx="1.5"
+            stroke="currentColor" strokeWidth="1.2" opacity="0.5" fill="none" />
+      <line x1="5" y1="13" x2="10" y2="13" stroke="currentColor" strokeWidth="0.8" opacity="0.25" />
+      <line x1="5" y1="16" x2="10" y2="16" stroke="currentColor" strokeWidth="0.8" opacity="0.25" />
+      <line x1="5" y1="19" x2="10" y2="19" stroke="currentColor" strokeWidth="0.8" opacity="0.25" />
+      {/* card 2 — partial fill */}
+      <rect x="13.5" y="9" width="9" height="18" rx="1.5"
+            stroke="currentColor" strokeWidth="1.2" opacity="0.7" fill="none" />
+      <line x1="15.5" y1="13" x2="20.5" y2="13" stroke="currentColor" strokeWidth="0.8" />
+      <line x1="15.5" y1="16" x2="20.5" y2="16" stroke="currentColor" strokeWidth="0.8" opacity="0.4" />
+      <line x1="15.5" y1="19" x2="20.5" y2="19" stroke="currentColor" strokeWidth="0.8" opacity="0.25" />
+      {/* card 3 — fully filled */}
+      <rect x="24" y="9" width="9" height="18" rx="1.5"
+            stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.18" />
+      <line x1="26" y1="13" x2="31" y2="13" stroke="currentColor" strokeWidth="0.8" />
+      <line x1="26" y1="16" x2="31" y2="16" stroke="currentColor" strokeWidth="0.8" />
+      <line x1="26" y1="19" x2="31" y2="19" stroke="currentColor" strokeWidth="0.8" />
+      {/* arrow flow under the cards */}
+      <path d="M3 31 L33 31" stroke="currentColor" strokeWidth="0.7" opacity="0.45" strokeDasharray="1.2 1.6" />
+    </svg>
+  ),
+
   // Seed Strategist — AI planner for spam-trap seeding. A grid of
   // coverage cells (some filled, some empty representing gaps) with
   // a strategic crosshair on an empty cell — "AI identifies the

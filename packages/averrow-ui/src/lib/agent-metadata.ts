@@ -26,7 +26,8 @@ export type AgentId =
   | 'app_store_monitor'
   | 'dark_web_monitor'
   | 'auto_seeder'
-  | 'seed_strategist';
+  | 'seed_strategist'
+  | 'enricher';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -219,6 +220,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#06B6D4',
     category: 'intelligence',
     pipelinePosition: 20,
+  },
+  enricher: {
+    id: 'enricher',
+    displayName: 'Enricher',
+    codename: 'enricher',
+    subtitle: 'Domain geo, brand logo/HQ, and brand sector/RDAP enrichment — runs every hourly tick',
+    color: '#22D3EE',
+    category: 'ops',
+    pipelinePosition: 21,
   },
 };
 
