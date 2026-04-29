@@ -1127,11 +1127,9 @@ async function recoverStalledAgents(
 
     const mod = agentModules[agent.agent_id];
     if (!mod) continue;
-
-    // TEMP DISABLED — Anthropic timeout, re-enable after fix (Phase 0.5d)
-    // architect times out on every Anthropic call; stall-recovery was spawning it
-    // every hour producing zero output while consuming 200-300 sec of D1 time.
-    if (agent.agent_id === 'architect') continue;
+    // (architect was previously skipped explicitly here due to Anthropic
+    // timeout; retired in Phase 2.2 of the agent audit, so the !mod guard
+    // above now handles it implicitly.)
 
     await logActivity(db, 'flight_control', 'warning', 'recovery',
       `Recovering stalled agent: ${agent.agent_id} (last run: ${agent.last_run_at ?? 'never'})`,

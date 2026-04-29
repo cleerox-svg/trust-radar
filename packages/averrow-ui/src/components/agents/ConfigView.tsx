@@ -89,12 +89,7 @@ const AGENT_CONFIG_EXTRAS: Partial<Record<AgentId, AgentConfigExtra>> = {
       'agent_outputs (hygiene_report)',
     ],
   },
-  architect: {
-    schedule: 'Manual trigger',
-    model: 'claude-haiku-4-5 (analysis) + claude-sonnet-4 (synthesis)',
-    scope: 'Audits agents, feeds, and the data layer — produces health scorecard',
-    outputs: ['agent_outputs (audit_report)'],
-  },
+  // architect retired 2026-04-29 — see agent-metadata.ts.
   watchdog: {
     schedule: 'Continuous',
     model: 'none (algorithmic)',
@@ -223,7 +218,7 @@ function ConfigCard({
 }
 
 // Protected agents that cannot be auto-tripped
-const PROTECTED_AGENTS = new Set(['flight_control', 'architect']);
+const PROTECTED_AGENTS = new Set(['flight_control']);
 
 function CircuitBreakerSection({ agentId, agent }: { agentId: string; agent: Agent }) {
   const resetMutation = useResetAgentCircuit();

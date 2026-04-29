@@ -18,7 +18,6 @@ export type AgentId =
   | 'strategist'
   | 'pathfinder'
   | 'curator'
-  | 'architect'
   | 'watchdog'
   | 'cube_healer'
   | 'narrator'
@@ -139,15 +138,7 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     category: 'ops',
     pipelinePosition: 10,
   },
-  architect: {
-    id: 'architect',
-    displayName: 'Architect',
-    codename: null,
-    subtitle: 'Meta-agent — audits agents, feeds, and the data layer',
-    color: '#E5A832',
-    category: 'meta',
-    pipelinePosition: 11,
-  },
+  // architect — RETIRED 2026-04-29 (Phase 2.2 of agent audit, no runs since 2026-04-11).
   watchdog: {
     id: 'watchdog',
     displayName: 'Watchdog',
