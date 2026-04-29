@@ -31,7 +31,8 @@ export type AgentId =
   | 'public_trust_check'
   | 'qualified_report'
   | 'brand_analysis'
-  | 'brand_report';
+  | 'brand_report'
+  | 'brand_deep_scan';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -269,6 +270,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#FBBF24',
     category: 'sync',
     pipelinePosition: 25,
+  },
+  brand_deep_scan: {
+    id: 'brand_deep_scan',
+    displayName: 'Brand Deep Scan',
+    codename: 'brand_deep_scan',
+    subtitle: 'Synchronous AI — batch Y/N classification of unlinked threat URLs against a brand identity (one run per request, up to 200 internal calls)',
+    color: '#FCD34D',
+    category: 'sync',
+    pipelinePosition: 26,
   },
 };
 

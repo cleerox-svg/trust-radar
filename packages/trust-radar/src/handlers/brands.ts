@@ -3,10 +3,11 @@
 
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
-import { callHaikuRaw } from "../lib/haiku";
 import { runSyncAgent } from "../lib/agentRunner";
 import { brandAnalysisAgent } from "../agents/brand-analysis";
 import type { BrandAnalysisOutput } from "../agents/brand-analysis";
+import { brandDeepScanAgent } from "../agents/brand-deep-scan";
+import type { BrandDeepScanOutput } from "../agents/brand-deep-scan";
 import { discoverSocialProfiles } from "../lib/social-discovery";
 import { assessSocialProfile, type ProfileContext } from "../lib/social-ai-assessor";
 import { logger } from "../lib/logger";
@@ -876,31 +877,42 @@ export async function handleBrandDeepScan(request: Request, env: Env, brandId: s
       return json({ success: true, data: { scanned: 0, newly_linked: 0, message: "No unlinked threats to scan" } }, 200, origin);
     }
 
-    const systemPrompt = "You are a brand impersonation detector. Reply with ONLY 'YES' or 'NO'.";
+    // Phase 3.5 of agent audit: brand_deep_scan runs the entire
+    // batch as one agent run (N internal AI calls, ONE agent_runs
+    // row). The agent owns input validation, per-threat YES/NO
+    // classification, and per-batch budget guard. Handler stays
+    // responsible for D1 SQL — fetching unlinked threats and the
+    // batch UPDATE on matches.
+    const agentRun = await runSyncAgent<BrandDeepScanOutput>(
+      env,
+      brandDeepScanAgent,
+      {
+        brandName: brand.name,
+        brandDomain: brand.canonical_domain,
+        threats: threats.map((t) => ({
+          id: t.id,
+          url: t.malicious_url || t.malicious_domain || "",
+        })).filter((t) => t.url.length > 0),
+      },
+    );
+
+    const matchedIds = agentRun.data
+      ? agentRun.data.matches.filter((m) => m.match).map((m) => m.id)
+      : [];
+
     let newlyLinked = 0;
-    const BATCH_SIZE = 20;
-
-    for (let i = 0; i < threats.length; i += BATCH_SIZE) {
-      const batch = threats.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(
-        batch.map(async (t) => {
-          const url = t.malicious_url || t.malicious_domain || "";
-          if (!url) return { id: t.id, match: false };
-          const userMsg = `Does this URL target or impersonate the brand ${brand.name} (${brand.canonical_domain})? Consider typosquatting, homoglyph attacks, subdomain abuse, and lookalike domains. URL: ${url}`;
-          const res = await callHaikuRaw(env, { agentId: "brand-deep-scan", runId: null }, systemPrompt, userMsg, 16);
-          return { id: t.id, match: res.success && res.text?.toUpperCase().startsWith("YES") };
-        })
-      );
-
-      const matchedIds = results.filter(r => r.match).map(r => r.id);
-      if (matchedIds.length > 0) {
-        // Batch update matched threats — single statement instead of N+1
-        const placeholders = matchedIds.map(() => '?').join(',');
+    if (matchedIds.length > 0) {
+      // Batch update matched threats — single statement instead of N+1.
+      // Chunked to stay under D1's bound-param limit (100 by default).
+      const CHUNK = 80;
+      for (let i = 0; i < matchedIds.length; i += CHUNK) {
+        const chunk = matchedIds.slice(i, i + CHUNK);
+        const placeholders = chunk.map(() => "?").join(",");
         await env.DB.prepare(
           `UPDATE threats SET target_brand_id = ? WHERE id IN (${placeholders})`
-        ).bind(brandId, ...matchedIds).run();
-        newlyLinked += matchedIds.length;
+        ).bind(brandId, ...chunk).run();
       }
+      newlyLinked = matchedIds.length;
     }
 
     // Update brand aggregate counts
