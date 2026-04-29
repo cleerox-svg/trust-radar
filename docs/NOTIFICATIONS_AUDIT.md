@@ -1562,4 +1562,82 @@ GROUP BY day;
 If row 3's `failed` is non-trivial, raise the SPF/DKIM warning
 to the team before flipping the digest flag.
 
+---
+
+## 13. Platform-health signals (super_admin)
+
+Q10 expanded scope: D1 issues, Worker issues that Flight Control
+can't auto-fix, and other platform-health events should become
+notifications. These are `audience='super_admin'` rows that
+mirror the diagnostics surface (CLAUDE.md §10) — but pushed into
+the bell instead of buried in a JSON endpoint.
+
+### 13.1 Type catalogue (~12 candidates)
+
+| Type | Trigger source | Severity | Recommended action |
+|---|---|---|---|
+| `platform_d1_budget_warn` | Flight Control: D1 daily reads >80% of plan | high | Review query plan; check for missing indexes; consider read-replica routing |
+| `platform_d1_budget_breach` | Flight Control: D1 daily reads >100% of plan | critical | Throttle non-essential agents; escalate to plan upgrade |
+| `platform_kv_budget_warn` | Flight Control: KV reads/writes >80% of plan | medium | Audit cache TTLs; reduce pre-warm scope |
+| `platform_worker_cpu_burst` | Flight Control: any agent run >50% CPU ms ceiling | high | Inspect `agent_runs.error_message`; consider Workflow refactor |
+| `platform_feed_at_risk` | Diagnostics: feed pct_to_auto_pause ≥ 80% | high | Investigate feed source; rotate API key if 401/403 pattern |
+| `platform_feed_auto_paused` | Feed loader: consecutive failure threshold hit | critical | Manual unpause via admin once root cause fixed |
+| `platform_agent_stalled` | Diagnostics: run stuck in 'running' >15 min | high | Check `agent_runs` for stall reason; force-fail and re-dispatch |
+| `platform_cron_orchestrator_missed` | Flight Control: no orchestrator run in last 90 min | critical | Check Cloudflare cron triggers in dashboard; verify wrangler.toml deployed |
+| `platform_cron_navigator_missed` | Flight Control: no navigator run in last 15 min | high | Same as above; navigator runs every 5 min |
+| `platform_enrichment_stuck_pile` | Diagnostics: stuck_pile > 100 (enriched but no geo) | medium | Run cube-healer manually; investigate Cartographer Phase 1 failures |
+| `platform_ai_spend_burst` | Diagnostics: ai_spend_24h > $X threshold | high | Inspect per-agent breakdown; pause Sonnet-heavy agents if needed |
+| `platform_resend_bounces` | Email log: failed/delivered ratio >10% in 7d | medium | Check SPF/DKIM; review bounced addresses |
+
+### 13.2 Why notifications, not just diagnostics
+
+The diagnostics endpoint (CLAUDE.md §10) is **pull**: someone has
+to run the script. Platform-health notifications are **push**:
+
+1. They surface in the same bell super_admins already check.
+2. They carry `recommended_action` so the operator knows what to
+   do next without context-switching to the runbook.
+3. They use the same 4-state machine (snooze a known-noisy alert,
+   mark done after the fix lands).
+4. They link to the relevant admin surface (`/admin/feeds`,
+   `/admin/agents`, etc.) via `notification.link`.
+
+### 13.3 Routing
+
+All `platform_*` types are `audience='super_admin'` and ignore
+the tenant filter (super_admins explicitly opt out via
+`show_tenant_notifications=false` per Q3). They're emitted by:
+
+- **Flight Control** (already runs every tick) — owns budget,
+  CPU, cron-missed, enrichment-stuck-pile detection.
+- **Feed loader** — owns at-risk and auto-paused.
+- **Diagnostics endpoint** — already computes most signals;
+  N6b adds an emit-on-threshold-cross hook.
+
+### 13.4 Dedup
+
+Platform alerts are highly susceptible to duplicate-spam. We use
+`group_key` (per §10 schema) keyed by:
+
+- `platform_<type>_<window>` for budget/spend (one per day)
+- `platform_feed_at_risk_<feed_id>` (one per feed, refreshes on
+  state change)
+- `platform_agent_stalled_<agent_id>_<run_id>` (one per stalled
+  run)
+
+Existing rows in the same `group_key` get **updated in place**
+(metadata + updated_at) rather than inserted — same pattern as
+N1's cartographer dedup fix.
+
+### 13.5 Out of scope (handled elsewhere)
+
+Flight Control already auto-remediates these — no notification
+needed:
+
+- Cube staleness (cube-healer rebuilds every 6h)
+- Single-tick feed failures (loader retries with backoff)
+- Single-tick agent failures (next tick re-dispatches)
+
+The rule: **only notify when human action is required.** If FC
+can fix it on the next tick, stay silent.
 
