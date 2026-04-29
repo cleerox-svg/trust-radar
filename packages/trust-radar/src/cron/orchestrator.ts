@@ -238,6 +238,17 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
       }
     });
     results.push(emailResult);
+
+    // B4 — notification_narrator: per-user daily digest envelopes.
+    // Runs at the same hour as the legacy briefing email; the
+    // digest envelope is additive in the bell, doesn't compete
+    // with the email path.
+    const digestResult = await runJob('notification_narrator', async () => {
+      const { executeAgent } = await import('../lib/agentRunner');
+      const { notificationNarratorAgent } = await import('../agents/notification_narrator');
+      await executeAgent(env, notificationNarratorAgent);
+    });
+    results.push(digestResult);
   }
 
   // CT certificate monitoring — runs every hourly tick (was every 5 min when cron was */15)

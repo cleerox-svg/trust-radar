@@ -217,6 +217,22 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Notification Narrator — bell + document hybrid. AI-written
+  // per-user daily digest envelope. The bell evokes notifications,
+  // the lines evoke the narrative summary.
+  notification_narrator: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* bell silhouette */}
+      <path d="M18 6V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M11 22V16C11 12.6 14.1 10 18 10C21.9 10 25 12.6 25 16V22L27 24H9L11 22Z"
+            stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M16 27C16.5 28 17.2 28.5 18 28.5C18.8 28.5 19.5 28 20 27"
+            stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      {/* digest summary lines inside the bell */}
+      <line x1="14" y1="17" x2="22" y2="17" stroke="currentColor" strokeWidth="1.0" strokeLinecap="round" opacity="0.6"/>
+      <line x1="14" y1="20" x2="20" y2="20" stroke="currentColor" strokeWidth="1.0" strokeLinecap="round" opacity="0.45"/>
+    </svg>
+  ),
   // Qualified Report — synchronous AI agent for admin-triggered
   // customer-facing brand risk reports. Document with a checkbox-list
   // body (the remediation plan) and a stylised foiled seal in the

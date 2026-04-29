@@ -27,6 +27,7 @@ import { watchdogAgent } from "./watchdog";
 // (git history is the audit trail). To resurrect: re-add the import,
 // the agentModules entry, the agent-metadata row, and the group.
 import { narratorAgent } from "./narrator";
+import { notificationNarratorAgent } from "./notification_narrator";
 import { appStoreMonitorAgent } from "./appStoreMonitor";
 import { darkWebMonitorAgent } from "./darkWebMonitor";
 import { socialMonitorAgent } from "./socialMonitor";
@@ -68,6 +69,7 @@ export const agentModules: Record<string, AgentModule> = {
   "watchdog": watchdogAgent,
   // "architect": retired (see comment above)
   "narrator": narratorAgent,
+  "notification_narrator": notificationNarratorAgent,
   "app_store_monitor": appStoreMonitorAgent,
   "dark_web_monitor": darkWebMonitorAgent,
   "social_monitor": socialMonitorAgent,

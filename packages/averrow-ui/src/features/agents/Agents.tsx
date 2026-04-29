@@ -91,7 +91,7 @@ const AGENT_GROUPS: AgentGroup[] = [
   {
     id: 'intelligence',
     label: 'Intelligence & Analysis',
-    agentIds: ['observer', 'strategist', 'narrator'],
+    agentIds: ['observer', 'strategist', 'narrator', 'notification_narrator'],
   },
   {
     id: 'response',
