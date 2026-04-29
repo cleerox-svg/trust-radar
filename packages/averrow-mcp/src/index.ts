@@ -10,10 +10,19 @@
 // Required secrets (set via CF Dashboard → Worker → Settings → Variables):
 //   AVERROW_INTERNAL_SECRET  — authenticates with averrow.com internal API
 //   MCP_AUTH_TOKEN            — authenticates Claude Code with this MCP server
+//   MCP_TEST_JWT              — long-lived access JWT for a dedicated test user
+//                               account, used by the UI verification tools to
+//                               hit user-context endpoints (/api/auth/me,
+//                               /api/dashboard/overview, etc). Rotate from a
+//                               logged-in browser session: localStorage.getItem
+//                               ('averrow_token'). Default JWT TTL is 12h, so
+//                               rotation is manual until we add refresh-token
+//                               handling here.
 
 interface Env {
   AVERROW_INTERNAL_SECRET: string;
   MCP_AUTH_TOKEN: string;
+  MCP_TEST_JWT: string;
 }
 
 const AVERROW_API = "https://averrow.com";
@@ -216,6 +225,231 @@ const TOOLS: ToolDef[] = [
       return apiPost("/api/internal/briefing/send", env);
     },
   },
+  // ── UI Verification (authenticated via MCP_TEST_JWT) ────────
+  {
+    name: "verify_ui_smoke",
+    description:
+      "Authenticated platform smoke test. Hits the critical user-context " +
+      "endpoints — /api/auth/me, /api/v1/public/stats, /api/dashboard/overview, " +
+      "/api/observatory/stats, /api/v1/operations/stats — and runs a baseline " +
+      "assertion on each (auth still works, threat counts are non-zero, " +
+      "response shape intact). Catches regressions like the cube-empty / " +
+      "headline-shows-0 class. Requires MCP_TEST_JWT secret pointing at a " +
+      "dedicated test user account. Returns { passed, failed, total, probes[] } " +
+      "with per-probe pass/fail and the failure reason.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (_args, env) => {
+      // Each probe runs a single GET + a single assertion. Probes
+      // run in parallel — no probe blocks any other.
+      type Probe = {
+        name: string;
+        path: string;
+        check: (body: unknown) => string | null; // null = pass, string = failure reason
+      };
+      const probes: Probe[] = [
+        {
+          name: "auth_check",
+          path: "/api/auth/me",
+          check: (b) => {
+            const email = pluck(b, "data.email") ?? pluck(b, "email");
+            return email ? null : "no email returned — JWT invalid/expired";
+          },
+        },
+        {
+          name: "public_stats",
+          path: "/api/v1/public/stats",
+          check: (b) => {
+            const total = Number(pluck(b, "data.total_threats"));
+            if (!Number.isFinite(total)) return "data.total_threats missing";
+            if (total <= 0) return `total_threats=${total} (cube may be empty)`;
+            return null;
+          },
+        },
+        {
+          name: "dashboard_overview",
+          path: "/api/dashboard/overview",
+          check: (b) => {
+            const success = pluck(b, "success");
+            return success === true ? null : `success!=true (body: ${JSON.stringify(b).slice(0, 200)})`;
+          },
+        },
+        {
+          name: "observatory_stats",
+          path: "/api/observatory/stats?period=7d",
+          check: (b) => {
+            const mapped = Number(pluck(b, "data.threats_mapped"));
+            if (!Number.isFinite(mapped)) return "data.threats_mapped missing";
+            if (mapped <= 0) return `threats_mapped=${mapped} (geo cube may be empty)`;
+            return null;
+          },
+        },
+        {
+          name: "operations_stats",
+          path: "/api/v1/operations/stats",
+          check: (b) => {
+            const success = pluck(b, "success");
+            const brands = Number(pluck(b, "data.brands_targeted"));
+            if (success !== true) return `success!=true`;
+            if (!Number.isFinite(brands) || brands <= 0)
+              return `brands_targeted=${brands} (brand cube may be empty)`;
+            return null;
+          },
+        },
+      ];
+
+      const results = await Promise.all(
+        probes.map(async (p) => {
+          const r = await apiUserGet(p.path, env);
+          if (!r.ok) {
+            return {
+              name: p.name,
+              path: p.path,
+              passed: false,
+              status: r.status,
+              reason: r.error ?? "request failed",
+              body_preview: typeof r.body === "string"
+                ? r.body.slice(0, 200)
+                : JSON.stringify(r.body).slice(0, 200),
+            };
+          }
+          const failure = p.check(r.body);
+          return {
+            name: p.name,
+            path: p.path,
+            passed: failure === null,
+            status: r.status,
+            reason: failure,
+          };
+        }),
+      );
+
+      const passed = results.filter((r) => r.passed).length;
+      return {
+        passed,
+        failed: results.length - passed,
+        total: results.length,
+        probes: results,
+      };
+    },
+  },
+  {
+    name: "assert_endpoint",
+    description:
+      "Hit any /api/* endpoint with the test-account JWT and run JSON-path " +
+      "assertions against the response. Each assertion is { path, op, value } " +
+      "where path is dot-notation ('data.total_threats'), op is one of " +
+      "'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'exists' | 'truthy' | 'is_array' | " +
+      "'len_gt'. Returns the response body + per-assertion pass/fail. " +
+      "Use for ad-hoc UI verification beyond the smoke test bundle. " +
+      "Path is restricted to /api/* prefixes for safety.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description:
+            "Endpoint path, must start with /api/ (e.g. '/api/v1/operations/stats'). " +
+            "Query strings allowed.",
+        },
+        assertions: {
+          type: "array",
+          description:
+            "List of assertions. Each: { path: 'data.total_threats', op: 'gt', value: 0 }. " +
+            "For 'exists' / 'truthy' / 'is_array', omit value. For 'len_gt', value is the " +
+            "minimum array length.",
+          items: {
+            type: "object",
+            properties: {
+              path: { type: "string" },
+              op: {
+                type: "string",
+                enum: ["eq", "neq", "gt", "gte", "lt", "lte", "exists", "truthy", "is_array", "len_gt"],
+              },
+              value: {},
+            },
+            required: ["path", "op"],
+          },
+        },
+      },
+      required: ["path", "assertions"],
+    },
+    handler: async (args, env) => {
+      const path = String(args.path ?? "");
+      if (!path.startsWith("/api/")) {
+        throw new Error(`path must start with /api/ — got '${path}'`);
+      }
+      const assertions = (args.assertions ?? []) as Array<{
+        path: string;
+        op: string;
+        value?: unknown;
+      }>;
+
+      const r = await apiUserGet(path, env);
+
+      const checks = assertions.map((a) => {
+        const actual = pluck(r.body, a.path);
+        let passed = false;
+        let detail = "";
+        switch (a.op) {
+          case "eq":
+            passed = actual === a.value;
+            detail = `actual=${JSON.stringify(actual)}`;
+            break;
+          case "neq":
+            passed = actual !== a.value;
+            detail = `actual=${JSON.stringify(actual)}`;
+            break;
+          case "gt":
+            passed = typeof actual === "number" && typeof a.value === "number" && actual > a.value;
+            detail = `actual=${actual}`;
+            break;
+          case "gte":
+            passed = typeof actual === "number" && typeof a.value === "number" && actual >= a.value;
+            detail = `actual=${actual}`;
+            break;
+          case "lt":
+            passed = typeof actual === "number" && typeof a.value === "number" && actual < a.value;
+            detail = `actual=${actual}`;
+            break;
+          case "lte":
+            passed = typeof actual === "number" && typeof a.value === "number" && actual <= a.value;
+            detail = `actual=${actual}`;
+            break;
+          case "exists":
+            passed = actual !== undefined && actual !== null;
+            detail = `actual=${JSON.stringify(actual)?.slice(0, 60)}`;
+            break;
+          case "truthy":
+            passed = !!actual;
+            detail = `actual=${JSON.stringify(actual)?.slice(0, 60)}`;
+            break;
+          case "is_array":
+            passed = Array.isArray(actual);
+            detail = `actual_type=${Array.isArray(actual) ? "array" : typeof actual}`;
+            break;
+          case "len_gt":
+            passed =
+              Array.isArray(actual) && typeof a.value === "number" && actual.length > a.value;
+            detail = `actual_len=${Array.isArray(actual) ? actual.length : "n/a"}`;
+            break;
+          default:
+            passed = false;
+            detail = `unknown op '${a.op}'`;
+        }
+        return { ...a, passed, detail };
+      });
+
+      const passed = checks.filter((c) => c.passed).length;
+      return {
+        endpoint: { path, status: r.status, ok: r.ok, error: r.error },
+        body: r.body,
+        assertions_passed: passed,
+        assertions_failed: checks.length - passed,
+        checks,
+      };
+    },
+  },
+
   {
     name: "workflow_status",
     description:
@@ -245,6 +479,82 @@ const TOOLS: ToolDef[] = [
 ];
 
 // ─── API Helpers ────────────────────────────────────────────────
+
+/**
+ * GET an authenticated user-context endpoint with the test-account JWT.
+ * Distinct from apiGet (which uses AVERROW_INTERNAL_SECRET against
+ * /api/internal/* routes) — this one hits user-facing /api/* routes
+ * the way a browser would.
+ *
+ * Returns { ok, status, body, error } so callers can branch on
+ * status without try/catching every probe in the smoke check.
+ */
+async function apiUserGet(
+  path: string,
+  env: Env,
+): Promise<{ ok: boolean; status: number; body: unknown; error: string | null }> {
+  if (!env.MCP_TEST_JWT) {
+    return {
+      ok: false,
+      status: 0,
+      body: null,
+      error: "MCP_TEST_JWT not set — required for UI verification tools",
+    };
+  }
+  try {
+    const res = await fetch(`${AVERROW_API}${path}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${env.MCP_TEST_JWT}`,
+        Accept: "application/json",
+      },
+    });
+    let body: unknown = null;
+    const text = await res.text();
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      body,
+      error: res.ok ? null : `HTTP ${res.status}`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      body: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Pluck a value from a nested object using a dot-notation path.
+ *   pluck({ data: { total: 5 } }, "data.total") → 5
+ *   pluck({ a: [{ x: 1 }] }, "a.0.x") → 1
+ * Returns undefined if any segment is missing.
+ */
+function pluck(obj: unknown, path: string): unknown {
+  if (!path) return obj;
+  const parts = path.split(".");
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    if (Array.isArray(cur)) {
+      const idx = Number(p);
+      cur = Number.isFinite(idx) ? cur[idx] : undefined;
+    } else if (typeof cur === "object") {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return undefined;
+    }
+  }
+  return cur;
+}
 
 async function apiGet(path: string, env: Env): Promise<unknown> {
   const res = await fetch(`${AVERROW_API}${path}`, {
