@@ -37,7 +37,7 @@ verdicts here.
 - §7 Redesign principles ✓
 - §8 Decisions log ✓
 - §9 Phase plan (N0–N6) ✓
-- §10 Schema changes
+- §10 Schema changes ✓
 - §11 AI intel notification opportunities
 - §12 Email briefing investigation
 - §13 Platform-health signals worth notifying
@@ -1036,5 +1036,259 @@ new likely-targeted campaign for one of their brands. The
 
 7 phases, ~12-15 PRs, ~3-4 sessions of work assuming the
 chunking pattern from this document continues.
+
+---
+
+## 10. Schema changes
+
+The Phase N2 migration. Three concerns:
+
+1. Existing `notifications` table needs new columns + a wider
+   `type` CHECK constraint (to admit `intel_*` and `platform_*`).
+2. New `notification_subscriptions` table.
+3. New `notification_preferences_v2` table (replaces today's
+   flat-toggle structure).
+
+SQLite (D1) cannot `ALTER TABLE … MODIFY CONSTRAINT`. The CHECK
+expansion forces a table-recreate. We do it as a single migration
+that creates a new table, copies, swaps, drops — same pattern
+migration `0107_notifications_schema_check.sql` already used.
+
+### 10.1 `notifications` (recreated)
+
+```sql
+CREATE TABLE notifications_new (
+  -- Identity
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Tenant scoping (Q3 + §4)
+  brand_id        TEXT,                          -- nullable: not all
+                                                  -- notifications are
+                                                  -- brand-scoped (e.g.
+                                                  -- platform_*)
+  org_id          TEXT,                          -- nullable: derived
+                                                  -- from brand_id when
+                                                  -- present
+  audience        TEXT NOT NULL DEFAULT 'tenant'
+                  CHECK (audience IN ('tenant','super_admin','team','all')),
+
+  -- Type + severity (CHECK widened — see §11/§13 for the new families)
+  type            TEXT NOT NULL CHECK (type IN (
+                    -- existing user-toggleable
+                    'brand_threat','campaign_escalation','feed_health',
+                    'intelligence_digest','agent_milestone',
+                    -- existing system events
+                    'email_security_change','circuit_breaker_tripped',
+                    'feed_auto_paused',
+                    -- new in N6 — AI intel family
+                    'intel_predictive','intel_cross_brand_pattern',
+                    'intel_sector_trend','intel_recommended_action',
+                    'intel_threat_actor_surface',
+                    -- new in N6 — platform-health family
+                    'platform_d1_budget_warn','platform_d1_budget_skip',
+                    'platform_feed_at_risk','platform_feed_auto_paused',
+                    'platform_feed_auto_recovered',
+                    'platform_agent_circuit_breaker',
+                    'platform_agent_stalled',
+                    'platform_cron_orchestrator_missed',
+                    'platform_briefing_silent',
+                    -- digest envelope
+                    'notification_digest'
+                  )),
+  severity        TEXT NOT NULL DEFAULT 'info'
+                  CHECK (severity IN ('critical','high','medium','low','info')),
+
+  -- Content (Q5 — static templates render these)
+  title              TEXT NOT NULL,
+  message            TEXT NOT NULL,
+  reason_text        TEXT,         -- "Why am I seeing this?" §7.2
+  recommended_action TEXT,         -- "What should I do?"      §7.6
+  link               TEXT,         -- click destination        §4
+
+  -- State machine (Q1 — §7.1)
+  state           TEXT NOT NULL DEFAULT 'unread'
+                  CHECK (state IN ('unread','read','snoozed','done')),
+  read_at         TEXT,
+  snoozed_until   TEXT,
+  done_at         TEXT,
+
+  -- Grouping (§7.5 — entity collapse)
+  group_key       TEXT,            -- e.g. 'brand_threat:brand_42'
+
+  -- Forensics
+  metadata        TEXT,            -- JSON; the dedup key reads
+                                    -- e.g. metadata.brand_id
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Indexes
+CREATE INDEX idx_notifications_inbox      ON notifications_new(user_id, state, created_at DESC);
+CREATE INDEX idx_notifications_brand      ON notifications_new(brand_id, created_at DESC);
+CREATE INDEX idx_notifications_audience   ON notifications_new(audience, created_at DESC);
+CREATE INDEX idx_notifications_group      ON notifications_new(user_id, group_key, created_at DESC);
+CREATE INDEX idx_notifications_unread     ON notifications_new(user_id) WHERE state = 'unread';
+CREATE INDEX idx_notifications_snoozed    ON notifications_new(user_id, snoozed_until) WHERE state = 'snoozed';
+```
+
+**Backfill strategy** (inside the same migration):
+
+```sql
+INSERT INTO notifications_new (
+  id, user_id, brand_id, org_id, audience, type, severity,
+  title, message, reason_text, recommended_action, link,
+  state, read_at, group_key, metadata, created_at, updated_at
+)
+SELECT
+  n.id, n.user_id,
+  -- pull brand_id out of the JSON metadata where present
+  json_extract(n.metadata, '$.brand_id') AS brand_id,
+  -- org derived via brand → org_brands; null if no brand
+  ob.org_id,
+  -- default everyone to 'tenant' scope; super_admin notifications
+  -- get re-classified by the N3 backend logic on first read
+  'tenant' AS audience,
+  n.type, n.severity, n.title, n.message,
+  NULL AS reason_text,                   -- N3 backfills via templates
+  NULL AS recommended_action,
+  n.link,
+  CASE WHEN n.read_at IS NULL THEN 'unread' ELSE 'read' END AS state,
+  n.read_at,
+  -- group_key: type + brand_id when known, else just type
+  CASE
+    WHEN json_extract(n.metadata, '$.brand_id') IS NOT NULL
+      THEN n.type || ':' || json_extract(n.metadata, '$.brand_id')
+    ELSE n.type
+  END AS group_key,
+  n.metadata,
+  n.created_at,
+  n.created_at
+FROM notifications n
+LEFT JOIN org_brands ob
+  ON ob.brand_id = json_extract(n.metadata, '$.brand_id');
+
+DROP TABLE notifications;
+ALTER TABLE notifications_new RENAME TO notifications;
+```
+
+### 10.2 `notification_subscriptions` (new)
+
+```sql
+CREATE TABLE notification_subscriptions (
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  brand_id        TEXT NOT NULL,                 -- references brands(id)
+                                                  -- but we don't FK to
+                                                  -- avoid blocking brand
+                                                  -- archival
+  level           TEXT NOT NULL DEFAULT 'default'
+                  CHECK (level IN ('watching','default','ignored')),
+  -- per-subscription mute (Q6)
+  snoozed_until   TEXT,
+  -- audit
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+
+  PRIMARY KEY (user_id, brand_id)
+);
+
+CREATE INDEX idx_subscriptions_user ON notification_subscriptions(user_id);
+
+-- Auto-seed: every (user, brand) pair where the user monitors the
+-- brand gets a default-level subscription.
+INSERT INTO notification_subscriptions (user_id, brand_id, level)
+SELECT mb.added_by AS user_id, mb.brand_id, 'default'
+FROM monitored_brands mb
+WHERE mb.added_by IS NOT NULL
+ON CONFLICT (user_id, brand_id) DO NOTHING;
+```
+
+The schema treats `default` as "tenant default": user sees critical
++ high (per Q2). `watching` upgrades to all severities. `ignored`
+mutes everything for that brand including critical (with a sticky
+warning banner in the UI per §6.2).
+
+### 10.3 `notification_preferences_v2` (new)
+
+```sql
+CREATE TABLE notification_preferences_v2 (
+  user_id                       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Severity floors per channel (Q8 + §7.3)
+  inapp_severity_floor          TEXT NOT NULL DEFAULT 'info'
+                                CHECK (inapp_severity_floor IN ('critical','high','medium','low','info')),
+  push_severity_floor           TEXT NOT NULL DEFAULT 'high'
+                                CHECK (push_severity_floor IN ('critical','high','medium','low','info','off')),
+  email_severity_floor          TEXT NOT NULL DEFAULT 'high'
+                                CHECK (email_severity_floor IN ('critical','high','medium','low','info','off')),
+
+  -- Digest mode (Q8 + §7.8)
+  digest_mode                   TEXT NOT NULL DEFAULT 'daily'
+                                CHECK (digest_mode IN ('realtime','hourly','daily','weekly','off')),
+  digest_severity_floor         TEXT NOT NULL DEFAULT 'medium'
+                                CHECK (digest_severity_floor IN ('high','medium','low','info')),
+
+  -- Quiet hours (preserved from current schema, with critical bypass)
+  quiet_hours_start             TEXT,        -- 'HH:MM' or NULL
+  quiet_hours_end               TEXT,
+  quiet_hours_timezone          TEXT NOT NULL DEFAULT 'UTC',
+  critical_bypasses_quiet       INTEGER NOT NULL DEFAULT 1,
+
+  -- Super_admin opt-in (Q3)
+  show_tenant_notifications     INTEGER NOT NULL DEFAULT 0,
+
+  updated_at                    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Auto-seed: every active user gets a row with defaults from §7
+INSERT INTO notification_preferences_v2 (user_id)
+SELECT id FROM users WHERE status = 'active'
+ON CONFLICT (user_id) DO NOTHING;
+```
+
+The legacy `notification_preferences` table from the current schema
+stays in place during N2 (read-only) and gets dropped in N5 once
+the rebuilt settings UI ships. This avoids a UI/backend cutover
+race.
+
+### 10.4 Per-type subscription overrides — deferred
+
+The schema as written gives per-brand × per-user granularity but
+NOT per-type × per-brand. A user who wants "watching for Acme but
+mute campaign_escalation specifically" can't express that today.
+
+This is a 4-way join (`user × brand × type × severity_floor`) and
+would land in a `notification_type_overrides` table. We park it
+in §14 backlog — most users will be satisfied by the per-channel
+severity floors + per-brand mute combo.
+
+### 10.5 Indexes (rationale)
+
+| Index | Query it serves | Phase |
+|---|---|---|
+| `idx_notifications_inbox` | LIST endpoint default scan | N3 |
+| `idx_notifications_brand` | tenant scoping join | N3 |
+| `idx_notifications_audience` | super_admin/all rollups | N3 |
+| `idx_notifications_group` | entity-collapse rendering | N4 |
+| `idx_notifications_unread` (partial) | bell badge count | N4 |
+| `idx_notifications_snoozed` (partial) | snooze-wakeup cron | N4 |
+| `idx_subscriptions_user` | per-user subscription list | N5 |
+
+Two partial indexes (`unread`, `snoozed`) keep size small —
+`done` rows accumulate but never appear in those indexes.
+
+### 10.6 Migration timing
+
+- **N2 ships** the migration alone. No code changes consume the
+  new columns yet — backward-compatible.
+- **N3 ships** the backend that writes + reads the new columns.
+- **N4 ships** the UI that surfaces the state machine + grouping.
+- **N5 ships** the settings UI that writes
+  `notification_preferences_v2`.
+
+This ordering means N2 is non-breaking (existing code keeps
+working through the rename), N3-N5 build on the schema
+incrementally. If any phase needs to be reverted, the schema is
+already there for the next attempt.
 
 
