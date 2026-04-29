@@ -38,7 +38,7 @@ verdicts here.
 - §8 Decisions log ✓
 - §9 Phase plan (N0–N6) ✓
 - §10 Schema changes ✓
-- §11 AI intel notification opportunities
+- §11 AI intel notification opportunities ✓
 - §12 Email briefing investigation
 - §13 Platform-health signals worth notifying
 - §14 Backlog (post-N6)
@@ -1290,5 +1290,189 @@ This ordering means N2 is non-breaking (existing code keeps
 working through the rename), N3-N5 build on the schema
 incrementally. If any phase needs to be reverted, the schema is
 already there for the next attempt.
+
+---
+
+## 11. AI intel notification opportunities
+
+The platform has Narrator, Observer, Strategist, NEXUS, Curator,
+Watchdog, and Sparrow already producing output that today only
+reaches `agent_outputs`. None of it reaches the bell. This section
+enumerates which signals deserve to become notifications, what they
+should look like, and where the source data comes from.
+
+### 11.1 Five new `intel_*` types (Phase N6)
+
+Each is a distinct `type` value in the schema (§10.1). All carry
+the standard `(what, why_it_matters, recommended_action)` template
+fields per Q5 / §7.6.
+
+#### `intel_predictive`
+
+A near-future targeting prediction based on infrastructure setup
+behaviour. NEXUS clusters new lookalike domains on the same ASN as
+a previous campaign; Strategist correlates with weekend timing;
+together they produce a "likely targeted this weekend" prediction.
+
+- **Source:** `agents/nexus.ts` (cluster detection) +
+  `agents/strategist.ts` (campaign correlation)
+- **Severity:** high
+- **Audience:** tenant (per affected brand) + super_admin (when
+  pattern affects ≥2 brands)
+- **Trigger:** NEXUS cluster's `predicted_strike_window` field is
+  populated AND brand confidence > 0.7
+- **Template:**
+  - `what`: "We detected 7 new lookalike domains for {brand} on
+    AS{asn} — same ASN as last month's campaign."
+  - `why_it_matters`: "Infrastructure setup pattern matches
+    historical brand-impersonation campaigns. Predicted strike
+    window: {window}."
+  - `recommended_action`: "Pre-emptively file takedowns for
+    flagged domains. Brief support team for likely uptick in
+    customer reports."
+- **Link:** `/operations/clusters/{cluster_id}`
+- **Group key:** `intel_predictive:{brand_id}`
+
+#### `intel_cross_brand_pattern`
+
+Super_admin-only. A pattern affecting multiple tenants in the
+same vector — e.g. "same registrar, same TLDs, 4 of your finance
+tenants hit critical exposure today."
+
+- **Source:** Observer's daily roll-up + sector aggregation
+- **Severity:** critical (when ≥3 tenants in same sector affected)
+  / high (when ≥2)
+- **Audience:** `super_admin`
+- **Trigger:** ≥2 tenants in same sector show new
+  `target_brand_id` correlation in the same 24h window
+- **Template:**
+  - `what`: "{N} tenants in the {sector} sector hit critical
+    exposure today (vs {baseline} baseline). Pattern: {dimension}."
+  - `why_it_matters`: "This is {fold}× the baseline. Likely
+    coordinated campaign. Affected tenants: {list}."
+  - `recommended_action`: "Brief affected tenants. Consider
+    sector-wide threat-actor attribution. Update default brand
+    monitoring rules to flag {pattern}."
+- **Link:** `/admin/intel/cross-brand?sector={sector}&window=24h`
+- **Group key:** `intel_cross_brand_pattern:{sector}`
+
+#### `intel_sector_trend`
+
+Periodic trend digest scoped to the user's monitored brand sectors.
+Tenant-facing version of cross-brand patterns; lower urgency,
+longer window (weekly).
+
+- **Source:** Observer's weekly briefing per sector
+- **Severity:** medium (low frequency, low urgency)
+- **Audience:** tenant (filtered by `monitored_brands → brands.sector`)
+- **Trigger:** weekly cron at Mon 06:00 UTC (per-tenant)
+- **Template:**
+  - `what`: "Phishing volume targeting the {sector} sector is up
+    {pct}% this week."
+  - `why_it_matters`: "Your monitored brands: {affected_count}
+    affected, {unaffected_count} not yet."
+  - `recommended_action`: "Review email-security posture for
+    unaffected brands. Validate DKIM rotation schedule."
+- **Link:** `/intel/sector/{sector}?window=7d`
+- **Group key:** `intel_sector_trend:{user_id}:{sector}`
+
+#### `intel_recommended_action`
+
+A standalone "do this thing" notification with a specific
+operational recommendation. Curator's hygiene reports + breach
+correlations + agent outputs surface here.
+
+- **Source:** Curator (hygiene), agents/observer (correlations),
+  brand-detail health checks
+- **Severity:** medium (default) / high (when tied to active
+  campaign or recent breach)
+- **Audience:** tenant (per affected brand)
+- **Trigger:** any of: DKIM key > 2 years old, DMARC policy still
+  `none`, BIMI record missing on brand with strong
+  email-security grade, recent breach in sector
+- **Template:**
+  - `what`: "Your DKIM key on {domain} is {age} old."
+  - `why_it_matters`: "We detected a similar pattern in 2 recent
+    breaches in the {sector} sector. Long-lived keys are higher
+    risk for compromise."
+  - `recommended_action`: "Schedule DKIM rotation this quarter.
+    Documentation: {link}."
+- **Link:** `/brands/{brand_id}/email-security`
+- **Group key:** `intel_recommended_action:{brand_id}:{check_id}`
+
+#### `intel_threat_actor_surface`
+
+Threat-actor-centric. Surfaces when a tracked actor expands
+infrastructure that targets brands the user monitors.
+
+- **Source:** `threat_actors` + `threat_actor_infrastructure`
+  (NEXUS adds new IPs to known actors)
+- **Severity:** high (if user has been targeted before by this
+  actor) / medium (if active in user's sector but no prior
+  targeting)
+- **Audience:** tenant
+- **Trigger:** new row in `threat_actor_infrastructure` for an
+  actor where `threat_actor_targets.brand_id ∈ user_monitored`
+- **Template:**
+  - `what`: "Threat actor **{actor_name}** added {count} new IPs
+    to their infrastructure today."
+  - `why_it_matters`: "This actor previously targeted {brand_list}
+    in {prior_window}. Active in your sector."
+  - `recommended_action`: "Add new IPs to block list. Review
+    detection rules for {actor_name}'s known TTPs."
+- **Link:** `/threat-actors/{actor_slug}`
+- **Group key:** `intel_threat_actor_surface:{actor_slug}:{user_id}`
+
+### 11.2 Routing matrix
+
+How each `intel_*` type routes by audience + severity + default
+channel:
+
+| Type | Audience | Default severity | Default channels (per §7.3) |
+|---|---|---|---|
+| `intel_predictive` | tenant | high | in-app + push |
+| `intel_predictive` (≥2 brands) | super_admin | critical | in-app + push + email |
+| `intel_cross_brand_pattern` | super_admin | critical/high | in-app + push + email |
+| `intel_sector_trend` | tenant | medium | in-app + daily digest |
+| `intel_recommended_action` | tenant | medium/high | in-app + (push if high) + daily digest |
+| `intel_threat_actor_surface` | tenant | medium/high | in-app + (push if user previously targeted) |
+
+### 11.3 Why these and not others
+
+The existing agents produce dozens of agent_outputs entries per
+day. Most don't deserve to be notifications — they're either:
+
+- Internal supervision signals (FC's per-tick reports → already
+  handled via §13 platform-health for super_admin only)
+- Per-threat classifications (Sentinel/Analyst — too high frequency
+  for a notification surface; the bell would drown)
+- Routine enrichment (Cartographer's ASN/geo — the fact of
+  enrichment is uninteresting)
+
+The five `intel_*` types above are specifically chosen because:
+
+1. They have a **clear "so what"** (Q5 + §7.6).
+2. They have a **specific recommended action** the user can take.
+3. They're **rare enough** (per-brand or per-sector, not per-
+   threat) that the bell stays useful.
+4. They **link to a useful destination** (cluster page, sector
+   page, brand page, threat-actor profile) that already exists.
+
+### 11.4 Q5b — narrator agent for the weekly digest (parked)
+
+The static templates above work for v1. The Q5b follow-up adds a
+`notification_narrator` sync agent that takes a digest period
+(week / month) + the user's affected brands + the period's intel
+events and produces a single AI-summarised digest. This is
+appropriate for the digest because:
+
+- Digest copy is read once per period; variance is welcome.
+- The summarisation is tightly bounded (input is structured;
+  output is narrative).
+- Hallucination risk is low because every claim links back to a
+  specific underlying notification row.
+
+Out of scope for N6. Schema in §10 already supports it (the
+`notification_digest` envelope type + `metadata.digest_window`).
 
 
