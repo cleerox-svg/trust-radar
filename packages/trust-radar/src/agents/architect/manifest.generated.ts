@@ -232,7 +232,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 304,
-      "last_modified": "2026-04-29T12:51:56.299Z"
+      "last_modified": "2026-04-29T13:35:27.573Z"
     },
     {
       "name": "flightControl",

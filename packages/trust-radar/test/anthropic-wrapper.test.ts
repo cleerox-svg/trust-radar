@@ -37,29 +37,36 @@ interface LedgerRow {
 
 function makeFakeDb() {
   const rows: LedgerRow[] = [];
+  const stmt = (sql: string, args: readonly unknown[] = []) => ({
+    bind: (...nextArgs: unknown[]) => stmt(sql, nextArgs),
+    // Phase 5.1: BudgetManager.recordCost now batches a ledger
+    // INSERT + an agent_budget_rollups UPSERT. The fake db captures
+    // the ledger row and ignores the rollup statement (the gate's
+    // unit tests carry their own rollup-aware fake).
+    run: async () => {
+      if (/INSERT INTO budget_ledger/i.test(sql)) {
+        rows.push({
+          agent_id: String(args[1]),
+          run_id: args[2] == null ? null : String(args[2]),
+          model: String(args[3]),
+          input_tokens: Number(args[4]),
+          output_tokens: Number(args[5]),
+          cost_usd: Number(args[6]),
+        });
+      }
+      return { meta: {} };
+    },
+    // Phase 5.1's per-agent gate hits agent_budget_rollups. Return
+    // null so the gate sees zero current spend → cap > 0 → pass.
+    first: async () => null,
+    all: async () => ({ results: [] }),
+  });
   const db = {
-    prepare: (sql: string) => ({
-      bind: (..._args: unknown[]) => ({
-        // BudgetManager.recordCost is the only write path we care
-        // about. The real BudgetManager prepares one INSERT
-        // statement per call — we intercept it here.
-        run: async () => {
-          if (/INSERT INTO budget_ledger/i.test(sql)) {
-            rows.push({
-              agent_id: String(_args[1]),
-              run_id: _args[2] == null ? null : String(_args[2]),
-              model: String(_args[3]),
-              input_tokens: Number(_args[4]),
-              output_tokens: Number(_args[5]),
-              cost_usd: Number(_args[6]),
-            });
-          }
-          return { meta: {} };
-        },
-        first: async () => null,
-        all: async () => ({ results: [] }),
-      }),
-    }),
+    prepare: (sql: string) => stmt(sql),
+    batch: async (statements: { run: () => Promise<unknown> }[]) => {
+      for (const s of statements) await s.run();
+      return statements.map(() => ({ meta: {} }));
+    },
   } as unknown as D1Database;
   return { db, rows };
 }
