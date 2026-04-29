@@ -1,30 +1,35 @@
 /**
- * Notification Narrator Agent — Q5b backlog.
+ * Notification Narrator Agent — Q5b backlog (v1: static-template).
  *
  * Per-user daily digest builder. For each active user with
  * `notification_preferences_v2.digest_mode='daily'`, this agent:
  *
  *   1. Queries the user's notifications from the last 24h that are
  *      at or above their `digest_severity_floor`.
- *   2. If ≥1 row exists, calls Haiku with a compact context to
- *      produce a 1–3 sentence narrative summary (cost-guard
- *      gated; falls back to a static template when AI is paused).
- *   3. Inserts a single `notification_digest` envelope row in the
- *      user's inbox with `metadata.notification_ids[]` listing the
- *      underlying rows + the narrative as the message body.
+ *   2. If ≥1 row exists, inserts a single `notification_digest`
+ *      envelope row in the user's inbox with severity-bucket counts
+ *      and `metadata.notification_ids[]` listing the underlying rows.
  *
  * Schedule: hour===13 from the orchestrator (alongside the legacy
- * briefing email cron, which we leave in place — the digest is
- * additive in the bell). Single-tenant deployments will have a
- * small fan-out; multi-tenant will scale with active users.
+ * briefing email cron). The digest envelope is additive in the bell.
  *
- * Per audit doc §11.4 — narrator is the AI-summarised path to
- * complement the static intel_* templates.
+ * AI narrative deferred to a follow-up
+ * --------------------------------------
+ * The original B4 implementation called Haiku per-user inside a
+ * sequential loop. With even 6-7 users that exceeded the Workers 30s
+ * CPU ceiling — the agent stalled, never wrote `completed_at`, and
+ * Flight Control flagged it as `platform_agent_stalled`. v1 ships
+ * static-template only. AI narrative comes back via a Workflow
+ * conversion (durable, no CPU ceiling) in a follow-up.
  */
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
-import { generateInsight, checkCostGuard } from "../lib/haiku";
 import { createNotification } from "../lib/notifications";
+
+// Defense-in-depth cap. With per-user work bounded to ~50ms (one D1
+// query + one INSERT via createNotification), 50 users in a single
+// tick is well under the CPU ceiling.
+const MAX_USERS_PER_TICK = 50;
 
 interface UserDigestPref {
   user_id: string;
@@ -43,14 +48,19 @@ function severityAtLeast(have: string, floor: string): boolean {
 export const notificationNarratorAgent: AgentModule = {
   name: "notification_narrator",
   displayName: "Notification Narrator",
-  description: "Per-user daily digest builder (Q5b)",
+  description: "Per-user daily digest builder (Q5b — static template v1)",
   color: "#A8C878",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 30,
+  // Static-template digest is bounded ~50ms/user × 50 users = 2.5s.
+  // Stall threshold leaves headroom for D1 latency spikes.
+  stallThresholdMinutes: 10,
   parallelMax: 1,
+  // No AI calls in v1 (static-template digest). costGuard='enforced'
+  // is harmless — there's no AI work for the guard to gate. AI
+  // narrative returns via Workflow conversion in a follow-up.
   costGuard: "enforced",
-  budget: { monthlyTokenCap: 200_000 },
+  budget: { monthlyTokenCap: 0 },
   reads: [
     { kind: "d1_table", name: "notification_preferences_v2" },
     { kind: "d1_table", name: "notifications" },
@@ -66,27 +76,22 @@ export const notificationNarratorAgent: AgentModule = {
   pipelinePosition: 36,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
-    const { env, runId } = ctx;
-    const callCtx = { agentId: "notification_narrator", runId };
+    const { env } = ctx;
     const outputs: AgentOutputEntry[] = [];
 
-    // Cost guard: digests are non-critical — pause when budget is hot.
-    const blocked = await checkCostGuard(env, false);
-    const aiPaused = !!blocked;
-
-    // Find every user with daily digest mode opted in.
+    // Find every user with daily digest mode opted in. Cap the
+    // per-tick fan-out so we never approach the Workers CPU ceiling.
     const users = await env.DB.prepare(
       `SELECT u.id AS user_id, p.digest_severity_floor, p.email_severity_floor
          FROM users u
          JOIN notification_preferences_v2 p ON p.user_id = u.id
         WHERE u.status = 'active'
-          AND p.digest_mode = 'daily'`
-    ).all<UserDigestPref>();
+          AND p.digest_mode = 'daily'
+        ORDER BY u.id LIMIT ?`
+    ).bind(MAX_USERS_PER_TICK).all<UserDigestPref>();
 
     let digestsCreated = 0;
     let usersSkipped = 0;
-    let totalTokens = 0;
-    let model: string | undefined;
 
     for (const user of users.results) {
       // Pull eligible notifications from the last 24h, at or above
@@ -126,41 +131,11 @@ export const notificationNarratorAgent: AgentModule = {
         : counts.medium > 0 ? 'medium'
         : counts.low > 0 ? 'low' : 'info';
 
-      // Static title — concise summary line.
+      // Static title + count-bucket message. AI narrative deferred
+      // to a Workflow follow-up.
       const total = eligible.length;
       const title = `Daily digest: ${total} event${total === 1 ? '' : 's'} need${total === 1 ? 's' : ''} review`;
-      const staticMessage = `${counts.critical} critical, ${counts.high} high, ${counts.medium} medium, ${counts.low} low, ${counts.info} info — last 24h.`;
-
-      // Optional Haiku narrative — paused under cost guard, falls
-      // back to staticMessage. Compact context (max 12 items) to
-      // keep token spend predictable.
-      let narrative = staticMessage;
-      if (!aiPaused) {
-        try {
-          const top = eligible.slice(0, 12).map((r) => `[${r.severity}] ${r.title}: ${r.message}`).join('\n');
-          const ai = await generateInsight(env, callCtx, {
-            period: 'daily',
-            threats_summary: { total_24h: total, ...counts },
-            top_brands: [],
-            top_providers: [],
-            // Reuse the existing insight schema by stuffing items into
-            // type_distribution — generateInsight handles loose context.
-            type_distribution: eligible.slice(0, 12).map((r) => ({ threat_type: r.type, count: 1 })),
-            trend_data: { items: top },
-          });
-          if (ai.success && ai.data?.items?.length) {
-            // Take the first item's summary as the narrative.
-            const first = ai.data.items[0];
-            if (first?.summary) {
-              narrative = first.summary;
-              if (ai.tokens_used) totalTokens += ai.tokens_used;
-              if (ai.model) model = ai.model;
-            }
-          }
-        } catch {
-          // Static fallback already in place.
-        }
-      }
+      const message = `${counts.critical} critical, ${counts.high} high, ${counts.medium} medium, ${counts.low} low, ${counts.info} info — last 24h.`;
 
       // Emit the digest envelope. group_key dedups against re-runs
       // within the same day. metadata carries the underlying ids.
@@ -170,7 +145,7 @@ export const notificationNarratorAgent: AgentModule = {
           type: 'notification_digest',
           severity: topSeverity as 'critical' | 'high' | 'medium' | 'low' | 'info',
           title,
-          message: narrative,
+          message,
           reasonText: `Your digest mode is set to daily.`,
           recommendedAction: total > 5
             ? `Review the inbox; bulk-action the lower-severity rows.`
@@ -180,7 +155,6 @@ export const notificationNarratorAgent: AgentModule = {
           groupKey: `notification_digest:${user.user_id}:${new Date().toISOString().slice(0, 10)}`,
           metadata: {
             digest_window: '24h',
-            ai_paused: aiPaused,
             notification_ids: eligible.map((r) => r.id),
             counts,
           },
@@ -193,9 +167,9 @@ export const notificationNarratorAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Daily digests: ${digestsCreated} created, ${usersSkipped} users skipped (no eligible notifications). AI ${aiPaused ? 'paused' : 'enabled'}.`,
+      summary: `Daily digests: ${digestsCreated} created, ${usersSkipped} users skipped (no eligible notifications).`,
       severity: 'info',
-      details: { digests_created: digestsCreated, users_skipped: usersSkipped, ai_paused: aiPaused, tokens: totalTokens, model },
+      details: { digests_created: digestsCreated, users_skipped: usersSkipped },
     });
 
     return {
@@ -205,10 +179,7 @@ export const notificationNarratorAgent: AgentModule = {
       output: {
         digests_created: digestsCreated,
         users_skipped: usersSkipped,
-        ai_paused: aiPaused,
       },
-      tokensUsed: totalTokens,
-      model,
       agentOutputs: outputs,
     };
   },
