@@ -366,6 +366,8 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | PUT | `/api/notifications/preferences` | User | Update preferences |
 | POST | `/api/notifications/:id/read` | User | Mark as read |
 | POST | `/api/notifications/read-all` | User | Mark all as read |
+| POST | `/api/notifications/:id/snooze` | User | Snooze until ISO-8601 timestamp (body: `{until}`) |
+| POST | `/api/notifications/:id/done` | User | Mark done (Linear-style fourth state) |
 
 ## Trends
 

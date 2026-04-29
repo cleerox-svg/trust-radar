@@ -52,6 +52,30 @@ interface CreateNotificationOpts {
   message: string;
   link?: string;
   metadata?: Record<string, unknown>;
+
+  // ── N3 additions (NOTIFICATIONS_AUDIT.md §10) ────────────────────────
+  /**
+   * Audience routing. Defaults to 'tenant'. When 'tenant' + a brandId is
+   * resolvable (from `brandId` arg or `metadata.brand_id`), recipients
+   * are users with a notification_subscriptions row at level != 'ignored'
+   * for that brand. When 'super_admin', recipients are all users with
+   * role='super_admin'. When 'all' (legacy), every active user — kept
+   * for compatibility with system-wide events.
+   */
+  audience?: 'tenant' | 'super_admin' | 'team' | 'all';
+  brandId?: string | null;
+  orgId?: string | null;
+  /**
+   * Static template fields (Q5). Surfaced in the UI as "Why am I seeing
+   * this?" / "What should I do?".
+   */
+  reasonText?: string;
+  recommendedAction?: string;
+  /**
+   * Dedup key. When present, replaces the legacy metadata-LIKE dedup
+   * scan. Format: `<type>:<entity_id>` — e.g. `brand_threat:brand_42`.
+   */
+  groupKey?: string;
 }
 
 interface UserPrefRow {
@@ -78,23 +102,62 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
   const db = env.DB;
   const metadataJson = opts.metadata ? JSON.stringify(opts.metadata) : null;
 
-  // ─── Rate limit / dedup (unchanged from PR 2) ─────────────────────────
-  const rateKey = getRateKey(opts);
-  if (rateKey) {
+  // ─── Resolve audience + scope ────────────────────────────────────────
+  // Tenant routing is the new default (NOTIFICATIONS_AUDIT.md §3, Q3).
+  // When a brand is identifiable, recipients are restricted to users
+  // who actually subscribe to that brand. The legacy "all active users"
+  // path stays as a fallback for system events with no tenant scope.
+  const audience = opts.audience ?? 'tenant';
+  const brandId = (opts.brandId ?? (opts.metadata?.brand_id as string | undefined)) ?? null;
+  const groupKey = opts.groupKey ?? (brandId ? `${opts.type}:${brandId}` : null);
+
+  // ─── Dedup ────────────────────────────────────────────────────────────
+  // Prefer group_key (canonical, indexed). Fall back to legacy metadata
+  // LIKE for callers that haven't been updated yet.
+  if (groupKey) {
     const window = NOTIFICATION_EVENT_DEDUP[opts.type];
     const existing = await db.prepare(
       `SELECT COUNT(*) as c FROM notifications
-       WHERE type = ? AND created_at > datetime('now', ?)
-       AND metadata LIKE ?`
-    ).bind(opts.type, window, `%${rateKey}%`).first<{ c: number }>();
+       WHERE type = ? AND group_key = ? AND created_at > datetime('now', ?)`
+    ).bind(opts.type, groupKey, window).first<{ c: number }>();
     if (existing && existing.c > 0) return 0;
+  } else {
+    const rateKey = getRateKey(opts);
+    if (rateKey) {
+      const window = NOTIFICATION_EVENT_DEDUP[opts.type];
+      const existing = await db.prepare(
+        `SELECT COUNT(*) as c FROM notifications
+         WHERE type = ? AND created_at > datetime('now', ?)
+         AND metadata LIKE ?`
+      ).bind(opts.type, window, `%${rateKey}%`).first<{ c: number }>();
+      if (existing && existing.c > 0) return 0;
+    }
   }
 
   // ─── Resolve target users ─────────────────────────────────────────────
   let userIds: string[];
   if (opts.userId) {
     userIds = [opts.userId];
+  } else if (audience === 'super_admin') {
+    const users = await db.prepare(
+      "SELECT id FROM users WHERE status = 'active' AND role = 'super_admin'"
+    ).all<{ id: string }>();
+    userIds = users.results.map(u => u.id);
+  } else if (audience === 'tenant' && brandId) {
+    // Per §10.2: subscriptions level 'ignored' opts the user out;
+    // 'default' and 'watching' both receive (severity floor handled
+    // separately downstream).
+    const users = await db.prepare(
+      `SELECT DISTINCT u.id
+         FROM users u
+         JOIN notification_subscriptions ns ON ns.user_id = u.id
+        WHERE u.status = 'active'
+          AND ns.brand_id = ?
+          AND ns.level != 'ignored'`
+    ).bind(brandId).all<{ id: string }>();
+    userIds = users.results.map(u => u.id);
   } else {
+    // Legacy 'all' fallback — system events with no brand or audience.
     const users = await db.prepare("SELECT id FROM users WHERE status = 'active'").all<{ id: string }>();
     userIds = users.results.map(u => u.id);
   }
@@ -118,13 +181,23 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
     }
 
     // ── Write the in-app row (always — DND doesn't suppress in-app) ──
+    // Schema columns from migration 0127: id, user_id, brand_id, org_id,
+    // audience, type, severity, title, message, reason_text,
+    // recommended_action, link, state (defaults to 'unread'), group_key,
+    // metadata. created_at + updated_at have DB defaults.
     const notificationId = crypto.randomUUID();
     await db.prepare(
-      `INSERT INTO notifications (id, user_id, type, severity, title, message, link, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO notifications
+         (id, user_id, brand_id, org_id, audience,
+          type, severity, title, message,
+          reason_text, recommended_action, link,
+          group_key, metadata)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      notificationId, uid, opts.type, opts.severity,
-      opts.title, opts.message, opts.link ?? null, metadataJson,
+      notificationId, uid, brandId, opts.orgId ?? null, audience,
+      opts.type, opts.severity, opts.title, opts.message,
+      opts.reasonText ?? null, opts.recommendedAction ?? null, opts.link ?? null,
+      groupKey, metadataJson,
     ).run();
     created++;
 

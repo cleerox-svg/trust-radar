@@ -15,6 +15,7 @@ import { handleListAlerts, handleGetAlert, handleUpdateAlert, handleAlertStats, 
 import {
   handleListNotificationsV2, handleMarkNotificationReadV2, handleMarkAllNotificationsReadV2,
   handleUnreadCount, handleGetPreferences, handleUpdatePreferences,
+  handleSnoozeNotification, handleMarkDone,
 } from "../handlers/notifications";
 import {
   handleSubscribePush, handleUnsubscribePush, handleUnsubscribeByEndpoint,
@@ -138,6 +139,16 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleMarkAllNotificationsReadV2(request, env, ctx.userId);
+  });
+  router.post("/api/notifications/:id/snooze", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleSnoozeNotification(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+  router.post("/api/notifications/:id/done", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleMarkDone(request, env, request.params["id"] ?? "", ctx.userId);
   });
   router.get("/api/notifications/unread-count", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
