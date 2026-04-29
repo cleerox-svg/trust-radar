@@ -22,6 +22,9 @@ export const sparrowAgent: AgentModule = {
   stallThresholdMinutes: 420,
   parallelMax: 1,
   costGuard: "enforced",
+  // Includes evidence-assembler internal AI calls (Phase 4.6 will
+  // split that into a separate sync agent with its own budget).
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

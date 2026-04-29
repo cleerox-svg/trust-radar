@@ -42,6 +42,9 @@ export const autoSeederAgent: AgentModule = {
   stallThresholdMinutes: 12100,
   parallelMax: 1,
   costGuard: "enforced",
+  // No AI calls — auto-seeder plants spam-trap addresses. Cap at 0
+  // so the diagnostic flags any unexpected AI spend as a regression.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

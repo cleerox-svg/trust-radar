@@ -153,6 +153,7 @@ export const qualifiedReportAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 2,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

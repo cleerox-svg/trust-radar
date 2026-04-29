@@ -168,6 +168,7 @@ export const publicTrustCheckAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 4,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 1_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

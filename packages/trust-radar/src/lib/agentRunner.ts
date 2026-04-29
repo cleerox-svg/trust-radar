@@ -114,6 +114,19 @@ export interface ApprovalRequest {
   expiresInHours?: number;
 }
 
+export interface AgentBudget {
+  /** Anthropic-token cap per calendar month (input + output combined,
+   *  Haiku-equivalent). 0 = exempt agents (no AI calls expected). */
+  monthlyTokenCap: number;
+  /** D1 reads cap per calendar month — optional, not yet enforced. */
+  monthlyD1ReadCap?: number;
+  /** D1 writes cap per calendar month — optional, not yet enforced. */
+  monthlyD1WriteCap?: number;
+  /** Fraction of any cap (0..1) at which an alert is raised.
+   *  Default 0.8 if omitted. */
+  alertAt?: number;
+}
+
 export interface AgentModule {
   name: AgentName;
   displayName: string;
@@ -137,6 +150,16 @@ export interface AgentModule {
    *               flight_control / cube_healer / navigator / enricher
    *               do not call AI; sync exempts require justification). */
   costGuard: "enforced" | "exempt";
+
+  // ── Per-agent budget (AGENT_STANDARD §11) ──────────────────────
+  /** Monthly token / D1 caps. Required so every agent declares
+   *  intent. Phase 4.2 only adds the declarations; Phase 5 wires
+   *  the pre-flight enforcement check that reads `budget_ledger` and
+   *  refuses an AI call when the agent is over `monthlyTokenCap`.
+   *  An exempt agent (`costGuard: 'exempt'`) declares
+   *  `monthlyTokenCap: 0` so the diagnostic can flag any unexpected
+   *  AI spend on it as a regression. */
+  budget: AgentBudget;
 
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }

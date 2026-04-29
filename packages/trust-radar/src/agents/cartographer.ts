@@ -128,6 +128,7 @@ export const cartographerAgent: AgentModule = {
   stallThresholdMinutes: 75,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 50_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

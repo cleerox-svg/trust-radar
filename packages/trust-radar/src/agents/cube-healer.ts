@@ -139,6 +139,8 @@ export const cubeHealerAgent: AgentModule = {
   stallThresholdMinutes: 60,
   parallelMax: 1,
   costGuard: 'exempt',
+  // No AI calls — pure D1 / cube SQL. Cap=0 surfaces regressions.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

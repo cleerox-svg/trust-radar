@@ -77,7 +77,17 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
 
   try {
     const budget = new BudgetManager(env.DB);
-    const [status, byAgent24h, totals24h] = await Promise.all([
+    // Phase 4.2: read per-agent monthlyTokenCap declarations from
+    // each AgentModule and surface them alongside actual 30-day spend.
+    const { agentModules } = await import("../agents");
+    const capByAgentId = new Map<string, { cap: number; alertAt: number }>();
+    for (const [id, mod] of Object.entries(agentModules)) {
+      capByAgentId.set(id, {
+        cap: mod.budget.monthlyTokenCap,
+        alertAt: mod.budget.alertAt ?? 0.8,
+      });
+    }
+    const [status, byAgent24h, byAgent30d, totals24h] = await Promise.all([
       budget.getStatus(),
       env.DB.prepare(`
         SELECT agent_id,
@@ -98,6 +108,13 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
         last_call_at: string;
       }>(),
       env.DB.prepare(`
+        SELECT agent_id,
+               SUM(input_tokens) + SUM(output_tokens) as tokens_30d
+        FROM budget_ledger
+        WHERE created_at >= datetime('now', '-30 days')
+        GROUP BY agent_id
+      `).all<{ agent_id: string; tokens_30d: number }>(),
+      env.DB.prepare(`
         SELECT COUNT(*) as calls,
                COALESCE(SUM(cost_usd), 0) as cost_usd
         FROM budget_ledger
@@ -106,15 +123,26 @@ export async function handleBudgetLedgerHealth(request: Request, env: Env): Prom
     ]);
 
     const byAgentMap = new Map(byAgent24h.results.map(r => [r.agent_id, r]));
+    const tokens30dMap = new Map(byAgent30d.results.map(r => [r.agent_id, r.tokens_30d ?? 0]));
 
     const expected_agents = EXPECTED_LEDGER_AGENT_IDS.map(agentId => {
       const row = byAgentMap.get(agentId);
+      const tokens30d = tokens30dMap.get(agentId) ?? 0;
+      const declared = capByAgentId.get(agentId);
+      const cap = declared?.cap ?? null;
+      const pctOfCap = cap && cap > 0 ? Math.round((tokens30d / cap) * 100) : null;
+      const overAlert = pctOfCap !== null && declared && pctOfCap >= Math.round(declared.alertAt * 100);
       return {
         agent_id: agentId,
         present_24h: row !== undefined,
         calls_24h: row?.calls ?? 0,
         cost_usd_24h: row?.cost_usd ?? 0,
         last_call_at: row?.last_call_at ?? null,
+        // Phase 4.2 budget declaration vs actual:
+        tokens_30d: tokens30d,
+        monthly_token_cap: cap,
+        pct_of_cap: pctOfCap,
+        over_alert_threshold: overAlert ?? false,
       };
     });
 

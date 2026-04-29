@@ -81,6 +81,9 @@ export const sentinelAgent: AgentModule = {
   stallThresholdMinutes: 75,
   parallelMax: 1,
   costGuard: "enforced",
+  // Per-tick high volume — classifies each new threat from feed
+  // ingestion. Sized for ~50-200 calls per hourly run.
+  budget: { monthlyTokenCap: 100_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

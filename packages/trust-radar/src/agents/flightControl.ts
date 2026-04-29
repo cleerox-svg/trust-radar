@@ -166,6 +166,8 @@ export const flightControlAgent: AgentModule = {
   stallThresholdMinutes: 75,
   parallelMax: 1,
   costGuard: "exempt",
+  // FC supervises — does not call AI itself. Cap=0 surfaces regressions.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

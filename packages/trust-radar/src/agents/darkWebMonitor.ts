@@ -26,6 +26,7 @@ export const darkWebMonitorAgent: AgentModule = {
   stallThresholdMinutes: 420,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 2_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

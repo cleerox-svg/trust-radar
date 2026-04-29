@@ -114,6 +114,7 @@ export const honeypotGeneratorAgent: AgentModule = {
   stallThresholdMinutes: 10,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

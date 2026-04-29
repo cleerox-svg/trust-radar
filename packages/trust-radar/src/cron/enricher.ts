@@ -113,6 +113,9 @@ export const enricherAgent: AgentModule = {
   // handleBackfillBrandSector). The Enricher's direct AI surface
   // is zero, so cost guard is exempt at the orchestrator layer.
   costGuard: 'exempt',
+  // No AI under the 'enricher' attribution; brand_enricher carries
+  // its own cap. Cap=0 here surfaces regressions.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -65,6 +65,8 @@ export const architectAgent: AgentModule = {
   stallThresholdMinutes: 1500,
   parallelMax: 1,
   costGuard: "enforced",
+  // Retired 2026-04-29; cap=0 so any accidental dispatch surfaces.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

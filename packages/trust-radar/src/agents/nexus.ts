@@ -473,6 +473,7 @@ export const nexusAgent: AgentModule = {
   stallThresholdMinutes: 300,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 10_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
