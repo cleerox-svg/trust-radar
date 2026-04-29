@@ -20,6 +20,7 @@ export const strategistAgent: AgentModule = {
   stallThresholdMinutes: 420,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

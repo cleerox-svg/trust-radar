@@ -116,6 +116,7 @@ export const urlScanAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 4,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 10_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

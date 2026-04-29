@@ -423,6 +423,8 @@ export const navigatorAgent: AgentModule = {
   stallThresholdMinutes: 30,
   parallelMax: 1,
   costGuard: 'exempt',
+  // No AI calls — DNS / KV / cube only. Cap=0 surfaces regressions.
+  budget: { monthlyTokenCap: 0 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     // The orchestrator passes scheduledTime via input so per-tick

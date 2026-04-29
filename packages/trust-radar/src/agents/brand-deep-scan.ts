@@ -148,6 +148,8 @@ export const brandDeepScanAgent: AgentModule = {
   stallThresholdMinutes: 10,
   parallelMax: 1,
   costGuard: "enforced",
+  // Up to 200 internal Y/N classifications per request × usage volume.
+  budget: { monthlyTokenCap: 50_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -245,6 +245,9 @@ export const socialAiAssessorAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 4,
   costGuard: "enforced",
+  // Called from both Mockingbird (per-profile) and the brand detail
+  // page (on-demand reassess). Sized to absorb scanner volume.
+  budget: { monthlyTokenCap: 30_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

@@ -101,6 +101,7 @@ export const adminClassifyAgent: AgentModule = {
   stallThresholdMinutes: 30,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 50_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

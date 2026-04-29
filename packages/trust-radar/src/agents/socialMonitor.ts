@@ -27,6 +27,9 @@ export const socialMonitorAgent: AgentModule = {
   stallThresholdMinutes: 420,
   parallelMax: 1,
   costGuard: "enforced",
+  // The scanner's own AI use is small — most spend lands on
+  // social_ai_assessor (called as a sync sub-agent per profile).
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

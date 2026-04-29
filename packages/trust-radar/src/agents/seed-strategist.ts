@@ -21,6 +21,7 @@ export const seedStrategistAgent: AgentModule = {
   stallThresholdMinutes: 1500,
   parallelMax: 1,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 1_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

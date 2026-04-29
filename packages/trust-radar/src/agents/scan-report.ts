@@ -117,6 +117,7 @@ export const scanReportAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 4,
   costGuard: "enforced",
+  budget: { monthlyTokenCap: 5_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

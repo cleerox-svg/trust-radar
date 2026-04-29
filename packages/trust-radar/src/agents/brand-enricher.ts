@@ -62,6 +62,9 @@ export const brandEnricherAgent: AgentModule = {
   stallThresholdMinutes: 5,
   parallelMax: 4,
   costGuard: "enforced",
+  // Single 20-token reply per call. Volume bound by brand registration
+  // rate + Enricher's hourly backfill of unenriched brands.
+  budget: { monthlyTokenCap: 1_000_000 },
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;
