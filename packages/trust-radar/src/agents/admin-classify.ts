@@ -102,6 +102,10 @@ export const adminClassifyAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 50_000_000 },
+  // Direct SQL surface is empty — handler reads/updates threats via
+  // the call site (handlers/admin.ts handleBackfillClassifications).
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

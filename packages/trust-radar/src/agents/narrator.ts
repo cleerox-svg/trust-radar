@@ -280,6 +280,20 @@ export const narratorAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  reads: [
+    { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "brand_profiles" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "ct_certificates" },
+    { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "lookalike_domains" },
+    { kind: "d1_table", name: "social_monitor_results" },
+    { kind: "d1_table", name: "threat_narratives" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "threat_narratives" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

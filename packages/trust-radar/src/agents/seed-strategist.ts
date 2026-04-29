@@ -22,6 +22,16 @@ export const seedStrategistAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 1_000_000 },
+  reads: [
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "seed_campaigns" },
+    { kind: "d1_table", name: "spam_trap_captures" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_outputs" },
+    { kind: "d1_table", name: "seed_addresses" },
+    { kind: "d1_table", name: "seed_campaigns" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

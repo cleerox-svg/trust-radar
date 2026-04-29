@@ -627,6 +627,19 @@ export const pathfinderAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 1_000_000 },
+  reads: [
+    { kind: "kv", namespace: "CACHE" },
+    { kind: "d1_table", name: "brand_threat_assessments" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "email_security_scans" },
+    { kind: "d1_table", name: "org_brands" },
+    { kind: "d1_table", name: "phishing_pattern_signals" },
+    { kind: "d1_table", name: "sales_leads" },
+    { kind: "d1_table", name: "spam_trap_captures" },
+    { kind: "d1_table", name: "threat_signals" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

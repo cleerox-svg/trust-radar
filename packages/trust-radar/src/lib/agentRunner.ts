@@ -114,6 +114,19 @@ export interface ApprovalRequest {
   expiresInHours?: number;
 }
 
+/** Resource declaration — what an agent reads from / writes to.
+ *  Used by Phase 4.3 + Phase 5's drift CI gate to compare static SQL
+ *  extraction against the declared set. The discriminated union keeps
+ *  D1 tables, KV namespaces, R2 buckets, and other env bindings in
+ *  separate buckets so per-resource lint rules can target them
+ *  (e.g. "no agent may read users.email"). */
+export type ResourceDecl =
+  | { kind: "d1_table"; name: string }
+  | { kind: "kv"; namespace: string; prefix?: string }
+  | { kind: "r2"; bucket: string; prefix?: string }
+  | { kind: "queue"; name: string }
+  | { kind: "binding"; name: string };
+
 export interface AgentBudget {
   /** Anthropic-token cap per calendar month (input + output combined,
    *  Haiku-equivalent). 0 = exempt agents (no AI calls expected). */
@@ -160,6 +173,19 @@ export interface AgentModule {
    *  `monthlyTokenCap: 0` so the diagnostic can flag any unexpected
    *  AI spend on it as a regression. */
   budget: AgentBudget;
+
+  // ── Resource declarations (AGENT_STANDARD §10) ─────────────────
+  /** Tables / KV namespaces / R2 buckets the agent reads from.
+   *  Implicit reads (agent_runs / agent_outputs / agent_events /
+   *  budget_ledger, agent_configs) are NOT listed here — they're
+   *  platform infrastructure every agent touches via the runner.
+   *
+   *  Phase 4.3 only adds the declarations and matches them to the
+   *  architect manifest's static SQL extraction. Phase 5's
+   *  audit-agent-standard.ts script compares declarations to the
+   *  fresh extraction on each build and fails CI on drift. */
+  reads: ResourceDecl[];
+  writes: ResourceDecl[];
 
   execute: (ctx: AgentContext) => Promise<AgentResult>;
 }

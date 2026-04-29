@@ -22,6 +22,29 @@ export const observerAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 2_000_000 },
+  reads: [
+    { kind: "d1_table", name: "agent_outputs" },
+    { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "brand_threat_assessments" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "campaigns" },
+    { kind: "d1_table", name: "ct_certificates" },
+    { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "email_security_scans" },
+    { kind: "d1_table", name: "geopolitical_campaign_links" },
+    { kind: "d1_table", name: "geopolitical_campaigns" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "lookalike_domains" },
+    { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "social_profiles" },
+    { kind: "d1_table", name: "spam_trap_captures" },
+    { kind: "d1_table", name: "threat_narratives" },
+    { kind: "d1_table", name: "threat_signals" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_outputs" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

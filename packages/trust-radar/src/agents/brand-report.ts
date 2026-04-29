@@ -173,6 +173,9 @@ export const brandReportAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Sync agent — handler reads brand context.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

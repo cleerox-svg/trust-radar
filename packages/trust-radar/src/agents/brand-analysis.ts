@@ -135,6 +135,10 @@ export const brandAnalysisAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Sync agent — no direct SQL surface; the handler reads brand
+  // context and writes nothing back.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

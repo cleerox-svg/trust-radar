@@ -65,6 +65,10 @@ export const brandEnricherAgent: AgentModule = {
   // Single 20-token reply per call. Volume bound by brand registration
   // rate + Enricher's hourly backfill of unenriched brands.
   budget: { monthlyTokenCap: 1_000_000 },
+  // Sync agent — delegates to lib/brand-enricher's classifySector,
+  // which does its own SQL via the lib helper.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

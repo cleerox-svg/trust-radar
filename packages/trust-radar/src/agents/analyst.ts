@@ -56,6 +56,23 @@ export const analystAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 100_000_000 },
+  reads: [
+    { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "brand_threat_assessments" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "geopolitical_campaign_links" },
+    { kind: "d1_table", name: "geopolitical_campaigns" },
+    { kind: "d1_table", name: "monitored_brands" },
+    { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "social_profiles" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_outputs" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

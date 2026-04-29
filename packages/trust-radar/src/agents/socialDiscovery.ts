@@ -28,6 +28,9 @@ export const socialDiscoveryAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 2_000_000 },
+  // Direct SQL surface is empty — delegates to lib helpers.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

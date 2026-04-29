@@ -129,6 +129,25 @@ export const cartographerAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 50_000_000 },
+  reads: [
+    { kind: "kv", namespace: "CACHE" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "dmarc_report_records" },
+    { kind: "d1_table", name: "geopolitical_campaign_links" },
+    { kind: "d1_table", name: "geopolitical_campaigns" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_events" },
+    { kind: "d1_table", name: "alerts" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "dmarc_report_records" },
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "merges" },
+    { kind: "d1_table", name: "provider_threat_stats" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

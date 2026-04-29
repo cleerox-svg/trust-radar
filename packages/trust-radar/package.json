@@ -5,6 +5,7 @@
   "description": "Trust Radar — URL & domain trust scoring (trustradar.ca)",
   "scripts": {
     "build:manifest": "tsx scripts/build-architect-manifest.ts",
+    "check:resource-drift": "tsx scripts/check-resource-drift.ts",
     "build": "pnpm build:manifest && wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "pnpm build:manifest && wrangler deploy",

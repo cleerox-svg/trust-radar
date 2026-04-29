@@ -116,6 +116,9 @@ export const enricherAgent: AgentModule = {
   // No AI under the 'enricher' attribution; brand_enricher carries
   // its own cap. Cap=0 here surfaces regressions.
   budget: { monthlyTokenCap: 0 },
+  // Delegates SQL to lib/enricher-tasks helpers.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

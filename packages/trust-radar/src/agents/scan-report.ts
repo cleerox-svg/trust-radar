@@ -118,6 +118,10 @@ export const scanReportAgent: AgentModule = {
   parallelMax: 4,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Sync agent — handler runs the email/feed/lookalike/social scans
+  // and feeds the aggregated facts into the prompt.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

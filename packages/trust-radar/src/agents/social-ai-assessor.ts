@@ -248,6 +248,9 @@ export const socialAiAssessorAgent: AgentModule = {
   // Called from both Mockingbird (per-profile) and the brand detail
   // page (on-demand reassess). Sized to absorb scanner volume.
   budget: { monthlyTokenCap: 30_000_000 },
+  // Sync agent — caller (scanner or handler) reads/writes social_profiles.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

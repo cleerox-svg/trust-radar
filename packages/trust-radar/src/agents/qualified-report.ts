@@ -154,6 +154,9 @@ export const qualifiedReportAgent: AgentModule = {
   parallelMax: 2,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  // Sync agent — handler reads lead + brand context.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

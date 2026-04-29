@@ -168,6 +168,23 @@ export const flightControlAgent: AgentModule = {
   costGuard: "exempt",
   // FC supervises — does not call AI itself. Cap=0 surfaces regressions.
   budget: { monthlyTokenCap: 0 },
+  reads: [
+    { kind: "kv", namespace: "CACHE" },
+    { kind: "binding", name: "CERTSTREAM_MONITOR" },
+    { kind: "d1_table", name: "agent_configs" },
+    { kind: "d1_table", name: "agent_outputs" },
+    { kind: "d1_table", name: "agent_runs" },
+    { kind: "d1_table", name: "backlog_history" },
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "feed_configs" },
+    { kind: "d1_table", name: "feed_status" },
+    { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "threats" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "agent_activity_log" },
+    { kind: "d1_table", name: "backlog_history" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

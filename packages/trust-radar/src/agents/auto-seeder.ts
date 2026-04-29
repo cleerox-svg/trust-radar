@@ -45,6 +45,9 @@ export const autoSeederAgent: AgentModule = {
   // No AI calls — auto-seeder plants spam-trap addresses. Cap at 0
   // so the diagnostic flags any unexpected AI spend as a regression.
   budget: { monthlyTokenCap: 0 },
+  // Delegates SQL to lib/auto-seeder-planter.
+  reads: [],
+  writes: [],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

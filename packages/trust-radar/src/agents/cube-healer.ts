@@ -141,6 +141,16 @@ export const cubeHealerAgent: AgentModule = {
   costGuard: 'exempt',
   // No AI calls — pure D1 / cube SQL. Cap=0 surfaces regressions.
   budget: { monthlyTokenCap: 0 },
+  reads: [
+    { kind: 'kv', namespace: 'CACHE' },
+    { kind: 'd1_table', name: 'threats' },
+  ],
+  writes: [
+    { kind: 'd1_table', name: 'threat_cube_brand' },
+    { kind: 'd1_table', name: 'threat_cube_geo' },
+    { kind: 'd1_table', name: 'threat_cube_provider' },
+    { kind: 'd1_table', name: 'threat_cube_status' },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

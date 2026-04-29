@@ -60,6 +60,14 @@ export const watchdogAgent: AgentModule = {
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },
+  reads: [
+    { kind: "d1_table", name: "brands" },
+    { kind: "d1_table", name: "social_mentions" },
+  ],
+  writes: [
+    { kind: "d1_table", name: "social_mentions" },
+    { kind: "d1_table", name: "threats" },
+  ],
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;
