@@ -5,7 +5,9 @@
  */
 
 import { json } from "../lib/cors";
-import { analyzeWithHaiku } from "../lib/haiku";
+import { runSyncAgent } from "../lib/agentRunner";
+import { brandReportAgent } from "../agents/brand-report";
+import type { BrandReportOutput } from "../agents/brand-report";
 import type { Env } from "../types";
 
 interface EmailSecuritySection {
@@ -232,38 +234,37 @@ export async function handleBrandReport(request: Request, env: Env, brandId: str
     // ─── AI-generated content ─────────────────────────────────
     const typeBreakdown = typeRows.results.map(r => `${r.type}: ${r.count}`).join(", ");
 
-    let aiSummary = `${brand.name} faced ${totalThreats} threats over the past ${days} days. ${activeThreats} remain active. Primary threat types: ${typeBreakdown || "none detected"}.`;
-    let recommendations = [
+    // Phase 3.4 of agent audit: brand-report is now a sync agent.
+    // The agent owns input validation (sanitises brand name +
+    // threat-type/campaign/provider lists), the two parallel AI
+    // calls, per-field output schema, and deterministic fallbacks.
+    const agentRun = await runSyncAgent<BrandReportOutput>(
+      env,
+      brandReportAgent,
+      {
+        brandName: brand.name,
+        days,
+        totalThreats,
+        activeThreats,
+        remediatedThreats,
+        campaignsIdentified,
+        threatTypes: typeRows.results.map((r) => ({ type: r.type, count: r.count })),
+        campaigns: campaignRows.results.map((c) => c.name),
+        providers: providerRows.results.map((p) => p.name),
+      },
+    );
+
+    // Defence-in-depth — agent throws on catastrophic schema failure;
+    // null data here means we synthesise minimal text so the report
+    // still renders.
+    const aiSummary = agentRun.data?.summary
+      ?? `${brand.name} faced ${totalThreats} threats over the past ${days} days. ${activeThreats} remain active. Primary threat types: ${typeBreakdown || "none detected"}.`;
+    const recommendations = agentRun.data?.recommendations ?? [
       "Monitor for new typosquatting domains daily",
       "Consider DMARC enforcement to prevent email spoofing",
       "Report phishing URLs to registrars for takedown",
       "Implement brand monitoring across social media",
     ];
-
-    // Try AI generation (non-blocking — use defaults on failure)
-    try {
-      const reportCtx = { agentId: "brand-report", runId: null };
-      const [summaryResult, recsResult] = await Promise.all([
-        analyzeWithHaiku(env, reportCtx,
-          `You are a threat intelligence analyst writing an executive summary for a brand protection report. The brand is ${brand.name}. In the last ${days} days, ${totalThreats} threats were detected: ${typeBreakdown}. ${campaignsIdentified} campaigns were identified. ${remediatedThreats} threats were remediated. Write exactly 3 sentences summarizing the threat landscape, key risks, and trend direction. Be specific and data-driven. Return JSON: {"response": "your 3 sentences"}`,
-          { brand: brand.name, threats: totalThreats, types: typeRows.results },
-        ),
-        analyzeWithHaiku(env, reportCtx,
-          `Based on the following threat data for ${brand.name}: threat types: ${typeBreakdown}, campaigns: ${campaignRows.results.map(c => c.name).join(", ") || "none"}, top providers: ${providerRows.results.map(p => p.name).join(", ") || "none"}. Generate 4 specific, actionable recommendations for the brand's security team. Be concise — one sentence each. Return JSON: {"response": "rec1\\nrec2\\nrec3\\nrec4"}`,
-          { brand: brand.name, types: typeRows.results, providers: providerRows.results.map(p => p.name) },
-        ),
-      ]);
-
-      if (summaryResult.success && summaryResult.data?.response) {
-        aiSummary = summaryResult.data.response;
-      }
-      if (recsResult.success && recsResult.data?.response) {
-        const parsed = recsResult.data.response.split("\n").filter(Boolean);
-        if (parsed.length >= 2) recommendations = parsed;
-      }
-    } catch {
-      // Non-fatal — use defaults
-    }
 
     // ─── Build period info ────────────────────────────────────
     const now = new Date();
