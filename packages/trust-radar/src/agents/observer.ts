@@ -10,6 +10,7 @@
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import { generateInsight, checkCostGuard } from "../lib/haiku";
 import { createNotification } from "../lib/notifications";
+import { renderIntelSectorTrend } from "../lib/intel-templates";
 
 export const observerAgent: AgentModule = {
   name: "observer",
@@ -35,6 +36,7 @@ export const observerAgent: AgentModule = {
     { kind: "d1_table", name: "geopolitical_campaigns" },
     { kind: "d1_table", name: "hosting_providers" },
     { kind: "d1_table", name: "lookalike_domains" },
+    { kind: "d1_table", name: "notification_subscriptions" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "social_profiles" },
     { kind: "d1_table", name: "spam_trap_captures" },
@@ -934,6 +936,78 @@ export const observerAgent: AgentModule = {
               topSeverity,
               JSON.stringify({ items: weeklyItems, top_brands: weeklyTopBrands.results, top_sectors: weeklyTopSectors.results }),
             ).run();
+
+            // B2 — intel_sector_trend: per-tenant weekly sector
+            // notification. For each user × sector combination
+            // where the user monitors brands in that sector, fire
+            // one row showing volume change + affected/unaffected
+            // brand counts. group_key dedup keeps this firing at
+            // most once per user × sector × week.
+            try {
+              for (const sector of weeklyTopSectors.results) {
+                if (!sector.sector) continue;
+                // Compute week-over-week delta for the sector
+                const prevWeek = await env.DB.prepare(`
+                  SELECT COUNT(*) as count
+                    FROM threats t JOIN brands b ON t.target_brand_id = b.id
+                   WHERE b.sector = ?
+                     AND t.created_at >= datetime('now', '-14 days')
+                     AND t.created_at <  datetime('now', '-7 days')
+                `).bind(sector.sector).first<{ count: number }>();
+                const prev = prevWeek?.count ?? 0;
+                const curr = sector.count;
+                const pctChange = prev > 0
+                  ? Math.round(((curr - prev) / prev) * 100)
+                  : (curr > 0 ? 100 : 0);
+
+                // Skip if change is too small to surface as a trend
+                if (Math.abs(pctChange) < 25) continue;
+
+                // Per-user fan-out via subscriptions. We pick users
+                // who have ≥1 subscription on a brand whose sector
+                // matches.
+                const usersInSector = await env.DB.prepare(`
+                  SELECT DISTINCT ns.user_id,
+                         COUNT(DISTINCT CASE WHEN t.id IS NOT NULL THEN ns.brand_id END) AS affected,
+                         COUNT(DISTINCT ns.brand_id) AS total
+                    FROM notification_subscriptions ns
+                    JOIN brands b ON b.id = ns.brand_id
+                    LEFT JOIN threats t
+                      ON t.target_brand_id = ns.brand_id
+                     AND t.created_at >= datetime('now', '-7 days')
+                   WHERE b.sector = ?
+                     AND ns.level != 'ignored'
+                   GROUP BY ns.user_id
+                `).bind(sector.sector).all<{ user_id: string; affected: number; total: number }>();
+
+                for (const u of usersInSector.results) {
+                  const rendered = renderIntelSectorTrend({
+                    user_id: u.user_id,
+                    sector: sector.sector,
+                    pct_change: pctChange,
+                    affected_count: u.affected,
+                    unaffected_count: Math.max(0, u.total - u.affected),
+                  });
+                  // Per-user sector trend — pass userId so the
+                  // routing in createNotification targets exactly
+                  // this user without further fan-out.
+                  await createNotification(env, {
+                    userId: u.user_id,
+                    type: 'intel_sector_trend',
+                    severity: rendered.severity,
+                    title: rendered.title,
+                    message: rendered.message,
+                    reasonText: rendered.reason_text,
+                    recommendedAction: rendered.recommended_action,
+                    link: rendered.link,
+                    audience: 'tenant',
+                    groupKey: rendered.group_key,
+                  });
+                }
+              }
+            } catch (sectorErr) {
+              console.error('[observer] intel_sector_trend emit error:', sectorErr);
+            }
           }
         }
       } catch (weeklyErr) {

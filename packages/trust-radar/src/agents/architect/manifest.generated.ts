@@ -341,6 +341,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [
         "DB",
         "app_store_listings",
+        "brands",
         "dark_web_mentions",
         "hosting_providers",
         "threats"
@@ -353,8 +354,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 524,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "loc": 558,
+      "last_modified": "2026-04-29T20:11:59.257Z"
     },
     {
       "name": "observer",
@@ -377,6 +378,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "geopolitical_campaigns",
         "hosting_providers",
         "lookalike_domains",
+        "notification_subscriptions",
         "social_mentions",
         "social_profiles",
         "spam_trap_captures",
@@ -388,8 +390,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "agent_outputs"
       ],
       "ai_models_referenced": [],
-      "loc": 960,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "loc": 1034,
+      "last_modified": "2026-04-29T20:12:11.517Z"
     },
     {
       "name": "pathfinder",

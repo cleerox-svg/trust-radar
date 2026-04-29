@@ -15,10 +15,14 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from "../lib/agentRunner";
 import type { Env } from "../types";
+import {
+  emitIntelNotification,
+  renderIntelPredictive,
+} from "../lib/intel-templates";
 
 // ─── NEXUS core correlation logic ─────────────────────────────────
 
-export async function runNexus(db: D1Database, _env: Env): Promise<{
+export async function runNexus(db: D1Database, env: Env): Promise<{
   clustersWritten: number;
   providersUpdated: number;
   pivotsDetected: number;
@@ -165,6 +169,35 @@ export async function runNexus(db: D1Database, _env: Env): Promise<{
           confidence,
         },
       });
+
+      // B2 — intel_predictive: a high-confidence accelerating cluster
+      // with identified brands is the canonical predictive signal.
+      // Fire one intel_predictive per affected brand; routing in
+      // createNotification fans this only to subscribers per N3.
+      // group_key=intel_predictive:<brand_id> ensures one fire per
+      // brand per registry dedup window (12h).
+      if (confidence >= 70 && cluster.brand_ids) {
+        const brandIds = cluster.brand_ids.split(',').filter(Boolean);
+        const lookalikeCount = cluster.threats;
+        const predictedWindow = `next 7 days (cluster accelerating ${cluster.last_7d}/${cluster.prev_7d})`;
+        for (const bid of brandIds) {
+          try {
+            const row = await db.prepare(
+              'SELECT name FROM brands WHERE id = ?'
+            ).bind(bid).first<{ name: string }>();
+            await emitIntelNotification(env, 'intel_predictive',
+              renderIntelPredictive({
+                brand_id: bid,
+                brand_name: row?.name ?? bid,
+                asn: String(cluster.asn),
+                lookalike_count: lookalikeCount,
+                cluster_id: clusterId,
+                predicted_window: predictedWindow,
+              })
+            );
+          } catch { /* notification failures never break NEXUS */ }
+        }
+      }
     }
   }
 
@@ -476,6 +509,7 @@ export const nexusAgent: AgentModule = {
   budget: { monthlyTokenCap: 10_000_000 },
   reads: [
     { kind: "d1_table", name: "app_store_listings" },
+    { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "dark_web_mentions" },
     { kind: "d1_table", name: "hosting_providers" },
     { kind: "d1_table", name: "threats" },
