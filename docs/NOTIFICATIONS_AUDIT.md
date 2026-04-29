@@ -1734,7 +1734,9 @@ N1–N6. They'll be picked up by their owning initiatives:
 | 2026-04-29 | §12 | Email briefing investigation | N0g-2 |
 | 2026-04-29 | §13 | Platform-health signals (~12 `platform_*` types) | N0g-3 |
 | 2026-04-29 | §14, §15, §16 | Backlog + compliance + changelog (closing) | N0h |
+| 2026-04-29 | — | N1 — stop spam + wire link click (cartographer boundary policy + bell/archive click navigation) | #926 |
+| 2026-04-29 | — | N2 — schema + state machine migration (`0127_notifications_n2.sql`) | this PR |
 
-**Status: SIGNED OFF.** Ready to proceed to N1 (stop the spam +
-wire link click) on the next session.
+**Status: SIGNED OFF.** N1 + N2 shipped. Ready to proceed to N3
+(backend routing + tenant scoping) on the next session.
 
