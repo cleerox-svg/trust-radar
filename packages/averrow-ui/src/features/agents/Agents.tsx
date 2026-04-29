@@ -71,6 +71,15 @@ const AGENT_GROUPS: AgentGroup[] = [
     label: 'Platform Operations',
     agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer', 'enricher'],
   },
+  {
+    // Synchronous AI agents — handler-driven (not cron-scheduled).
+    // Each one wraps an inline AI call from a public/admin handler;
+    // see AGENT_STANDARD §2 + §7.4. Phase 3 of the agent audit migrates
+    // 15 such call-sites into this group, one per PR.
+    id: 'sync',
+    label: 'Synchronous AI',
+    agentIds: ['public_trust_check'],
+  },
   // 'meta' group (architect) retired 2026-04-29 — see agent-metadata.ts.
 ];
 
@@ -289,6 +298,7 @@ function FlightControlCard({
                 { key: 'intelligence', label: 'Detection & Intelligence' },
                 { key: 'response',     label: 'Response' },
                 { key: 'ops',          label: 'Operations' },
+                { key: 'sync',         label: 'Synchronous AI' },
                 { key: 'meta',         label: 'Meta' },
                 { key: 'other',        label: 'Other' },
               ];
@@ -298,7 +308,7 @@ function FlightControlCard({
               // renders (defensive — never make an agent disappear from
               // the mesh just because we forgot to wire its metadata).
               const buckets: Record<string, typeof allAgents> = {
-                intelligence: [], response: [], ops: [], meta: [], other: [],
+                intelligence: [], response: [], ops: [], sync: [], meta: [], other: [],
               };
               for (const a of allAgents) {
                 if (a.name === 'flight_control') continue;

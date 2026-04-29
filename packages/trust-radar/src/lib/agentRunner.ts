@@ -34,7 +34,8 @@ export type AgentName =
   | "auto_seeder"
   | "cube_healer"
   | "navigator"
-  | "enricher";
+  | "enricher"
+  | "public_trust_check";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";
@@ -254,6 +255,49 @@ export async function executeAgent(
 
     return { runId, status: "failed", result: null, error: errorMsg };
   }
+}
+
+// ─── Synchronous agent helper ───────────────────────────────────
+//
+// Thin wrapper around executeAgent for the synchronous (api-trigger)
+// agent class introduced in AGENT_STANDARD §2. Synchronous agents are
+// the ones called inline by HTTP handlers — they return a typed
+// result the handler uses to build the response, instead of writing
+// side effects and returning void.
+//
+// Identical lifecycle (agent_runs row, output schema validation,
+// circuit breaker, cost guard) to executeAgent — the only difference
+// is the default trigger label ('api' vs 'manual') and the return
+// shape: callers get back the typed `data` directly so handlers
+// don't have to reach into result.result.output.
+//
+// Per-agent input/output validation lives in the agent's execute()
+// function via the inputSchema / outputSchema declared on the module
+// (AGENT_STANDARD §8 G5/G6). runSyncAgent itself is type-agnostic —
+// the generic <T> is convenience for the caller's cast.
+
+export interface RunSyncAgentResult<T> {
+  runId: string;
+  status: RunStatus | "circuit_open";
+  data: T | null;
+  /** Populated when the underlying agent throws or its output schema
+   *  rejects the AI response. Handlers should branch on `status` then
+   *  fall back to a deterministic response if needed. */
+  error?: string;
+}
+
+export async function runSyncAgent<T = unknown>(
+  env: Env,
+  agentModule: AgentModule,
+  input: Record<string, unknown> = {},
+): Promise<RunSyncAgentResult<T>> {
+  const result = await executeAgent(env, agentModule, input, "api", "api");
+  return {
+    runId: result.runId,
+    status: result.status,
+    data: (result.result?.output ?? null) as T | null,
+    error: result.error,
+  };
 }
 
 // ─── Circuit Breaker Trip Check ─────────────────────────────────

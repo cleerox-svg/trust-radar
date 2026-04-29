@@ -217,6 +217,40 @@ const icons: Record<string, (size: number) => JSX.Element> = {
       <path d="M28 20C30 20 30 23 28 23M30 20C32 20 32 23 30 23" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.7"/>
     </svg>
   ),
+  // Public Trust Check — synchronous AI agent for the homepage
+  // /api/v1/public/assess endpoint. Lightning bolt (sync / instant)
+  // crossing a stylised waveform / response pulse (AI text response).
+  // Visually distinct from cron agents to signal the on-demand class.
+  public_trust_check: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* horizontal pulse / response waveform */}
+      <path
+        d="M3 22 L9 22 L11 16 L13 28 L15 14 L17 22 L23 22"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.55"
+      />
+      <path
+        d="M23 22 L33 22"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.35"
+      />
+      {/* lightning bolt — sync / on-demand */}
+      <path
+        d="M22 5 L14 20 L20 20 L17 31 L26 16 L20 16 Z"
+        fill="currentColor"
+        fillOpacity="0.8"
+        stroke="currentColor"
+        strokeWidth="0.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+
   // Enricher — domain geo, brand logo/HQ, sector/RDAP enrichment.
   // A row of three records with progressively more "fill" — left is
   // blank, middle has one row, right is fully filled. Evokes "takes

@@ -5,7 +5,9 @@
  */
 
 import { json } from "../lib/cors";
-import { callHaikuRaw } from "../lib/haiku";
+import { runSyncAgent } from "../lib/agentRunner";
+import { publicTrustCheckAgent } from "../agents/public-trust-check";
+import type { PublicTrustCheckOutput } from "../agents/public-trust-check";
 import type { Env } from "../types";
 
 // ─── GET /api/v1/public/stats ────────────────────────────────────
@@ -219,30 +221,38 @@ export async function handlePublicAssess(request: Request, env: Env): Promise<Re
       spamTrapIps = trapData?.ips ?? 0;
     } catch { /* spam trap tables may not exist yet */ }
 
-    // Calculate trust score
-    const trustScore = Math.max(0, 100 - threatCount * 2);
-    const grade = trustScore >= 90 ? "A" : trustScore >= 80 ? "B" : trustScore >= 70 ? "C" : trustScore >= 60 ? "D" : "F";
-
-    // Generate assessment text (AI if available, else rule-based)
-    let assessmentText = "";
-    const aiResult = await callHaikuRaw(
+    // Trust score, grade, and assessment text now come from the
+    // public_trust_check sync agent (Phase 3.1 of agent audit).
+    // The agent owns input validation (rejects non-conforming
+    // domains and brand names so prompt injection can't reach the
+    // model), the AI call itself, output schema validation, and a
+    // deterministic fallback if either path fails. Handler stays
+    // responsible for the surrounding I/O — DB lookups, rate limits,
+    // and storing the assessment row.
+    const agentRun = await runSyncAgent<PublicTrustCheckOutput>(
       env,
-      { agentId: "public-trust-check", runId: null },
-      "You are a cybersecurity analyst. Write a brief 2-3 sentence threat assessment. Be specific and actionable. Do not mention Averrow by name.",
-      `Summarize the threat landscape for the brand ${brandName} (${domain}): ${threatCount} threats found, ${providerCount} hosting providers involved, ${campaignCount} campaigns detected.${isMonitored ? " This brand is actively monitored." : ""}${spamTrapCount > 0 ? ` Our trap network intercepted ${spamTrapCount} spoofed emails impersonating this domain from ${spamTrapIps} unique IPs in the last 30 days.` : ""}`,
-      256,
+      publicTrustCheckAgent,
+      {
+        domain,
+        threatCount,
+        providerCount,
+        campaignCount,
+        isMonitored,
+        brandName,
+        spamTrapCount,
+        spamTrapIps,
+      },
     );
-    if (aiResult.success && aiResult.text) {
-      assessmentText = aiResult.text;
-    } else {
-      if (threatCount === 0) {
-        assessmentText = `No active threats were detected targeting ${brandName}. This is a positive signal, but continuous monitoring is recommended as new phishing domains and impersonation attacks emerge daily.`;
-      } else if (threatCount < 10) {
-        assessmentText = `${brandName} has ${threatCount} known threats across ${providerCount} hosting provider(s). This represents a moderate exposure level that warrants active monitoring and takedown coordination.`;
-      } else {
-        assessmentText = `${brandName} faces significant exposure with ${threatCount} active threats across ${providerCount} provider(s) and ${campaignCount} campaign(s). Immediate action is recommended to protect customers and brand reputation.`;
-      }
-    }
+
+    // Defence in depth — agent.execute() already throws on a
+    // catastrophic schema failure (and runSyncAgent maps that to
+    // status='failed' with data=null). If we get here without data,
+    // synthesise a minimal deterministic response so the homepage
+    // never gets a 500.
+    const trustScore = agentRun.data?.trustScore ?? Math.max(0, 100 - threatCount * 2);
+    const grade = (agentRun.data?.grade ?? (trustScore >= 90 ? "A" : trustScore >= 80 ? "B" : trustScore >= 70 ? "C" : trustScore >= 60 ? "D" : "F")) as "A" | "B" | "C" | "D" | "F";
+    const assessmentText = agentRun.data?.assessmentText
+      ?? `${brandName} threat landscape — ${threatCount} known threats across ${providerCount} hosting provider(s) and ${campaignCount} campaign(s). Continuous monitoring is recommended.`;
 
     // Store assessment
     const assessmentId = `assess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
