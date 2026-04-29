@@ -617,20 +617,35 @@ export const cartographerAgent: AgentModule = {
             WHERE id = ?
           `).bind(result.score, result.grade, brand.id).run();
 
-          // Detect grade changes and notify
+          // Detect grade changes and notify — boundary-crossing only.
+          // Per NOTIFICATIONS_AUDIT.md Q4: classify grades into bands
+          // {good: A+/A/B, neutral: C, bad: D/F} and only fire when the
+          // transition crosses good↔bad. C↔anything is silent.
+          // metadata.brand_id is required for the dedup key in
+          // createNotification — without it we got 3× duplicate rows
+          // per brand before this fix.
           if (brand.existing_grade && brand.existing_grade !== result.grade) {
-            const dropped = gradeOrder(result.grade) > gradeOrder(brand.existing_grade);
-            const brandName = await env.DB.prepare('SELECT name FROM brands WHERE id = ?')
-              .bind(brand.id).first<{ name: string }>();
-            try {
-              await createNotification(env, {
-                type: 'email_security_change',
-                title: `${brandName?.name ?? brand.domain} email security ${dropped ? 'degraded' : 'improved'}`,
-                message: `Grade changed from ${brand.existing_grade} to ${result.grade}`,
-                severity: dropped ? 'high' : 'info',
-              });
-            } catch (notifErr) {
-              console.error('[cartographer] notification error:', notifErr);
+            const prev = gradeBand(brand.existing_grade);
+            const next = gradeBand(result.grade);
+            const crossed =
+              (prev === 'good' && next === 'bad') ||
+              (prev === 'bad' && next === 'good');
+            if (crossed) {
+              const dropped = next === 'bad';
+              const brandName = await env.DB.prepare('SELECT name FROM brands WHERE id = ?')
+                .bind(brand.id).first<{ name: string }>();
+              try {
+                await createNotification(env, {
+                  type: 'email_security_change',
+                  title: `${brandName?.name ?? brand.domain} email security ${dropped ? 'degraded' : 'improved'}`,
+                  message: `Grade changed from ${brand.existing_grade} to ${result.grade}`,
+                  severity: dropped ? 'high' : 'info',
+                  link: `/brands/${brand.id}`,
+                  metadata: { brand_id: brand.id, prev_grade: brand.existing_grade, new_grade: result.grade },
+                });
+              } catch (notifErr) {
+                console.error('[cartographer] notification error:', notifErr);
+              }
             }
           }
 
@@ -754,8 +769,12 @@ function computeHeuristicScore(
   return Math.max(0, Math.min(100, score));
 }
 
-function gradeOrder(g: string): number {
-  return ({ 'A+': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'F': 5 } as Record<string, number>)[g] ?? 6;
+// Band classification for the boundary-crossing notification policy.
+// See NOTIFICATIONS_AUDIT.md Q4: only good↔bad transitions notify.
+function gradeBand(g: string): 'good' | 'neutral' | 'bad' {
+  if (g === 'A+' || g === 'A' || g === 'B') return 'good';
+  if (g === 'D' || g === 'F') return 'bad';
+  return 'neutral';
 }
 
 // ─── Geopolitical campaign escalation ─────────────────────────────

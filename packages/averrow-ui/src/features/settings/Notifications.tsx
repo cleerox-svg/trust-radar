@@ -253,7 +253,14 @@ export function Notifications() {
         <Card>
           <div className="space-y-1 -mx-2">
             {notifications.map((n) => (
-              <NotificationRow key={n.id} notification={n} onRead={() => markRead.mutate(n.id)} />
+              <NotificationRow
+                key={n.id}
+                notification={n}
+                onActivate={() => {
+                  if (!n.read_at) markRead.mutate(n.id);
+                  if (n.link) navigate(n.link);
+                }}
+              />
             ))}
           </div>
 
@@ -318,27 +325,39 @@ function FilterPill({
 
 function NotificationRow({
   notification,
-  onRead,
+  onActivate,
 }: {
   notification: Notification;
-  onRead: () => void;
+  onActivate: () => void;
 }) {
   const isUnread = !notification.read_at;
+  const hasLink = !!notification.link;
   const sev = severityToBadge(notification.severity);
+
+  // Row is clickable when unread (mark-as-read) OR when it has a
+  // link (navigate even after read). Read+linkless rows stay
+  // non-interactive — same as before.
+  const isInteractive = isUnread || hasLink;
 
   return (
     <button
-      onClick={isUnread ? onRead : undefined}
+      onClick={isInteractive ? onActivate : undefined}
       className="w-full text-left px-3 py-3 rounded transition-colors hover:bg-white/[0.03] touch-target"
       style={{
         borderLeft: isUnread
           ? `2px solid var(--sev-${sev}-border, var(--sev-info-border))`
           : '2px solid transparent',
         background: isUnread ? 'rgba(255,255,255,0.02)' : 'transparent',
-        cursor: isUnread ? 'pointer' : 'default',
+        cursor: isInteractive ? 'pointer' : 'default',
         opacity: isUnread ? 1 : 0.65,
       }}
-      aria-label={isUnread ? `Mark "${notification.title}" as read` : notification.title}
+      aria-label={
+        hasLink
+          ? `Open "${notification.title}"`
+          : isUnread
+            ? `Mark "${notification.title}" as read`
+            : notification.title
+      }
     >
       <div className="flex items-start gap-3">
         <Badge severity={sev} size="xs" />
