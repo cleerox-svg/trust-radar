@@ -90,7 +90,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 233,
-      "last_modified": "2026-04-29T04:47:43.669Z"
+      "last_modified": "2026-04-29T04:53:04.497Z"
     },
     {
       "name": "brand-report",
@@ -223,6 +223,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "ai_models_referenced": [],
       "loc": 1259,
       "last_modified": "2026-04-29T04:00:27.636Z"
+    },
+    {
+      "name": "honeypot-generator",
+      "path": "packages/trust-radar/src/agents/honeypot-generator.ts",
+      "entrypoint": "honeypotGeneratorAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 195,
+      "last_modified": "2026-04-29T04:54:11.785Z"
     },
     {
       "name": "narrator",
@@ -932,7 +945,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 25,
+    "agents": 26,
     "feeds": 40,
     "crons": 3,
     "workers": 1
