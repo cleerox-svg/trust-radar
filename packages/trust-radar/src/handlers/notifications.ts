@@ -65,12 +65,26 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
     const q = url.searchParams.get("q")?.trim();
     const cursor = url.searchParams.get("cursor");
 
-    let sql = `SELECT id, type, severity, title, message, link, read_at, created_at, metadata
+    // N3: surface state machine + tenant-scoping fields. The state
+    // column is canonical; read_at stays for backwards compatibility
+    // until N5 retires the legacy preferences UI. Snoozed rows are
+    // hidden by default — unhidden by `unread=true` filter or when
+    // snoozed_until <= now (handled by the SELECT predicate below).
+    let sql = `SELECT id, brand_id, org_id, audience,
+                      type, severity, title, message,
+                      reason_text, recommended_action, link,
+                      state, read_at, snoozed_until, done_at,
+                      group_key, created_at, updated_at, metadata
                FROM notifications WHERE user_id = ?`;
     const params: unknown[] = [userId];
 
     if (unreadOnly) {
-      sql += ` AND read_at IS NULL`;
+      sql += ` AND state = 'unread'`;
+    } else {
+      // Inbox view: hide done rows by default (Linear-style), and
+      // hide snoozed rows whose snooze hasn't expired yet.
+      sql += ` AND state != 'done'
+               AND (state != 'snoozed' OR snoozed_until <= datetime('now'))`;
     }
     if (type) {
       sql += ` AND type = ?`;
@@ -95,9 +109,16 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
 
     const tally = newTally();
     const rows = await env.DB.prepare(sql).bind(...params).all<{
-      id: string; type: string; severity: string; title: string;
-      message: string; link: string | null; read_at: string | null;
-      created_at: string; metadata: string | null;
+      id: string;
+      brand_id: string | null; org_id: string | null; audience: string;
+      type: string; severity: string;
+      title: string; message: string;
+      reason_text: string | null; recommended_action: string | null; link: string | null;
+      state: string;
+      read_at: string | null; snoozed_until: string | null; done_at: string | null;
+      group_key: string | null;
+      created_at: string; updated_at: string;
+      metadata: string | null;
     }>();
     addToTally(tally, rows.meta);
     const results = rows.results;
@@ -111,9 +132,9 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
 
     // Get unread count (always reflects the unfiltered total — the
     // bell badge cares about all unread, not just ones matching the
-    // current page's filters).
+    // current page's filters). Uses the canonical state column.
     const countRow = await env.DB.prepare(
-      `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND read_at IS NULL`
+      `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND state = 'unread'`
     ).bind(userId).first<{ c: number }>();
     tally.queries += 1;
 
@@ -133,8 +154,13 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
 export async function handleMarkNotificationReadV2(request: Request, env: Env, notificationId: string, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // N3: write both the canonical state column AND read_at (legacy)
+    // so any code path still consulting read_at keeps working until
+    // N5 retires it.
     await env.DB.prepare(
-      `UPDATE notifications SET read_at = datetime('now') WHERE id = ? AND user_id = ? AND read_at IS NULL`
+      `UPDATE notifications
+          SET state = 'read', read_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ? AND user_id = ? AND state = 'unread'`
     ).bind(notificationId, userId).run();
     return json({ success: true }, 200, origin);
   } catch (err) {
@@ -147,7 +173,9 @@ export async function handleMarkAllNotificationsReadV2(request: Request, env: En
   const origin = request.headers.get("Origin");
   try {
     const result = await env.DB.prepare(
-      `UPDATE notifications SET read_at = datetime('now') WHERE user_id = ? AND read_at IS NULL`
+      `UPDATE notifications
+          SET state = 'read', read_at = datetime('now'), updated_at = datetime('now')
+        WHERE user_id = ? AND state = 'unread'`
     ).bind(userId).run();
     return json({ success: true, data: { marked: result.meta.changes } }, 200, origin);
   } catch (err) {
@@ -160,9 +188,64 @@ export async function handleUnreadCount(request: Request, env: Env, userId: stri
   const origin = request.headers.get("Origin");
   try {
     const row = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read_at IS NULL`
+      `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND state = 'unread'`
     ).bind(userId).first<{ count: number }>();
     return json({ success: true, count: row?.count ?? 0 }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// POST /api/notifications/:id/snooze
+// Body: { until: ISO-8601 timestamp }
+//
+// State transition: any → 'snoozed'. The row resurfaces in the inbox
+// when snoozed_until <= now (LIST handler honors this without a cron).
+// Per Q1 + Q6 — snooze targets a single notification today;
+// per-type / per-brand snoozing lands in N5 via subscriptions.
+export async function handleSnoozeNotification(request: Request, env: Env, notificationId: string, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json().catch(() => ({})) as { until?: string };
+    if (!body.until || typeof body.until !== 'string') {
+      return json({ success: false, error: "until is required (ISO-8601)" }, 400, origin);
+    }
+    // Sanity-check: must be a parseable future timestamp.
+    const ts = Date.parse(body.until);
+    if (Number.isNaN(ts) || ts <= Date.now()) {
+      return json({ success: false, error: "until must be a future ISO-8601 timestamp" }, 400, origin);
+    }
+    const result = await env.DB.prepare(
+      `UPDATE notifications
+          SET state = 'snoozed', snoozed_until = ?, updated_at = datetime('now')
+        WHERE id = ? AND user_id = ?`
+    ).bind(body.until, notificationId, userId).run();
+    if (result.meta.changes === 0) {
+      return json({ success: false, error: "Notification not found" }, 404, origin);
+    }
+    return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// POST /api/notifications/:id/done
+//
+// State transition: any → 'done'. Done rows are hidden from the inbox
+// view but still queryable (e.g. archive search). Per Q1 — replaces
+// the binary read/unread with a four-state machine.
+export async function handleMarkDone(request: Request, env: Env, notificationId: string, userId: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const result = await env.DB.prepare(
+      `UPDATE notifications
+          SET state = 'done', done_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ? AND user_id = ?`
+    ).bind(notificationId, userId).run();
+    if (result.meta.changes === 0) {
+      return json({ success: false, error: "Notification not found" }, 404, origin);
+    }
+    return json({ success: true }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
