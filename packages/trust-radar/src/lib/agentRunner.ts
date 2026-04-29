@@ -27,6 +27,7 @@ export type AgentName =
   | "watchdog"
   | "architect"
   | "narrator"
+  | "notification_narrator"
   | "app_store_monitor"
   | "dark_web_monitor"
   | "social_monitor"

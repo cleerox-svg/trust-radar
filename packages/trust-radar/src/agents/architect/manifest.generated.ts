@@ -358,6 +358,24 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-29T20:11:59.257Z"
     },
     {
+      "name": "notification_narrator",
+      "path": "packages/trust-radar/src/agents/notification_narrator.ts",
+      "entrypoint": "notificationNarratorAgent",
+      "triggers": [
+        "cron"
+      ],
+      "reads": [
+        "DB",
+        "notification_preferences_v2",
+        "notifications",
+        "users"
+      ],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 216,
+      "last_modified": "2026-04-29T20:28:24.111Z"
+    },
+    {
       "name": "observer",
       "path": "packages/trust-radar/src/agents/observer.ts",
       "entrypoint": "observerAgent",
@@ -986,6 +1004,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "lookalike-scanner",
         "narrator",
         "nexus",
+        "notification_narrator",
         "observer",
         "seed-strategist",
         "socialDiscovery",
@@ -1008,6 +1027,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "lookalike-scanner",
         "narrator",
         "nexus",
+        "notification_narrator",
         "observer",
         "seed-strategist",
         "socialDiscovery",
@@ -1030,6 +1050,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "lookalike-scanner",
         "narrator",
         "nexus",
+        "notification_narrator",
         "observer",
         "seed-strategist",
         "socialDiscovery",
@@ -1056,7 +1077,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 34,
+    "agents": 35,
     "feeds": 40,
     "crons": 3,
     "workers": 1

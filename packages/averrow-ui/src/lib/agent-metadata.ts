@@ -21,6 +21,7 @@ export type AgentId =
   | 'watchdog'
   | 'cube_healer'
   | 'narrator'
+  | 'notification_narrator'
   | 'social_discovery'
   | 'social_monitor'
   | 'app_store_monitor'
@@ -369,6 +370,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#4ADE80',
     category: 'sync',
     pipelinePosition: 35,
+  },
+  notification_narrator: {
+    id: 'notification_narrator',
+    displayName: 'Notification Narrator',
+    codename: 'notification_narrator',
+    subtitle: 'Daily per-user digest builder — bundles 24h of notifications into a single digest envelope with optional Haiku narrative',
+    color: '#A8C878',
+    category: 'intelligence',
+    pipelinePosition: 36,
   },
 };
 

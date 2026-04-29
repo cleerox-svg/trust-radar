@@ -215,6 +215,21 @@ Narrator correlates threats, email security posture, social impersonation, looka
 
 ---
 
+### Notification Narrator
+
+| Property | Value |
+|----------|-------|
+| **File** | `packages/trust-radar/src/agents/notification_narrator.ts` |
+| **Trigger** | Scheduled — daily at 13:00 UTC (via `executeAgent`, alongside the legacy briefing email cron) |
+| **Purpose** | Per-user daily digest envelope builder (Q5b backlog) |
+
+Notification Narrator queries each active user's last-24h notifications above their `digest_severity_floor`, then emits a single `notification_digest` envelope row to the user's inbox. The envelope's `metadata.notification_ids[]` lists the underlying rows so the UI can deep-link. When the AI cost guard allows, Haiku writes a 1–3 sentence narrative summary; otherwise the agent falls back to a static count line.
+
+**Inputs:** `notification_preferences_v2`, `notifications` (last 24h), `users`
+**Outputs:** `notifications` rows of type `notification_digest` (via `createNotification` helper)
+
+---
+
 ### Trustbot
 
 | Property | Value |
