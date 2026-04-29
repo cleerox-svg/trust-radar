@@ -39,6 +39,7 @@ import { enricherAgent } from "../cron/enricher";
 import { publicTrustCheckAgent } from "./public-trust-check";
 import { qualifiedReportAgent } from "./qualified-report";
 import { brandAnalysisAgent } from "./brand-analysis";
+import { brandReportAgent } from "./brand-report";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -69,4 +70,5 @@ export const agentModules: Record<string, AgentModule> = {
   "public_trust_check": publicTrustCheckAgent,
   "qualified_report": qualifiedReportAgent,
   "brand_analysis": brandAnalysisAgent,
+  "brand_report": brandReportAgent,
 };

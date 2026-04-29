@@ -246,6 +246,30 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Brand Report — synchronous AI agent for the per-brand exposure
+  // report. Document with three rising bars on it (executive summary
+  // + numbered recommendations evoke a printable report).
+  brand_report: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* document */}
+      <path
+        d="M9 5 L23 5 L29 11 L29 31 L9 31 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        opacity="0.65"
+      />
+      <path d="M23 5 L23 11 L29 11" stroke="currentColor" strokeWidth="1.2" opacity="0.4" />
+      {/* a couple of summary lines on top */}
+      <line x1="13" y1="14" x2="25" y2="14" stroke="currentColor" strokeWidth="0.9" opacity="0.55" />
+      <line x1="13" y1="17" x2="22" y2="17" stroke="currentColor" strokeWidth="0.9" opacity="0.45" />
+      {/* rising bar chart — three bars of increasing height */}
+      <rect x="13" y="24" width="3" height="4" fill="currentColor" opacity="0.55" />
+      <rect x="17.5" y="22" width="3" height="6" fill="currentColor" opacity="0.7" />
+      <rect x="22" y="20" width="3" height="8" fill="currentColor" opacity="0.85" />
+    </svg>
+  ),
+
   // Brand Analysis — synchronous AI agent for the brand detail page.
   // Magnifying glass over a stylised shield (brand mark) — visual
   // metaphor for "examining a brand's threat surface."
