@@ -35,6 +35,8 @@ export const lookalikeScannerAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 29,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];

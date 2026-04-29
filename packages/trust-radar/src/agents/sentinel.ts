@@ -102,6 +102,8 @@ export const sentinelAgent: AgentModule = {
   ],
   outputs: [{ type: "classification" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 1,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

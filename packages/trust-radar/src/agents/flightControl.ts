@@ -187,6 +187,8 @@ export const flightControlAgent: AgentModule = {
   ],
   outputs: [],
   status: "active",
+  category: "orchestration",
+  pipelinePosition: 0,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

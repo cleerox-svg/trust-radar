@@ -296,6 +296,8 @@ export const narratorAgent: AgentModule = {
   ],
   outputs: [{ type: "insight" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 14,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

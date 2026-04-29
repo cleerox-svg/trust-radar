@@ -43,6 +43,8 @@ export const sparrowAgent: AgentModule = {
   ],
   outputs: [{ type: "insight" }, { type: "diagnostic" }],
   status: "active",
+  category: "response",
+  pipelinePosition: 7,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

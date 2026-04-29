@@ -47,6 +47,8 @@ export const curatorAgent: AgentModule = {
   ],
   outputs: [],
   status: "active",
+  category: "ops",
+  pipelinePosition: 10,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

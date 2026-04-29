@@ -77,6 +77,8 @@ export const architectAgent: AgentModule = {
   // returns registered modules, so 'retired' here doesn't surface in
   // dispatch logic — the field is the formal lifecycle marker.
   status: "retired",
+  category: "meta",
+  pipelinePosition: 11,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

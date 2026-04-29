@@ -178,6 +178,8 @@ export const brandReportAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 25,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

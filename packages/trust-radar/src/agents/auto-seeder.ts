@@ -50,6 +50,8 @@ export const autoSeederAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "insight" }, { type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 19,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

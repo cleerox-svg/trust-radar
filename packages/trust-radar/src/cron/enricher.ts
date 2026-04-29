@@ -121,6 +121,8 @@ export const enricherAgent: AgentModule = {
   writes: [],
   outputs: [],
   status: 'active',
+  category: 'ops',
+  pipelinePosition: 21,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

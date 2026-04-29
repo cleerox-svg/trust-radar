@@ -24,6 +24,11 @@ export const trustbotAgent: AgentModule = {
   writes: [],
   outputs: [],
   status: "active",
+  // TrustBot is a chat utility module — not in agentModules + not on
+  // the Agents page. Position is far past the visible range so any
+  // accidental render lands at the bottom.
+  category: "ops",
+  pipelinePosition: 99,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const query = (ctx.input.query as string) ?? "";

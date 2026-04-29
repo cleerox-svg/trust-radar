@@ -150,6 +150,8 @@ export const cartographerAgent: AgentModule = {
   ],
   outputs: [{ type: "score" }, { type: "diagnostic" }],
   status: "active",
+  category: "intelligence",
+  pipelinePosition: 3,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env, runId } = ctx;

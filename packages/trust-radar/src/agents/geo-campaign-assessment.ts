@@ -157,6 +157,8 @@ export const geoCampaignAssessmentAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 34,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

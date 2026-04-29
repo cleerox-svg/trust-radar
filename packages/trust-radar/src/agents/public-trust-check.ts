@@ -174,6 +174,8 @@ export const publicTrustCheckAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 22,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const { env } = ctx;

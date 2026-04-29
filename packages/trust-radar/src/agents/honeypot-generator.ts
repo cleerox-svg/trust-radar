@@ -120,6 +120,8 @@ export const honeypotGeneratorAgent: AgentModule = {
   writes: [],
   outputs: [{ type: "diagnostic" }],
   status: "active",
+  category: "sync",
+  pipelinePosition: 27,
 
   async execute(ctx: AgentContext): Promise<AgentResult> {
     const agentOutputs: AgentOutputEntry[] = [];
