@@ -37,6 +37,7 @@ import { cubeHealerAgent } from "./cube-healer";
 import { navigatorAgent } from "../cron/navigator";
 import { enricherAgent } from "../cron/enricher";
 import { publicTrustCheckAgent } from "./public-trust-check";
+import { qualifiedReportAgent } from "./qualified-report";
 
 // TrustBot is a utility module for the /api/trustbot/chat endpoint — not a scheduled/event agent
 export { trustbotAgent } from "./trustbot";
@@ -65,4 +66,5 @@ export const agentModules: Record<string, AgentModule> = {
   "navigator": navigatorAgent,
   "enricher": enricherAgent,
   "public_trust_check": publicTrustCheckAgent,
+  "qualified_report": qualifiedReportAgent,
 };

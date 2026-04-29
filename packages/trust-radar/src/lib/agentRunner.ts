@@ -35,7 +35,8 @@ export type AgentName =
   | "cube_healer"
   | "navigator"
   | "enricher"
-  | "public_trust_check";
+  | "public_trust_check"
+  | "qualified_report";
 
 export type TriggerType = "scheduled" | "event" | "manual" | "api";
 export type RunStatus = "success" | "partial" | "failed";

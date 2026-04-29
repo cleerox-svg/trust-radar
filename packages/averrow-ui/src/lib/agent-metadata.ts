@@ -28,7 +28,8 @@ export type AgentId =
   | 'auto_seeder'
   | 'seed_strategist'
   | 'enricher'
-  | 'public_trust_check';
+  | 'public_trust_check'
+  | 'qualified_report';
 
 export interface AgentMetadata {
   id: AgentId;
@@ -239,6 +240,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#A855F7',
     category: 'sync',
     pipelinePosition: 22,
+  },
+  qualified_report: {
+    id: 'qualified_report',
+    displayName: 'Qualified Report',
+    codename: 'qualified_report',
+    subtitle: 'Synchronous AI — admin-triggered customer-facing brand risk reports (narrative + remediation plan, Haiku × 2)',
+    color: '#FB7185',
+    category: 'sync',
+    pipelinePosition: 23,
   },
 };
 

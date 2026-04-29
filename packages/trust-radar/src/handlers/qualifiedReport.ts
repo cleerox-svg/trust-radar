@@ -25,7 +25,9 @@
 // generate — useful for "before vs. after we engaged" comparisons.
 
 import { json } from "../lib/cors";
-import { callHaikuRaw } from "../lib/haiku";
+import { runSyncAgent } from "../lib/agentRunner";
+import { qualifiedReportAgent } from "../agents/qualified-report";
+import type { QualifiedReportOutput } from "../agents/qualified-report";
 import type { Env } from "../types";
 
 // ─── ROI defaults ──────────────────────────────────────────────────
@@ -156,27 +158,34 @@ async function buildReportPayload(env: Env, lead: { domain: string; company: str
   if (campaignsResult.results.length > 0) keyFindings.push(`Targeted by ${campaignsResult.results.length} active threat campaign${campaignsResult.results.length === 1 ? "" : "s"} we are tracking`);
   if (keyFindings.length === 0) keyFindings.push(`No active intelligence-feed threats currently targeting ${domain}`);
 
-  // Generate narrative + remediation plan via Haiku. Both are bounded by
-  // the cost guard inside callHaikuRaw — if AI is throttled we fall back
-  // to deterministic strings so the report still renders.
-  const narrativePromise = callHaikuRaw(
+  // Narrative + remediation plan via the qualified_report sync agent.
+  // The agent owns input validation (sanitises lead.company so prompt
+  // injection can't reach the model), the two parallel AI calls,
+  // per-field output schema validation, and deterministic fallbacks.
+  // Phase 3.2 of agent audit.
+  const agentRun = await runSyncAgent<QualifiedReportOutput>(
     env,
-    { agentId: "qualified-report", runId: null },
-    "You write concise threat-actor briefings for a security platform's enterprise sales reports. Three sentences, executive-grade language, name specific risks (not generic), no marketing fluff.",
-    `Brand: ${lead.company ?? domain} (${domain}). Active threats: ${totalThreats}. Top hosting providers: ${providersResult.results.slice(0, 3).map(p => p.name).join(", ") || "none observed"}. Top countries: ${countriesResult.results.slice(0, 3).map(c => c.country).join(", ") || "none"}. Active campaigns: ${campaignsResult.results.length}. Email grade: ${emailGrade}. Write the threat-actor briefing.`,
-    400,
-  );
-  const planPromise = callHaikuRaw(
-    env,
-    { agentId: "qualified-report", runId: null },
-    "You write concise remediation plans for security platform sales reports. Five numbered actions, prioritized highest-impact first, each one sentence, concrete (not 'improve email security' but 'enable DMARC reject policy on the canonical domain within 14 days').",
-    `Findings for ${lead.company ?? domain}: ${totalThreats} active threats, email security grade ${emailGrade}, SPF policy ${brandRow?.spf_policy ?? "missing"}, DMARC policy ${brandRow?.dmarc_policy ?? "missing"}, ${campaignsResult.results.length} active campaigns. Write the remediation plan.`,
-    500,
+    qualifiedReportAgent,
+    {
+      domain,
+      companyName: lead.company ?? domain,
+      totalThreats,
+      topProviders: providersResult.results.map(p => p.name).slice(0, 10),
+      topCountries: countriesResult.results.map(c => c.country).slice(0, 10),
+      campaignCount: campaignsResult.results.length,
+      emailGrade,
+      spfPolicy: brandRow?.spf_policy ?? null,
+      dmarcPolicy: brandRow?.dmarc_policy ?? null,
+    },
   );
 
-  const [narrativeResult, planResult] = await Promise.all([narrativePromise, planPromise]);
-  const narrative = (narrativeResult.success ? narrativeResult.text : null) ?? `Active impersonation and phishing infrastructure targeting ${domain} has been observed across ${threatsResult.results.length} distinct events in the last 90 days. Hosting and ASN diversity suggests organized actor behavior rather than incidental abuse. Coordinated takedown plus email-authentication hardening would materially reduce exposure.`;
-  const plan = (planResult.success ? planResult.text : null) ?? `1. Enable DMARC quarantine policy on the primary domain within 14 days.\n2. Onboard active threat feeds + lookalike monitoring for continuous detection.\n3. Initiate takedown requests for all active phishing infrastructure (priority by hosting provider).\n4. Lock down DKIM selectors and rotate any keys older than 24 months.\n5. Enable executive impersonation monitoring across LinkedIn, Twitter, and major social platforms.`;
+  // Defence in depth — agent throws on catastrophic schema failure.
+  // If we somehow get here without data, synthesise minimal text so
+  // the admin still gets a renderable report.
+  const narrative = agentRun.data?.narrative
+    ?? `Active impersonation and phishing infrastructure targeting ${domain} has been observed across ${threatsResult.results.length} distinct events in the last 90 days. Coordinated takedown plus email-authentication hardening would materially reduce exposure.`;
+  const plan = agentRun.data?.plan
+    ?? `1. Enable DMARC quarantine policy on the primary domain within 14 days.\n2. Onboard active threat feeds + lookalike monitoring for continuous detection.\n3. Initiate takedown requests for all active phishing infrastructure (priority by hosting provider).\n4. Lock down DKIM selectors and rotate any keys older than 24 months.\n5. Enable executive impersonation monitoring across LinkedIn, Twitter, and major social platforms.`;
 
   // ROI projection — analyst-hour replacement + breach prevention.
   const analystDollars = ROI.analyst_hours_saved_per_year * ROI.hourly_rate_usd;

@@ -308,7 +308,20 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 285,
-      "last_modified": "2026-04-29T04:12:19.353Z"
+      "last_modified": "2026-04-29T04:20:08.724Z"
+    },
+    {
+      "name": "qualified-report",
+      "path": "packages/trust-radar/src/agents/qualified-report.ts",
+      "entrypoint": "qualifiedReportAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 272,
+      "last_modified": "2026-04-29T04:22:36.572Z"
     },
     {
       "name": "seed-strategist",
@@ -880,7 +893,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 21,
+    "agents": 22,
     "feeds": 40,
     "crons": 3,
     "workers": 1
