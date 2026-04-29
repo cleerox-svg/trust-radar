@@ -25,9 +25,9 @@ import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from ".
 
 export const autoSeederAgent: AgentModule = {
   name: "auto_seeder",
-  displayName: "Auto-Seeder",
-  description: "Bulk-plants spam-trap addresses into harvester channels on a weekly cadence",
-  color: "#A78BFA",
+  displayName: "Recon",
+  description: "Spam-trap seeding agent — plants honeypot addresses into harvester channels and tracks per-location yield",
+  color: "#10B981",
   trigger: "scheduled",
   requiresApproval: false,
 

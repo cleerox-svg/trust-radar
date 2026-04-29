@@ -53,6 +53,7 @@ const AGENT_GROUPS: AgentGroup[] = [
       'social_monitor',
       'app_store_monitor',
       'dark_web_monitor',
+      'auto_seeder',
     ],
   },
   {
