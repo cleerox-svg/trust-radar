@@ -17,8 +17,27 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
   // observes Navigator's health, it does not manage when or how it runs.
   // Must branch BEFORE any heavy work — Flight Control, CertStream, etc.
   if (event.cron === '*/5 * * * *') {
-    const { runNavigator } = await import('./navigator');
-    return runNavigator(env, ctx, new Date(event.scheduledTime));
+    // Phase 2.4 of agent audit: navigator is now a standard
+    // AgentModule dispatched through executeAgent — agent_runs row,
+    // FC supervision, circuit breaker all uniform with every other
+    // agent. scheduledTime is threaded via input so per-tick
+    // hour-bucket math is unaffected by cron jitter.
+    try {
+      const { navigatorAgent } = await import('./navigator');
+      const { executeAgent } = await import('../lib/agentRunner');
+      await executeAgent(
+        env,
+        navigatorAgent,
+        { scheduledTime: new Date(event.scheduledTime).toISOString(), _executionCtx: ctx },
+        'cron',
+        'scheduled',
+      );
+    } catch (err) {
+      logger.error('navigator_dispatch_error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
   }
 
   // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───
