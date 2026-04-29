@@ -665,7 +665,7 @@ export const cartographerAgent: AgentModule = {
                 what: `DMARC policy is set to none on ${brand.domain}`,
                 why_it_matters: `A DMARC policy of "none" means the domain reports impersonation attempts but doesn't block them. Attackers can spoof your email with no enforcement.`,
                 recommended_action: `Move DMARC to quarantine, then to reject after monitoring DMARC reports for two weeks. Documentation: https://dmarc.org/overview/`,
-                link: `/brands/${brand.id}/email-security`,
+                link: `/brands/${brand.id}?tab=email`,
               });
               await emitIntelNotification(env, 'intel_recommended_action', rendered);
             } catch (intelErr) {
