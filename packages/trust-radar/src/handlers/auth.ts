@@ -696,3 +696,92 @@ function parseCookies(cookieHeader: string): Record<string, string> {
   }
   return cookies;
 }
+
+// ─── Service-account JWT minting ────────────────────────────────
+//
+// Issues a long-lived JWT for the dedicated MCP service-account user,
+// creating that user on first call. Auth is via AVERROW_INTERNAL_SECRET
+// (NOT a user JWT) — same pattern as every other /api/internal/* handler.
+//
+// Design rationale:
+//   - The averrow-mcp UI verification tools need to hit user-context
+//     endpoints (/api/auth/me, /api/dashboard/overview, etc) which won't
+//     accept the internal secret. They need a real user JWT.
+//   - Storing a 12h JWT and rotating manually was unworkable.
+//   - This endpoint mints a 90-day JWT for the service account; the MCP
+//     calls it once, caches the JWT in KV, and re-mints when <7 days
+//     remain. User intervention drops from "rotate every 12h" to never.
+//
+// Service user is identified by a fixed ID ("service_account_mcp") so
+// the row is created once and reused. INSERT OR IGNORE keeps the call
+// idempotent. Role is super_admin so the JWT can hit admin endpoints
+// the smoke check covers.
+
+const SERVICE_ACCOUNT_ID = "service_account_mcp";
+const SERVICE_ACCOUNT_EMAIL = "service-mcp@averrow.local";
+const SERVICE_ACCOUNT_NAME = "MCP Service Account";
+/** 90 days — long enough that re-mint is rarely needed but short enough
+ *  that a leaked token expires before becoming a long-running risk. */
+const SERVICE_JWT_TTL_SECONDS = 60 * 60 * 24 * 90;
+
+export async function handleMintServiceJwt(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    // Ensure the service-account user row exists. Idempotent on
+    // repeated calls — INSERT OR IGNORE keys on the primary id.
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, email, name, role, status, created_at)
+       VALUES (?, ?, ?, 'super_admin', 'active', datetime('now'))`,
+    ).bind(SERVICE_ACCOUNT_ID, SERVICE_ACCOUNT_EMAIL, SERVICE_ACCOUNT_NAME).run();
+
+    // Verify the user is active in case it was suspended manually after
+    // creation. We don't want to hand out a JWT for a non-active user
+    // since the auth middleware would reject it on the next request.
+    const user = await env.DB.prepare(
+      "SELECT status FROM users WHERE id = ?",
+    ).bind(SERVICE_ACCOUNT_ID).first<{ status: string }>();
+    if (!user || user.status !== "active") {
+      return json(
+        { success: false, error: "Service account is not active" },
+        503,
+        origin,
+      );
+    }
+
+    // Mint a 90-day JWT. embeddedScope is omitted (super_admin role
+    // bypasses org scope in middleware/auth.ts).
+    const jwt = await signJWT(
+      {
+        sub: SERVICE_ACCOUNT_ID,
+        email: SERVICE_ACCOUNT_EMAIL,
+        role: "super_admin",
+      },
+      env.JWT_SECRET,
+      SERVICE_JWT_TTL_SECONDS,
+    );
+
+    const expiresAt = new Date(
+      (Math.floor(Date.now() / 1000) + SERVICE_JWT_TTL_SECONDS) * 1000,
+    ).toISOString();
+
+    return json(
+      {
+        success: true,
+        data: {
+          jwt,
+          expires_at: expiresAt,
+          ttl_seconds: SERVICE_JWT_TTL_SECONDS,
+          user_id: SERVICE_ACCOUNT_ID,
+        },
+      },
+      200,
+      origin,
+    );
+  } catch (err) {
+    return json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      origin,
+    );
+  }
+}

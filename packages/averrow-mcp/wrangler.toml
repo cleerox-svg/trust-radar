@@ -3,6 +3,18 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# KV cache for the auto-refreshed service-account JWT used by the
+# verify_ui_smoke + assert_endpoint tools. The JWT is minted once via
+# /api/internal/auth/mint-service-jwt (90-day TTL) and re-minted only
+# when fewer than 7 days remain. Keep the binding small — single key.
+#
+# Create the namespace once with:
+#   wrangler kv namespace create MCP_TOKEN_CACHE
+# then paste the returned id below.
+[[kv_namespaces]]
+binding = "MCP_TOKEN_CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
 [observability]
 enabled = false
 head_sampling_rate = 1
@@ -21,12 +33,10 @@ head_sampling_rate = 1
 # Secrets (set via `wrangler secret put` or Cloudflare dashboard):
 #   AVERROW_INTERNAL_SECRET  — must match the value set on the trust-radar worker
 #   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
-#   MCP_TEST_JWT              — long-lived access JWT for a dedicated test user
-#                               account. Required by verify_ui_smoke + assert_endpoint
-#                               tools. Rotate from a logged-in browser session:
-#                               localStorage.getItem('averrow_token'). Default JWT
-#                               TTL is 12h, so rotation is manual until refresh-
-#                               token handling lands.
+#
+# UI verification tools (verify_ui_smoke + assert_endpoint) auto-mint a
+# 90-day service-account JWT via /api/internal/auth/mint-service-jwt and
+# cache it in MCP_TOKEN_CACHE KV — no manual JWT secret needed.
 
 # Deploy:
 #   cd packages/averrow-mcp

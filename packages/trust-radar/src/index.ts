@@ -342,6 +342,20 @@ export default {
         }
       }
 
+      // Mint a service-account JWT for averrow-mcp UI verification tools.
+      // Internal secret authenticates the caller; the response carries a
+      // 90-day user JWT for SERVICE_ACCOUNT_ID. See handleMintServiceJwt
+      // for the rationale.
+      if (url.pathname === '/api/internal/auth/mint-service-jwt' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const { handleMintServiceJwt } = await import('./handlers/auth');
+        return handleMintServiceJwt(request, env);
+      }
+
       // Manual briefing email trigger
       if (url.pathname === '/api/internal/briefing/send' && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
