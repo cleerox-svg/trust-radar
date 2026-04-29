@@ -202,6 +202,14 @@ self.addEventListener('push', (event) => {
     // High severity gets a vibration cue on Android; iOS ignores this.
     vibrate: data.severity === 'critical' ? [200, 100, 200, 100, 200] : [120, 80, 120],
     requireInteraction: data.severity === 'critical',
+    // Inline action buttons (W3C Web Push). Chrome + Firefox honor;
+    // iOS Safari (PWA) ignores `actions` and shows a single tap zone.
+    // The server-side payload may opt out by setting `actions: []`.
+    // The `notificationclick` handler below routes by event.action.
+    actions: Array.isArray(data.actions) ? data.actions : [
+      { action: 'snooze', title: 'Snooze 1h' },
+      { action: 'done',   title: 'Done' },
+    ],
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -213,10 +221,33 @@ self.addEventListener('notificationclick', (event) => {
   const targetPath = (event.notification.data && event.notification.data.url) || '/v2/';
   const notificationId = event.notification.data && event.notification.data.notificationId;
   const targetUrl = new URL(targetPath, self.location.origin).href;
+  const action = event.action; // '' for default tap, 'snooze' / 'done' for action buttons
 
   event.waitUntil((async () => {
-    // Best-effort mark-read against the in-app row. Cookies are first-party
-    // so the SW inherits the user's session.
+    // Action buttons take a side-channel route — no window navigation.
+    // Defaults: snooze 1h, done = mark-done. The fetch is best-effort
+    // and falls through silently on session loss.
+    if (notificationId && (action === 'snooze' || action === 'done')) {
+      try {
+        if (action === 'snooze') {
+          const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+          await fetch(`/api/notifications/${encodeURIComponent(notificationId)}/snooze`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ until }),
+          });
+        } else {
+          await fetch(`/api/notifications/${encodeURIComponent(notificationId)}/done`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        }
+      } catch { /* swallow */ }
+      return; // do not open a window for action button clicks
+    }
+
+    // Default tap (no action selected): mark read and navigate.
     if (notificationId) {
       fetch(`/api/notifications/${encodeURIComponent(notificationId)}/read`, {
         method: 'POST',
