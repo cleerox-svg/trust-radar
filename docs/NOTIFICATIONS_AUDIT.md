@@ -36,7 +36,7 @@ verdicts here.
 - §6 Industry research ✓
 - §7 Redesign principles ✓
 - §8 Decisions log ✓
-- §9 Phase plan (N0–N6)
+- §9 Phase plan (N0–N6) ✓
 - §10 Schema changes
 - §11 AI intel notification opportunities
 - §12 Email briefing investigation
@@ -863,5 +863,178 @@ haven't sent a briefing in 36 hours").
 **Drives:** New §13 platform-health signals. N6 includes the
 email-briefing investigation as a fix, plus the platform-health
 notification family.
+
+---
+
+## 9. Phase plan (N0–N6)
+
+Each phase is a coherent unit of work; PRs within a phase chunk
+small enough to ship independently. Phase scope can shift — phases
+do not.
+
+### N0 — Audit doc (this document)
+
+**Goal:** capture findings, research, principles, decisions, and
+implementation plan in one signed-off artifact.
+
+**PRs:** N0a (skeleton + TL;DR) ✓ → N0b (methodology + per-type) ✓
+→ N0c (tenant scoping + click + settings) ✓ → N0d-1
+(Linear/GitHub/Slack/PagerDuty research) ✓ → N0d-2
+(Stripe/iOS/Android/summary) ✓ → N0e (principles + decisions) ✓
+→ **N0f (this) (phase plan + schema)** → N0g (AI intel + email
+briefing + platform-health) → N0h (backlog + compliance +
+changelog).
+
+**Exit criteria:** all 16 sections drafted; operator signs off on
+the schema + phase plan before N1 begins.
+
+### N1 — Stop the spam (1 PR)
+
+**Goal:** fix the immediate operator complaint (the screenshot
+"Voximplant ×3, MI314 ×3, Pitt ×3"). Quick win that doesn't
+require schema changes.
+
+**Deliverables:**
+- `cartographer.ts:626` — pass `metadata: { brand_id }` so dedup
+  fires; tighten the boundary policy (only D/F→A/B improvements
+  and A/B→D/F degradations); cap at 1/brand/24h on top of dedup.
+- Add `link: '/brands/${brand.id}'` to email_security_change and
+  DMARC notifications.
+- Wire click handler in `NotificationBell.tsx` and
+  `Notifications.tsx` to `navigate(notification.link)` then
+  `markRead`. Skip navigation when `link` is null (graceful).
+
+**Exit criteria:** operator visits live UI; clicks an
+email_security_change notification; lands on the brand page.
+The same brand doesn't fire the same notification twice within
+24h.
+
+### N2 — Schema migration (1 PR)
+
+**Goal:** add the schema fields that every other phase depends on.
+Backfill existing rows so the rollout is non-breaking.
+
+**Deliverables:**
+- Migration `0127_notifications_v2.sql`: adds `brand_id`,
+  `org_id`, `audience`, `state`, `snoozed_until`, `done_at`,
+  `reason_text`, `recommended_action`, `group_key` columns to
+  `notifications`. Adds `notification_subscriptions` table.
+  Adds `notification_preferences_v2` columns or new table (TBD
+  in §10). Adds indexes for the new query patterns.
+- Backfill: existing rows get `brand_id` populated from
+  `metadata.brand_id` JSON when present; `state='read'` for
+  rows with `read_at`, `state='unread'` otherwise; `audience`
+  defaulted by inspecting `user_id` join to roles.
+
+**Exit criteria:** migration applies cleanly to production; all
+existing rows have non-null `state`; LIST endpoint still returns
+the same notifications it did before (no regression).
+
+### N3 — Backend routing rewrite (1-2 PRs)
+
+**Goal:** every notification creation routes correctly per its
+`audience` + dedup + per-user subscription join. Replaces the
+broadcast-to-all-active-users fan-out.
+
+**Deliverables:**
+- N3a: `lib/notifications.ts` rewritten. Each type declares
+  audience policy + dedup rule + recommended-action template +
+  default link generator (registry pattern, like the agent
+  registry). `createNotification()` reads the registry and
+  routes accordingly. Backward-compatible signature so call
+  sites don't all change at once.
+- N3b: LIST endpoint joins through `notification_subscriptions`
+  for tenant scoping; super_admins respect the
+  `show_tenant_notifications` toggle. State-aware filters
+  (`?state=unread,snoozed`).
+- All 18 existing call sites migrated to pass `metadata` and
+  `audience`. Inline TODOs for templates that still need work.
+
+**Exit criteria:** tenant user A sees only brands they monitor;
+tenant user B sees only theirs; super_admin sees operational
++ opt-in firehose. No regressions on the 7 currently-working
+types.
+
+### N4 — Triage inbox UI redesign (2-3 PRs)
+
+**Goal:** rebuild the notification surfaces around the 4-state
+machine, action buttons, and entity grouping.
+
+**Deliverables:**
+- N4a: `useNotifications` hook rewrite. Fetch state-grouped
+  rows (`unread`, `snoozed`, `done` separated). Mutation hooks
+  for each state transition.
+- N4b: `<NotificationBell>` rebuild. Inbox-icon style. Action
+  buttons on hover. Click navigates `link` + marks read.
+  Group-by-entity collapsing.
+- N4c: new `/v2/notifications/inbox` page. Linear-style
+  primary nav item. Bulk operations. Filter by state, severity,
+  type, brand. Empty state for "Inbox zero".
+- N4d (push): SW notification channels (iOS/Android), severity
+  → interruption level map, action buttons in
+  `notificationclick`, `/api/notifications/:id/action` handler.
+
+**Exit criteria:** operator can zero out the inbox; clicking a
+notification lands on a useful page; snooze sends a row away
+for N hours and brings it back; done is sticky; push
+notifications carry inline actions.
+
+### N5 — Subscriptions + preferences (2 PRs)
+
+**Goal:** give users meaningful control. Per-brand watch /
+default / ignore. Severity floors. Digest mode.
+
+**Deliverables:**
+- N5a: `notification_subscriptions` populated on tenant-brand
+  monitoring (auto-create `default` row when a brand is
+  monitored). "Watch" button on the brand detail page upgrades
+  to `watching`. "Mute" demotes to `ignored`.
+  `notification_preferences_v2` populated with sensible
+  defaults from §7 / §8.
+- N5b: `NotificationPreferences.tsx` rebuilt. Per-channel
+  routing matrix (in-app / push / email × type × severity
+  floor). Digest mode selector (realtime / hourly / daily /
+  weekly). Quiet hours stays. New section: per-brand watch list
+  with subscription level controls. Super_admin toggle: "show
+  tenant notifications too" (Q3).
+
+**Exit criteria:** a tenant operator can flip a brand to
+`watching` and start getting medium+low for it without
+touching anything else. A super_admin can flip
+`show_tenant_notifications` and start seeing all rows.
+
+### N6 — AI intel + platform-health + email briefing (2-3 PRs)
+
+**Goal:** the new value layer. AI intel surfaces as
+notifications; platform-health signals reach the operator;
+email briefing fixed + self-monitored.
+
+**Deliverables:**
+- N6a (AI intel): new `intel_*` types — `intel_predictive`,
+  `intel_cross_brand_pattern`, `intel_sector_trend`,
+  `intel_recommended_action`, `intel_threat_actor_surface`.
+  Static template per type with variable slots
+  (`what` / `why_it_matters` / `recommended_action`). Sources:
+  Narrator (briefing), Strategist (campaigns), NEXUS (clusters),
+  Curator (hygiene). Each agent emits via the new
+  `createNotification()` registry path.
+- N6b (platform-health): new `platform_*` types — see §13 for
+  the full list (D1 budget warn/skip, feed at-risk, feed
+  auto-paused, agent stalled, agent circuit breaker, cron
+  orchestrator missed, etc.). All `audience='super_admin'`.
+- N6c (email briefing): root-cause fix per §12 investigation.
+  Add a self-monitoring `platform_briefing_silent` notification
+  that fires if a cron briefing hasn't sent in 36h.
+
+**Exit criteria:** super_admin sees a `platform_d1_budget_warn`
+notification when D1 reads cross 85% of daily budget. Tenant
+sees an `intel_predictive` notification when NEXUS clusters a
+new likely-targeted campaign for one of their brands. The
+13:00 UTC briefing email arrives daily.
+
+### Total scope
+
+7 phases, ~12-15 PRs, ~3-4 sessions of work assuming the
+chunking pattern from this document continues.
 
 
