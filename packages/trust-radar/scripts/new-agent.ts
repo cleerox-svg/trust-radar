@@ -454,6 +454,202 @@ function patchAgentRegistry(snake: string, kebabName: string, camelVar: string):
 patchResults.push(patchAgentNameUnion(args.snakeName));
 patchResults.push(patchAgentRegistry(args.snakeName, kebab, snakeToCamel(args.snakeName)));
 
+// ─── Phase 5.3c — UI wiring + doc patches ────────────────────────
+//
+// Auto-patches the four cross-package surfaces the audit-agent-standard
+// CI gate (Phase 5.2) checks: AGENT_METADATA registry, AGENT_GROUPS
+// membership on the Agents page, AgentIcon SVG, and the AI_AGENTS.md
+// row. Each patch follows the same shape as the backend wiring above:
+// regex anchor → string insert → idempotency check on a presence
+// regex → graceful failure that leaves the operator a clear message.
+
+const REPO_ROOT = resolve(__dirname, "..", "..", "..");
+const UI_METADATA_PATH = resolve(REPO_ROOT, "packages/averrow-ui/src/lib/agent-metadata.ts");
+const UI_AGENTS_PAGE_PATH = resolve(REPO_ROOT, "packages/averrow-ui/src/features/agents/Agents.tsx");
+const UI_ICON_PATH = resolve(REPO_ROOT, "packages/averrow-ui/src/components/brand/AgentIcon.tsx");
+const AGENTS_DOC_PATH = resolve(REPO_ROOT, "docs/AI_AGENTS.md");
+
+/** Pick the next-available pipelinePosition by reading the current
+ *  metadata file and taking max + 1. trustbot deliberately sits at
+ *  99 as a high marker — exclude it from the max so a new agent
+ *  doesn't land at 100+ behind that intentional gap. */
+function nextPipelinePosition(metadataSrc: string): number {
+  const positions: number[] = [];
+  const re = /pipelinePosition:\s*(\d+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(metadataSrc)) !== null) {
+    const n = parseInt(m[1]!, 10);
+    if (Number.isFinite(n) && n < 90) positions.push(n);
+  }
+  return positions.length > 0 ? Math.max(...positions) + 1 : 1;
+}
+
+function patchAgentMetadata(args: ScaffoldArgs): PatchResult {
+  const file = "averrow-ui/src/lib/agent-metadata.ts";
+  let src: string;
+  try { src = readFileSync(UI_METADATA_PATH, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  const presentRe = new RegExp(`['\"]${args.snakeName}['\"]`);
+  if (presentRe.test(src)) return { file, status: "already-present" };
+
+  const position = nextPipelinePosition(src);
+
+  // 1. AgentId union — closing line is `  | '<last>';` (single-quote
+  //    style in this file).
+  const unionCloseRe = /(\| '[a-z_][a-z0-9_]*')(;\n)/;
+  if (!unionCloseRe.test(src)) {
+    return { file, status: "failed", detail: "could not locate AgentId union closing line" };
+  }
+  let nextSrc = src.replace(unionCloseRe, `$1\n  | '${args.snakeName}'$2`);
+
+  // 2. AGENT_METADATA registry. The block ends with `};` after the
+  //    last entry's closing `},`. Insert a new entry just before
+  //    that closing brace.
+  const subtitle = `${args.displayName} — TODO replace with real subtitle.`;
+  const entry =
+    `  ${args.snakeName}: {\n` +
+    `    id: '${args.snakeName}',\n` +
+    `    displayName: '${args.displayName}',\n` +
+    `    codename: '${args.snakeName}',\n` +
+    `    subtitle: '${subtitle}',\n` +
+    `    color: '${args.color}',\n` +
+    `    category: '${args.category}',\n` +
+    `    pipelinePosition: ${position},\n` +
+    `  },\n`;
+
+  const closingRe = /(\n  [a-z_]+: \{[\s\S]*?\n  \},\n)(\};\n\n\/\*\*\s*All agents)/;
+  if (!closingRe.test(nextSrc)) {
+    return { file, status: "failed", detail: "could not locate AGENT_METADATA closing brace" };
+  }
+  nextSrc = nextSrc.replace(closingRe, `$1${entry}$2`);
+
+  writeFileSync(UI_METADATA_PATH, nextSrc, "utf8");
+  return { file, status: "patched", detail: `pipelinePosition=${position}` };
+}
+
+function patchAgentGroups(args: ScaffoldArgs): PatchResult {
+  const file = "averrow-ui/src/features/agents/Agents.tsx";
+  let src: string;
+  try { src = readFileSync(UI_AGENTS_PAGE_PATH, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  if (new RegExp(`['\"]${args.snakeName}['\"]`).test(src)) return { file, status: "already-present" };
+
+  // Map AgentCategory → AGENT_GROUPS group label. Must match the
+  // labels used in features/agents/Agents.tsx today. orchestration
+  // (flight_control) and meta (architect retired) skip group
+  // membership — the audit script exempts flight_control and
+  // ignores retired modules.
+  const labelByCategory: Record<string, string | null> = {
+    orchestration: null,
+    meta: null,
+    intelligence: "Detection & Surveillance",
+    response: "Response",
+    ops: "Platform Operations",
+    sync: "Synchronous AI",
+  };
+  const targetLabel = labelByCategory[args.category];
+  if (targetLabel === null || targetLabel === undefined) {
+    return { file, status: "skipped", detail: `category '${args.category}' has no AGENT_GROUPS membership` };
+  }
+
+  // Anchor: locate the group's `agentIds: [...]` block and append
+  // the new id. The blocks in this file are single-line arrays.
+  const escapedLabel = targetLabel.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const groupRe = new RegExp(
+    `(label:\\s*['\"]${escapedLabel}['\"],\\s*\\n\\s*agentIds:\\s*\\[)([^\\]]*)(\\])`,
+  );
+  if (!groupRe.test(src)) {
+    return { file, status: "failed", detail: `could not locate AGENT_GROUPS bucket "${targetLabel}"` };
+  }
+  const nextSrc = src.replace(groupRe, (_match, head: string, body: string, tail: string) => {
+    const trimmed = body.replace(/\s+$/, "");
+    const sep = trimmed.endsWith(",") || trimmed === "" ? "" : ",";
+    return `${head}${trimmed}${sep} '${args.snakeName}'${tail}`;
+  });
+  writeFileSync(UI_AGENTS_PAGE_PATH, nextSrc, "utf8");
+  return { file, status: "patched", detail: `added to "${targetLabel}"` };
+}
+
+function patchAgentIcon(args: ScaffoldArgs): PatchResult {
+  const file = "averrow-ui/src/components/brand/AgentIcon.tsx";
+  let src: string;
+  try { src = readFileSync(UI_ICON_PATH, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  // Idempotency: existing icon entry?
+  const presentRe = new RegExp(`^[ \\t]{2}${args.snakeName}:\\s*\\(s\\)\\s*=>`, "m");
+  if (presentRe.test(src)) return { file, status: "already-present" };
+
+  // Placeholder SVG: a circle + question mark — operator replaces.
+  // Kept compact (~5 lines) so it doesn't bloat the file.
+  const placeholder =
+    `\n  // TODO ${args.snakeName} — replace placeholder icon (puzzle piece + ?). See sentinel/analyst/cartographer for reference shapes.\n` +
+    `  ${args.snakeName}: (s) => (\n` +
+    `    <svg width={s} height={s} viewBox=\"0 0 36 36\" fill=\"none\">\n` +
+    `      <circle cx=\"18\" cy=\"18\" r=\"14\" stroke=\"currentColor\" strokeWidth=\"1.4\" opacity=\"0.6\" />\n` +
+    `      <text x=\"18\" y=\"23\" fontSize=\"14\" fontWeight=\"700\" fill=\"currentColor\" textAnchor=\"middle\" style={{ fontFamily: 'monospace' }}>?</text>\n` +
+    `    </svg>\n` +
+    `  ),\n`;
+
+  // Anchor: the icons object closes with `};` after the last entry.
+  // It's preceded by a `),` line (every icon entry ends with `),`)
+  // and followed by `\nexport function AgentIcon`.
+  const closingRe = /(\),\n)(\};\n\nexport function AgentIcon)/;
+  if (!closingRe.test(src)) {
+    return { file, status: "failed", detail: "could not locate icons map closing brace" };
+  }
+  const nextSrc = src.replace(closingRe, `$1${placeholder}$2`);
+  writeFileSync(UI_ICON_PATH, nextSrc, "utf8");
+  return { file, status: "patched", detail: "placeholder SVG inserted — replace before merge" };
+}
+
+function patchAgentsDoc(args: ScaffoldArgs): PatchResult {
+  const file = "docs/AI_AGENTS.md";
+  let src: string;
+  try { src = readFileSync(AGENTS_DOC_PATH, "utf8"); }
+  catch (err) { return { file, status: "failed", detail: `read failed: ${err instanceof Error ? err.message : String(err)}` }; }
+
+  // Idempotency: agent name (snake or display) already in the doc?
+  if (new RegExp(`\\b${args.snakeName}\\b`).test(src)) return { file, status: "already-present" };
+
+  // Pick a target table based on category. The two compact tables
+  // in AI_AGENTS.md after Phase 5.2:
+  //   sync                 → "Synchronous AI Agents" (## heading)
+  //   intelligence/ops/etc → "Surveillance & Discovery Agents" (## heading)
+  const tableHeading = args.category === "sync"
+    ? "## Synchronous AI Agents"
+    : "## Surveillance & Discovery Agents";
+
+  // Each table ends with a blank line + `---`. Insert a new row
+  // before the trailing `---` separator.
+  const escapedHeading = tableHeading.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const tableRe = new RegExp(
+    `(${escapedHeading}[\\s\\S]*?\\|[\\s\\S]*?)(\\n\\n---\\n)`,
+  );
+  if (!tableRe.test(src)) {
+    return { file, status: "failed", detail: `could not locate "${tableHeading}" table` };
+  }
+
+  // Pick column shape based on the chosen table:
+  //   Synchronous AI:    | Agent | Surface | Description |
+  //   Surveillance...:   | Agent | Cadence | Purpose |
+  const cadenceLabel = args.trigger === "scheduled" ? "TODO cadence" : args.trigger === "api" ? "Per request" : args.trigger;
+  const row = args.category === "sync"
+    ? `| **${args.displayName}** (\`${args.snakeName}\`) | TODO surface | TODO description |`
+    : `| **${args.displayName}** (\`${args.snakeName}\`) | ${cadenceLabel} | TODO description |`;
+
+  const nextSrc = src.replace(tableRe, `$1\n${row}$2`);
+  writeFileSync(AGENTS_DOC_PATH, nextSrc, "utf8");
+  return { file, status: "patched", detail: `appended row to "${tableHeading}"` };
+}
+
+patchResults.push(patchAgentMetadata(args));
+patchResults.push(patchAgentGroups(args));
+patchResults.push(patchAgentIcon(args));
+patchResults.push(patchAgentsDoc(args));
+
 // Surface the results to the operator. A failure here is recoverable
 // — the module file already landed; the operator can manually patch
 // the two files using the printed instructions below.
@@ -470,22 +666,23 @@ console.log(
   [
     `[new-agent] wrote ${outPath}`,
     "",
-    "Backend wiring patches:",
+    "Wiring patches:",
     ...patchResults.map((r) => {
-      const symbol = r.status === "patched" ? "✓ patched" : r.status === "already-present" ? "= already-present" : `✗ ${r.status}${r.detail ? ` (${r.detail})` : ""}`;
-      return `  ${symbol}  ${r.file}`;
+      const symbol = r.status === "patched" ? "✓ patched" : r.status === "already-present" ? "= already-present" : r.status === "skipped" ? "~ skipped" : `✗ ${r.status}`;
+      const tail = r.detail ? ` (${r.detail})` : "";
+      return `  ${symbol}  ${r.file}${tail}`;
     }),
     "",
     "Next steps:",
     `  1. Open ${outPath}, replace the TODO blocks with the agent's logic.`,
-    "  2. Wire the UI surfaces (Phase 5.3c will auto-patch these):",
-    `     - averrow-ui/src/lib/agent-metadata.ts → add AGENT_METADATA entry`,
-    `     - averrow-ui/src/features/agents/Agents.tsx → add to AGENT_GROUPS`,
-    `     - averrow-ui/src/components/brand/AgentIcon.tsx → add an SVG`,
-    `     - docs/AI_AGENTS.md    → add a row`,
+    `  2. Replace the placeholder SVG in averrow-ui/src/components/brand/AgentIcon.tsx`,
+    `     (the scaffolder inserted a circle + ? — pick a real glyph).`,
+    `  3. Tighten the AGENT_METADATA subtitle in averrow-ui/src/lib/agent-metadata.ts.`,
+    `  4. Replace the TODO row in docs/AI_AGENTS.md with a real description.`,
     "",
-    "  3. Run pnpm audit:agent-standard — it lists the remaining gaps.",
-    "  4. Run pnpm typecheck + pnpm test.",
-    "  5. Open PR.",
+    "  5. Run pnpm audit:agent-standard — should exit 0 now (or list any",
+    "     edge case the scaffolder couldn't auto-patch).",
+    "  6. Run pnpm typecheck + pnpm test in both packages.",
+    "  7. Open PR.",
   ].join("\n"),
 );
