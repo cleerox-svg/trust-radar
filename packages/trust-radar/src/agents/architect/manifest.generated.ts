@@ -93,6 +93,19 @@ export const REPO_MANIFEST: RepoInventory = {
       "last_modified": "2026-04-29T04:53:04.497Z"
     },
     {
+      "name": "brand-enricher",
+      "path": "packages/trust-radar/src/agents/brand-enricher.ts",
+      "entrypoint": "brandEnricherAgent",
+      "triggers": [
+        "http"
+      ],
+      "reads": [],
+      "writes": [],
+      "ai_models_referenced": [],
+      "loc": 129,
+      "last_modified": "2026-04-29T05:00:36.061Z"
+    },
+    {
       "name": "brand-report",
       "path": "packages/trust-radar/src/agents/brand-report.ts",
       "entrypoint": "brandReportAgent",
@@ -235,7 +248,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 195,
-      "last_modified": "2026-04-29T04:54:11.785Z"
+      "last_modified": "2026-04-29T04:59:28.357Z"
     },
     {
       "name": "narrator",
@@ -945,7 +958,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 26,
+    "agents": 27,
     "feeds": 40,
     "crons": 3,
     "workers": 1

@@ -54,7 +54,7 @@ Averrow runs entirely on Cloudflare's edge. There is no traditional backend serv
 
 ## AI Agents
 
-25 agents coordinate through `agent_runs` / `agent_events` tables. SQL does correlation; AI does narrative.
+26 agents coordinate through `agent_runs` / `agent_events` tables. SQL does correlation; AI does narrative.
 
 | Agent | Role | Cadence |
 |---|---|---|

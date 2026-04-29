@@ -246,6 +246,28 @@ const icons: Record<string, (size: number) => JSX.Element> = {
     </svg>
   ),
 
+  // Brand Enricher — sector classification. A central node with three
+  // labelled tags branching out (finance / tech / other) — visual
+  // metaphor for picking one bucket from a fixed taxonomy.
+  brand_enricher: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* central node — the brand */}
+      <circle cx="6" cy="18" r="2.5" fill="currentColor" opacity="0.85" />
+      {/* connecting lines branching out */}
+      <line x1="8" y1="17" x2="14" y2="9" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      <line x1="8" y1="18" x2="14" y2="18" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      <line x1="8" y1="19" x2="14" y2="27" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+      {/* three sector tag pills — middle one filled (the chosen sector) */}
+      <rect x="14" y="6" width="18" height="6" rx="2" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      <rect x="14" y="15" width="18" height="6" rx="2" fill="currentColor" fillOpacity="0.85" stroke="currentColor" strokeWidth="1" />
+      <rect x="14" y="24" width="18" height="6" rx="2" stroke="currentColor" strokeWidth="1" opacity="0.55" />
+      {/* tiny inner marks in each tag */}
+      <line x1="17" y1="9" x2="29" y2="9" stroke="currentColor" strokeWidth="0.7" opacity="0.4" />
+      <line x1="17" y1="18" x2="26" y2="18" stroke="white" strokeWidth="0.9" />
+      <line x1="17" y1="27" x2="29" y2="27" stroke="currentColor" strokeWidth="0.7" opacity="0.4" />
+    </svg>
+  ),
+
   // Honeypot Generator — renders fake business websites with hidden
   // trap mailtos. Visual: a stylised building façade with windows,
   // and a tiny @ symbol in one window evoking the embedded trap.
