@@ -333,4 +333,8 @@ The architect manifest's static-analysis gives us auto-population for `reads`/`w
 ## Changelog
 
 - 2026-04-29: Initial draft, Phase 1 audit. Per-agent fact sheets, decommission verdicts, compliance matrix, action list.
+- 2026-04-29 (later): **Phase 2.7 verdict-reversal addendum.** Triage of `curator` and `watchdog` reversed their lean-retire verdicts after a code-level review:
+  - **curator** — the audit's "vague mandate" assessment was wrong. The agent runs three concrete jobs: email security scanning for unscanned brands, safe-domain false-positive cleanup, and social profile discovery for high-threat brands. Records-processed metric mismatch hid the work — it does scans, not threat-row INSERTs. **KEPT.** Metadata subtitle updated.
+  - **watchdog** — the audit's "overlaps with FC stall-recovery" assessment was completely wrong. Watchdog has nothing to do with uptime — it's a Haiku-powered social-mention threat classifier that escalates high/critical findings to the threats table. The metadata subtitle ("Uptime Monitoring & Alert Escalation") was misleading and matched a stale role. **KEPT.** Metadata subtitle + category updated (`ops` → `intelligence`).
+  - **Lesson for Phase 1 methodology**: structural signal alone (run count, records processed, descriptive metadata) was insufficient to issue retirement verdicts. Future phases should always pair the structural read with a brief code-level inspection before any `Decommission` row goes in.
 
