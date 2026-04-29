@@ -10,19 +10,23 @@
 // Required secrets (set via CF Dashboard → Worker → Settings → Variables):
 //   AVERROW_INTERNAL_SECRET  — authenticates with averrow.com internal API
 //   MCP_AUTH_TOKEN            — authenticates Claude Code with this MCP server
-//   MCP_TEST_JWT              — long-lived access JWT for a dedicated test user
-//                               account, used by the UI verification tools to
-//                               hit user-context endpoints (/api/auth/me,
-//                               /api/dashboard/overview, etc). Rotate from a
-//                               logged-in browser session: localStorage.getItem
-//                               ('averrow_token'). Default JWT TTL is 12h, so
-//                               rotation is manual until we add refresh-token
-//                               handling here.
+//
+// The UI verification tools auto-mint a 90-day service-account JWT via
+// /api/internal/auth/mint-service-jwt and cache it in MCP_TOKEN_CACHE KV.
+// First-call latency is ~50ms extra; subsequent calls hit the cache.
+// JWT is re-minted automatically when fewer than 7 days remain.
 
 interface Env {
   AVERROW_INTERNAL_SECRET: string;
   MCP_AUTH_TOKEN: string;
-  MCP_TEST_JWT: string;
+  MCP_TOKEN_CACHE: KVNamespace;
+}
+
+// Minimal KVNamespace typing — avoids pulling in @cloudflare/workers-types
+// just for these two methods.
+interface KVNamespace {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string, opts?: { expirationTtl?: number }): Promise<void>;
 }
 
 const AVERROW_API = "https://averrow.com";
@@ -234,9 +238,10 @@ const TOOLS: ToolDef[] = [
       "/api/observatory/stats, /api/v1/operations/stats — and runs a baseline " +
       "assertion on each (auth still works, threat counts are non-zero, " +
       "response shape intact). Catches regressions like the cube-empty / " +
-      "headline-shows-0 class. Requires MCP_TEST_JWT secret pointing at a " +
-      "dedicated test user account. Returns { passed, failed, total, probes[] } " +
-      "with per-probe pass/fail and the failure reason.",
+      "headline-shows-0 class. Auto-mints + caches a 90-day service-account " +
+      "JWT — no manual token setup required. Returns " +
+      "{ passed, failed, total, probes[] } with per-probe pass/fail and " +
+      "the failure reason.",
     inputSchema: { type: "object", properties: {} },
     handler: async (_args, env) => {
       // Each probe runs a single GET + a single assertion. Probes
@@ -335,13 +340,13 @@ const TOOLS: ToolDef[] = [
   {
     name: "assert_endpoint",
     description:
-      "Hit any /api/* endpoint with the test-account JWT and run JSON-path " +
-      "assertions against the response. Each assertion is { path, op, value } " +
-      "where path is dot-notation ('data.total_threats'), op is one of " +
-      "'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'exists' | 'truthy' | 'is_array' | " +
-      "'len_gt'. Returns the response body + per-assertion pass/fail. " +
-      "Use for ad-hoc UI verification beyond the smoke test bundle. " +
-      "Path is restricted to /api/* prefixes for safety.",
+      "Hit any /api/* endpoint with the auto-managed service-account JWT " +
+      "and run JSON-path assertions against the response. Each assertion " +
+      "is { path, op, value } where path is dot-notation ('data.total_threats'), " +
+      "op is one of 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'exists' | " +
+      "'truthy' | 'is_array' | 'len_gt'. Returns the response body + " +
+      "per-assertion pass/fail. Use for ad-hoc UI verification beyond the " +
+      "smoke test bundle. Path is restricted to /api/* prefixes for safety.",
     inputSchema: {
       type: "object",
       properties: {
@@ -480,11 +485,98 @@ const TOOLS: ToolDef[] = [
 
 // ─── API Helpers ────────────────────────────────────────────────
 
+// ─── Service-account JWT cache ──────────────────────────────────
+//
+// Pulls a fresh JWT from /api/internal/auth/mint-service-jwt the first
+// time a user-context tool runs, then caches the (jwt, expires_at)
+// pair in MCP_TOKEN_CACHE KV. Subsequent calls reuse the cache until
+// fewer than 7 days remain on the JWT — at which point we proactively
+// re-mint to avoid mid-session expiry.
+//
+// Cache key is fixed because there's only one service account.
+// In-memory module cache short-circuits the KV read for repeated calls
+// in the same isolate.
+
+const SERVICE_JWT_CACHE_KEY = "service_jwt:v1";
+/** Re-mint when fewer than this many seconds remain on the cached JWT. */
+const REMINT_THRESHOLD_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+let inMemoryJwt: { jwt: string; expiresAtMs: number } | null = null;
+
+async function getServiceJwt(env: Env): Promise<string> {
+  const nowMs = Date.now();
+
+  // 1. In-memory cache (per isolate, lost on cold start)
+  if (inMemoryJwt && inMemoryJwt.expiresAtMs - nowMs > REMINT_THRESHOLD_SECONDS * 1000) {
+    return inMemoryJwt.jwt;
+  }
+
+  // 2. KV cache (durable across isolates)
+  if (env.MCP_TOKEN_CACHE) {
+    const raw = await env.MCP_TOKEN_CACHE.get(SERVICE_JWT_CACHE_KEY);
+    if (raw) {
+      try {
+        const cached = JSON.parse(raw) as { jwt: string; expires_at: string };
+        const expiresAtMs = new Date(cached.expires_at).getTime();
+        if (
+          Number.isFinite(expiresAtMs) &&
+          expiresAtMs - nowMs > REMINT_THRESHOLD_SECONDS * 1000
+        ) {
+          inMemoryJwt = { jwt: cached.jwt, expiresAtMs };
+          return cached.jwt;
+        }
+      } catch {
+        // Malformed cache entry — fall through to remint.
+      }
+    }
+  }
+
+  // 3. Mint a fresh JWT. Don't cache failures — propagate the error so
+  // callers see something meaningful instead of a stale-cache mystery.
+  const res = await fetch(`${AVERROW_API}/api/internal/auth/mint-service-jwt`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.AVERROW_INTERNAL_SECRET}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`mint-service-jwt failed: HTTP ${res.status}: ${text}`);
+  }
+  const body = (await res.json()) as {
+    success: boolean;
+    data?: { jwt: string; expires_at: string };
+    error?: string;
+  };
+  if (!body.success || !body.data) {
+    throw new Error(`mint-service-jwt: ${body.error ?? "unexpected response shape"}`);
+  }
+  const minted = body.data;
+
+  // Persist to KV with TTL slightly shorter than the JWT itself so
+  // the entry self-evicts before the JWT expires.
+  if (env.MCP_TOKEN_CACHE) {
+    const remainingS = Math.floor(
+      (new Date(minted.expires_at).getTime() - nowMs) / 1000,
+    );
+    if (remainingS > 60) {
+      await env.MCP_TOKEN_CACHE.put(
+        SERVICE_JWT_CACHE_KEY,
+        JSON.stringify({ jwt: minted.jwt, expires_at: minted.expires_at }),
+        { expirationTtl: Math.max(60, remainingS - 60) },
+      );
+    }
+  }
+  inMemoryJwt = { jwt: minted.jwt, expiresAtMs: new Date(minted.expires_at).getTime() };
+  return minted.jwt;
+}
+
 /**
- * GET an authenticated user-context endpoint with the test-account JWT.
- * Distinct from apiGet (which uses AVERROW_INTERNAL_SECRET against
- * /api/internal/* routes) — this one hits user-facing /api/* routes
- * the way a browser would.
+ * GET an authenticated user-context endpoint with the auto-managed
+ * service-account JWT. Distinct from apiGet (which uses
+ * AVERROW_INTERNAL_SECRET against /api/internal/* routes) — this hits
+ * user-facing /api/* routes the way a browser would.
  *
  * Returns { ok, status, body, error } so callers can branch on
  * status without try/catching every probe in the smoke check.
@@ -493,19 +585,22 @@ async function apiUserGet(
   path: string,
   env: Env,
 ): Promise<{ ok: boolean; status: number; body: unknown; error: string | null }> {
-  if (!env.MCP_TEST_JWT) {
+  let jwt: string;
+  try {
+    jwt = await getServiceJwt(env);
+  } catch (err) {
     return {
       ok: false,
       status: 0,
       body: null,
-      error: "MCP_TEST_JWT not set — required for UI verification tools",
+      error: err instanceof Error ? err.message : String(err),
     };
   }
   try {
     const res = await fetch(`${AVERROW_API}${path}`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${env.MCP_TEST_JWT}`,
+        Authorization: `Bearer ${jwt}`,
         Accept: "application/json",
       },
     });
