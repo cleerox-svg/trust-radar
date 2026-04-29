@@ -51,11 +51,17 @@ function severityDotClass(severity: string): string {
   }
 }
 
-function NotificationItem({ notification, onRead }: { notification: Notification; onRead: (id: string) => void }) {
+function NotificationItem({
+  notification,
+  onActivate,
+}: {
+  notification: Notification;
+  onActivate: (n: Notification) => void;
+}) {
   const isUnread = !notification.read_at;
   return (
     <button
-      onClick={() => onRead(notification.id)}
+      onClick={() => onActivate(notification)}
       className="w-full text-left px-4 py-3 transition-colors hover:bg-white/5 touch-target"
       style={{
         borderLeft: isUnread ? `2px solid ${severityBorderToken(notification.severity)}` : '2px solid transparent',
@@ -121,8 +127,15 @@ function NotificationList({
     ? notifications
     : notifications.filter(n => n.type === filter);
 
-  const handleRead = (id: string) => {
-    markRead.mutate(id);
+  // Click navigates to notification.link if present, marks as read,
+  // and closes the bell. Without a link this is just a mark-as-read
+  // — the dead-end behavior the audit (§4) flagged.
+  const handleActivate = (n: Notification) => {
+    if (!n.read_at) markRead.mutate(n.id);
+    if (n.link) {
+      navigate(n.link);
+      onClose();
+    }
   };
 
   // Triage row — surfaces unresolved alerts at the most-discoverable
@@ -244,7 +257,7 @@ function NotificationList({
           </div>
         ) : (
           filtered.map(n => (
-            <NotificationItem key={n.id} notification={n} onRead={handleRead} />
+            <NotificationItem key={n.id} notification={n} onActivate={handleActivate} />
           ))
         )}
       </div>
