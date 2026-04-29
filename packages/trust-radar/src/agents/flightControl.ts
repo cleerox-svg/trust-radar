@@ -20,6 +20,9 @@ import {
   renderPlatformAgentStalled,
   renderPlatformFeedAutoPaused,
   renderPlatformBriefingSilent,
+  renderPlatformAiSpendBurst,
+  renderPlatformCronMissed,
+  renderPlatformEnrichmentStuck,
 } from "../lib/platform-templates";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
 import { getOrComputeMetric } from "../lib/system-metrics";
@@ -314,12 +317,90 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    // ── Backlog B1: AI spend burst self-monitor ──────────────────
+    // When projected_monthly is on track to overshoot the configured
+    // limit by 50%+, fire a super_admin alert. Single fire per day
+    // (group_key is day-keyed in the renderer).
+    try {
+      const overshootRatio = budgetStatus.config.monthly_limit_usd > 0
+        ? budgetStatus.projected_monthly / budgetStatus.config.monthly_limit_usd
+        : 0;
+      if (overshootRatio >= 1.5) {
+        // Find the top-cost agent in the last 24h for the message body.
+        const topAgent = await db.prepare(
+          `SELECT agent_id, SUM(cost_usd) AS cost FROM agent_runs
+            WHERE started_at >= datetime('now', '-24 hours')
+              AND cost_usd > 0
+            GROUP BY agent_id
+            ORDER BY cost DESC LIMIT 1`
+        ).first<{ agent_id: string; cost: number }>();
+        await emitPlatformNotification(env, 'platform_ai_spend_burst',
+          renderPlatformAiSpendBurst({
+            spent_24h_usd: budgetStatus.daily_burn_rate,
+            threshold_usd: budgetStatus.config.monthly_limit_usd / 30,
+            top_agent: topAgent?.agent_id ?? 'unknown',
+            top_agent_cost_usd: topAgent?.cost ?? 0,
+          })
+        );
+      }
+    } catch { /* notification failures never break FC */ }
+
+    // ── Backlog B1: cron heartbeat self-monitors ─────────────────
+    // FC itself runs in the orchestrator path, so if FC is running
+    // it means the orchestrator just ran. We check the OTHER cron —
+    // navigator (every 5 min) — and warn if it's silent for >15 min.
+    // Also surface orchestrator gaps detected via agent_runs scan.
+    try {
+      const navLast = await db.prepare(
+        `SELECT MAX(started_at) AS last_at FROM agent_runs
+          WHERE agent_id IN ('navigator','fast_tick')`
+      ).first<{ last_at: string | null }>();
+      const navMinutes = navLast?.last_at
+        ? Math.round((Date.now() - Date.parse(navLast.last_at)) / 60_000)
+        : 999;
+      if (navMinutes >= 15) {
+        await emitPlatformNotification(env, 'platform_cron_navigator_missed',
+          renderPlatformCronMissed({
+            cron: 'navigator',
+            expected_interval_minutes: 5,
+            minutes_since_last: navMinutes,
+          })
+        );
+      }
+      const orchLast = await db.prepare(
+        `SELECT MAX(started_at) AS last_at FROM agent_runs
+          WHERE agent_id = 'orchestrator'`
+      ).first<{ last_at: string | null }>();
+      const orchMinutes = orchLast?.last_at
+        ? Math.round((Date.now() - Date.parse(orchLast.last_at)) / 60_000)
+        : 999;
+      if (orchMinutes >= 90) {
+        await emitPlatformNotification(env, 'platform_cron_orchestrator_missed',
+          renderPlatformCronMissed({
+            cron: 'orchestrator',
+            expected_interval_minutes: 60,
+            minutes_since_last: orchMinutes,
+          })
+        );
+      }
+    } catch { /* notification failures never break FC */ }
+
     // ── Enrichment backlog warnings ──────────────────────────────
     if (backlogs.surblUnchecked > 1000) {
       await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
         `SURBL enrichment backlog: ${backlogs.surblUnchecked} domains unchecked`,
         { backlog: 'surbl', count: backlogs.surblUnchecked }
       );
+      // B1: also emit a super_admin notification — operators want to
+      // know when human action is required, not just a log line.
+      try {
+        await emitPlatformNotification(env, 'platform_enrichment_stuck_pile',
+          renderPlatformEnrichmentStuck({
+            stuck_count: backlogs.surblUnchecked,
+            threshold: 1000,
+          })
+        );
+      } catch { /* swallow */ }
     }
     if (backlogs.vtUnchecked > 500) {
       await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
