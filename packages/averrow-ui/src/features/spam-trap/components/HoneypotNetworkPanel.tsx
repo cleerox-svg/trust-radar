@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSpamTrapAddresses, useSeedingSources } from '@/hooks/useSpamTrap';
-import type { SeedAddress } from '@/hooks/useSpamTrap';
+import type { SeedAddress, SeedingSource } from '@/hooks/useSpamTrap';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Target, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -103,9 +103,18 @@ export function HoneypotNetworkPanel() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'network' | 'sources' | 'activity'>('network');
   const [expanded, setExpanded] = useState<Set<YieldBucket>>(new Set(DEFAULT_EXPANDED));
+  const [expandedSources, setExpandedSources] = useState<Set<YieldBucket>>(new Set(DEFAULT_EXPANDED));
 
   const toggleBucket = (b: YieldBucket): void => {
     setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(b)) next.delete(b);
+      else next.add(b);
+      return next;
+    });
+  };
+  const toggleSourceBucket = (b: YieldBucket): void => {
+    setExpandedSources((prev) => {
       const next = new Set(prev);
       if (next.has(b)) next.delete(b);
       else next.add(b);
@@ -167,21 +176,71 @@ export function HoneypotNetworkPanel() {
 
   const maxCount = channelCounts.length > 0 ? channelCounts[0].seeded : 1;
 
-  // Group seeding sources by type prefix (spider:*, broker:*, etc.)
+  // Group seeding sources by type prefix (spider:*, broker:*, etc).
+  // Tracks productive_count (locations of this type with at least one
+  // catch) so the source-type bar chart can show working vs dead types.
   const seedingGroups = useMemo(() => {
     if (!seedingData?.sources) return [];
-    const groups: Record<string, { seeds: number; catches: number; locations: string[] }> = {};
+    const groups: Record<
+      string,
+      { seeds: number; catches: number; productive_locations: number; total_locations: number }
+    > = {};
     for (const s of seedingData.sources) {
       const prefix = s.location.split(':')[0] || 'other';
-      if (!groups[prefix]) groups[prefix] = { seeds: 0, catches: 0, locations: [] };
+      if (!groups[prefix]) {
+        groups[prefix] = { seeds: 0, catches: 0, productive_locations: 0, total_locations: 0 };
+      }
       groups[prefix].seeds += s.seeds;
       groups[prefix].catches += s.catches;
-      groups[prefix].locations.push(s.location);
+      groups[prefix].total_locations += 1;
+      if (s.catches > 0) groups[prefix].productive_locations += 1;
     }
     return Object.entries(groups).sort((a, b) => b[1].seeds - a[1].seeds);
   }, [seedingData]);
 
   const maxSourceSeeds = seedingGroups.length > 0 ? seedingGroups[0][1].seeds : 1;
+
+  // Bucket each individual seeding location by yield, mirroring the
+  // address-level classifier in classifyAddress(). Location-level
+  // counts surface which paste sites / forums / GitHub repos / WHOIS
+  // entries are actually productive vs dead weight, so PR (b)'s
+  // seeding-at-scale job knows which vectors to lean into.
+  const locationBuckets = useMemo(() => {
+    const result: Record<YieldBucket, SeedingSource[]> = {
+      caught: [], stale: [], pending: [], dead: [],
+    };
+    if (!seedingData?.sources) return result;
+    const nowMs = Date.now();
+    for (const s of seedingData.sources) {
+      let bucket: YieldBucket;
+      if (s.catches > 0 && s.last_catch_at) {
+        const lastMs = new Date(s.last_catch_at).getTime();
+        bucket = Number.isFinite(lastMs) && (nowMs - lastMs) / 86_400_000 <= STALE_DAYS
+          ? 'caught'
+          : 'stale';
+      } else if (s.earliest_seed) {
+        const seedMs = new Date(s.earliest_seed).getTime();
+        bucket = Number.isFinite(seedMs) && (nowMs - seedMs) / 86_400_000 <= STALE_DAYS
+          ? 'pending'
+          : 'dead';
+      } else {
+        bucket = 'pending';
+      }
+      result[bucket].push(s);
+    }
+    // Caught/stale: most-recent catch first. Pending/dead: oldest seed
+    // first so the longest-stale dead locations bubble to top — those
+    // are the highest-priority candidates for replanting.
+    const sortByCatch = (a: SeedingSource, b: SeedingSource): number =>
+      new Date(b.last_catch_at ?? 0).getTime() - new Date(a.last_catch_at ?? 0).getTime();
+    const sortBySeed = (a: SeedingSource, b: SeedingSource): number =>
+      new Date(a.earliest_seed ?? 0).getTime() - new Date(b.earliest_seed ?? 0).getTime();
+    result.caught.sort(sortByCatch);
+    result.stale.sort(sortByCatch);
+    result.pending.sort(sortBySeed);
+    result.dead.sort(sortBySeed);
+    return result;
+  }, [seedingData]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -300,7 +359,7 @@ export function HoneypotNetworkPanel() {
       {/* ── TAB: SEEDING SOURCES ── */}
       {activeTab === 'sources' && (
         <div className="space-y-4">
-          {/* Source type breakdown */}
+          {/* Source type breakdown — productive_locations / total_locations */}
           <div className="space-y-1.5">
             <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-1">
               Seeds by Source Type
@@ -316,40 +375,94 @@ export function HoneypotNetworkPanel() {
                     style={{
                       width: `${(data.seeds / maxSourceSeeds) * 100}%`,
                       backgroundColor: SOURCE_COLORS[type] || 'rgba(255,255,255,0.3)',
+                      opacity: data.productive_locations > 0 ? 1 : 0.35,
                     }}
                   />
                 </div>
-                <span className="font-mono text-[10px] text-white/40 w-8 text-right">
-                  {data.seeds}
+                <span
+                  className="font-mono text-[10px] w-[44px] text-right tabular-nums"
+                  style={{ color: data.productive_locations > 0 ? '#4ADE80' : 'rgba(255,255,255,0.30)' }}
+                  title={`${data.productive_locations} of ${data.total_locations} locations on this source type have caught at least once`}
+                >
+                  {data.productive_locations}/{data.total_locations}
                 </span>
-                {data.catches > 0 && (
-                  <span className="font-mono text-[10px] text-red-400 w-8 text-right">
-                    {data.catches}
-                  </span>
-                )}
               </div>
             ))}
           </div>
 
-          {/* Detailed location breakdown */}
+          {/* Per-location yield buckets */}
           {seedingData?.sources && seedingData.sources.length > 0 && (
-            <div>
-              <div className="font-mono text-[9px] uppercase tracking-widest text-white/50 mb-2">
-                Seeding Locations
-              </div>
-              <div className="space-y-1">
-                {seedingData.sources.map((s) => (
-                  <div key={s.location} className="flex items-center justify-between py-1 border-b border-white/[0.03]">
-                    <span className="font-mono text-[10px] text-white/60">{s.location}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-[10px] text-white/40">{s.seeds} seeds</span>
-                      <span className={`font-mono text-[10px] ${s.catches > 0 ? 'text-red-400 font-semibold' : 'text-white/20'}`}>
-                        {s.catches > 0 ? `${s.catches} caught` : '—'}
+            <div className="space-y-2">
+              {BUCKET_ORDER.map((bucket) => {
+                const items = locationBuckets[bucket];
+                if (items.length === 0) return null;
+                const isOpen = expandedSources.has(bucket);
+                const accent =
+                  bucket === 'caught' ? '#4ADE80'
+                  : bucket === 'stale' ? '#fbbf24'
+                  : bucket === 'pending' ? 'rgba(255,255,255,0.45)'
+                  : '#f87171';
+                return (
+                  <div key={bucket} className="rounded-lg border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                    <button
+                      onClick={() => toggleSourceBucket(bucket)}
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.03] transition-colors text-left"
+                    >
+                      {isOpen
+                        ? <ChevronDown className="w-3.5 h-3.5 text-white/50 shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-white/50 shrink-0" />}
+                      <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: accent }}>
+                        {BUCKET_LABEL[bucket]}
                       </span>
-                    </div>
+                      <span className="font-mono text-[10px] tabular-nums" style={{ color: accent }}>
+                        {items.length}
+                      </span>
+                      <span className="font-mono text-[9px] text-white/35 truncate">
+                        — locations {bucket === 'dead' ? 'with seeds older than 30d and zero catches' : BUCKET_DESCRIPTION[bucket]}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="border-t border-white/[0.04] divide-y divide-white/[0.03]">
+                        {items.map((s) => {
+                          const yieldPct = s.seeds > 0 ? Math.round((s.catches / s.seeds) * 100) : 0;
+                          return (
+                            <div
+                              key={s.location}
+                              className="flex items-center justify-between gap-3 px-3 py-1.5"
+                              title={`Seeds: ${s.seeds} · Productive: ${s.productive_count} · First seeded: ${daysAgo(s.earliest_seed, Date.now())} · Last catch: ${daysAgo(s.last_catch_at, Date.now())}`}
+                            >
+                              <span className="font-mono text-[10px] text-white/65 truncate flex-1">
+                                {s.location}
+                              </span>
+                              <div className="flex items-center gap-3 shrink-0 tabular-nums">
+                                <span className="font-mono text-[10px] text-white/35">
+                                  {s.productive_count}/{s.seeds}
+                                </span>
+                                <span
+                                  className="font-mono text-[10px] w-12 text-right"
+                                  style={{
+                                    color: s.catches > 0 ? '#f87171' : 'rgba(255,255,255,0.20)',
+                                    fontWeight: s.catches > 0 ? 600 : 400,
+                                  }}
+                                >
+                                  {s.catches > 0 ? `${s.catches} catch` : '—'}
+                                </span>
+                                <span className="font-mono text-[10px] w-10 text-right text-white/45">
+                                  {s.catches > 0 ? `${yieldPct}%` : '—'}
+                                </span>
+                                <span className="font-mono text-[10px] w-14 text-right text-white/40">
+                                  {daysAgo(s.last_catch_at, Date.now())}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
 
