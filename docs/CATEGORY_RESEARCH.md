@@ -853,8 +853,98 @@ answer; not for me to call:
 
 ## 10. Appendix — open research tasks
 
-*(Stub.)*
+External research that should land before P4 (positioning lock-in)
+or P5 (home page). Operator can fold in findings from other AI
+platforms; placeholders below are prompts for what to look at.
 
-## 10. Appendix — open research tasks
+### 10.1 Public sources to comb
 
-*(Stub.)*
+- Industry analyst reports on the brand-protection / digital-risk
+  space (annual market summaries; vendor quadrants minus the
+  vendor names — patterns, not labels)
+- Customer review platforms — pain points + missing features
+- Conference talks (RSA / Black Hat / FIRST) on threat-actor
+  attribution and brand-impersonation campaigns
+- Open-source phishing kit catalogs (PhishKit / phishstats /
+  GitHub repos)
+- Hosting provider abuse policy publications + takedown response
+  data (publicly reported)
+
+### 10.2 Cross-platform AI assistant prompts
+
+Useful prompts to run against another AI platform to feed back
+into this doc:
+
+- "What features do leading brand-protection platforms ship in
+  2025-2026 that didn't exist in 2023?"
+- "What recurring complaints do operators voice about digital
+  risk protection vendors on review platforms?"
+- "How are vendors in the brand-protection space using LLMs in
+  production today, beyond dashboard summarization?"
+- "What are the foundational gaps in cross-tenant threat
+  intelligence sharing and what regulatory / contractual
+  constraints prevent solving them?"
+- "What pricing models dominate the brand-protection space and
+  what alternative models have been attempted?"
+
+### 10.3 Code-level audits to run on this platform
+
+Independent of external research:
+
+- **Sentinel ASN→actor binding hit rate** — what % of detections
+  actually bind to a known actor? Is the bind useful or noise?
+- **NEXUS cluster lifecycle** — how often does a cluster
+  transition active → pivoting → dormant, and does the pivot
+  detection match what operators see?
+- **Cost-guard activation history** — has the budget guard ever
+  fired in the last 90 days? At what spend level? Was it the
+  right call?
+- **Auto-onboard latency** — for a brand-create event, how long
+  until the first eligible threat lands? Compare to the §5.1
+  weeks/days/hours/minutes target.
+- **Takedown success rate by provider** — which providers honor
+  abuse reports, which don't, what's the median time-to-takedown
+  per provider tier?
+- **Notification triage rate** — what % of `intel_*` notifications
+  get marked `done` vs `snoozed` vs ignored? Done-rate is the
+  proxy for "answered the so-what."
+
+### 10.4 Customer interviews — questions to validate the §8 axes
+
+Each axis should pass a 5-customer interview before going on the
+home page. Suggested questions:
+
+- **Loop closure (8.1)**: "When a takedown closes, who is
+  responsible for re-checking that the actor doesn't come back
+  on a new domain? What does that workflow look like today?"
+- **Auto-onboard (8.2)**: "How long did onboarding take with
+  your current platform? What did you have to provide manually?"
+- **Threat-actor framing (8.3)**: "When you see a phishing URL,
+  do you know who the attacker is? Does it matter to you?"
+- **Predictive (8.4)**: "Have you ever spotted attacker
+  infrastructure before content went live? How? Was the platform
+  involved?"
+- **Pivot (8.5)**: "Has the same actor come back on different
+  infrastructure within days of a takedown? What did you do?
+  Did the platform help?"
+
+### 10.5 Anti-research — what to deliberately NOT chase
+
+To stay disciplined:
+
+- Don't add features purely because a competitor has them — only
+  if they map to an operator pain point in §5
+- Don't pursue "AI" claims that don't change outcomes
+- Don't compete on integration count — depth > breadth in this
+  space
+- Don't ship the spam-trap secret-sauce as a marketing feature
+  (it's intel, not a checkbox)
+- Don't promise vertical specialization until the threat actors
+  do (they don't)
+
+---
+
+*End of working draft. Next step per planning sequence: P3 stop +
+reassess. Then P4 distillation (which axes get into the home page
+copy + the ranked priority list of the §7.6 gaps to close). Then
+P5 home-page wireframe.*
