@@ -499,7 +499,101 @@ the §6.3 / §6.4 norm in this space.
 
 ## 7. Averrow capabilities — code-level map
 
-*(Stub.)*
+What Averrow actually has, grouped by the category dimensions
+in §2 + §3. This is the inventory feeding §8's differentiator
+selection. All references are to `packages/trust-radar/src/`.
+
+### 7.1 Detection surfaces
+
+| Capability | How | Code |
+|---|---|---|
+| Phishing / malicious URL detection | Multi-feed ingestion: PhishTank, OpenPhish, abuse.ch, URLHaus, ThreatFox, OTX, CINS, SecLookup, GreyNoise, AbuseIPDB, Spamhaus DBL, GSB, VirusTotal | `feeds/*.ts` (40 feeds) |
+| Lookalike / typosquat | `lookalike-scanner` agent — DNS/HTTP/MX + Haiku AI assessment of newly-registered candidates | `agents/lookalike-scanner.ts` |
+| Certificate Transparency monitoring | CertStream Durable Object — live CT log subscription with brand-keyword matching | `lib/certstream.ts` |
+| Social impersonation | `social_monitor` (Twitter/LinkedIn/Instagram/TikTok/GitHub/YouTube) + `social_discovery` (auto-find brand handles) + `social_ai_assessor` Haiku classifier | `agents/social*.ts` |
+| App-store impersonation | `app_store_monitor` — iOS today, Google Play + 3rd-party planned | `agents/appStoreMonitor.ts` |
+| Dark-web monitoring | `dark_web_monitor` — Pastebin today; Telegram / HIBP / Flare planned | `agents/darkWebMonitor.ts` |
+| Email auth posture | DMARC / SPF / DKIM / MX / BIMI / VMC scoring per brand | `email-security.ts`, cartographer Phase 3 |
+| Spam trap captures | Honeypot email addresses planted into harvester channels (secret-sauce, not surfaced) | `auto-seeder`, `spam-trap.ts` |
+| Honeypot generation | `honeypot-generator` — renders complete trap websites (index + contact + team pages) | `agents/honeypot-generator.ts` |
+
+### 7.2 Operational pipeline
+
+| Capability | How | Code |
+|---|---|---|
+| IOC enrichment | Cartographer (geo / ASN / hosting provider, multi-phase) + Enricher (DNS, brand, sector) | `agents/cartographer.ts`, `cron/enricher.ts` |
+| Threat scoring | Sentinel + Analyst + Strategist sequence | `agents/sentinel.ts`, `agents/analyst.ts`, `agents/strategist.ts` |
+| Brand matching | Analyst — Haiku-powered brand-vs-domain matching | `agents/analyst.ts` |
+| Auto-takedown | Sparrow scans URLs → auto-creates takedowns → Evidence Assembler builds provider-ready abuse reports → resolves providers | `agents/sparrow.ts`, `agents/evidence-assembler.ts` |
+| Notifications | 4-state inbox, per-channel severity floors, group_key dedup, push action buttons, AI digest envelope | `lib/notifications.ts`, `agents/notification_narrator.ts` |
+| Multi-tenant | Org / brand / user model with RBAC, audience routing, per-brand subscriptions | `migrations/0027_organizations*.sql`, `notification_subscriptions` |
+| Reporting / dashboards | Observatory (real-time threat globe), Brand Detail, Operations, Threat Actors, Intelligence views | `packages/averrow-ui/src/features/*` |
+| Auto-onboard | One-domain → tenant ready: DNS / BIMI / social discovery / app-store search / dark-web baseline auto-built. (Architecturally present; UX polish pending.) | brand-enricher + social_discovery + lookalike-scanner pipeline |
+
+### 7.3 Intelligence layer
+
+| Capability | How | Code |
+|---|---|---|
+| Threat-actor profiles | `threat_actors` + `threat_actor_infrastructure` + `threat_actor_targets` tables; per-actor pages | `migrations/0063_threat_actors*.sql`, `handlers/threatActors.ts` |
+| Campaign correlation | Strategist clusters threats by IP / ASN / subnet / temporal pattern → campaigns | `agents/strategist.ts` |
+| Cluster detection | NEXUS — infrastructure correlation engine, scores accelerating clusters | `agents/nexus.ts` |
+| Geopolitical campaign assessment | `geo_campaign_assessment` — 4-paragraph executive intel assessment of active geopolitical cyber campaign (Haiku, 1024-token prose) | `agents/geo-campaign-assessment.ts` |
+| Trend analysis | Observer — daily / weekly intelligence synthesis with multi-signal narrative | `agents/observer.ts` |
+| Per-brand narrative | Narrator — multi-signal correlation per brand (≥2 signal types) → coherent attack story → high-severity also creates alerts | `agents/narrator.ts` |
+| Sector trend digests | Observer weekly intel + `intel_sector_trend` notification | `agents/observer.ts`, intel_templates |
+| Predictive alerts | NEXUS accelerating cluster + brand confidence ≥70 → `intel_predictive` per affected brand | intel_templates + nexus emit |
+| Chat copilot | Trustbot — interactive AI threat intelligence Q&A | `agents/trustbot.ts` |
+
+### 7.4 Self-supervision (the genuinely-different layer)
+
+| Capability | How | Code |
+|---|---|---|
+| Autonomous supervisor | Flight Control — every-tick tracking of agent health, backlogs, budget, feed status; auto-recovers stalled agents; auto-scales cartographer/analyst | `agents/flightControl.ts` |
+| Cost guard | BudgetManager — soft / hard / emergency throttle thresholds against monthly token cap; per-agent + per-tier limits | `lib/budgetManager.ts` |
+| Per-agent attribution | Every Haiku / Sonnet call tagged to the agent that made it; budget ledger queryable | `lib/budget-ledger.ts`, agent_runs.cost_usd |
+| Circuit breaker | Per-agent consecutive-failure auto-pause + manual unpause; FC observes + reports | `lib/agentRunner.ts` circuit logic |
+| Self-monitoring notifications | platform_* family — d1_budget, kv_budget, agent_stalled, feed_at_risk, cron_missed, briefing_silent, ai_spend_burst, etc. | `lib/platform-templates.ts` |
+| Diagnostics endpoint | `/api/internal/platform-diagnostics` — full health snapshot: feeds, agents, D1 budget, AI spend, briefing pipeline, cron health, recent platform alerts, FC tick timings | `handlers/diagnostics.ts` |
+
+### 7.5 Operations + scaling
+
+| Capability | How | Code |
+|---|---|---|
+| Hourly orchestrator cron | Dispatches agent mesh (FC, Sentinel, Cartographer, Analyst, Strategist, Observer, NEXUS, etc.) | `cron/orchestrator.ts` |
+| Sub-hourly Navigator | Every-5-min cache pre-warming + cube refresh + DNS resolution + light enrichment | `cron/navigator.ts` |
+| OLAP cubes | threat_cube_geo / threat_cube_provider / threat_cube_brand — pre-aggregated for sub-50ms reads | `lib/cube-builder.ts` |
+| Pre-computed columns | brands.threat_count, hosting_providers.active_threat_count, trend_7d/30d — avoid GROUP BY on hot paths | various |
+| Read replicas | D1 Sessions API — read-heavy handlers route through `getReadSession` | `lib/db.ts` |
+| KV cache pre-warm | 24 endpoints warmed every 5 min by Navigator | `cron/navigator.ts` |
+| Workflows (durable) | NEXUS + Cartographer backfill run as Cloudflare Workflows (no CPU ceiling) | `wrangler.toml`, `workflows/*.ts` |
+
+### 7.6 Notable absences (gaps in our own implementation)
+
+Honest gaps to call out — these set the v3 / re-engineering
+candidates in §9:
+
+- **MO + tooling fingerprinting** (§3.3) — no kit-fingerprint
+  detector yet
+- **AI-generated content detection** (§3.7) — no LLM-output
+  heuristic on phish lures yet
+- **Hosting-provider abuse scorecard** (§3.6) — provider tagged
+  per row, but no aggregated scorecard surface
+- **Pivot tracking surface** (§3.2) — clusters detect
+  acceleration; pivot pattern analysis (provider A → B in N hours
+  after takedown) is not yet a first-class concept
+- **Cross-tenant pattern surface** (§3.4) — `intel_cross_brand_pattern`
+  type exists in registry but emit not wired
+- **Threat-actor pivot surface** (§3.1) — `intel_threat_actor_surface`
+  type exists; emit needs an INSERT path into
+  threat_actor_infrastructure that the Sentinel update path
+  doesn't yet provide
+- **Action-loop closure** (§3.9) — Sparrow + evidence_assembler
+  ship; the re-detection loop on pivot + automatic re-takedown is
+  partially wired (NEXUS detects acceleration; auto-resubmit not
+  fully closed)
+
+These absences aren't disqualifiers — they're the strategic
+build-list. §9 frames whether they're incremental or v3-shaped.
 
 ## 8. Genuine differentiators — Better / Quicker / Intelligently / Clever / Aggressive
 
