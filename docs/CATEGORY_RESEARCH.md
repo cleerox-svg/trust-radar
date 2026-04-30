@@ -310,7 +310,91 @@ This combination is the genuine differentiator. §8 expands.
 
 ## 5. Customer pain points with existing platforms
 
-*(Stub.)*
+Common operator complaints about platforms in this space. These
+inform what Averrow should make obviously different.
+
+### 5.1 Onboarding takes weeks, not minutes
+
+Manual brand inventory entry, asset uploads, social handle config,
+domain verification, contract / DPA reviews. Customer is paying
+during the gap. By the time the platform is "live" the operator
+has already lost confidence.
+
+### 5.2 Alert fatigue with no clear "what to do"
+
+Dashboards full of low-severity rows. No reason text. No
+recommended action. Operator triage is "is this worth caring
+about" first, "what do I do about it" second. Both questions
+should be pre-answered.
+
+### 5.3 Takedown follow-through is uneven
+
+Submission is automated but hosting providers respond at very
+different speeds. Some take 30 minutes, some take 3 weeks, some
+never respond. The platform shows "submitted" status forever; the
+operator has no way to see SLA-by-provider data when negotiating
+or escalating.
+
+### 5.4 The same threat actor keeps coming back and the platform doesn't notice
+
+Takedown closes the row. Two days later the same actor is back on
+a new domain, same hosting provider class, same kit. The
+platform's dashboard treats this as fresh detections — the
+operator's incident-response team is the only memory.
+
+### 5.5 No prediction, only reaction
+
+The platform tells the operator about threats that already exist.
+It rarely tells them about infrastructure being prepared. Lookalike
+domain registered Tuesday → no IP, no content, no signal → it
+gets flagged Friday only after the phish goes live. The
+prep-window opportunity is missed.
+
+### 5.6 Reports designed for the buyer, not the user
+
+Monthly executive reports with green / yellow / red dials. Useful
+for the security director's QBR. Useless for the analyst trying
+to figure out which campaign to focus on this morning.
+
+### 5.7 Dashboard-as-product, not action-as-product
+
+The platform produces views. Action requires the operator's
+team. Customers paying for "automated brand protection" frequently
+discover that "automated" means "we send the email when the
+phish appears" — not "we run the workflow to closure."
+
+### 5.8 AI is opaque
+
+"AI-powered" appears on the website, in the sales deck, and on
+the dashboard banner. What the AI actually does, when it ran,
+what it concluded, what tokens it cost, why it picked one
+threat over another — none of that is exposed. Trust is asked
+for, not earned.
+
+### 5.9 Multi-brand / multi-tenant gets complex fast
+
+Service providers and large enterprises with sub-brands hit
+hierarchy limits, RBAC limits, billing-attribution limits, alert-
+routing limits. The platform was designed for one brand × one
+team and bolted on multi-tenancy.
+
+### 5.10 Switching cost is the moat, not value
+
+The brand inventory, takedown evidence library, and integration
+configuration become the lock-in. Customers stay because moving
+costs are high, not because the platform earns daily love.
+
+---
+
+These pain points cluster into three classes that Averrow should
+address head-on:
+
+1. **Time-to-value** (5.1) — auto-onboard.
+2. **Decision quality** (5.2, 5.6, 5.8) — every alert ships with
+   reason + recommended action; AI work is exposed and traceable.
+3. **Loop closure** (5.3, 5.4, 5.5, 5.7) — actor memory, pivot
+   tracking, prep-window detection, takedown-to-closure
+   automation.
 
 ## 6. AI in the category — claims vs reality
 
