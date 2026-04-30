@@ -1321,14 +1321,19 @@ async function recoverStalledAgents(
 
     const mod = agentModules[agent.agent_id];
     if (!mod) continue;
-    // Skip manual-trigger agents — they have no schedule, so a long
+    // Skip manual + api agents — they have no schedule, so a long
     // silence is intentional, not a stall. Stall-recovery would just
-    // keep re-firing them every hour. (Phase 2.6 of agent audit:
-    // pathfinder demoted to manual.)
-    if (mod.trigger === 'manual') continue;
-    // (architect was previously skipped explicitly here due to Anthropic
-    // timeout; retired in Phase 2.2 of the agent audit, so the !mod guard
-    // above now handles it implicitly.)
+    // keep re-firing them every tick. The is_stalled flag uses
+    // lastRunAge > thresholdMs and doesn't distinguish trigger type,
+    // so without this guard FC awaits sequential executeAgent calls
+    // for every sync agent on every tick — that's what pushed FC
+    // average duration to ~4.4 minutes per tick and caused the
+    // hour-13 briefing dispatch to never reach.
+    // (Pathfinder is manual; evidence_assembler / geo_campaign_assessment
+    // / social_ai_assessor / scan_report / url_scan / admin_classify /
+    // brand_* / honeypot_generator / qualified_report /
+    // public_trust_check are all api-triggered.)
+    if (mod.trigger === 'manual' || mod.trigger === 'api') continue;
 
     await logActivity(db, 'flight_control', 'warning', 'recovery',
       `Recovering stalled agent: ${agent.agent_id} (last run: ${agent.last_run_at ?? 'never'})`,
