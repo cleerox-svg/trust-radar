@@ -369,9 +369,15 @@ export const flightControlAgent: AgentModule = {
           })
         );
       }
+      // The orchestrator dispatches FC every tick; we don't write a
+      // dedicated 'orchestrator' row to agent_runs, only the
+      // sub-agents do. Use FC's last run time as the orchestrator
+      // proxy. Earlier code queried WHERE agent_id='orchestrator'
+      // which always returned NULL → fired a false 999-min alert
+      // every FC tick (operator screenshot 2026-04-30).
       const orchLast = await db.prepare(
         `SELECT MAX(started_at) AS last_at FROM agent_runs
-          WHERE agent_id = 'orchestrator'`
+          WHERE agent_id = 'flight_control'`
       ).first<{ last_at: string | null }>();
       const orchMinutes = orchLast?.last_at
         ? Math.round((Date.now() - Date.parse(orchLast.last_at)) / 60_000)
