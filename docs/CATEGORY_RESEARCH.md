@@ -732,9 +732,128 @@ Each statement should link to a "show me" view on the live
 platform that demonstrates the claim with the customer's own data
 within 60 seconds.
 
-## 9. Strategic implications
+## 9. Strategic implications — incremental vs v3 rewrite
 
-*(Stub — incremental enhancement vs Averrow v3 rewrite.)*
+The §8 differentiator claims are credible from §7's inventory.
+The §7.6 gaps are the tension: do we ship the 5 axes by closing
+the gaps incrementally, or do we use this as the trigger for a
+v3 rewrite?
+
+### 9.1 The case for incremental
+
+The platform is well-architected for the next 18-24 months:
+- Self-supervising agent mesh (FC) is the genuinely-different
+  layer (§7.4); throwing it away is a mistake
+- 40 feeds + multi-tenant + auto-onboard plumbing already exist
+- D1 + read replicas + OLAP cubes scale to the foreseeable
+  customer count
+- The N0–N6 notifications work just landed — re-doing it would
+  waste 25+ PRs of recent investment
+- The agents/* registry pattern + agent_runs + cost-guard +
+  budget-ledger framework supports "add a new agent" cheaply
+
+The 5 axes can be delivered by closing 7 specific gaps
+(§7.6 + 8 distillation):
+
+| Gap | Owner | Effort |
+|---|---|---|
+| MO + tooling fingerprinting | new sync agent + Sentinel hook | 2-3 weeks |
+| AI-content fingerprinting | new sync agent on Sentinel pass | 1-2 weeks |
+| Provider abuse scorecard | new aggregation + UI surface | 1-2 weeks |
+| Pivot tracking surface | NEXUS extension + new UI panel | 2 weeks |
+| Cross-tenant intel emit | wire `intel_cross_brand_pattern` from Observer | 1 week |
+| Threat-actor surface emit | wire INSERT path in Sentinel | 1 week |
+| Action-loop closure (auto-resubmit) | Sparrow + NEXUS pivot integration | 2-3 weeks |
+| **Total** | | **~10-13 weeks** |
+
+Plus auto-onboard UX polish (1-2 weeks). All deliverable on the
+existing v2 platform.
+
+### 9.2 The case for v3
+
+A from-scratch rewrite would be justified if any of:
+- The data model can't carry the 5 axes (it can; §7 + §8 sit on
+  it cleanly)
+- The architecture has a hard limit at the next scale tier (D1 +
+  Workflows scale; not the bottleneck)
+- The UX is irrecoverable (the React /v2 restructure was Sessions
+  R1–R10; design-system + features layout work)
+- The legacy SPA at `/legacy` blocks customer adoption (it's
+  archived; users don't see it unless they explicitly navigate)
+- Sales / branding wants a clean break (real but solvable
+  with positioning, not code)
+
+None of those triggers are met. The platform's foundations are
+ahead of the category.
+
+### 9.3 What v3 would actually mean (parking ideas, not committing)
+
+If a v3 happens later, the right shape — based on §3 weaknesses
+and what the category will look like in 24+ months — would be:
+
+- **Threat-actor as the primary entity, not the URL/IOC.** Today
+  threats are the table, actors derived. A v3 schema centers
+  actor profiles with detections as evidence rows. Nudges every
+  feature to think "what does this tell us about the actor."
+- **Pivot graph as a first-class surface.** Time-series of
+  infrastructure moves per actor, scored, visualized as a graph
+  not a table. Predictive scoring (§8.4) becomes an obvious
+  output of the graph.
+- **Outcome-driven dashboards.** Every dashboard view answers
+  "what should I do today" — not "here's a count of things." Each
+  row has a primary action button.
+- **Multi-tenant baked in deeper.** Cross-tenant intel
+  (§3.4 / §8.3) becomes a default capability with proper
+  contractual + privacy guardrails — not a future feature.
+- **AI-on-correlation as the default.** Static templates
+  (§6.6 v1) become the fallback; AI narrative becomes the
+  primary content path with cost-guard letting customers tune
+  fidelity vs spend.
+
+Each of these is achievable as a v2 evolution. v3 would be a
+greenfield rewrite to *avoid carrying v1+v2 baggage* — the
+question is whether that baggage is heavy enough to justify the
+cost.
+
+### 9.4 Recommendation
+
+**Incremental, with a v3 holding pattern.** Ship the 5 axes by
+closing the 7 gaps over Q3-Q4. In parallel, treat each closed
+gap as a v3-shaped slice — meaning: design it so it could be
+lifted into a v3 schema later without a rewrite of the integration
+glue. That gives optionality without paying the rewrite cost
+upfront.
+
+If during that quarter the platform hits a foundational
+limit (data-model contortion, scaling cliff, UX gridlock) that
+incremental can't reach, the v3 trigger fires and we revisit.
+
+### 9.5 Open strategic questions for the operator
+
+These are decisions external research + product instinct should
+answer; not for me to call:
+
+1. **Auto-onboard scope** — start at "one domain → tenant ready"
+   (already feasible) or aim for "one URL → tenant ready" (asks
+   us to invert from brand-keyed to detection-keyed)?
+2. **Multi-tenant intel sharing** — is cross-tenant pattern
+   detection (§3.4 / §8.3) a paid tier upsell or a default
+   capability? Affects schema + contracts.
+3. **Pricing model** — is "we close the loop" sold per-takedown,
+   per-actor-tracked, or per-brand? Affects what we instrument
+   and bill on.
+4. **Agency / channel partner play** — service providers who
+   resell to their customers. Multi-tenant hierarchy + RBAC +
+   billing-attribution decisions get heavier if so.
+5. **Public-facing free tier** — does `/scan/<domain>` go big as
+   the funnel? Affects how much trust-score / public assessment
+   work belongs on the platform vs in a separate funnel project.
+
+§10 lists open research tasks to inform these.
+
+## 10. Appendix — open research tasks
+
+*(Stub.)*
 
 ## 10. Appendix — open research tasks
 
