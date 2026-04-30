@@ -672,6 +672,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       hours_since_emailed: number | null;
       attempts_in_window: number;
       emailed_in_window: number;
+      recent_attempts: Array<{ generated_at: string; trigger: string; emailed: number; report_date: string }>;
     };
     try {
       const recentRow = await env.DB.prepare(
@@ -688,6 +689,11 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
            FROM threat_briefings
           WHERE generated_at >= datetime('now', '-' || ? || ' hours')`
       ).bind(hoursBack).first<{ attempts: number; emailed: number }>();
+      const recentList = await env.DB.prepare(
+        `SELECT generated_at, trigger, emailed, report_date
+           FROM threat_briefings
+          ORDER BY generated_at DESC LIMIT 10`
+      ).all<{ generated_at: string; trigger: string; emailed: number; report_date: string }>();
       const hoursSinceEmailed = emailedRow?.most_recent_emailed
         ? Math.round((Date.now() - Date.parse(emailedRow.most_recent_emailed.replace(' ', 'T') + 'Z')) / 3_600_000)
         : null;
@@ -698,6 +704,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         hours_since_emailed: hoursSinceEmailed,
         attempts_in_window: counts?.attempts ?? 0,
         emailed_in_window: counts?.emailed ?? 0,
+        recent_attempts: recentList.results,
       };
     } catch {
       briefingStatus = {
@@ -707,6 +714,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         hours_since_emailed: null,
         attempts_in_window: 0,
         emailed_in_window: 0,
+        recent_attempts: [],
       };
     }
 
