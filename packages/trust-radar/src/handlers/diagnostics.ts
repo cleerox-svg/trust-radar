@@ -673,6 +673,8 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       attempts_in_window: number;
       emailed_in_window: number;
       recent_attempts: Array<{ generated_at: string; trigger: string; emailed: number; report_date: string }>;
+      most_recent_error: string | null;
+      most_recent_recipient: string | null;
     };
     try {
       const recentRow = await env.DB.prepare(
@@ -694,6 +696,25 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
            FROM threat_briefings
           ORDER BY generated_at DESC LIMIT 10`
       ).all<{ generated_at: string; trigger: string; emailed: number; report_date: string }>();
+      // Pull the most recent failed attempt's report_data and
+      // surface email_error / email_recipient. Stored by the
+      // sendBriefingEmail caller per #946 follow-up.
+      const lastFailed = await env.DB.prepare(
+        `SELECT report_data FROM threat_briefings
+          WHERE emailed = 0
+          ORDER BY generated_at DESC LIMIT 1`
+      ).first<{ report_data: string | null }>();
+      let mostRecentError: string | null = null;
+      let mostRecentRecipient: string | null = null;
+      if (lastFailed?.report_data) {
+        try {
+          const parsed = JSON.parse(lastFailed.report_data) as {
+            email_error?: string; email_recipient?: string;
+          };
+          mostRecentError = parsed.email_error ?? null;
+          mostRecentRecipient = parsed.email_recipient ?? null;
+        } catch { /* non-JSON or stale row */ }
+      }
       const hoursSinceEmailed = emailedRow?.most_recent_emailed
         ? Math.round((Date.now() - Date.parse(emailedRow.most_recent_emailed.replace(' ', 'T') + 'Z')) / 3_600_000)
         : null;
@@ -705,6 +726,8 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         attempts_in_window: counts?.attempts ?? 0,
         emailed_in_window: counts?.emailed ?? 0,
         recent_attempts: recentList.results,
+        most_recent_error: mostRecentError,
+        most_recent_recipient: mostRecentRecipient,
       };
     } catch {
       briefingStatus = {
@@ -715,6 +738,8 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         attempts_in_window: 0,
         emailed_in_window: 0,
         recent_attempts: [],
+        most_recent_error: null,
+        most_recent_recipient: null,
       };
     }
 

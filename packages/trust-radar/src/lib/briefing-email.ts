@@ -6,7 +6,7 @@ import { logger } from "./logger";
 import type { Env } from "../types";
 import type { ComprehensiveBriefing } from "../handlers/briefing";
 
-const RECIPIENT = "claude.leroux@averrow.com";
+const RECIPIENT_DEFAULT = "claude.leroux@averrow.com";
 const FROM_ADDRESS = "Averrow Platform <briefing@averrow.com>";
 
 // ─── Resend API ────────────────────────────────────────────────
@@ -556,12 +556,16 @@ export async function sendBriefingEmail(
   env: Env,
   briefing: ComprehensiveBriefing,
   title: string,
-): Promise<{ sent: boolean; id?: string; error?: string }> {
+): Promise<{ sent: boolean; id?: string; error?: string; recipient: string }> {
+  // BRIEFING_RECIPIENT lets the operator change recipient without a
+  // code edit. Set via `wrangler secret put BRIEFING_RECIPIENT`.
+  const recipient = (env.BRIEFING_RECIPIENT?.trim() || RECIPIENT_DEFAULT);
+
   if (!env.RESEND_API_KEY) {
     logger.warn("briefing_email_skip", {
       reason: "RESEND_API_KEY not configured",
     });
-    return { sent: false, error: "RESEND_API_KEY not configured" };
+    return { sent: false, error: "RESEND_API_KEY not configured", recipient };
   }
 
   const subject = `${briefing.statusBadge === "DEGRADED" ? "[DEGRADED] " : "[OPERATIONAL] "}${title}`;
@@ -569,19 +573,19 @@ export async function sendBriefingEmail(
 
   const result = await sendViaResend(
     env.RESEND_API_KEY,
-    RECIPIENT,
+    recipient,
     subject,
     html,
   );
 
   if (result.ok) {
-    logger.info("briefing_email_sent", { to: RECIPIENT, resendId: result.id });
+    logger.info("briefing_email_sent", { to: recipient, resendId: result.id });
   } else {
     logger.error("briefing_email_failed", {
-      to: RECIPIENT,
+      to: recipient,
       error: result.error,
     });
   }
 
-  return { sent: result.ok, id: result.id, error: result.error };
+  return { sent: result.ok, id: result.id, error: result.error, recipient };
 }
