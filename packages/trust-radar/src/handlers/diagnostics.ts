@@ -379,6 +379,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         SUM(CASE WHEN fph.status = 'partial' THEN 1 ELSE 0 END) AS partial,
         SUM(CASE WHEN fph.status = 'failed' THEN 1 ELSE 0 END) AS failed,
         COALESCE(SUM(fph.records_ingested), 0) AS total_ingested,
+        COALESCE(SUM(fph.records_rejected), 0) AS total_rejected,
         MAX(CASE WHEN fph.status = 'success' THEN fph.completed_at END) AS last_success_at,
         MAX(CASE WHEN fph.status = 'failed' THEN fph.started_at END) AS last_failure_at
       FROM feed_pull_history fph
@@ -396,6 +397,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       partial: number;
       failed: number;
       total_ingested: number;
+      total_rejected: number;
       last_success_at: string | null;
       last_failure_at: string | null;
     }>();
@@ -822,6 +824,13 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
             failed: f.failed,
             failure_rate_pct: f.total_pulls > 0 ? Math.round((f.failed / f.total_pulls) * 100) : 0,
             records_ingested: f.total_ingested,
+            // records_rejected = duplicates + parse errors. With the
+            // threats table at 217K+ rows, most feeds publish IOCs
+            // already known — large rejected counts mean dedup is
+            // working as designed, NOT that the feed is broken.
+            // Operators care about ingested=0 AND rejected=0
+            // (truly silent feed).
+            records_rejected: f.total_rejected,
             last_success_at: f.last_success_at,
             last_failure_at: f.last_failure_at,
           })),
