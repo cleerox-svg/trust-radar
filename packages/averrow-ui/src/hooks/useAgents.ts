@@ -91,6 +91,10 @@ export interface PipelineEntry {
   label: string;
   agent: string;
   schedule: string;
+  /** External HTTP endpoints this pipeline calls (DNS resolvers,
+   *  third-party APIs, etc.). Surfaced as small chips on the
+   *  Pipeline Automation card. */
+  endpoints: Array<{ name: string; url: string }> | null;
   count: number;
   prev_count: number | null;
   trend: number | null;
