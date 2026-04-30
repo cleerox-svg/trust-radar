@@ -188,6 +188,7 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "feed_configs" },
     { kind: "d1_table", name: "feed_pull_history" },
     { kind: "d1_table", name: "feed_status" },
+    { kind: "d1_table", name: "push_subscriptions" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "threat_briefings" },
     { kind: "d1_table", name: "threats" },
@@ -195,6 +196,7 @@ export const flightControlAgent: AgentModule = {
   writes: [
     { kind: "d1_table", name: "agent_activity_log" },
     { kind: "d1_table", name: "backlog_history" },
+    { kind: "d1_table", name: "push_subscriptions" },
   ],
   outputs: [],
   status: "active",
@@ -478,6 +480,21 @@ export const flightControlAgent: AgentModule = {
         );
       }
     }
+
+    // ── Push subscription cleanup ──────────────────────────────────
+    // Browser push endpoints rotate frequently (SW updates, storage
+    // clears, VAPID rotations). The dispatcher already deletes rows
+    // that return 410/404 on a push attempt, but rows that were
+    // never used (no push ever sent to them) accumulate forever.
+    // Auto-prune any subscription that's never been used and is
+    // >7 days old — those endpoints are almost certainly dead.
+    try {
+      await db.prepare(
+        `DELETE FROM push_subscriptions
+          WHERE last_used_at IS NULL
+            AND created_at < datetime('now','-7 days')`
+      ).run();
+    } catch { /* non-fatal */ }
 
     // ── Auto-paused feed surfacing ────────────────────────────────
     // feedRunner already wrote a critical agent_activity_log row at the
