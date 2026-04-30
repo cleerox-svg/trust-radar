@@ -264,8 +264,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "push_subscriptions"
       ],
       "ai_models_referenced": [],
-      "loc": 1457,
-      "last_modified": "2026-04-30T18:12:44.256Z"
+      "loc": 1500,
+      "last_modified": "2026-04-30T18:19:22.048Z"
     },
     {
       "name": "geo-campaign-assessment",
