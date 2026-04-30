@@ -266,9 +266,16 @@ export default {
               AND state != 'done'
               AND created_at < datetime('now', '-' || ? || ' minutes')`
         ).bind(minutes).run();
+        // Diagnostic state breakdown so a swept=0 result is
+        // explainable (e.g. rows already done vs no rows at all).
+        const byState = await env.DB.prepare(
+          `SELECT state, COUNT(*) AS n FROM notifications
+            WHERE type LIKE 'platform_%' GROUP BY state`
+        ).all<{ state: string; n: number }>();
         return Response.json({
           swept: result.meta.changes,
           older_than_minutes: minutes,
+          state_breakdown: byState.results,
         });
       }
 
