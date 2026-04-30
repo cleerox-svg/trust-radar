@@ -399,17 +399,31 @@ export const flightControlAgent: AgentModule = {
         `SURBL enrichment backlog: ${backlogs.surblUnchecked} domains unchecked`,
         { backlog: 'surbl', count: backlogs.surblUnchecked }
       );
-      // B1: also emit a super_admin notification — operators want to
-      // know when human action is required, not just a log line.
-      try {
+    }
+
+    // ── platform_enrichment_stuck_pile — real signal ───────────────
+    // Audit doc §13 defines stuck_pile as "threats marked enriched
+    // but missing geo data" — same query the diagnostics endpoint
+    // exposes. The earlier wiring used the SURBL backlog, which is a
+    // different (and routine) signal. SURBL backlog stays as an
+    // activity-log line; the super_admin notification fires only on
+    // the genuine stuck-pile metric.
+    try {
+      const stuckRow = await db.prepare(
+        `SELECT COUNT(*) AS n FROM threats
+          WHERE enriched_at IS NOT NULL AND lat IS NULL AND ip_address IS NOT NULL`
+      ).first<{ n: number }>();
+      const stuckCount = stuckRow?.n ?? 0;
+      const STUCK_THRESHOLD = 100;
+      if (stuckCount >= STUCK_THRESHOLD) {
         await emitPlatformNotification(env, 'platform_enrichment_stuck_pile',
           renderPlatformEnrichmentStuck({
-            stuck_count: backlogs.surblUnchecked,
-            threshold: 1000,
+            stuck_count: stuckCount,
+            threshold: STUCK_THRESHOLD,
           })
         );
-      } catch { /* swallow */ }
-    }
+      }
+    } catch { /* notification failures never break FC */ }
     if (backlogs.vtUnchecked > 500) {
       await logActivity(db, 'flight_control', 'warning', 'enrichment_backlog',
         `VT enrichment backlog: ${backlogs.vtUnchecked} high-severity threats unchecked`,

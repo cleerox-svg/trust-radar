@@ -661,6 +661,55 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       occurrences: number;
     }>();
 
+    // Briefing email status — exposes the threat_briefings table
+    // state so operators can debug platform_briefing_silent alerts.
+    // Fields: most recent attempt + most recent successful delivery
+    // + Resend config presence + fail rate over the window.
+    let briefingStatus: {
+      resend_configured: boolean;
+      most_recent_attempt: string | null;
+      most_recent_emailed: string | null;
+      hours_since_emailed: number | null;
+      attempts_in_window: number;
+      emailed_in_window: number;
+    };
+    try {
+      const recentRow = await env.DB.prepare(
+        `SELECT MAX(generated_at) AS most_recent_attempt FROM threat_briefings
+          WHERE generated_at >= datetime('now', '-' || ? || ' hours')`
+      ).bind(hoursBack).first<{ most_recent_attempt: string | null }>();
+      const emailedRow = await env.DB.prepare(
+        `SELECT MAX(generated_at) AS most_recent_emailed FROM threat_briefings
+          WHERE emailed = 1`
+      ).first<{ most_recent_emailed: string | null }>();
+      const counts = await env.DB.prepare(
+        `SELECT COUNT(*) AS attempts,
+                SUM(CASE WHEN emailed = 1 THEN 1 ELSE 0 END) AS emailed
+           FROM threat_briefings
+          WHERE generated_at >= datetime('now', '-' || ? || ' hours')`
+      ).bind(hoursBack).first<{ attempts: number; emailed: number }>();
+      const hoursSinceEmailed = emailedRow?.most_recent_emailed
+        ? Math.round((Date.now() - Date.parse(emailedRow.most_recent_emailed.replace(' ', 'T') + 'Z')) / 3_600_000)
+        : null;
+      briefingStatus = {
+        resend_configured: !!env.RESEND_API_KEY,
+        most_recent_attempt: recentRow?.most_recent_attempt ?? null,
+        most_recent_emailed: emailedRow?.most_recent_emailed ?? null,
+        hours_since_emailed: hoursSinceEmailed,
+        attempts_in_window: counts?.attempts ?? 0,
+        emailed_in_window: counts?.emailed ?? 0,
+      };
+    } catch {
+      briefingStatus = {
+        resend_configured: !!env.RESEND_API_KEY,
+        most_recent_attempt: null,
+        most_recent_emailed: null,
+        hours_since_emailed: null,
+        attempts_in_window: 0,
+        emailed_in_window: 0,
+      };
+    }
+
     return json({
       success: true,
       data: {
@@ -741,6 +790,12 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           count: recentPlatformAlerts.results.length,
           items: recentPlatformAlerts.results,
         },
+
+        // Daily briefing email pipeline state — debug
+        // platform_briefing_silent alerts. resend_configured=false
+        // means the entire path is non-functional. emailed_in_window
+        // < attempts_in_window means Resend is rejecting sends.
+        briefing_status: briefingStatus,
 
         // D1 row-read tracking against the 25B/month plan ceiling.
         // setup_required: true when CF_API_TOKEN / CF_ACCOUNT_ID aren't
