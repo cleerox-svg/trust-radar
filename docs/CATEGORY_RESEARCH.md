@@ -595,9 +595,142 @@ candidates in §9:
 These absences aren't disqualifiers — they're the strategic
 build-list. §9 frames whether they're incremental or v3-shaped.
 
-## 8. Genuine differentiators — Better / Quicker / Intelligently / Clever / Aggressive
+## 8. Genuine differentiators — the "so what" answers
 
-*(Stub.)*
+The home page needs to answer "so what makes Averrow different
+from everything else in this space." Five axes, each grounded in
+a §7 capability and contrasted against a §3 / §4 / §5 weakness.
+Vendor names omitted.
+
+### 8.1 BETTER — closes the loop, not just the dashboard
+
+**Other platforms** produce signals + dashboards; the operator's
+team takes action. "Automated takedown" usually means "we file
+the form for you" (§4.9, §5.7).
+
+**Averrow** runs the full loop: detection → classification →
+brand match → cluster → takedown evidence package → submission →
+re-detect on pivot → re-takedown → escalate provider → adjust
+detection rules. Operator approves and reviews; the platform
+runs the workflow.
+
+Backed by: `agents/sparrow.ts` + `agents/evidence-assembler.ts`
++ NEXUS pivot detection + `intel_*` recommended-action templates.
+
+### 8.2 QUICKER — minutes-to-value, not weeks
+
+**Other platforms** require manual brand inventory entry, asset
+uploads, social handle config, domain verification across
+multiple onboarding screens (§2.4, §5.1). Time-to-first-signal:
+24-72 hours.
+
+**Averrow** auto-builds the tenant from one domain. DNS/BIMI
+lookup → social discovery (Mockingbird scout) → app-store search
+→ lookalike scan → email auth scan → dark-web baseline → ready.
+Time-to-first-signal: minutes. The customer's first session is
+already populated with active threat intel for their brand.
+
+Backed by: `agents/social-discovery.ts` + `lib/brand-enricher.ts`
++ `agents/app_store_monitor.ts` + lookalike-scanner +
+email-security + dark_web_monitor on a brand-create trigger.
+
+### 8.3 INTELLIGENTLY — answers "who is the actor", not just "what is the IOC"
+
+**Other platforms** tag a phish with severity / hosting provider
+/ IOC and treat each new domain as fresh detection (§3.1, §5.4).
+Threat actor pages, where they exist, are essentially analyst
+report wikis maintained by a research team — they don't update
+from incoming detections.
+
+**Averrow** ties each detection to a threat actor by ASN reuse,
+TTL pattern, kit fingerprint, and pivot history. Threat-actor
+pages update live as new infrastructure surfaces. Operator sees
+"Acme is being targeted by [actor X] who pivoted from [provider
+A] to [provider B] today" — not "you have a new phishing URL."
+
+Backed by: NEXUS clustering + Strategist campaign correlation +
+Sentinel ASN/country actor binding + threat_actor_targets table
++ planned MO/kit fingerprinting (§7.6).
+
+### 8.4 CLEVER — predicts the next move
+
+**Other platforms** are reactive. A domain registered Tuesday
+sits dormant; the platform flags it Friday once content goes
+live (§5.5).
+
+**Averrow** scores accelerating clusters and predicts strike
+windows. NEXUS detects the infrastructure prep — same ASN as
+last month's campaign, same registrar pattern, same SSL issuer
+sequence — and fires `intel_predictive` notifications before
+content drops. Combined with geo_campaign_assessment, predictions
+include geopolitical context: "infrastructure setup pattern
+matches a campaign that hit you 6 months ago — strike window
+predicted within 7 days."
+
+Backed by: `agents/nexus.ts` accelerating-cluster scoring +
+`agents/geo-campaign-assessment.ts` + `intel_predictive` template.
+
+### 8.5 AGGRESSIVE — pivots when they pivot
+
+**Other platforms** close a takedown row and forget. Same actor
+back in 48 hours on new infrastructure → fresh row, no memory
+(§3.2, §5.3, §5.4).
+
+**Averrow** tracks pivots as first-class events. When the actor
+moves provider A → B within N hours of takedown, Averrow:
+- Records the pivot pattern against the actor profile
+- Bumps the providers' abuse scorecard
+- Auto-resubmits takedown to the new provider
+- Surfaces "this actor pivoted N times this month" in the
+  threat-actor view
+- Compounds intel — repeat pivot patterns identify abuse-tolerant
+  providers worth lobbying / contracting around
+
+Backed by: NEXUS cluster lifecycle (active / dormant / pivoting)
++ pivot-detection events on agent_events bus + (planned) provider
+abuse scorecard surface (§7.6 gap).
+
+---
+
+### 8.6 The supporting unfair advantages
+
+Behind the five axes, the platform's foundations make them
+*feasible* where competitors struggle:
+
+- **Self-supervising agent mesh** — Flight Control auto-recovers
+  stalls, scales, and reports. Vendors that depend on human SREs
+  ship slower. (See §7.4.)
+- **AI-cost discipline by design** — soft / hard / emergency
+  throttle gradient with per-agent attribution. Vendors who
+  budget AI per-customer can't apply LLMs to high-volume work
+  without bleeding margin. (See §6.4 + §7.4.)
+- **OLAP cubes + read replicas** — sub-50ms dashboard reads. Most
+  competitor dashboards read raw event tables and feel slow at
+  scale. (See §7.5.)
+- **Static templates v1, AI narrative v2 path** — every alert
+  ships with `reason_text` + `recommended_action` today.
+  Narrator agent layered AI on top. Operators get answer-quality
+  consistency at v1 and AI variance at v2 without throwing away
+  v1. (See §6.5 + §7.3.)
+
+### 8.7 What the home page says
+
+Five plain-English statements, each anchored to one of the axes:
+
+1. **From signal to closure.** We don't dashboard threats — we
+   resolve them. (§8.1)
+2. **One domain. Minutes. Done.** Your brand inventory builds
+   itself. (§8.2)
+3. **Beyond the URL.** Every detection ties to the actor behind
+   it — and what they're doing right now. (§8.3)
+4. **Sees the next move.** Infrastructure prep is a signal.
+   We score it. (§8.4)
+5. **Pivots when they pivot.** New domain, new provider, same
+   takedown. (§8.5)
+
+Each statement should link to a "show me" view on the live
+platform that demonstrates the claim with the customer's own data
+within 60 seconds.
 
 ## 9. Strategic implications
 
