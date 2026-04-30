@@ -647,10 +647,10 @@ export async function handleGenerateBriefing(
 
     // Send briefing email (non-blocking)
     const sendEmail = url.searchParams.get("sendEmail") !== "false";
-    let emailResult: { sent: boolean; id?: string; error?: string } | undefined;
+    let emailResult: { sent: boolean; id?: string; error?: string; recipient?: string } | undefined;
     if (sendEmail) {
       emailResult = await sendBriefingEmail(env, briefing, title).catch(
-        (err) => ({ sent: false, error: "An internal error occurred" }),
+        (err) => ({ sent: false, error: "An internal error occurred", recipient: '' }),
       );
       if (emailResult.sent) {
         await env.DB.prepare(
@@ -658,6 +658,18 @@ export async function handleGenerateBriefing(
         )
           .bind(briefingId)
           .run();
+      } else {
+        // Persist Resend error for diagnostics surface.
+        try {
+          const updated = JSON.stringify({
+            ...briefing,
+            email_error: emailResult.error ?? 'unknown',
+            email_recipient: emailResult.recipient ?? null,
+          });
+          await env.DB.prepare(
+            "UPDATE threat_briefings SET report_data = ? WHERE id = ?",
+          ).bind(updated, briefingId).run();
+        } catch { /* non-fatal */ }
       }
     }
 
@@ -746,7 +758,7 @@ export async function generateAndEmailBriefing(
   const briefingId = insertResult.meta.last_row_id;
 
   const emailResult = await sendBriefingEmail(env, briefing, title).catch(
-    (err) => ({ sent: false as const, error: "An internal error occurred" }),
+    (err) => ({ sent: false as const, error: "An internal error occurred", recipient: '' }),
   );
 
   if (emailResult.sent) {
@@ -755,6 +767,21 @@ export async function generateAndEmailBriefing(
     )
       .bind(briefingId)
       .run();
+  } else {
+    // Persist the Resend error into report_data.email_error so the
+    // briefing_status diagnostics tell the operator WHY it failed.
+    // Adding a column would need a migration; report_data is JSON
+    // so we can patch it in place.
+    try {
+      const updated = JSON.stringify({
+        ...briefing,
+        email_error: emailResult.error ?? 'unknown',
+        email_recipient: 'recipient' in emailResult ? emailResult.recipient : null,
+      });
+      await env.DB.prepare(
+        "UPDATE threat_briefings SET report_data = ? WHERE id = ?",
+      ).bind(updated, briefingId).run();
+    } catch { /* non-fatal */ }
   }
 
   return { briefingId, emailSent: emailResult.sent, error: emailResult.error };

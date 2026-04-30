@@ -53,6 +53,8 @@ export interface Env {
   ANTHROPIC_ADMIN_KEY?: string;
   // Resend email API (briefing delivery)
   RESEND_API_KEY?: string;
+  /** Override the daily-briefing recipient. Defaults to claude.leroux@averrow.com when unset. */
+  BRIEFING_RECIPIENT?: string;
 }
 
 // ─── Enums ──────────────────────────────────────────────────────
