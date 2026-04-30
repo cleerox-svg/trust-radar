@@ -14,7 +14,7 @@
  */
 
 import { useMemo } from 'react';
-import { ShieldCheck, ShieldOff, Database, KeyRound, Box, Plug, Layers, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, ShieldOff, Database, KeyRound, Box, Plug, Layers, AlertTriangle, Globe } from 'lucide-react';
 
 import { Card, Badge } from '@/design-system/components';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -34,6 +34,7 @@ function resourceLabel(r: ResourceDecl): string {
     case 'r2':       return `${r.bucket}${r.prefix ? ` · ${r.prefix}` : ''}`;
     case 'queue':    return r.name ?? '(unknown queue)';
     case 'binding':  return r.name ?? '(unknown binding)';
+    case 'external': return `${r.name ?? '(unnamed)'}${r.url ? ` · ${r.url}` : ''}`;
   }
 }
 
@@ -44,6 +45,7 @@ function ResourceIcon({ kind }: { kind: ResourceDecl['kind'] }) {
     case 'r2':       return <Box size={11} />;
     case 'queue':    return <Layers size={11} />;
     case 'binding':  return <Plug size={11} />;
+    case 'external': return <Globe size={11} />;
   }
 }
 

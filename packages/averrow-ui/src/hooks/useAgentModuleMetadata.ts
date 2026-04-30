@@ -11,11 +11,14 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface ResourceDecl {
-  kind: 'd1_table' | 'kv' | 'r2' | 'queue' | 'binding';
+  kind: 'd1_table' | 'kv' | 'r2' | 'queue' | 'binding' | 'external';
   name?: string;
   namespace?: string;
   bucket?: string;
   prefix?: string;
+  /** Only set for kind='external' — the base URL of the external
+   *  HTTP dependency (DNS resolver, third-party API, etc.). */
+  url?: string;
 }
 
 export interface AgentOutputDecl {

@@ -175,7 +175,12 @@ export type ResourceDecl =
   | { kind: "kv"; namespace: string; prefix?: string }
   | { kind: "r2"; bucket: string; prefix?: string }
   | { kind: "queue"; name: string }
-  | { kind: "binding"; name: string };
+  | { kind: "binding"; name: string }
+  // External HTTP dependencies (DNS resolvers, third-party APIs we
+  // call directly, etc.). Surfaced in the AgentDeclarationsPanel
+  // so operators can see the off-platform endpoints an agent depends
+  // on. Not extracted by the SQL drift checker — declared manually.
+  | { kind: "external"; name: string; url?: string };
 
 export interface AgentBudget {
   /** Anthropic-token cap per calendar month (input + output combined,
