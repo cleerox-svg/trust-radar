@@ -245,6 +245,33 @@ export default {
         });
       }
 
+      // POST /api/internal/notifications/sweep-stale-platform
+      // Marks platform_* notifications older than ?olderThanMinutes
+      // as state='done'. Used to clear pre-fix stale alerts from
+      // operator devices without waiting for them to age out.
+      // Default cutoff: 60 minutes.
+      if (url.pathname === '/api/internal/notifications/sweep-stale-platform' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const minutes = parseInt(url.searchParams.get('olderThanMinutes') ?? '60', 10);
+        const result = await env.DB.prepare(
+          `UPDATE notifications
+              SET state = 'done',
+                  done_at = datetime('now'),
+                  updated_at = datetime('now')
+            WHERE type LIKE 'platform_%'
+              AND state != 'done'
+              AND created_at < datetime('now', '-' || ? || ' minutes')`
+        ).bind(minutes).run();
+        return Response.json({
+          swept: result.meta.changes,
+          older_than_minutes: minutes,
+        });
+      }
+
       if (url.pathname.startsWith('/api/internal/agents/') && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');
