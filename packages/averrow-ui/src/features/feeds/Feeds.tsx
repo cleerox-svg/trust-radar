@@ -57,6 +57,13 @@ function detectFeedIssue(feed: FeedOverview): string | null {
       return 'No matching threats ingested — check filter config';
     if (feed.feed_name === 'cloudflare_email')
       return 'No email threats detected in current window';
+    // 0 ingested but rejected>0 = dedup working as designed.
+    // Most public feeds publish IOCs already in the threats table
+    // (217K+ rows) — duplicate suppression is the success case,
+    // not a problem to flag. Only fire the generic warning when
+    // BOTH ingested and rejected are zero (truly silent feed —
+    // parser/scraper likely broken).
+    if (feed.total_rejected > 0) return null;
     return '0 records ingested despite active pulls — investigate';
   }
   return null;
