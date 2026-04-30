@@ -358,35 +358,84 @@ function PushSection(props: PushSectionProps) {
       )}
 
       {status?.subscribed && devices.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-white/5">
-          <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Devices</span>
-          <div className="mt-2 space-y-1">
-            {devices.map((d) => (
-              <div key={d.id} className="flex items-center justify-between py-2 px-1">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Smartphone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                  <div className="min-w-0">
-                    <p className="text-[13px] truncate" style={{ color: 'var(--text-primary)' }}>{d.device_label || 'Unknown device'}</p>
-                    <p className="text-[10px] truncate font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                      Added {new Date(d.created_at).toLocaleDateString()}
-                      {d.last_used_at ? ` · last push ${new Date(d.last_used_at).toLocaleDateString()}` : ' · never used'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onRemoveDevice(d.id)}
-                  className="p-1.5 rounded touch-target"
-                  style={{ color: 'var(--sev-critical)', opacity: 0.7 }}
-                  aria-label="Remove device"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <DeviceList devices={devices} onRemoveDevice={onRemoveDevice} />
       )}
     </Card>
+  );
+}
+
+// ─── DeviceList ───────────────────────────────────────────────────────
+//
+// Push subscriptions accumulate over time (every browser session
+// that subscribes creates a new endpoint; SW updates and storage
+// clears rotate keys). FC auto-prunes never-used rows >7 days old,
+// but the list can still be 10s of entries deep for active operators.
+// Collapse behind "Show all" so the channel-routing section below
+// stays reachable without scrolling past hundreds of rows.
+
+function formatDeviceDate(value: string | null | undefined): string {
+  if (!value) return 'recently';
+  // SQLite returns "YYYY-MM-DD HH:MM:SS" (space separator). Safari
+  // refuses non-ISO; normalise to "YYYY-MM-DDTHH:MM:SSZ" before parse.
+  const iso = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return 'recently';
+  return new Date(ms).toLocaleDateString();
+}
+
+const DEVICE_LIST_COLLAPSED_LIMIT = 5;
+
+function DeviceList({
+  devices, onRemoveDevice,
+}: {
+  devices: PushDevice[];
+  onRemoveDevice: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? devices : devices.slice(0, DEVICE_LIST_COLLAPSED_LIMIT);
+  const hidden = Math.max(0, devices.length - DEVICE_LIST_COLLAPSED_LIMIT);
+
+  return (
+    <div className="mt-4 pt-3 border-t border-white/5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          Devices ({devices.length})
+        </span>
+        {hidden > 0 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[10px] font-mono touch-target"
+            style={{ color: 'var(--amber)' }}
+          >
+            {expanded ? 'Show less' : `Show all (+${hidden})`}
+          </button>
+        )}
+      </div>
+      <div className="mt-2 space-y-1">
+        {visible.map((d) => (
+          <div key={d.id} className="flex items-center justify-between py-2 px-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Smartphone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+              <div className="min-w-0">
+                <p className="text-[13px] truncate" style={{ color: 'var(--text-primary)' }}>{d.device_label || 'Unknown device'}</p>
+                <p className="text-[10px] truncate font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                  Added {formatDeviceDate(d.created_at)}
+                  {d.last_used_at ? ` · last push ${formatDeviceDate(d.last_used_at)}` : ' · never used'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onRemoveDevice(d.id)}
+              className="p-1.5 rounded touch-target"
+              style={{ color: 'var(--sev-critical)', opacity: 0.7 }}
+              aria-label="Remove device"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

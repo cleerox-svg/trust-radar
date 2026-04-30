@@ -253,17 +253,19 @@ export const REPO_MANIFEST: RepoInventory = {
         "feed_configs",
         "feed_pull_history",
         "feed_status",
+        "push_subscriptions",
         "social_mentions",
         "threat_briefings",
         "threats"
       ],
       "writes": [
         "agent_activity_log",
-        "backlog_history"
+        "backlog_history",
+        "push_subscriptions"
       ],
       "ai_models_referenced": [],
-      "loc": 1414,
-      "last_modified": "2026-04-30T12:41:37.784Z"
+      "loc": 1431,
+      "last_modified": "2026-04-30T13:08:34.924Z"
     },
     {
       "name": "geo-campaign-assessment",

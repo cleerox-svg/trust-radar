@@ -44,6 +44,14 @@ export function PasskeysCard() {
       if (err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
         return;
       }
+      // InvalidStateError = a credential matching this account is
+      // already in the platform/sync authenticator. Most often
+      // means a passkey synced via Google Password Manager or
+      // iCloud Keychain from another device — nothing to fix.
+      if (err instanceof DOMException && err.name === 'InvalidStateError') {
+        showToast("A passkey for this account already exists on this device (likely synced from another device).", 'info');
+        return;
+      }
       showToast(err instanceof Error ? err.message : "Couldn't add passkey", 'error');
     } finally {
       setAdding(false);
@@ -68,8 +76,13 @@ export function PasskeysCard() {
       <SectionLabel className="mb-2">Passkeys</SectionLabel>
       <p className="font-mono text-[11px] leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
         One-tap sign-in via Touch ID, Face ID, Windows Hello, or a
-        hardware security key. No password ever required. Add one for
-        each device you sign in from.
+        hardware security key. No password ever required.
+      </p>
+      <p className="font-mono text-[10px] leading-relaxed mb-3" style={{ color: 'var(--text-tertiary)' }}>
+        Passkeys may be synced across your devices via Google Password
+        Manager or iCloud Keychain. If a passkey is synced, you don't
+        need to add a new one on each device — the same one works
+        everywhere you're signed into the sync provider.
       </p>
 
       {!supported ? (
