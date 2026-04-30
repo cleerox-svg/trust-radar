@@ -41,7 +41,12 @@ export function Dropdown({ open, onClose, children, width = 380, className = '' 
       style={{
         width,
         zIndex: 'var(--z-dropdown)',
-        background: 'rgba(15,23,42,0.50)',
+        // Was rgba(15,23,42,0.50) + backdrop-filter blur — but
+        // backdrop-filter renders inconsistently and 50% opacity
+        // let the content underneath bleed through (operator
+        // screenshot 2026-04-30: agents grid visible through bell
+        // dropdown). Solid card background fixes it everywhere.
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         border: '1px solid rgba(255,255,255,0.07)',
