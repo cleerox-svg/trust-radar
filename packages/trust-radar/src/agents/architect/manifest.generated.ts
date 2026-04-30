@@ -264,8 +264,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "push_subscriptions"
       ],
       "ai_models_referenced": [],
-      "loc": 1451,
-      "last_modified": "2026-04-30T13:36:52.049Z"
+      "loc": 1457,
+      "last_modified": "2026-04-30T18:12:44.256Z"
     },
     {
       "name": "geo-campaign-assessment",
@@ -496,8 +496,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "seed_campaigns"
       ],
       "ai_models_referenced": [],
-      "loc": 227,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "loc": 231,
+      "last_modified": "2026-04-30T16:57:52.224Z"
     },
     {
       "name": "sentinel",

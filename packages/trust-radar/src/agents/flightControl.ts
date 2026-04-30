@@ -884,11 +884,12 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
       SELECT COUNT(*) as count FROM social_mentions WHERE status = 'new'
     `, true),
     cacheCount('backlog.domain_geo', BACKLOG_TTL_LIVE_S, `
-      SELECT COUNT(*) as count FROM threats
+      SELECT COUNT(DISTINCT malicious_domain) as count FROM threats
       WHERE (ip_address IS NULL OR ip_address = '')
         AND malicious_domain IS NOT NULL
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
+        AND COALESCE(enrichment_attempts, 0) < 5
     `),
     cacheCount('backlog.brand_enrich', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM brands
