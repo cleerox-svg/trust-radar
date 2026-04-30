@@ -418,11 +418,31 @@ export async function handleAdminStats(request: Request, env: Env): Promise<Resp
 
 // ─── Pipeline Status (reads pre-computed data only — no COUNT queries) ───
 
-// Maps backlog_history names to display labels and owning agents
-const PIPELINE_META: Record<string, { label: string; agent: string; schedule: string }> = {
+// Maps backlog_history names to display labels and owning agents.
+// `endpoints` lists the external HTTP services this pipeline calls
+// (DNS resolvers, third-party threat-intel APIs, etc.). Surfaced
+// in the Pipeline Automation card so operators can see the off-
+// platform dependencies for each pipeline.
+type PipelineMeta = {
+  label: string;
+  agent: string;
+  schedule: string;
+  endpoints?: Array<{ name: string; url: string }>;
+};
+
+const PIPELINE_META: Record<string, PipelineMeta> = {
   cartographer:  { label: 'Geo Enrichment',     agent: 'cartographer', schedule: 'hourly' },
   analyst:       { label: 'Brand Matching',      agent: 'analyst',     schedule: 'hourly' },
-  domain_geo:    { label: 'DNS Resolution',      agent: 'navigator',   schedule: '5 min' },
+  domain_geo:    {
+    label: 'DNS Resolution',
+    agent: 'navigator',
+    schedule: '5 min',
+    endpoints: [
+      { name: 'Cloudflare 1.1.1.1', url: 'https://cloudflare-dns.com' },
+      { name: 'Google DNS',         url: 'https://dns.google' },
+      { name: 'Quad9 DNS',          url: 'https://dns.quad9.net:5053' },
+    ],
+  },
   brand_enrich:  { label: 'Brand Enrichment',    agent: 'enricher',    schedule: 'hourly' },
   surbl:         { label: 'SURBL',               agent: 'surbl',       schedule: 'hourly' },
   virustotal:    { label: 'VirusTotal',          agent: 'virustotal',  schedule: 'hourly' },
@@ -487,6 +507,7 @@ export async function handlePipelineStatus(request: Request, env: Env): Promise<
       label: meta.label,
       agent: meta.agent,
       schedule: meta.schedule,
+      endpoints: meta.endpoints ?? null,
       count,
       prev_count: prevCount,
       trend,                               // negative = draining, positive = growing, null = no data

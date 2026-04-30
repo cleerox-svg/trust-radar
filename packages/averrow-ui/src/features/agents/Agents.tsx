@@ -727,6 +727,29 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
                     </div>
                   )}
                 </div>
+
+                {/* External endpoints — DNS resolvers, third-party APIs.
+                    Hidden when the pipeline has no off-platform deps. */}
+                {p.endpoints && p.endpoints.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-white/[0.04] flex flex-wrap gap-1">
+                    {p.endpoints.map((e) => (
+                      <a
+                        key={e.url}
+                        href={e.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[8px] px-1.5 py-0.5 rounded transition-colors hover:bg-white/[0.05]"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          border: '1px solid var(--border-base)',
+                        }}
+                        title={e.url}
+                      >
+                        {e.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
