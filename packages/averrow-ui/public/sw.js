@@ -24,7 +24,7 @@
  * Bump VERSION on any change here so old caches are evicted on activate.
  */
 
-const VERSION = '2026-04-27.2';
+const VERSION = '2026-04-30.1';
 const SHELL_CACHE   = `averrow-shell-${VERSION}`;
 const API_CACHE     = `averrow-api-${VERSION}`;
 const RUNTIME_CACHE = `averrow-runtime-${VERSION}`;
@@ -215,10 +215,25 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// React Router runs at basename="/v2", but notification.link is
+// stored as a basename-relative path (e.g. "/agents") so the in-app
+// bell click via navigate() works. The SW navigates the bare URL
+// though — `/agents` on averrow.com hits the LEGACY SPA, not v2.
+// Prepend /v2/ when the path is missing it (operator screenshot
+// 2026-04-30: tapping a platform alert opened the old UI).
+function v2Path(path) {
+  if (!path) return '/v2/';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/v2/') || path === '/v2') return path;
+  if (path.startsWith('/')) return '/v2' + path;
+  return '/v2/' + path;
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetPath = (event.notification.data && event.notification.data.url) || '/v2/';
+  const rawPath = (event.notification.data && event.notification.data.url) || '/v2/';
+  const targetPath = v2Path(rawPath);
   const notificationId = event.notification.data && event.notification.data.notificationId;
   const targetUrl = new URL(targetPath, self.location.origin).href;
   const action = event.action; // '' for default tap, 'snooze' / 'done' for action buttons
