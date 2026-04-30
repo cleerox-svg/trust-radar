@@ -65,15 +65,19 @@ export const seedStrategistAgent: AgentModule = {
       WHERE captured_at > datetime('now', '-7 days')
     `).first();
 
-    // Brands with active phishing but no trap catches
+    // Brands with active phishing but no trap catches.
+    // D1 rejects HAVING on non-aggregate queries (D1_ERROR:
+    // HAVING clause on a non-aggregate query). Wrap in a subquery
+    // and filter the computed column with WHERE.
     const uncoveredBrands = await env.DB.prepare(`
-      SELECT b.id, b.name, b.threat_count,
-        (SELECT COUNT(*) FROM spam_trap_captures WHERE spoofed_brand_id = b.id
-         AND captured_at > datetime('now', '-30 days')) as trap_catches
-      FROM brands b
-      WHERE b.threat_count > 10
-      HAVING trap_catches = 0
-      ORDER BY b.threat_count DESC
+      SELECT * FROM (
+        SELECT b.id, b.name, b.threat_count,
+          (SELECT COUNT(*) FROM spam_trap_captures WHERE spoofed_brand_id = b.id
+           AND captured_at > datetime('now', '-30 days')) as trap_catches
+        FROM brands b
+        WHERE b.threat_count > 10
+      ) WHERE trap_catches = 0
+      ORDER BY threat_count DESC
       LIMIT 10
     `).all();
 
