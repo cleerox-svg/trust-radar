@@ -57,6 +57,7 @@ function key(r: ResourceDecl): string {
     case "r2":       return `r2:${r.bucket}${r.prefix ? `:${r.prefix}` : ""}`;
     case "queue":    return `queue:${r.name}`;
     case "binding":  return `binding:${r.name}`;
+    case "external": return `external:${r.name}`;
   }
 }
 

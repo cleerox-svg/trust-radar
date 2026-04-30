@@ -116,8 +116,15 @@ export const enricherAgent: AgentModule = {
   // No AI under the 'enricher' attribution; brand_enricher carries
   // its own cap. Cap=0 here surfaces regressions.
   budget: { monthlyTokenCap: 0 },
-  // Delegates SQL to lib/enricher-tasks helpers.
-  reads: [],
+  // Delegates SQL to lib/enricher-tasks helpers; SQL extraction
+  // doesn't see those, so the drift checker shows nothing.
+  // External dependencies declared manually for operator visibility
+  // (Phase 2026-04-30: multi-resolver DoH for domain_geo drain).
+  reads: [
+    { kind: "external", name: "Cloudflare DoH (1.1.1.1)", url: "https://cloudflare-dns.com" },
+    { kind: "external", name: "Google DNS DoH", url: "https://dns.google" },
+    { kind: "external", name: "Quad9 DoH", url: "https://dns.quad9.net:5053" },
+  ],
   writes: [],
   outputs: [],
   status: 'active',
