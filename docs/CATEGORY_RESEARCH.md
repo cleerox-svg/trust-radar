@@ -223,35 +223,90 @@ is rare.
 
 ## 4. Common positioning angles in the space
 
-*(Stub.)*
+When everyone ships the same baseline (§2), positioning is how
+vendors signal their angle. The recurring patterns in this space:
 
-## 5. Customer pain points with existing platforms
+### 4.1 "We monitor more places"
 
-*(Stub.)*
+Surface count as the differentiator: "X surface web sources, Y
+dark-web forums, Z app stores, W social platforms." Customer
+appeal: completeness anxiety. Weakness: more sources without
+better correlation = more noise. Doesn't answer "now what."
 
-## 6. AI in the category — claims vs reality
+### 4.2 "We take down faster"
 
-*(Stub.)*
+SLA-driven. "Average X-hour takedown." Customer appeal: clear
+metric, easy procurement spreadsheet entry. Weakness: SLA is
+median, tail is what hurts; takedowns are largely a function of
+the host's responsiveness, not the platform's.
 
-## 7. Averrow capabilities — code-level map
+### 4.3 "We have analyst-led intelligence"
 
-*(Stub.)*
+Human-in-the-loop curation. "Our research team profiles every
+threat." Customer appeal: bespoke / premium feel. Weakness:
+doesn't scale, and analysts mostly produce reports that get
+filed and forgotten — not action loops.
 
-## 8. Genuine differentiators — Better / Quicker / Intelligently / Clever / Aggressive
+### 4.4 "We're enterprise / managed service"
 
-*(Stub.)*
+White-glove. "We onboard you, we manage your tenant, we deliver
+weekly reports." Customer appeal: low operational burden.
+Weakness: the value is the service relationship, not the
+platform; the platform itself can be mediocre and the service
+masks it.
 
-## 9. Strategic implications
+### 4.5 "We integrate with your SIEM / SOAR"
 
-*(Stub — incremental enhancement vs Averrow v3 rewrite.)*
+Integration count + API quality as the differentiator. Customer
+appeal: works with existing security stack. Weakness: integration
+shifts the work to the customer's analysts; the platform doesn't
+think harder.
 
-## 10. Appendix — open research tasks
+### 4.6 "We use AI" (the post-2023 baseline angle)
 
-*(Stub.)*
+Almost universal now. Vendors badge existing classification /
+clustering / summarization with "AI-powered." Customer appeal:
+modern, future-proof. Weakness: what specifically the AI does is
+usually opaque and rarely changes outcomes. Mostly LLM-summarized
+dashboards.
 
-## 4. Common positioning angles in the space
+### 4.7 "We're affordable / SMB-friendly"
 
-*(Stub.)*
+Price-led. Customer appeal: covers a market segment the
+enterprise vendors won't touch profitably. Weakness: race-to-
+the-bottom; data quality often suffers; AI usage gets capped to
+control unit economics.
+
+### 4.8 "We're vertical-specialized"
+
+"We focus on financial services / government / healthcare brands."
+Customer appeal: speaks the customer's language, knows their
+threats. Weakness: scope limits TAM; the threat actors don't
+respect the vertical boundary.
+
+### 4.9 "We do takedowns AS the service"
+
+Pure takedown shop, often white-labeled inside other vendors.
+Customer appeal: simple SOW. Weakness: not a platform play;
+detection is bought elsewhere or scraped.
+
+---
+
+### Where Averrow's positioning fits
+
+Averrow combines angles that are usually mutually exclusive:
+
+- **Auto-onboarded** (kills §2.4 friction → competes with managed-
+  service angle on convenience without the headcount)
+- **Threat-actor first** (§3.1, §3.2 — pivots, MO, kits — replaces
+  the "more sources" angle with "deeper signal")
+- **Action-loop closed** (§3.9 — auto-takedown → re-detect on
+  pivot → re-takedown → escalate → adjust rules without the
+  operator)
+- **AI applied to correlation, not just summarization** (§3.3,
+  §3.4, §3.5 — what the §4.6 angle promises but rarely delivers)
+
+This combination is the genuine differentiator. §8 expands.
 
 ## 5. Customer pain points with existing platforms
 
