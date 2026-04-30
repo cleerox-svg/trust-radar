@@ -209,6 +209,19 @@ export const flightControlAgent: AgentModule = {
     const outputs: AgentOutputEntry[] = [];
     const budgetMgr = new BudgetManager(db);
 
+    // ── Phase timing instrumentation (P2 / FC duration debug) ─────
+    // Wraps each major phase so we can see in agent_outputs.details
+    // .timings which step dominates the ~4 min FC tick. The cost is
+    // negligible (Date.now × ~12 phases). Surfaces in diagnostics.
+    const timings: Record<string, number> = {};
+    const t0 = Date.now();
+    let lastMark = t0;
+    const mark = (phase: string) => {
+      const now = Date.now();
+      timings[phase] = (timings[phase] ?? 0) + (now - lastMark);
+      lastMark = now;
+    };
+
     // Fetch Anthropic usage report (once per hour, guarded by KV)
     let anthropicReported = 0;
     const anthropicAdminKey = (env as unknown as Record<string, string | undefined>).ANTHROPIC_ADMIN_KEY;
@@ -219,6 +232,7 @@ export const flightControlAgent: AgentModule = {
         await env.CACHE.put('budget:anthropic_last_check', String(Date.now()), { expirationTtl: 3600 });
       }
     }
+    mark('anthropic_check');
 
     // Run all reads in parallel — single round trip to D1
     const [backlogs, health, navigatorHealth, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds, trippedAgents] = await Promise.all([
@@ -274,6 +288,7 @@ export const flightControlAgent: AgentModule = {
           ORDER BY consecutive_failures DESC
       `).all<TrippedAgent>(),
     ]);
+    mark('parallel_reads');
 
     // Log budget state every tick for the activity log (diagnostic trail).
     if (budgetStatus.throttle_level === 'emergency') {
@@ -319,6 +334,8 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    mark('budget_logic');
+
     // ── Backlog B1: AI spend burst self-monitor ──────────────────
     // When projected_monthly is on track to overshoot the configured
     // limit by 50%+, fire a super_admin alert. Single fire per day
@@ -346,6 +363,8 @@ export const flightControlAgent: AgentModule = {
         );
       }
     } catch { /* notification failures never break FC */ }
+
+    mark('ai_spend_emit');
 
     // ── Backlog B1: cron heartbeat self-monitors ─────────────────
     // FC itself runs in the orchestrator path, so if FC is running
@@ -392,6 +411,8 @@ export const flightControlAgent: AgentModule = {
         );
       }
     } catch { /* notification failures never break FC */ }
+
+    mark('cron_heartbeats');
 
     // ── Enrichment backlog warnings ──────────────────────────────
     if (backlogs.surblUnchecked > 1000) {
@@ -467,6 +488,8 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    mark('enrichment_warnings');
+
     // ── Watchdog social mention backlog ─────────────────────────────
     if (backlogs.watchdog > 100) {
       await logActivity(db, 'flight_control', 'warning', 'social_backlog',
@@ -516,6 +539,8 @@ export const flightControlAgent: AgentModule = {
       ).run();
     } catch { /* non-fatal */ }
 
+    mark('feed_health_pre');
+
     // ── Auto-paused feed surfacing ────────────────────────────────
     // feedRunner already wrote a critical agent_activity_log row at the
     // moment of the pause transition, so we don't need another
@@ -551,6 +576,8 @@ export const flightControlAgent: AgentModule = {
         } catch { /* notification failures never break FC */ }
       }
     }
+
+    mark('feed_paused_emit');
 
     // ── N6c: briefing-silent self-monitor ────────────────────────
     // The daily threat briefing is dispatched at hour 13:00 UTC by
@@ -590,6 +617,8 @@ export const flightControlAgent: AgentModule = {
       );
     }
 
+    mark('briefing_silent_emit');
+
     // ── C2 infrastructure overlap detection ────────────────────────
     try {
       const c2Overlap = await db.prepare(`
@@ -604,6 +633,8 @@ export const flightControlAgent: AgentModule = {
         );
       }
     } catch { /* non-fatal — c2_tracker may not have data yet */ }
+
+    mark('c2_overlap');
 
     // ── CertStream health check ──────────────────────────────────
     try {
@@ -629,7 +660,11 @@ export const flightControlAgent: AgentModule = {
 
     // Fire-and-forget scaling (no await — don't block on spawning agents)
     const scalingActions = await scaleAgents(db, env, ctx, backlogs, budgetStatus, agentLimits);
+    mark('scale_agents');
     const recoveryActions = await recoverStalledAgents(db, env, ctx, health);
+    mark('recover_stalled');
+
+    mark('certstream_check');
 
     // ── Curator weekly trigger ─────────────────────────────────
     const lastRun = lastCuratorRun?.last_run
@@ -715,6 +750,9 @@ export const flightControlAgent: AgentModule = {
       : Object.values(backlogs).some(b => b > 5000) ? 'busy'
       : 'healthy';
 
+    mark('finalize');
+    const totalMs = Date.now() - t0;
+
     const snapshot = {
       timestamp: new Date().toISOString(),
       backlogs,
@@ -725,6 +763,11 @@ export const flightControlAgent: AgentModule = {
       degraded_feeds: degradedFeeds.results,
       auto_paused_feeds: autoPausedFeeds.results,
       tripped_agents: trippedAgents.results,
+      // P2 — phase timings for duration debugging. Surfaces in
+      // agent_outputs.details so diagnostics can pull and rank
+      // which step dominates the FC tick.
+      timings,
+      total_ms: totalMs,
     };
 
     const feedHealthSummary = `${autoPausedFeeds.results.length} feeds auto-paused, ${degradedFeeds.results.length} degraded`;

@@ -32,6 +32,43 @@ interface D1Metrics {
   error?: string;
 }
 
+// Pull the most recent FC tick's phase timings (P2). Sourced from
+// the diagnostic agent_outputs row FC writes at the end of each
+// tick. Returns null if not available (e.g. fresh deploy not yet
+// run).
+async function getFcTickTimings(db: D1Database): Promise<{
+  total_ms: number | null;
+  generated_at: string | null;
+  timings: Record<string, number> | null;
+  ranked: Array<{ phase: string; ms: number; pct: number }>;
+} | null> {
+  try {
+    const row = await db.prepare(
+      `SELECT details, created_at FROM agent_outputs
+        WHERE agent_id = 'flight_control' AND type = 'diagnostic'
+        ORDER BY created_at DESC LIMIT 1`
+    ).first<{ details: string; created_at: string }>();
+    if (!row?.details) return null;
+    const parsed = JSON.parse(row.details) as {
+      timings?: Record<string, number>;
+      total_ms?: number;
+    };
+    const timings = parsed.timings ?? null;
+    const totalMs = parsed.total_ms ?? null;
+    if (!timings) return { total_ms: totalMs, generated_at: row.created_at, timings: null, ranked: [] };
+    const ranked = Object.entries(timings)
+      .map(([phase, ms]) => ({
+        phase,
+        ms,
+        pct: totalMs && totalMs > 0 ? Math.round((ms / totalMs) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.ms - a.ms);
+    return { total_ms: totalMs, generated_at: row.created_at, timings, ranked };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchD1Metrics(env: Env, databaseId: string): Promise<D1Metrics> {
   const token = (env as unknown as Record<string, string | undefined>).CF_API_TOKEN;
   const accountId = (env as unknown as Record<string, string | undefined>).CF_ACCOUNT_ID;
@@ -829,6 +866,12 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         // means the entire path is non-functional. emailed_in_window
         // < attempts_in_window means Resend is rejecting sends.
         briefing_status: briefingStatus,
+
+        // FC tick phase timings — pulled from the most recent
+        // flight_control diagnostic snapshot. Used to investigate
+        // which step dominates the FC duration (currently ~4 min
+        // post-#948; target <60s).
+        fc_tick_timings: await getFcTickTimings(env.DB),
 
         // D1 row-read tracking against the 25B/month plan ceiling.
         // setup_required: true when CF_API_TOKEN / CF_ACCOUNT_ID aren't
