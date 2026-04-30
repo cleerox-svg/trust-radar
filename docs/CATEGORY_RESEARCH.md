@@ -398,7 +398,104 @@ address head-on:
 
 ## 6. AI in the category — claims vs reality
 
-*(Stub.)*
+Almost every platform now claims to be "AI-powered." The reality
+is more uneven. The recurring patterns:
+
+### 6.1 What "AI" usually means in marketing copy
+
+- **Classification**: is this URL a phish (binary or scored)?
+- **Clustering**: group similar threats together
+- **Summarization**: turn raw events into prose for the dashboard
+- **Image similarity**: logo / favicon match scoring
+
+These are real — but they were happening before LLMs, often with
+classical ML. The post-2023 rebrand mostly involves swapping
+existing models for LLM-based ones and putting "AI" on the label.
+
+### 6.2 What's rarely shipped despite the claim
+
+- **Cross-event narrative**: tying a phish, a typosquat, a social
+  imitation, and a dark-web mention into one campaign-actor story
+- **Predictive infrastructure detection**: spotting prep before
+  the attack (cluster of newly-registered domains on the same ASN
+  before content goes live)
+- **AI-generated-content fingerprinting**: detecting when the
+  attacker used an LLM to write the lure
+- **MO inference**: figuring out the *style* of the attacker —
+  how they pick infrastructure, how they sequence pivots, what
+  tooling they prefer
+- **Action recommendations grounded in the platform's actual
+  data**: "for THIS threat actor, takedown via THIS channel
+  worked X% of the time last quarter"
+
+### 6.3 The opacity problem
+
+When the platform says "AI flagged this as critical," operators
+typically can't see:
+
+- Which model was used
+- What context was passed in
+- What the model returned (often only a final score is stored)
+- How much it cost
+- How confident the model was
+
+Trust depends on observability. The category collectively under-
+invests in making AI work auditable.
+
+### 6.4 Cost discipline is rare
+
+LLM calls scale with volume. A platform with 100K daily threats
+that runs every threat through Sonnet is spending ~thousands of
+dollars per day. Most platforms either:
+
+- Cap AI to severity tiers (cheap but biased toward critical)
+- Cap AI to a sample (random gaps in coverage)
+- Run cheaper models everywhere (lose quality)
+- Eat the cost and pass it to the customer's bill
+
+Few platforms expose budget state, throttle gracefully, or let
+the customer trade cost for fidelity.
+
+### 6.5 Where AI actually changes outcomes (vs decoration)
+
+The high-leverage applications — the ones that move the needle
+on operator outcomes — are not the dashboard banners:
+
+- **Multi-signal correlation across 24-72h windows** (per-brand
+  narrative): turns 50 separate dashboard rows into one "this
+  is what's happening to your brand right now" paragraph
+- **Predictive cluster scoring**: "infrastructure setup pattern
+  matches a campaign that hit you 6 months ago — strike window
+  predicted"
+- **Action selection**: which takedown channel to use, ranked
+  by historical success on this provider × actor pair
+- **AI-generated content detection**: did the attacker use an LLM
+  to write this?
+- **Per-brand template-rendering**: AI writes the alert reason +
+  recommended action grounded in the specific row, not a generic
+  string
+
+### 6.6 What Averrow does today
+
+(Concrete — to feed §7's code-level map.)
+
+- **Haiku for classification** (cheap, high volume) — sentinel,
+  cartographer
+- **Sonnet for narrative** (rare, high-leverage) — narrator,
+  observer briefing
+- **Cluster detection** — NEXUS algorithm, AI assists with
+  naming + correlation context
+- **Reason text + recommended action** — currently static
+  templates per `intel_*` family (Q5 v1); AI narrator agent for
+  digest envelopes is shipped
+- **Cost guard + budget rollups** — AI work pauses when the
+  monthly budget hits soft / hard / emergency thresholds. Visible
+  in the platform-diagnostics endpoint.
+- **Per-agent cost attribution** — every Haiku / Sonnet call is
+  tagged to the agent that made it; budget ledger is queryable.
+
+The cost-guard + observability piece is genuinely different from
+the §6.3 / §6.4 norm in this space.
 
 ## 7. Averrow capabilities — code-level map
 
