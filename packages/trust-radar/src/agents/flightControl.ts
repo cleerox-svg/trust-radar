@@ -626,7 +626,17 @@ export const flightControlAgent: AgentModule = {
     // group_key=platform_agent_stalled:<agent_id>:<last_run_at> means
     // the same stuck run only notifies once; if the run finally moves
     // (success/fail) and a new one stalls, that's a new notification.
+    //
+    // Skip api/manual-trigger agents: they only run on demand
+    // (trigger='api' for sync agents like evidence_assembler,
+    // 'manual' for pathfinder etc.). Long silence between
+    // invocations is intentional, not a stall — emitting here
+    // generates false alarms (operator screenshot 2026-04-30).
+    const { agentModules: agentModulesForStallCheck } = await import('./index');
     for (const stalledHealth of health.filter(h => h.is_stalled)) {
+      const mod = agentModulesForStallCheck[stalledHealth.agent_id];
+      if (!mod) continue;
+      if (mod.trigger === 'api' || mod.trigger === 'manual') continue;
       try {
         const minutesRunning = stalledHealth.last_run_at
           ? Math.round((Date.now() - Date.parse(stalledHealth.last_run_at)) / 60_000)
