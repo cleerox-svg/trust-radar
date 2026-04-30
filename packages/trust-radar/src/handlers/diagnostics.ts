@@ -645,6 +645,22 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         pct_to_auto_pause: Math.round((f.consecutive_failures / f.threshold) * 100),
       }));
 
+    // Recent platform_* notifications — operator-facing audit trail
+    // of what FC + agents flagged as needing human attention.
+    const recentPlatformAlerts = await env.DB.prepare(
+      `SELECT MAX(created_at) AS created_at, type, severity, title, message, group_key, COUNT(*) AS occurrences
+         FROM notifications
+        WHERE type LIKE 'platform_%'
+          AND created_at >= datetime('now', '-' || ? || ' hours')
+        GROUP BY type, group_key
+        ORDER BY created_at DESC
+        LIMIT 50`,
+    ).bind(hoursBack).all<{
+      created_at: string; type: string; severity: string;
+      title: string; message: string; group_key: string | null;
+      occurrences: number;
+    }>();
+
     return json({
       success: true,
       data: {
@@ -717,6 +733,14 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         },
 
         platform_totals: totals,
+
+        // What FC + agents have alerted operators about in the
+        // requested window. One row per (type, group_key) so the
+        // same dedup'd alert doesn't show up multiple times.
+        recent_platform_alerts: {
+          count: recentPlatformAlerts.results.length,
+          items: recentPlatformAlerts.results,
+        },
 
         // D1 row-read tracking against the 25B/month plan ceiling.
         // setup_required: true when CF_API_TOKEN / CF_ACCOUNT_ID aren't
