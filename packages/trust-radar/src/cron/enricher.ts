@@ -105,7 +105,7 @@ export const enricherAgent: AgentModule = {
   color: '#22D3EE',
   trigger: 'scheduled',
   requiresApproval: false,
-  stallThresholdMinutes: 75,
+  stallThresholdMinutes: 30,
   parallelMax: 1,
   // Enricher's brand_sector_rdap step DOES make Haiku calls via
   // brand-enricher's classifySector — but those land under the

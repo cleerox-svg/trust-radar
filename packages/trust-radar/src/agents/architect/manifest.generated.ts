@@ -64,7 +64,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 63,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "last_modified": "2026-05-01T04:08:52.813Z"
     },
     {
       "name": "auto-seeder",
@@ -184,7 +184,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 302,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "last_modified": "2026-05-01T04:08:52.808Z"
     },
     {
       "name": "curator",
@@ -219,7 +219,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 63,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "last_modified": "2026-05-01T04:08:52.812Z"
     },
     {
       "name": "evidence-assembler",
@@ -304,7 +304,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 73,
-      "last_modified": "2026-04-29T12:49:23.787Z"
+      "last_modified": "2026-05-01T04:08:52.810Z"
     },
     {
       "name": "narrator",
@@ -357,7 +357,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 558,
-      "last_modified": "2026-04-29T20:11:59.257Z"
+      "last_modified": "2026-05-01T04:08:52.816Z"
     },
     {
       "name": "notification_narrator",
@@ -375,7 +375,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 187,
-      "last_modified": "2026-04-29T22:28:25.915Z"
+      "last_modified": "2026-05-01T04:08:52.805Z"
     },
     {
       "name": "observer",
@@ -551,7 +551,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 64,
-      "last_modified": "2026-04-29T12:49:23.791Z"
+      "last_modified": "2026-05-01T04:08:52.812Z"
     },
     {
       "name": "socialMonitor",
@@ -564,7 +564,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 66,
-      "last_modified": "2026-04-29T12:49:23.791Z"
+      "last_modified": "2026-05-01T04:08:52.812Z"
     },
     {
       "name": "sparrow",
@@ -592,7 +592,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 745,
-      "last_modified": "2026-04-29T12:49:23.791Z"
+      "last_modified": "2026-05-01T04:08:52.813Z"
     },
     {
       "name": "strategist",
@@ -615,7 +615,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 569,
-      "last_modified": "2026-04-29T12:49:23.791Z"
+      "last_modified": "2026-05-01T04:08:52.813Z"
     },
     {
       "name": "trustbot",

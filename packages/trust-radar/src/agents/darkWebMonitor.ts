@@ -23,7 +23,7 @@ export const darkWebMonitorAgent: AgentModule = {
   color: "#C83C3C",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 420,
+  stallThresholdMinutes: 480,
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 2_000_000 },

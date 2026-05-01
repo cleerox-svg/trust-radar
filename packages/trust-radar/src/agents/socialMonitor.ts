@@ -24,7 +24,7 @@ export const socialMonitorAgent: AgentModule = {
   color: "#3CB878",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 420,
+  stallThresholdMinutes: 480,
   parallelMax: 1,
   costGuard: "enforced",
   // The scanner's own AI use is small — most spend lands on

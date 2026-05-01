@@ -19,7 +19,7 @@ export const sparrowAgent: AgentModule = {
   color: "#28A050",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 420,
+  stallThresholdMinutes: 480,
   parallelMax: 1,
   costGuard: "enforced",
   // Includes evidence-assembler internal AI calls (Phase 4.6 will

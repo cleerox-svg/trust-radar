@@ -136,7 +136,7 @@ export const cubeHealerAgent: AgentModule = {
   color: '#0EA5E9',
   trigger: 'scheduled',
   requiresApproval: false,
-  stallThresholdMinutes: 60,
+  stallThresholdMinutes: 420,
   parallelMax: 1,
   costGuard: 'exempt',
   // No AI calls — pure D1 / cube SQL. Cap=0 surfaces regressions.

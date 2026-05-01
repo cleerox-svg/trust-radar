@@ -503,7 +503,7 @@ export const nexusAgent: AgentModule = {
   color: "#00d4ff",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 300,
+  stallThresholdMinutes: 360,
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 10_000_000 },

@@ -23,7 +23,7 @@ export const appStoreMonitorAgent: AgentModule = {
   color: "#0A8AB5",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 420,
+  stallThresholdMinutes: 480,
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 5_000_000 },

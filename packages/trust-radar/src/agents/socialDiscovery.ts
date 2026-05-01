@@ -24,7 +24,7 @@ export const socialDiscoveryAgent: AgentModule = {
   color: "#3CB878",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 420,
+  stallThresholdMinutes: 480,
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 2_000_000 },
