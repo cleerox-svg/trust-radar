@@ -58,16 +58,15 @@ export async function runDomainGeoBackfillBatch(
   try {
     // ── Fetch next batch of unique unresolved domains ──
     //
-    // The previous predicate had a 30-day upper bound on
-    // attempted_resolve_at — domains older than that were silently
-    // abandoned. Combined with the FC backlog count (which doesn't
-    // filter by attempted_resolve_at), the queue showed 50,326 stuck
-    // forever (operator screenshot 2026-04-30, domain_geo flat for
-    // 12+ hours).
+    // Cooldown: 6h flat. Malicious domains usually live <48h, so
+    // a 7-day cooldown (the previous setting) meant we missed the
+    // window entirely. 6h × 8 attempts = 48h max lifecycle per
+    // domain, capped by enrichment_attempts < 8 to stop churning
+    // permanently-dead domains.
     //
-    // New predicate: retry indefinitely on a 7-day cooldown.
-    // enrichment_attempts < 5 caps permanently-dead domains so we
-    // don't churn CPU on them forever.
+    // The platform priority (per operator) is "as fast as possible"
+    // — every malicious domain should get tried within hours of
+    // ingestion, not days.
     const batch = await env.DB.prepare(`
       SELECT DISTINCT malicious_domain
       FROM threats
@@ -76,9 +75,9 @@ export async function runDomainGeoBackfillBatch(
         AND malicious_domain != ''
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
-        AND COALESCE(enrichment_attempts, 0) < 5
+        AND COALESCE(enrichment_attempts, 0) < 8
         AND (attempted_resolve_at IS NULL
-             OR attempted_resolve_at < datetime('now', '-7 days'))
+             OR attempted_resolve_at < datetime('now', '-6 hours'))
       LIMIT ?
     `).bind(batchSize).all<{ malicious_domain: string }>();
 
@@ -150,8 +149,8 @@ export async function runDomainGeoBackfillBatch(
 
     // ── Step 3: stamp attempted_resolve_at + bump attempts ──
     // Increments enrichment_attempts on every attempt. Combined with
-    // the COALESCE(enrichment_attempts, 0) < 5 filter in the SELECT
-    // above, this caps the worker at 5 retry rounds per domain.
+    // the COALESCE(enrichment_attempts, 0) < 8 filter in the SELECT
+    // above, this caps the worker at 8 retry rounds per domain.
     // Permanently-dead domains stop being picked up after that.
     if (attempted.size > 0) {
       const STAMP_CHUNK = 50;

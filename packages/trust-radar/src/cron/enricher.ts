@@ -105,7 +105,12 @@ export const enricherAgent: AgentModule = {
   color: '#22D3EE',
   trigger: 'scheduled',
   requiresApproval: false,
-  stallThresholdMinutes: 30,
+  // 60 min: enricher runs hourly. The 30-min threshold (PR #967) was
+  // tighter than the actual job runtime — domain_geo + brand_logo +
+  // brand_sector_rdap can cumulatively exceed 30 min when the
+  // backlog is non-trivial. False alarms were dominating the
+  // platform_agent_stalled feed.
+  stallThresholdMinutes: 60,
   parallelMax: 1,
   // Enricher's brand_sector_rdap step DOES make Haiku calls via
   // brand-enricher's classifySector — but those land under the

@@ -89,7 +89,8 @@ interface Backlog {
   greynoiseUnchecked: number;
   seclookupUnchecked: number;
   watchdog: number;
-  domainGeoBacklog:   number;  // threats with domain but no IP
+  domainGeoBacklog:   number;  // threats with domain but no IP (all, includes cooldown)
+  domainGeoDrainable: number;  // subset of domainGeoBacklog actually eligible right now
   brandEnrichBacklog: number;  // brands with no enriched_at
 }
 
@@ -775,7 +776,7 @@ export const flightControlAgent: AgentModule = {
 
     outputs.push({
       type: 'diagnostic',
-      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog} brandEnrich=${backlogs.brandEnrichBacklog} agents=[${agentHealthSummary}] navigator=${navigatorHealth.status} feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      summary: `Platform ${overallStatus} — backlog: cart=${backlogs.cartographer} analyst=${backlogs.analyst} watchdog=${backlogs.watchdog} surbl=${backlogs.surblUnchecked} vt=${backlogs.vtUnchecked} gsb=${backlogs.gsbUnchecked} dbl=${backlogs.dblUnchecked} abuseipdb=${backlogs.abuseipdbUnchecked} pdns=${backlogs.pdnsUnchecked} greynoise=${backlogs.greynoiseUnchecked} seclookup=${backlogs.seclookupUnchecked} domainGeo=${backlogs.domainGeoBacklog}(drainable=${backlogs.domainGeoDrainable}) brandEnrich=${backlogs.brandEnrichBacklog} agents=[${agentHealthSummary}] navigator=${navigatorHealth.status} feeds=[${feedHealthSummary}] budget=$${budgetStatus.spent_this_month}/${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       severity: tripped.length > 0 || stalled.length > 0 || navigatorDegraded || budgetStatus.throttle_level === 'emergency' ? 'high' : 'info',
       details: snapshot,
     });
@@ -786,7 +787,7 @@ export const flightControlAgent: AgentModule = {
       'flight_control',
       'info',
       'batch_complete',
-      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, domain geo backlog: ${backlogs.domainGeoBacklog}, brand enrich backlog: ${backlogs.brandEnrichBacklog}, budget: $${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
+      `Flight Control: ${overallStatus} — cart backlog: ${backlogs.cartographer}, analyst backlog: ${backlogs.analyst}, domain geo backlog: ${backlogs.domainGeoBacklog} (drainable now: ${backlogs.domainGeoDrainable}), brand enrich backlog: ${backlogs.brandEnrichBacklog}, budget: $${budgetStatus.spent_this_month}/$${budgetStatus.config.monthly_limit_usd} (${budgetStatus.throttle_level})`,
       { backlogs, stalled, budget: budgetStatus, scaling: scalingActions, recovery: recoveryActions }
     );
 
@@ -842,6 +843,7 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     seclookupResult,
     watchdogResult,
     domainGeoResult,
+    domainGeoDrainableResult,
     brandEnrichResult,
   ] = await Promise.all([
     // Live counters — used for scaling decisions, kept fresh every tick.
@@ -932,7 +934,23 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
         AND malicious_domain IS NOT NULL
         AND malicious_domain NOT LIKE '*%'
         AND malicious_domain LIKE '%.%'
-        AND COALESCE(enrichment_attempts, 0) < 5
+        AND COALESCE(enrichment_attempts, 0) < 8
+    `),
+    // domain_geo_drainable mirrors the dns-backfill SELECT — the
+    // count of domains we can actually try right now (cooldown
+    // expired and under the attempts cap). The total backlog above
+    // includes domains that are still in cooldown; this number
+    // tells the operator how much work the next Navigator tick can
+    // pick up.
+    cacheCount('backlog.domain_geo_drainable', BACKLOG_TTL_LIVE_S, `
+      SELECT COUNT(DISTINCT malicious_domain) as count FROM threats
+      WHERE (ip_address IS NULL OR ip_address = '')
+        AND malicious_domain IS NOT NULL
+        AND malicious_domain NOT LIKE '*%'
+        AND malicious_domain LIKE '%.%'
+        AND COALESCE(enrichment_attempts, 0) < 8
+        AND (attempted_resolve_at IS NULL
+             OR attempted_resolve_at < datetime('now', '-6 hours'))
     `),
     cacheCount('backlog.brand_enrich', BACKLOG_TTL_LIVE_S, `
       SELECT COUNT(*) as count FROM brands
@@ -955,6 +973,7 @@ async function measureBacklogs(db: D1Database): Promise<Backlog> {
     seclookupUnchecked: seclookupResult.value,
     watchdog: watchdogResult.value,
     domainGeoBacklog:   domainGeoResult.value,
+    domainGeoDrainable: domainGeoDrainableResult.value,
     brandEnrichBacklog: brandEnrichResult.value,
   };
 
