@@ -54,7 +54,7 @@ export const notificationNarratorAgent: AgentModule = {
   requiresApproval: false,
   // Static-template digest is bounded ~50ms/user × 50 users = 2.5s.
   // Stall threshold leaves headroom for D1 latency spikes.
-  stallThresholdMinutes: 10,
+  stallThresholdMinutes: 1500,
   parallelMax: 1,
   // No AI calls in v1 (static-template digest). costGuard='enforced'
   // is harmless — there's no AI work for the guard to gate. AI

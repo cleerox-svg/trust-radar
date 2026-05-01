@@ -26,7 +26,7 @@ export const lookalikeScannerAgent: AgentModule = {
   color: "#F59E0B",
   trigger: "scheduled",
   requiresApproval: false,
-  stallThresholdMinutes: 75,
+  stallThresholdMinutes: 120,
   parallelMax: 1,
   costGuard: "enforced",
   budget: { monthlyTokenCap: 20_000_000 },
