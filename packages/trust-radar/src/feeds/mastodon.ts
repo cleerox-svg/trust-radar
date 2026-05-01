@@ -79,6 +79,16 @@ export const mastodon: FeedModule = {
     const nextOffset = brands.results.length < BRANDS_PER_RUN ? 0 : offset + BRANDS_PER_RUN;
     await env.CACHE.put('mastodon_brand_offset', String(nextOffset), { expirationTtl: 86400 });
 
+    // No eligible brands = no work, but currently looks like a
+    // silent 0-record feed. Surface as a visible warning so the
+    // operator knows the brand-eligibility filter (monitoring_status
+    // ='active' AND threat_count > 0) is the gate, not a parser bug.
+    if (brands.results.length === 0) {
+      throw new Error(
+        `Mastodon: no eligible brands (need monitoring_status='active' AND threat_count>0)`
+      );
+    }
+
     // Load all brands for timeline scanning
     const allBrands = await env.DB.prepare(`
       SELECT id, name, canonical_domain FROM brands

@@ -29,22 +29,29 @@ export const c2_tracker: FeedModule = {
 
     // Fetch all C2 lists in parallel
     const entries: Array<{ ip: string; framework: string }> = [];
+    const fetchErrors: string[] = [];
     const fetches = Object.entries(C2_SOURCES).map(async ([framework, url]) => {
       try {
         const res = await fetch(url, {
           headers: { "User-Agent": "TrustRadar/2.0" },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          fetchErrors.push(`${framework}: HTTP ${res.status}`);
+          return;
+        }
         const text = await res.text();
         const ips = text
           .split("\n")
           .map((l) => l.trim())
           .filter((l) => l && !l.startsWith("#") && IP_REGEX.test(l));
+        if (ips.length === 0) {
+          fetchErrors.push(`${framework}: 0 IP-format lines (response shape changed?)`);
+        }
         for (const ip of ips) {
           entries.push({ ip, framework });
         }
-      } catch {
-        // Skip failed fetches — partial data is better than none
+      } catch (err) {
+        fetchErrors.push(`${framework}: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
     await Promise.all(fetches);
@@ -110,6 +117,13 @@ export const c2_tracker: FeedModule = {
       ctx.env.CACHE.put(`dedup:ip:${ip}`, "1", { expirationTtl: 86400 }).catch(() => {}),
     );
     await Promise.all(kvPromises);
+
+    // If every fetch failed silently the loop never ran — surface
+    // the first fetch error so the feed pull row carries diagnostic
+    // info instead of looking like a clean 0-record run.
+    if (entries.length === 0 && fetchErrors.length > 0) {
+      throw new Error(`c2_tracker fetch failures: ${fetchErrors.slice(0, 3).join('; ')}`);
+    }
 
     return {
       itemsFetched: unique.length,
