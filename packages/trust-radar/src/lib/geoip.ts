@@ -259,13 +259,29 @@ export const PRIVATE_IP_SQL_FILTER = `
 export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?: string): Promise<GeoEnrichResult> {
   const result: GeoEnrichResult = { enriched: 0, total: 0, skippedPrivate: 0, skippedNoResult: 0, errors: [] };
 
+  // Predicate is `lat IS NULL`, not `country_code IS NULL`. The
+  // earlier predicate created a dead zone: ip-api.com returns
+  // status='success' with an empty lat/lng for ~93% of malicious
+  // IPs (cartographer.ts §Phase 0 comment). Phase 0 sets
+  // country_code from those partial responses but leaves lat NULL;
+  // the old predicate then skipped them, so Phase 1 was
+  // structurally locked out of helping.
+  //
+  // `lat IS NULL` covers both:
+  //   1. Threats Phase 0 never resolved (country_code also NULL)
+  //   2. Threats Phase 0 partial-resolved (country_code set, lat NULL)
+  //
+  // capPerCycle in batchGeoLookup() is the actual ipinfo budget
+  // gate (5 without token, 50 with token); LIMIT 500 just widens
+  // the candidate pool so we always have enough fresh rows for
+  // ipinfo to pick from.
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL
-       AND country_code IS NULL
+       AND lat IS NULL
        ${PRIVATE_IP_SQL_FILTER}
      ORDER BY created_at DESC
-     LIMIT 100`
+     LIMIT 500`
   ).all<{ id: string; ip_address: string }>();
 
   result.total = rows.results.length;
@@ -322,16 +338,26 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
         providerId = await upsertHostingProvider(db, providerName, geo.as, geo.countryCode);
       }
 
+      // Stamp enriched_at when ipinfo gave us actual coordinates.
+      // Without this, Phase 0 (cartographer) re-picks the threat
+      // next run because its predicate is `enriched_at IS NULL`,
+      // ip-api returns the same partial response, attempts gets
+      // bumped, and after 5 retries the threat exits as
+      // cartographer_exhausted — even though Phase 1 had already
+      // filled lat/lng. Match the same conditional shape as
+      // Phase 0's UPDATE: stamp only when we have lat.
       await db.prepare(
         `UPDATE threats SET
           country_code = COALESCE(?, country_code),
           asn = COALESCE(?, asn),
           hosting_provider_id = COALESCE(?, hosting_provider_id),
           lat = COALESCE(?, lat),
-          lng = COALESCE(?, lng)
+          lng = COALESCE(?, lng),
+          enriched_at = CASE WHEN ? IS NOT NULL AND enriched_at IS NULL
+                              THEN datetime('now') ELSE enriched_at END
         WHERE id = ?`
       ).bind(
-        geo.countryCode, geo.as, providerId, geo.lat, geo.lng, row.id,
+        geo.countryCode, geo.as, providerId, geo.lat, geo.lng, geo.lat, row.id,
       ).run();
       result.enriched++;
     } catch (err) {
