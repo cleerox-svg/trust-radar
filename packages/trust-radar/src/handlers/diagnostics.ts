@@ -338,6 +338,22 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       needs_dns: number;
     }>();
 
+    // domain_geo_drainable — domains we can actually try right now
+    // (cooldown expired, attempts < cap). Pairs with `domain_geo`
+    // FC backlog (which includes all rows, even ones in cooldown).
+    // The pair tells the operator: "30K total / 412 drainable now".
+    const domainGeoDrainableP = env.DB.prepare(`
+      SELECT COUNT(DISTINCT malicious_domain) AS n FROM threats
+      WHERE (ip_address IS NULL OR ip_address = '')
+        AND malicious_domain IS NOT NULL
+        AND malicious_domain != ''
+        AND malicious_domain NOT LIKE '*%'
+        AND malicious_domain LIKE '%.%'
+        AND COALESCE(enrichment_attempts, 0) < 8
+        AND (attempted_resolve_at IS NULL
+             OR attempted_resolve_at < datetime('now', '-6 hours'))
+    `).first<{ n: number }>();
+
     // Cartographer queue — matches actual Phase 0 query (private IPs and
     // attempts-exhausted threats excluded — see migration 0110)
     const cartoQueueP = env.DB.prepare(`
@@ -584,13 +600,13 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
 
     // ── Execute all in parallel ─────────────────────────────────────
     const [
-      clock, enrichment, cartoQueue, cartoQueueRaw, cartoExhausted,
+      clock, enrichment, cartoQueue, cartoQueueRaw, cartoExhausted, domainGeoDrainable,
       feedHealth, feedStatus, feedErrors,
       agentMesh, stalled, backlog,
       aiSpend, cronHealth, totals, d1Metrics, d1Attribution,
       d1BudgetState, d1TopQueries,
     ] = await Promise.all([
-      clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP,
+      clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP, domainGeoDrainableP,
       feedHealthP, feedStatusP, feedErrorsP,
       agentMeshP, stalledP, backlogP,
       aiSpendP, cronHealthP, totalsP, d1MetricsP, d1AttributionP,
@@ -800,6 +816,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           enriched_last_24h: enrichment?.enriched_last_24h ?? 0,
           stuck_pile: enrichment?.stuck_pile ?? 0,
           needs_dns: enrichment?.needs_dns ?? 0,
+          domain_geo_drainable: domainGeoDrainable?.n ?? 0,
           cartographer_queue: cartoQueue?.n ?? 0,
           cartographer_queue_raw: cartoQueueRaw?.n ?? 0,
           cartographer_exhausted: cartoExhausted?.n ?? 0,
