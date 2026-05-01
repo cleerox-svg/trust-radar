@@ -105,6 +105,15 @@ export const telegram: FeedModule = {
       ORDER BY threat_count DESC LIMIT 50
     `).all<BrandRow>();
 
+    // Same gating as mastodon — no eligible brands = no work.
+    // Surface so operator can see it's an inventory issue, not a
+    // parser bug.
+    if (allBrands.results.length === 0) {
+      throw new Error(
+        `Telegram: no eligible brands (need monitoring_status='active' AND threat_count>0)`
+      );
+    }
+
     const botToken = env.TELEGRAM_BOT_TOKEN;
 
     // Try Bot API first, fall back to web preview
