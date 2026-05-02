@@ -293,8 +293,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "geo_ip_refresh_log"
       ],
       "ai_models_referenced": [],
-      "loc": 226,
-      "last_modified": "2026-05-02T13:54:25.694Z"
+      "loc": 357,
+      "last_modified": "2026-05-02T15:07:35.195Z"
     },
     {
       "name": "honeypot-generator",
