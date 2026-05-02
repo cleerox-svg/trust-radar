@@ -260,12 +260,13 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "writes": [
         "agent_activity_log",
+        "agent_runs",
         "backlog_history",
         "push_subscriptions"
       ],
       "ai_models_referenced": [],
-      "loc": 1504,
-      "last_modified": "2026-04-30T19:15:13.044Z"
+      "loc": 1558,
+      "last_modified": "2026-05-02T03:59:17.386Z"
     },
     {
       "name": "geo-campaign-assessment",
@@ -699,8 +700,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/feeds/c2tracker.ts",
       "source_type": "http",
       "schedule": null,
-      "loc": 122,
-      "last_modified": "2026-04-27T17:44:54.444Z"
+      "loc": 136,
+      "last_modified": "2026-05-01T04:11:29.627Z"
     },
     {
       "name": "certstream",
@@ -787,8 +788,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/feeds/feodo.ts",
       "source_type": "http",
       "schedule": null,
-      "loc": 41,
-      "last_modified": "2026-04-27T17:44:54.452Z"
+      "loc": 52,
+      "last_modified": "2026-05-01T04:11:48.235Z"
     },
     {
       "name": "github",
@@ -843,8 +844,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/feeds/mastodon.ts",
       "source_type": "http",
       "schedule": null,
-      "loc": 330,
-      "last_modified": "2026-04-27T17:44:54.456Z"
+      "loc": 340,
+      "last_modified": "2026-05-01T04:11:58.159Z"
     },
     {
       "name": "nrd_hagezi",
@@ -947,8 +948,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/feeds/telegram.ts",
       "source_type": "http",
       "schedule": null,
-      "loc": 406,
-      "last_modified": "2026-04-27T17:44:54.464Z"
+      "loc": 415,
+      "last_modified": "2026-05-01T04:12:15.595Z"
     },
     {
       "name": "threatfox",

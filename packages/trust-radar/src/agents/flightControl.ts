@@ -196,6 +196,7 @@ export const flightControlAgent: AgentModule = {
   ],
   writes: [
     { kind: "d1_table", name: "agent_activity_log" },
+    { kind: "d1_table", name: "agent_runs" },
     { kind: "d1_table", name: "backlog_history" },
     { kind: "d1_table", name: "push_subscriptions" },
   ],
