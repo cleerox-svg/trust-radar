@@ -94,7 +94,7 @@ async function runNavigatorImpl(
   console.log(`[navigator] start ${scheduledTime.toISOString()}`);
 
   let eventsDrained = 0;
-  let dnsResult = { processed: 0, resolved: 0, enriched: 0, durationMs: 0, softCapHit: false };
+  let dnsResult = { processed: 0, resolved: 0, enriched: 0, graduatedDead: 0, durationMs: 0, softCapHit: false };
   let status: 'success' | 'partial' | 'failed' = 'success';
   let errorMessage: string | undefined;
 
@@ -129,7 +129,7 @@ async function runNavigatorImpl(
     });
 
     console.log(
-      `[navigator] dns-backfill: processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
+      `[navigator] dns-backfill: processed=${dnsResult.processed} resolved=${dnsResult.resolved} enriched=${dnsResult.enriched} graduatedDead=${dnsResult.graduatedDead} softCapHit=${dnsResult.softCapHit} duration=${dnsResult.durationMs}ms`,
     );
 
     if (dnsResult.softCapHit || dnsResult.enriched < dnsResult.resolved) {

@@ -196,6 +196,7 @@ export const flightControlAgent: AgentModule = {
   ],
   writes: [
     { kind: "d1_table", name: "agent_activity_log" },
+    { kind: "d1_table", name: "agent_runs" },
     { kind: "d1_table", name: "backlog_history" },
     { kind: "d1_table", name: "push_subscriptions" },
   ],
@@ -705,11 +706,22 @@ export const flightControlAgent: AgentModule = {
     // 'manual' for pathfinder etc.). Long silence between
     // invocations is intentional, not a stall — emitting here
     // generates false alarms (operator screenshot 2026-04-30).
+    //
+    // Also gate on last_run_status === 'running'. The is_stalled
+    // flag fires when lastRunAge > thresholdMs regardless of
+    // status, so cadence-driven agents (sentinel runs only when
+    // totalNew>0; observer runs once a day) trip the alarm with
+    // last_run_status='success'. That's not a stall — that's a
+    // cadence gap. Only the 'running' (orphaned-row) case
+    // matches the alert template's "stuck in running state"
+    // language. Cadence drift is a different signal that should
+    // get a different alert template, not noise on this one.
     const { agentModules: agentModulesForStallCheck } = await import('./index');
     for (const stalledHealth of health.filter(h => h.is_stalled)) {
       const mod = agentModulesForStallCheck[stalledHealth.agent_id];
       if (!mod) continue;
       if (mod.trigger === 'api' || mod.trigger === 'manual') continue;
+      if (stalledHealth.last_run_status !== 'running') continue;
       try {
         const minutesRunning = stalledHealth.last_run_at
           ? Math.round((Date.now() - Date.parse(stalledHealth.last_run_at)) / 60_000)
@@ -1397,6 +1409,29 @@ async function recoverStalledAgents(
     // trigger type, so without this guard FC tries to re-fire every
     // sync agent that hasn't been called in a while.
     if (mod.trigger === 'manual' || mod.trigger === 'api') continue;
+
+    // Force-fail orphaned 'running' rows before re-dispatching.
+    // A Worker timeout / unhandled exception leaves the row in
+    // 'running' state forever. Without this update the orphaned
+    // row stays the latest started_at for that agent and keeps
+    // tripping is_stalled every FC tick (because its lastRunAge
+    // grows without bound), masking whether the recovery run
+    // itself succeeded. Mark it 'failed' with a clear reason so
+    // the new recovery run becomes the latest started_at on the
+    // next tick.
+    if (agent.last_run_status === 'running' && agent.last_run_at) {
+      try {
+        await db.prepare(`
+          UPDATE agent_runs
+          SET status = 'failed',
+              completed_at = datetime('now'),
+              error_message = 'auto-failed by flight_control after stall threshold exceeded'
+          WHERE agent_id = ?
+            AND started_at = ?
+            AND status = 'running'
+        `).bind(agent.agent_id, agent.last_run_at).run();
+      } catch { /* non-fatal — recovery still proceeds */ }
+    }
 
     await logActivity(db, 'flight_control', 'warning', 'recovery',
       `Recovering stalled agent: ${agent.agent_id} (last run: ${agent.last_run_at ?? 'never'})`,

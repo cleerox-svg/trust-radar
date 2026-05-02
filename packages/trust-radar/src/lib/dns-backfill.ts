@@ -12,12 +12,16 @@
 // Never throws — always returns a structured result.
 
 import type { Env } from '../types';
-import { resolveToIp, extractHostname } from './domain-resolver';
+import { resolveDomain, extractHostname } from './domain-resolver';
 
 export interface DnsBackfillResult {
   processed: number;
   resolved: number;
   enriched: number;
+  /** Domains that all 3 resolvers agreed don't exist or have no A
+   *  record. Graduated out of the queue immediately by stamping
+   *  enrichment_attempts to the cap. Counts as drained. */
+  graduatedDead: number;
   durationMs: number;
   softCapHit: boolean;
 }
@@ -52,7 +56,7 @@ export async function runDomainGeoBackfillBatch(
   const isOverCap = () => Date.now() - start > timeoutMs;
 
   const empty: DnsBackfillResult = {
-    processed: 0, resolved: 0, enriched: 0, durationMs: 0, softCapHit: false,
+    processed: 0, resolved: 0, enriched: 0, graduatedDead: 0, durationMs: 0, softCapHit: false,
   };
 
   try {
@@ -87,7 +91,14 @@ export async function runDomainGeoBackfillBatch(
     }
 
     // ── Step 1: parallel DoH resolution, capped at CONCURRENCY ──
+    // Three buckets:
+    //   - domainToIp: resolver returned an A record → write ip_address
+    //   - confirmedDead: all 3 resolvers agree NXDOMAIN or no A
+    //     record → graduate immediately (attempts stamped to cap)
+    //   - attempted ∖ (domainToIp ∪ confirmedDead): transient
+    //     failure → normal retry path (attempts++ on stamp step)
     const domainToIp = new Map<string, string>();
+    const confirmedDead = new Set<string>();
     const attempted = new Set<string>();
     let cursor = 0;
     let softCapHit = false;
@@ -101,8 +112,14 @@ export async function runDomainGeoBackfillBatch(
         attempted.add(domain);
         const hostname = extractHostname(domain);
         if (!hostname) continue;
-        const ip = await resolveToIp(hostname);
-        if (ip) domainToIp.set(domain, ip);
+        const outcome = await resolveDomain(hostname);
+        if (outcome.kind === 'ok') {
+          domainToIp.set(domain, outcome.ip);
+        } else if (outcome.kind === 'nxdomain' || outcome.kind === 'no_a_record') {
+          confirmedDead.add(domain);
+        }
+        // 'transient' → no special handling; fall through to the
+        // normal stamp step which bumps attempts by 1.
       }
     }
 
@@ -147,17 +164,54 @@ export async function runDomainGeoBackfillBatch(
 
     if (isOverCap()) softCapHit = true;
 
-    // ── Step 3: stamp attempted_resolve_at + bump attempts ──
-    // Increments enrichment_attempts on every attempt. Combined with
-    // the COALESCE(enrichment_attempts, 0) < 8 filter in the SELECT
-    // above, this caps the worker at 8 retry rounds per domain.
-    // Permanently-dead domains stop being picked up after that.
-    if (attempted.size > 0) {
-      const STAMP_CHUNK = 50;
-      const attemptedArr = [...attempted];
-      for (let i = 0; i < attemptedArr.length; i += STAMP_CHUNK) {
+    // ── Step 3a: graduate confirmed-dead domains immediately ──
+    // All 3 resolvers said NXDOMAIN or no A record — authoritative
+    // enough to stop trying. Stamp enrichment_attempts to the cap
+    // (8) so the SELECT filter excludes them on every future tick.
+    // Without this they'd burn 8 × 6h cooldown cycles (48 hours
+    // each) before exiting via the natural cap.
+    let graduatedDead = 0;
+    if (confirmedDead.size > 0) {
+      const DEAD_CHUNK = 50;
+      const deadArr = [...confirmedDead];
+      for (let i = 0; i < deadArr.length; i += DEAD_CHUNK) {
         if (isOverCap()) { softCapHit = true; break; }
-        const chunk = attemptedArr.slice(i, i + STAMP_CHUNK);
+        const chunk = deadArr.slice(i, i + DEAD_CHUNK);
+        const placeholders = chunk.map(() => '?').join(',');
+        try {
+          const r = await env.DB.prepare(`
+            UPDATE threats
+            SET attempted_resolve_at = datetime('now'),
+                enrichment_attempts = 8
+            WHERE malicious_domain IN (${placeholders})
+              AND (ip_address IS NULL OR ip_address = '')
+          `).bind(...chunk).run();
+          graduatedDead += r.meta?.changes ?? 0;
+        } catch (err) {
+          console.error('[dns-backfill] dead-domain graduation failed:', err);
+        }
+      }
+    }
+
+    // ── Step 3b: stamp attempted_resolve_at + bump attempts ──
+    // For domains that hit a transient failure (timeout, SERVFAIL,
+    // resolver disagreement). Increments enrichment_attempts by 1.
+    // Combined with the COALESCE(enrichment_attempts, 0) < 8 filter
+    // in the SELECT above, this caps the worker at 8 retry rounds.
+    //
+    // Skip domains that were either resolved (already updated above)
+    // or graduated as dead (already stamped attempts=8) — re-stamping
+    // them here would either bump resolved domains' attempts (waste)
+    // or increment past the cap (harmless but noisy).
+    const transient: string[] = [];
+    for (const d of attempted) {
+      if (!domainToIp.has(d) && !confirmedDead.has(d)) transient.push(d);
+    }
+    if (transient.length > 0) {
+      const STAMP_CHUNK = 50;
+      for (let i = 0; i < transient.length; i += STAMP_CHUNK) {
+        if (isOverCap()) { softCapHit = true; break; }
+        const chunk = transient.slice(i, i + STAMP_CHUNK);
         const placeholders = chunk.map(() => '?').join(',');
         try {
           await env.DB.prepare(`
@@ -177,6 +231,7 @@ export async function runDomainGeoBackfillBatch(
       processed: attempted.size,
       resolved,
       enriched,
+      graduatedDead,
       durationMs: Date.now() - start,
       softCapHit,
     };
