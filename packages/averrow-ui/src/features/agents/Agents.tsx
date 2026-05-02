@@ -101,7 +101,7 @@ const AGENT_GROUPS: AgentGroup[] = [
   {
     id: 'operations',
     label: 'Platform Operations',
-    agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer', 'enricher'],
+    agentIds: ['pathfinder', 'curator', 'watchdog', 'cube_healer', 'enricher', 'geoip_refresh'],
   },
   {
     // Synchronous AI agents — handler-driven (not cron-scheduled).

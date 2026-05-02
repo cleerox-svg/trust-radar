@@ -308,6 +308,7 @@ These cron-driven scanners feed the threat mesh. Each delegates to a scanner mod
 | **Recon** (`auto_seeder`) | Weekly (Sun 05:07 UTC) | Plants spam-trap addresses into harvester channels and tracks per-location yield |
 | **Lookalike Scanner** (`lookalike_scanner`) | Hourly | Cron-driven scanner — DNS / HTTP / MX checks + Haiku assessment of newly-registered typosquat candidates |
 | **Enricher** (`enricher`) | Hourly | Domain geo, brand logo / HQ, brand sector / RDAP enrichment — runs every hourly tick |
+| **GeoIP Refresh** (`geoip_refresh`) | Monthly | Loads MaxMind GeoLite2 City ranges into the dedicated `GEOIP_DB`. Provides a third-tier geo source for Cartographer when ip-api and ipinfo can't resolve lat/lng for a malicious IP. Has zero AI surface — pure data plumbing. |
 
 ---
 

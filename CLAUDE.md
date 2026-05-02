@@ -359,6 +359,7 @@ scheduling is needed, use Navigator (`*/5`) or add a dedicated cron trigger.
 
 - Primary DB: `trust-radar-v2` (D1, SQLite) — internal name kept intentionally
 - Audit DB: `trust-radar-v2-audit`
+- GeoIP DB: `geoip-db` (D1, optional binding `GEOIP_DB`) — dedicated reference DB for the third-tier MaxMind GeoLite2 lookup. Migrations live in `migrations-geoip/`. Cartographer Phase 0.5 queries it; the `geoip_refresh` agent loads it. Isolated to keep range-scan reads off the main DB's budget — see `lib/geoip-mmdb.ts`.
 - **Never DROP or ALTER existing columns** without explicit instruction
 - New columns: `ALTER TABLE ... ADD COLUMN` only
 - New migrations: `migrations/NNNN_description.sql`

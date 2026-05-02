@@ -29,6 +29,7 @@ export type AgentId =
   | 'auto_seeder'
   | 'seed_strategist'
   | 'enricher'
+  | 'geoip_refresh'
   | 'public_trust_check'
   | 'qualified_report'
   | 'brand_analysis'
@@ -244,6 +245,15 @@ export const AGENT_METADATA: Record<AgentId, AgentMetadata> = {
     color: '#22D3EE',
     category: 'ops',
     pipelinePosition: 21,
+  },
+  geoip_refresh: {
+    id: 'geoip_refresh',
+    displayName: 'GeoIP Refresh',
+    codename: 'geoip_refresh',
+    subtitle: 'Loads MaxMind GeoLite2 ranges into the dedicated GEOIP_DB — third-tier geo provider for Cartographer',
+    color: '#10b981',
+    category: 'ops',
+    pipelinePosition: 37,
   },
   public_trust_check: {
     id: 'public_trust_check',

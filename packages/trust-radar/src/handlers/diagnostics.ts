@@ -893,6 +893,17 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         // < attempts_in_window means Resend is rejecting sends.
         briefing_status: briefingStatus,
 
+        // GeoIP MMDB reference DB — third-tier geo provider
+        // (Cartographer Phase 0.5). Surfaces row count + last
+        // refresh on the admin Pipeline Automation card and in the
+        // platform-diagnostics report. configured=false means the
+        // operator hasn't provisioned the dedicated D1 yet (see
+        // wrangler.toml runbook block).
+        geoip_db: await (async () => {
+          const { getGeoMmdbStatus } = await import('../lib/geoip-mmdb');
+          return getGeoMmdbStatus(env);
+        })(),
+
         // FC tick phase timings — pulled from the most recent
         // flight_control diagnostic snapshot. Used to investigate
         // which step dominates the FC duration (currently ~4 min

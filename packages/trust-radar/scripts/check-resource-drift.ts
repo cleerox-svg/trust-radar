@@ -88,6 +88,7 @@ const MANIFEST_NAME_OVERRIDES: Record<string, string> = {
   evidence_assembler: "evidence-assembler",
   flight_control: "flightControl",
   geo_campaign_assessment: "geo-campaign-assessment",
+  geoip_refresh: "geoip-refresh",
   honeypot_generator: "honeypot-generator",
   lookalike_scanner: "lookalike-scanner",
   public_trust_check: "public-trust-check",

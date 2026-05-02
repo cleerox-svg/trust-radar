@@ -161,8 +161,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 997,
-      "last_modified": "2026-04-29T22:50:07.921Z"
+      "loc": 1058,
+      "last_modified": "2026-05-02T13:51:19.822Z"
     },
     {
       "name": "cube-healer",
@@ -280,6 +280,21 @@ export const REPO_MANIFEST: RepoInventory = {
       "ai_models_referenced": [],
       "loc": 254,
       "last_modified": "2026-04-29T12:49:23.787Z"
+    },
+    {
+      "name": "geoip-refresh",
+      "path": "packages/trust-radar/src/agents/geoip-refresh.ts",
+      "entrypoint": "geoipRefreshAgent",
+      "triggers": [
+        "cron"
+      ],
+      "reads": [],
+      "writes": [
+        "geo_ip_refresh_log"
+      ],
+      "ai_models_referenced": [],
+      "loc": 226,
+      "last_modified": "2026-05-02T13:54:25.694Z"
     },
     {
       "name": "honeypot-generator",
@@ -1004,6 +1019,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "geoip-refresh",
         "lookalike-scanner",
         "narrator",
         "nexus",
@@ -1027,6 +1043,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "geoip-refresh",
         "lookalike-scanner",
         "narrator",
         "nexus",
@@ -1050,6 +1067,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "cube-healer",
         "darkWebMonitor",
         "flightControl",
+        "geoip-refresh",
         "lookalike-scanner",
         "narrator",
         "nexus",
@@ -1080,7 +1098,7 @@ export const REPO_MANIFEST: RepoInventory = {
     }
   ],
   "totals": {
-    "agents": 35,
+    "agents": 36,
     "feeds": 40,
     "crons": 3,
     "workers": 1
