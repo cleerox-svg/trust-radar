@@ -357,6 +357,38 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     if (!isAuthContext(ctx)) return ctx;
     return handleBackfillDomainGeo(request, env);
   });
+  // Triggers the geoip_refresh agent on demand. Same auth +
+  // permission contour as the other backfill endpoints; reuses
+  // the agentRunner lifecycle so a manual refresh writes its own
+  // agent_runs row alongside scheduled runs.
+  router.post("/api/admin/geoip-refresh", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { geoipRefreshAgent } = await import("../agents/geoip-refresh");
+    const { executeAgent } = await import("../lib/agentRunner");
+    try {
+      const result = await executeAgent(env, geoipRefreshAgent, { trigger: 'admin_manual' }, 'admin', 'manual');
+      return new Response(JSON.stringify({ success: true, data: result }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+  });
+  router.get("/api/admin/geoip-status", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { getGeoMmdbStatus } = await import("../lib/geoip-mmdb");
+    const status = await getGeoMmdbStatus(env);
+    return new Response(JSON.stringify({ success: true, data: status }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
   router.post("/api/admin/backfill-brand-match", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
