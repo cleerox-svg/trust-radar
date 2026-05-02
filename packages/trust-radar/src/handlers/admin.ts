@@ -519,6 +519,68 @@ export async function handlePipelineStatus(request: Request, env: Env): Promise<
     };
   });
 
+  // GeoIP DB pipeline entry — synthetic because GeoIP isn't a
+  // backlog (no rows draining toward zero); it's a reference
+  // dataset whose health is "is the table populated and recently
+  // refreshed?". Pulling the row count + last refresh from the
+  // dedicated GEOIP_DB lets the Pipeline Automation card
+  // surface this as one tile alongside Geo Enrichment and DNS
+  // Resolution. count=row_count, prev_count=row_count - rows_written
+  // so the "trend" arrow shows what the most recent refresh added.
+  const geoipAgentRun = agentLastRun.get('geoip_refresh');
+  try {
+    const { getGeoMmdbStatus } = await import("../lib/geoip-mmdb");
+    const geoipStatus = await getGeoMmdbStatus(env);
+    const rowCount = geoipStatus.row_count ?? 0;
+    const rowsWritten = geoipStatus.last_refresh_rows_written ?? 0;
+    const prev = rowCount - rowsWritten;
+    const trend = rowsWritten > 0 ? rowsWritten : null;
+    pipelines.push({
+      id: 'geoip',
+      label: 'GeoIP Database',
+      agent: 'geoip_refresh',
+      schedule: 'monthly',
+      endpoints: [
+        { name: 'MaxMind GeoLite2', url: 'https://download.maxmind.com' },
+      ],
+      count: rowCount,
+      prev_count: prev,
+      // For GeoIP, "up" trend means more rows = good (opposite of
+      // backlog metrics). The Pipeline card uses trend_direction
+      // for arrow styling — keep it neutral when configured but
+      // empty so it doesn't look alarming pre-load.
+      trend,
+      trend_direction: !geoipStatus.configured
+        ? 'unknown'
+        : rowCount === 0
+          ? 'flat'
+          : (rowsWritten > 0 ? 'up' : 'flat'),
+      last_measured_at: geoipStatus.last_refresh_at,
+      agent_last_run_at: geoipAgentRun?.last_run_at ?? null,
+      agent_last_status: geoipStatus.last_refresh_status ?? geoipAgentRun?.status ?? null,
+      agent_records_processed: rowsWritten,
+    });
+  } catch (err) {
+    console.error('[pipeline-status] geoip status error:', err);
+    // Non-fatal — surface a "not configured" tile so the operator
+    // sees the line item instead of nothing.
+    pipelines.push({
+      id: 'geoip',
+      label: 'GeoIP Database',
+      agent: 'geoip_refresh',
+      schedule: 'monthly',
+      endpoints: [{ name: 'MaxMind GeoLite2', url: 'https://download.maxmind.com' }],
+      count: 0,
+      prev_count: null,
+      trend: null,
+      trend_direction: 'unknown',
+      last_measured_at: null,
+      agent_last_run_at: null,
+      agent_last_status: 'unconfigured',
+      agent_records_processed: null,
+    });
+  }
+
   const data = { success: true, data: pipelines };
   await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
   return json(data, 200, origin);
