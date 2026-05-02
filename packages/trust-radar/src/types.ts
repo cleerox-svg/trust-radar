@@ -4,6 +4,17 @@
 export interface Env {
   DB: D1Database;
   AUDIT_DB: D1Database;
+  // Dedicated D1 for GeoIP reference data (MaxMind GeoLite2 / db-ip
+  // Lite ranges). Optional because:
+  //   1. The binding is provisioned out-of-band (operator must run
+  //      `wrangler d1 create geoip-db` and uncomment the wrangler.toml
+  //      block — see the geoip_refresh agent README for the runbook).
+  //   2. Test harnesses + scripts that don't need geo lookups skip
+  //      it entirely.
+  // The lookup helper (`lib/geoip-mmdb.ts`) treats `undefined` as a
+  // clean no-op so cartographer's pipeline degrades gracefully when
+  // the binding isn't there.
+  GEOIP_DB?: D1Database;
   CACHE: KVNamespace;
   ASSETS: Fetcher;
   THREAT_PUSH_HUB: DurableObjectNamespace;
@@ -31,6 +42,18 @@ export interface Env {
   CF_API_TOKEN?: string;
   // GeoIP
   IPINFO_TOKEN?: string;
+  // MaxMind GeoLite2 license key — required by the geoip_refresh
+  // agent to fetch updated CSVs from MaxMind's permalink download
+  // endpoint. Free-tier accounts get a key for personal use; the
+  // refresh agent gracefully reports a config error when the key
+  // isn't present, leaving the geoip table as-is.
+  MAXMIND_LICENSE_KEY?: string;
+  // Optional R2 binding to stage CSV downloads during refresh.
+  // Without it, refresh streams directly from MaxMind in the same
+  // invocation — works for small datasets (Country: ~5MB) but the
+  // City CSV (~80MB compressed) needs the staging bucket to fit in
+  // a single Worker invocation under the 30s CPU ceiling.
+  GEOIP_STAGING?: R2Bucket;
   // Threat intelligence feeds (optional)
   OTX_API_KEY?: string;
   ABUSEIPDB_API_KEY?: string;

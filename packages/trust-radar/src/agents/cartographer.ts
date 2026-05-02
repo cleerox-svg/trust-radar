@@ -456,6 +456,67 @@ export const cartographerAgent: AgentModule = {
       console.error("[cartographer] ip-api batch enrichment error:", err);
     }
 
+    // ─── Phase 0.5: GeoIP MMDB lookup (third-tier provider) ───
+    // Local D1-backed range lookup (MaxMind GeoLite2) for threats
+    // that still have lat IS NULL after Phase 0. Different data
+    // source class than ip-api/ipinfo (both census-style) — actually
+    // covers malicious IPs Phase 0 leaves stuck.
+    //
+    // No-ops when GEOIP_DB binding is unset (operator hasn't
+    // provisioned the dedicated D1 yet) — call short-circuits in
+    // lookupGeoMmdb. Costs zero D1 reads on the main DB; the
+    // SELECT runs against GEOIP_DB.
+    let mmdbAttempted = 0;
+    let mmdbResolved = 0;
+    try {
+      const { lookupGeoMmdb } = await import("../lib/geoip-mmdb");
+      // Fetch threats that came out of Phase 0 with an IP but no
+      // lat/lng. Bounded by MMDB_MAX_PER_RUN so a deep backlog
+      // doesn't blow our CPU budget — Phase 1 (ipinfo) and the
+      // next cartographer tick continue draining.
+      const MMDB_MAX_PER_RUN = 500;
+      const stuckRows = await env.DB.prepare(`
+        SELECT id, ip_address FROM threats
+        WHERE ip_address IS NOT NULL AND ip_address != ''
+          AND lat IS NULL
+          AND enrichment_attempts < 8
+        ORDER BY created_at DESC
+        LIMIT ?
+      `).bind(MMDB_MAX_PER_RUN).all<{ id: string; ip_address: string }>();
+
+      for (const row of stuckRows.results) {
+        mmdbAttempted++;
+        const geo = await lookupGeoMmdb(env, row.ip_address);
+        if (!geo || geo.lat == null || geo.lng == null) continue;
+        try {
+          await env.DB.prepare(`
+            UPDATE threats SET
+              lat = COALESCE(lat, ?),
+              lng = COALESCE(lng, ?),
+              country_code = COALESCE(country_code, ?),
+              asn = COALESCE(asn, ?),
+              enriched_at = CASE WHEN enriched_at IS NULL THEN datetime('now') ELSE enriched_at END
+            WHERE id = ?
+          `).bind(geo.lat, geo.lng, geo.countryCode, geo.asn, row.id).run();
+          mmdbResolved++;
+          itemsUpdated++;
+        } catch (err) {
+          console.error('[cartographer] mmdb update failed:', err instanceof Error ? err.message : err);
+        }
+      }
+    } catch (err) {
+      console.error('[cartographer] mmdb phase error:', err);
+    }
+
+    if (mmdbAttempted > 0) {
+      outputs.push({
+        type: 'insight',
+        summary: `mmdb lookup: ${mmdbResolved}/${mmdbAttempted} threats geo-located via local GeoIP DB`,
+        severity: 'info',
+        details: { attempted: mmdbAttempted, resolved: mmdbResolved },
+      });
+    }
+
     // ─── Phase 1: ipinfo.io fallback for threats still missing country_code ───
     try {
       const { enrichThreatsGeo } = await import("../lib/geoip");

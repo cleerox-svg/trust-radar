@@ -447,6 +447,30 @@ const icons: Record<string, (size: number) => JSX.Element> = {
   // A row of three records with progressively more "fill" — left is
   // blank, middle has one row, right is fully filled. Evokes "takes
   // sparse records and fills in the blanks."
+  // GeoIP Refresh — globe + grid overlay. The "we ship our own
+  // map" agent: Cartographer's third-tier provider that doesn't
+  // depend on ip-api.com or ipinfo.io. The pin marks "load
+  // complete," the grid lines hint at the IP-range table that
+  // backs every lookup.
+  geoip_refresh: (s) => (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
+      {/* outer globe */}
+      <circle cx="18" cy="18" r="11" stroke="currentColor" strokeWidth="1.4" fill="none" />
+      {/* longitude lines */}
+      <ellipse cx="18" cy="18" rx="5.5" ry="11" stroke="currentColor" strokeWidth="0.8" opacity="0.55" fill="none" />
+      <ellipse cx="18" cy="18" rx="11" ry="5.5" stroke="currentColor" strokeWidth="0.8" opacity="0.55" fill="none" />
+      {/* equator */}
+      <line x1="7" y1="18" x2="29" y2="18" stroke="currentColor" strokeWidth="0.8" opacity="0.7" />
+      {/* prime meridian */}
+      <line x1="18" y1="7" x2="18" y2="29" stroke="currentColor" strokeWidth="0.8" opacity="0.7" />
+      {/* drop pin marking the loaded location */}
+      <path d="M24.5 11 L24.5 16 L26.5 14 Z"
+            stroke="currentColor" strokeWidth="1" strokeLinejoin="round"
+            fill="currentColor" fillOpacity="0.6" />
+      <circle cx="24.5" cy="11" r="2.2" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.18" />
+    </svg>
+  ),
+
   enricher: (s) => (
     <svg width={s} height={s} viewBox="0 0 36 36" fill="none">
       {/* three record cards left-to-right with progressive fill */}
