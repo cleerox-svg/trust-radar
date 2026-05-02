@@ -26,6 +26,18 @@ interface DohResponse {
   Answer?: Array<{ type: number; data: string }>;
 }
 
+/**
+ * Resolution outcome — distinguishes "doesn't exist" from
+ * "couldn't reach the resolver". Lets the caller graduate
+ * confirmed NXDOMAIN domains out of the retry queue immediately
+ * instead of hammering them 8 more times with the same cooldown.
+ */
+export type ResolverOutcome =
+  | { kind: 'ok'; ip: string }
+  | { kind: 'nxdomain' }       // DNS Status=3, definitively doesn't exist
+  | { kind: 'no_a_record' }    // Status=0 but no A record (CNAME chain dead-end, etc.)
+  | { kind: 'transient' };     // timeout, fetch error, SERVFAIL, etc. — retry-worthy
+
 interface ResolverDef {
   name: string;
   url: (hostname: string) => string;
@@ -61,40 +73,65 @@ const RESOLVERS: ResolverDef[] = [
 
 const PER_RESOLVER_TIMEOUT_MS = 2000;
 
-async function tryResolver(resolver: ResolverDef, hostname: string): Promise<string | null> {
+async function tryResolver(resolver: ResolverDef, hostname: string): Promise<ResolverOutcome> {
   try {
     const res = await fetch(resolver.url(hostname), {
       headers: resolver.headers,
       signal: AbortSignal.timeout(PER_RESOLVER_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { kind: 'transient' };
     const data = (await res.json()) as DohResponse;
-    if (data.Status !== 0 || !data.Answer) return null;
-    const aRecord = data.Answer.find((r) => r.type === 1);
-    return aRecord?.data ?? null;
+    // RFC 8484 Status codes: 0=NOERROR, 2=SERVFAIL, 3=NXDOMAIN, 5=REFUSED.
+    // NXDOMAIN means "this name does not exist" — authoritative answer,
+    // safe to graduate the domain out of the retry queue.
+    if (data.Status === 3) return { kind: 'nxdomain' };
+    if (data.Status !== 0) return { kind: 'transient' };
+    const aRecord = data.Answer?.find((r) => r.type === 1);
+    if (aRecord?.data) return { kind: 'ok', ip: aRecord.data };
+    return { kind: 'no_a_record' };
   } catch {
-    return null;
+    return { kind: 'transient' };
   }
 }
 
 /**
- * Race resolvers — resolve as soon as ANY returns a valid IP.
- * If all return null/error, resolve null. Faster than waiting for
- * all three even when one is slow or throttled.
+ * Resolve as soon as any resolver returns a valid IP. Otherwise
+ * collapse the per-resolver outcomes to a single answer:
+ *   - any 'ok' wins immediately (fastest valid answer)
+ *   - all 'nxdomain' → 'nxdomain' (definitive — graduate out)
+ *   - all 'no_a_record' → 'no_a_record' (definitive — graduate out)
+ *   - any 'transient' (and no 'ok') → 'transient' (retry-worthy)
+ *   - mixed nxdomain + no_a_record (and no transient) →
+ *     'no_a_record' (still definitive non-existence)
  */
-function raceFirstValid(promises: Array<Promise<string | null>>): Promise<string | null> {
+async function raceForOutcome(
+  promises: Array<Promise<ResolverOutcome>>,
+): Promise<ResolverOutcome> {
+  // Wait for first 'ok' OR all to settle.
   return new Promise((resolve) => {
-    let pending = promises.length;
+    const outcomes: ResolverOutcome[] = [];
     let resolved = false;
     for (const p of promises) {
       p.then((result) => {
         if (resolved) return;
-        if (result !== null) {
+        if (result.kind === 'ok') {
           resolved = true;
           resolve(result);
-        } else if (--pending === 0) {
+          return;
+        }
+        outcomes.push(result);
+        if (outcomes.length === promises.length) {
           resolved = true;
-          resolve(null);
+          // Collapse: definitive verdicts beat transient.
+          const hasTransient = outcomes.some((o) => o.kind === 'transient');
+          const allNxdomain = outcomes.every((o) => o.kind === 'nxdomain');
+          if (allNxdomain) {
+            resolve({ kind: 'nxdomain' });
+          } else if (!hasTransient) {
+            resolve({ kind: 'no_a_record' });
+          } else {
+            resolve({ kind: 'transient' });
+          }
         }
       });
     }
@@ -104,11 +141,26 @@ function raceFirstValid(promises: Array<Promise<string | null>>): Promise<string
 /**
  * Resolve a domain to its first IPv4 address using a multi-provider
  * DoH race. Returns null if every resolver fails.
+ *
+ * Back-compat shim — callers that don't care about the failure kind
+ * still see null on miss. Prefer `resolveDomain` when you need to
+ * distinguish NXDOMAIN from a transient resolver outage.
  */
 export async function resolveToIp(domain: string): Promise<string | null> {
+  const outcome = await resolveDomain(domain);
+  return outcome.kind === 'ok' ? outcome.ip : null;
+}
+
+/**
+ * Full-fidelity resolver — returns the structured outcome so
+ * callers can graduate definitive non-existence (NXDOMAIN /
+ * no A record) out of their retry queue immediately rather than
+ * burning 8 attempts on the same dead domain.
+ */
+export async function resolveDomain(domain: string): Promise<ResolverOutcome> {
   const hostname = extractHostname(domain);
-  if (!hostname) return null;
-  return raceFirstValid(RESOLVERS.map((r) => tryResolver(r, hostname)));
+  if (!hostname) return { kind: 'no_a_record' };
+  return raceForOutcome(RESOLVERS.map((r) => tryResolver(r, hostname)));
 }
 
 /**
