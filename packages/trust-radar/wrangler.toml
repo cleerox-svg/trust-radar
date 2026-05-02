@@ -118,12 +118,18 @@ migrations_dir = "migrations-audit"
 # so the ~5M-row range table doesn't compete with main `trust-radar-v2`
 # read budget.
 #
-# Operator runbook (one-time setup):
+# Operator runbook (Phase 3.5 — minimal, three steps):
 #   1. wrangler d1 create geoip-db
-#   2. Copy the returned database_id into the block below
+#   2. Copy the returned database_id into the block below + uncomment
 #   3. wrangler d1 migrations apply geoip-db --remote
-#   4. wrangler secret put MAXMIND_LICENSE_KEY
-#   5. POST /api/admin/geoip-refresh   to do the initial load
+#
+# After deploy, the geoip_refresh agent auto-polls MaxMind weekly
+# (Sunday 02:07 UTC) and only re-imports when MaxMind ships a new
+# release (compared via the .sha256 fingerprint). To trigger a
+# manual refresh:
+#   POST /api/admin/geoip-refresh
+# To force a reload (bypass the version guard):
+#   POST /api/admin/geoip-refresh   with body { "forceReload": true }
 #
 # Until step 2 is uncommented, GEOIP_DB is undefined and the lookup
 # helper (lib/geoip-mmdb.ts) returns null — cartographer falls
@@ -154,23 +160,13 @@ dataset = "trust_radar_d1_reads"
 # binding = "EVIDENCE"
 # bucket_name = "trust-radar-evidence"
 
-# ─── R2 Storage (GeoIP staging — uncompressed CSVs) ──────────
-# Staging area for the GeoLite2-City CSVs the GeoipRefresh
-# Workflow imports. Operator stages two files here before
-# triggering the workflow:
-#
-#   wrangler r2 object put geoip-staging/GeoLite2-City-Locations-en.csv \
-#     --file=./GeoLite2-City-Locations-en.csv
-#   wrangler r2 object put geoip-staging/GeoLite2-City-Blocks-IPv4.csv \
-#     --file=./GeoLite2-City-Blocks-IPv4.csv
-#
-# (Phase 3.5 will automate the download+unzip; until then the
-# operator runs `node scripts/load-geoip.js` locally to fetch
-# from MaxMind and upload here.)
-#
-# [[r2_buckets]]
-# binding = "GEOIP_STAGING"
-# bucket_name = "geoip-staging"
+# ─── R2 Storage (GeoIP staging) — REMOVED in Phase 3.5 ──────
+# Phase 3.5 made the GeoIP refresh fetch MaxMind directly via
+# HTTP Range requests in the GeoipRefreshWorkflow. No staging
+# bucket required. The GEOIP_STAGING binding is no longer
+# needed and was retained as `optional` in src/types.ts only
+# for backwards compatibility with deploys that previously
+# provisioned it (it's safe to delete the bucket too).
 
 # ─── Durable Objects (WebSocket push hub + CertStream monitor) ──
 [[durable_objects.bindings]]

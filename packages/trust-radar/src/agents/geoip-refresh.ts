@@ -317,7 +317,10 @@ export const geoipRefreshAgent: AgentModule = {
       `Probe ok (sha256 ${probe.source_sha256_first_chars ?? '?'}, ` +
       `${probe.durationMs}ms). License key is valid and entitled.`;
 
-    if (!env.GEOIP_REFRESH || !env.GEOIP_STAGING) {
+    // Phase 3.5 dropped the GEOIP_STAGING (R2) requirement —
+    // the Workflow now fetches MaxMind directly via HTTP Range.
+    // Only GEOIP_REFRESH (the Workflow binding) needs to be bound.
+    if (!env.GEOIP_REFRESH) {
       try {
         await env.GEOIP_DB!.prepare(`
           UPDATE geo_ip_refresh_log
@@ -330,7 +333,7 @@ export const geoipRefreshAgent: AgentModule = {
           WHERE id = ?
         `).bind(
           durationMs,
-          `${probeMessage} Workflow + R2 staging not yet bound — see wrangler.toml runbook for GEOIP_REFRESH and GEOIP_STAGING blocks.`,
+          `${probeMessage} Workflow binding GEOIP_REFRESH not yet bound — uncomment the [[workflows]] block in wrangler.toml and redeploy.`,
           probe.source_sha256_first_chars,
           refreshId,
         ).run();
@@ -338,10 +341,8 @@ export const geoipRefreshAgent: AgentModule = {
       agentOutputs.push({
         type: 'insight',
         summary:
-          `${probeMessage} To run a full import, also bind ` +
-          `GEOIP_REFRESH (Workflow) and GEOIP_STAGING (R2 bucket) ` +
-          `in wrangler.toml — see the commented blocks for the ` +
-          `runbook.`,
+          `${probeMessage} To run a full import, bind GEOIP_REFRESH ` +
+          `(Workflow) in wrangler.toml — see the commented block.`,
         severity: 'info',
         details: { phase: 'probe_ok_awaiting_workflow_binding', probe, config, durationMs },
       });
@@ -356,11 +357,15 @@ export const geoipRefreshAgent: AgentModule = {
 
     // Dispatch the Workflow. .create() returns a handle whose
     // `.id` we surface so the operator can grep wrangler tail
-    // for that specific run.
+    // for that specific run. The agent context can carry a
+    // `forceReload` flag from the admin endpoint when the
+    // operator wants to bypass the "is this version already
+    // loaded?" guard.
+    const forceReload = ctx.input?.forceReload === true;
     let workflowInstanceId: string | null = null;
     try {
       const instance = await env.GEOIP_REFRESH.create({
-        params: { refreshLogId: refreshId },
+        params: { refreshLogId: refreshId, forceReload },
       });
       workflowInstanceId = instance.id;
     } catch (err) {

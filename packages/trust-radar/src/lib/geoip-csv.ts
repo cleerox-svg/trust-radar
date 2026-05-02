@@ -176,6 +176,131 @@ function ipv4ToInt(ip: string): number | null {
   return n;
 }
 
+// ─── Stream-based parsers (used by the in-Worker MaxMind import) ─────
+
+/**
+ * Stream the entire Locations CSV from a `ReadableStream<Uint8Array>`
+ * and return a `Map<geonameId, LocationRow>`. Locations is small
+ * enough (~10MB uncompressed, ~150K rows) that we still load it all
+ * into memory — the streaming form just avoids first having to
+ * concat the bytes into a single string.
+ */
+export async function streamLocationsCsv(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Map<string, LocationRow>> {
+  const map = new Map<string, LocationRow>();
+  const decoder = new TextDecoder('utf-8');
+  const reader = stream.getReader();
+  let buf = '';
+  let isFirstLine = true;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let newlineIdx: number;
+    while ((newlineIdx = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, newlineIdx);
+      buf = buf.slice(newlineIdx + 1);
+      if (isFirstLine) {
+        isFirstLine = false;
+        continue;
+      }
+      consumeLocationLine(line, map);
+    }
+  }
+  // Flush the decoder to capture any trailing UTF-8 multi-byte
+  // sequence that landed across the final chunk boundary.
+  buf += decoder.decode();
+  if (buf.trim().length > 0 && !isFirstLine) {
+    consumeLocationLine(buf, map);
+  }
+  return map;
+}
+
+function consumeLocationLine(line: string, map: Map<string, LocationRow>): void {
+  if (!line) return;
+  const cells = parseCsvLine(line);
+  if (cells.length < 11) return;
+  const geonameId = cells[0];
+  if (!geonameId) return;
+  map.set(geonameId, {
+    geonameId,
+    countryCode: cells[4] || null,
+    countryName: cells[5] || null,
+    region: cells[7] || null,
+    city: cells[10] || null,
+  });
+}
+
+/**
+ * Stream the Blocks CSV row-by-row, calling `onRow` for each parsed
+ * record. Internal newline-buffered, never holds more than a few KB
+ * of text in memory at any time. Use this to chunk-import the
+ * 3.5M-row Blocks file without buffering it whole.
+ *
+ * `onRow` may be async — the parser awaits it before reading the
+ * next chunk, so the caller controls back-pressure (e.g. flush a
+ * D1 batch every N rows).
+ */
+export async function streamBlocksCsv(
+  stream: ReadableStream<Uint8Array>,
+  onRow: (row: BlockRow) => Promise<void> | void,
+): Promise<{ rowsParsed: number }> {
+  const decoder = new TextDecoder('utf-8');
+  const reader = stream.getReader();
+  let buf = '';
+  let isFirstLine = true;
+  let rowsParsed = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let newlineIdx: number;
+    while ((newlineIdx = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, newlineIdx);
+      buf = buf.slice(newlineIdx + 1);
+      if (isFirstLine) {
+        isFirstLine = false;
+        continue;
+      }
+      const row = parseBlockLine(line);
+      if (row) {
+        rowsParsed++;
+        await onRow(row);
+      }
+    }
+  }
+  buf += decoder.decode();
+  if (buf.length > 0 && !isFirstLine) {
+    const row = parseBlockLine(buf);
+    if (row) {
+      rowsParsed++;
+      await onRow(row);
+    }
+  }
+  return { rowsParsed };
+}
+
+function parseBlockLine(line: string): BlockRow | null {
+  if (!line) return null;
+  const cells = parseCsvLine(line);
+  if (cells.length < 10) return null;
+  const network = cells[0];
+  if (!network) return null;
+  const lat = cells[7] ? parseFloat(cells[7]) : NaN;
+  const lng = cells[8] ? parseFloat(cells[8]) : NaN;
+  const accuracy = cells[9] ? parseInt(cells[9], 10) : NaN;
+  return {
+    network,
+    geonameId: cells[1] || null,
+    registeredCountryGeonameId: cells[2] || null,
+    postalCode: cells[6] || null,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    accuracyRadius: Number.isFinite(accuracy) ? accuracy : null,
+  };
+}
+
 /**
  * RFC 4180 single-line parser. Handles double-quoted fields with
  * embedded commas and `""` escapes. Rejects multi-line quoted

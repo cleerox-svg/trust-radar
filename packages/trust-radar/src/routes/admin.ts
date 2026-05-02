@@ -364,10 +364,26 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
   router.post("/api/admin/geoip-refresh", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
+    // Optional body: { forceReload: true } bypasses the
+    // skip-if-current guard. Use when the operator wants to
+    // re-import the same MaxMind release (e.g. after schema
+    // changes or partial loads). No body / forceReload=false
+    // means: poll for a new release, re-import only if changed.
+    let forceReload = false;
+    try {
+      const body = await request.json().catch(() => null) as { forceReload?: boolean } | null;
+      if (body && typeof body.forceReload === 'boolean') forceReload = body.forceReload;
+    } catch { /* missing/invalid body is fine */ }
     const { geoipRefreshAgent } = await import("../agents/geoip-refresh");
     const { executeAgent } = await import("../lib/agentRunner");
     try {
-      const result = await executeAgent(env, geoipRefreshAgent, { trigger: 'admin_manual' }, 'admin', 'manual');
+      const result = await executeAgent(
+        env,
+        geoipRefreshAgent,
+        { trigger: 'admin_manual', forceReload },
+        'admin',
+        'manual',
+      );
       return new Response(JSON.stringify({ success: true, data: result }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
