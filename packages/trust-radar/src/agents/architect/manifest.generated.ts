@@ -293,8 +293,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "geo_ip_refresh_log"
       ],
       "ai_models_referenced": [],
-      "loc": 357,
-      "last_modified": "2026-05-02T15:07:35.195Z"
+      "loc": 416,
+      "last_modified": "2026-05-02T16:48:48.088Z"
     },
     {
       "name": "honeypot-generator",
@@ -1092,6 +1092,7 @@ export const REPO_MANIFEST: RepoInventory = {
         "CARTOGRAPHER_BACKFILL",
         "CERTSTREAM_MONITOR",
         "DB",
+        "GEOIP_REFRESH",
         "NEXUS_RUN",
         "THREAT_PUSH_HUB"
       ]

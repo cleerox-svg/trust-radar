@@ -301,55 +301,114 @@ export const geoipRefreshAgent: AgentModule = {
       };
     }
 
-    // ── Phase D: download + chunked import (Phase-3 work) ──
-    // The full ~80MB CSV.zip download + streaming unzip + 3.5M-row
-    // chunked import will land as a Cloudflare Workflow with
-    // durable per-step retry. Workers' single-invocation budgets
-    // (30s CPU on cron, 15min on hourly) can't fit it in one shot
-    // and naive resumability would re-write rows on each retry.
+    // ── Phase D: dispatch GeoipRefresh Workflow ──
+    // The full ~3.5M-row CSV import has its own durability
+    // requirements (multi-day execution window, per-step retry,
+    // can't fit in any single Worker invocation). The Workflow
+    // owns that lifecycle. Here we just kick it off, then let
+    // the agent return — the refresh log row stays 'running'
+    // until the Workflow's final step marks it 'success'.
     //
-    // Until then: the lookup path is fully operational once any
-    // data lands in geo_ip_ranges. To pre-populate today, import
-    // a CSV via:
-    //   wrangler d1 execute geoip-db --file=path/to/geoip.sql
+    // If the Workflow binding or R2 staging isn't provisioned,
+    // the agent returns success on the probe alone (license key
+    // is valid). The operator sees a clear next-step message.
     const durationMs = Date.now() - start;
-    const message =
+    const probeMessage =
       `Probe ok (sha256 ${probe.source_sha256_first_chars ?? '?'}, ` +
-      `${probe.durationMs}ms). License key is valid and entitled. ` +
-      `Full download/import pending Phase-3 (Cloudflare Workflow).`;
+      `${probe.durationMs}ms). License key is valid and entitled.`;
 
+    if (!env.GEOIP_REFRESH || !env.GEOIP_STAGING) {
+      try {
+        await env.GEOIP_DB!.prepare(`
+          UPDATE geo_ip_refresh_log
+          SET status = 'success',
+              completed_at = datetime('now'),
+              rows_written = 0,
+              duration_ms = ?,
+              error_message = ?,
+              source_version = ?
+          WHERE id = ?
+        `).bind(
+          durationMs,
+          `${probeMessage} Workflow + R2 staging not yet bound — see wrangler.toml runbook for GEOIP_REFRESH and GEOIP_STAGING blocks.`,
+          probe.source_sha256_first_chars,
+          refreshId,
+        ).run();
+      } catch { /* non-fatal */ }
+      agentOutputs.push({
+        type: 'insight',
+        summary:
+          `${probeMessage} To run a full import, also bind ` +
+          `GEOIP_REFRESH (Workflow) and GEOIP_STAGING (R2 bucket) ` +
+          `in wrangler.toml — see the commented blocks for the ` +
+          `runbook.`,
+        severity: 'info',
+        details: { phase: 'probe_ok_awaiting_workflow_binding', probe, config, durationMs },
+      });
+      return {
+        itemsProcessed: 0,
+        itemsCreated: 0,
+        itemsUpdated: 0,
+        output: { phase: 'probe_ok_awaiting_workflow_binding', probe, config, durationMs },
+        agentOutputs,
+      };
+    }
+
+    // Dispatch the Workflow. .create() returns a handle whose
+    // `.id` we surface so the operator can grep wrangler tail
+    // for that specific run.
+    let workflowInstanceId: string | null = null;
     try {
-      await env.GEOIP_DB!.prepare(`
-        UPDATE geo_ip_refresh_log
-        SET status = 'success',
-            completed_at = datetime('now'),
-            rows_written = 0,
-            duration_ms = ?,
-            error_message = ?,
-            source_version = ?
-        WHERE id = ?
-      `).bind(
-        durationMs,
-        message,
-        probe.source_sha256_first_chars,
-        refreshId,
-      ).run();
-    } catch {
-      // Non-fatal — the row started_at was already written.
+      const instance = await env.GEOIP_REFRESH.create({
+        params: { refreshLogId: refreshId },
+      });
+      workflowInstanceId = instance.id;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      try {
+        await env.GEOIP_DB!.prepare(`
+          UPDATE geo_ip_refresh_log
+          SET status = 'failed',
+              completed_at = datetime('now'),
+              duration_ms = ?,
+              error_message = ?
+          WHERE id = ?
+        `).bind(
+          Date.now() - start,
+          `Workflow dispatch failed: ${errMsg}`,
+          refreshId,
+        ).run();
+      } catch { /* non-fatal */ }
+      agentOutputs.push({
+        type: 'diagnostic',
+        summary: `GeoipRefresh workflow dispatch failed: ${errMsg}`,
+        severity: 'high',
+        details: { phase: 'workflow_dispatch_failed', error: errMsg },
+      });
+      return {
+        itemsProcessed: 0,
+        itemsCreated: 0,
+        itemsUpdated: 0,
+        output: { phase: 'workflow_dispatch_failed', error: errMsg },
+        agentOutputs,
+      };
     }
 
     agentOutputs.push({
       type: 'insight',
-      summary: message,
+      summary:
+        `${probeMessage} Workflow dispatched ` +
+        `(instance=${workflowInstanceId}). Refresh log row will ` +
+        `be marked 'success' by the workflow's final step.`,
       severity: 'info',
-      details: { phase: 'probe_ok_awaiting_phase3', probe, config, durationMs },
+      details: { phase: 'workflow_dispatched', probe, workflowInstanceId, refreshLogId: refreshId, durationMs },
     });
 
     return {
       itemsProcessed: 0,
       itemsCreated: 0,
       itemsUpdated: 0,
-      output: { phase: 'probe_ok_awaiting_phase3', probe, config, durationMs },
+      output: { phase: 'workflow_dispatched', probe, workflowInstanceId, refreshLogId: refreshId, durationMs },
       agentOutputs,
     };
   },
