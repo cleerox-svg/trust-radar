@@ -38,7 +38,7 @@ function PendingApprovalsLink() {
   if (count === 0) return null;
   return (
     <Link
-      to="/v2/agents/approvals"
+      to="/agents/approvals"
       className="inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono text-[10px] font-bold uppercase tracking-wide hover:opacity-100"
       style={{
         background: 'rgba(229,168,50,0.12)',

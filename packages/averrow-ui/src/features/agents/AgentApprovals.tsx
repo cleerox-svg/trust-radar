@@ -91,7 +91,7 @@ export function AgentApprovals() {
             return (
               <Link
                 key={row.agent_id}
-                to={`/v2/agents/${encodeURIComponent(row.agent_id)}/review`}
+                to={`/agents/${encodeURIComponent(row.agent_id)}/review`}
                 className="block"
               >
                 <Card variant="active" style={{ padding: '20px', cursor: 'pointer' }}>

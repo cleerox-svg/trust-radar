@@ -109,11 +109,11 @@ export function AgentReview() {
       <PageHeader
         title={meta?.displayName ?? agentId}
         subtitle={meta?.subtitle ?? `Agent deployment review for ${agentId}.`}
-        back={{ label: 'Approval queue', to: '/v2/agents/approvals' }}
+        back={{ label: 'Approval queue', to: '/agents/approvals' }}
       />
 
       <Link
-        to="/v2/agents/approvals"
+        to="/agents/approvals"
         className="inline-flex items-center gap-2 font-mono text-[11px]"
         style={{ color: 'var(--text-secondary)' }}
       >
