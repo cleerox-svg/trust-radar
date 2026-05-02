@@ -69,7 +69,17 @@ function diff(declared: ResourceDecl[], extracted: ResourceDecl[]): {
   const extractedKeys = new Set(extracted.map(key));
   return {
     missing: extracted.filter((r) => !declaredKeys.has(key(r))),
-    unexpected: declared.filter((r) => !extractedKeys.has(key(r))),
+    // `external` resources (third-party HTTP endpoints) are
+    // operator-facing documentation; the static extractor can't
+    // see HTTP destinations through fetch() calls reliably (they
+    // can be variables, template literals, etc.). Excluding them
+    // from the "declared but not extracted" check lets agents
+    // surface external dependencies in their declarations without
+    // tripping the drift gate. The cost: a typo in the `name` /
+    // `url` fields won't be caught here. Catch those at code review.
+    unexpected: declared.filter((r) =>
+      r.kind !== 'external' && !extractedKeys.has(key(r)),
+    ),
   };
 }
 

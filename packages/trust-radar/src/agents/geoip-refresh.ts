@@ -54,6 +54,77 @@ function checkConfig(env: Env): RefreshConfigStatus {
   };
 }
 
+interface MaxMindProbeResult {
+  ok: boolean;
+  status: number;
+  durationMs: number;
+  error: string | null;
+  /** If the key is valid, MaxMind returns a tiny .sha256 file with
+   *  the dataset's release-date version. We surface that on success
+   *  so the operator can see WHICH version the key is authorising. */
+  source_sha256_first_chars: string | null;
+}
+
+/**
+ * MaxMind license-key liveness probe.
+ *
+ * Hits the .sha256 sibling of the City CSV download — a tiny
+ * (~70 byte) file that returns the same auth contour as the full
+ * dataset. Lets us answer "is the key active and authorised for
+ * GeoLite2-City?" without burning bandwidth on the 80MB zip.
+ *
+ *   200  → key valid, dataset accessible, ready for full refresh
+ *   401  → key rejected (rotated, revoked, or typed wrong)
+ *   403  → key valid but not entitled to GeoLite2-City
+ *   5xx  → MaxMind upstream issue — retry later
+ *   other → unexpected, log the body for investigation
+ *
+ * Every probe attempt is one subrequest; safe to call from any
+ * tick.
+ */
+async function probeMaxMindLicense(licenseKey: string): Promise<MaxMindProbeResult> {
+  const start = Date.now();
+  const url =
+    `https://download.maxmind.com/app/geoip_download` +
+    `?edition_id=GeoLite2-City-CSV` +
+    `&license_key=${encodeURIComponent(licenseKey)}` +
+    `&suffix=zip.sha256`;
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'User-Agent': 'Averrow/geoip-refresh' },
+      // The sha256 file is tiny but the redirect chain to MaxMind's
+      // CDN can be slow. 10s is comfortable headroom.
+      signal: AbortSignal.timeout(10_000),
+    });
+    const durationMs = Date.now() - start;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return {
+        ok: false,
+        status: res.status,
+        durationMs,
+        error: `HTTP ${res.status}: ${body.slice(0, 200) || res.statusText}`,
+        source_sha256_first_chars: null,
+      };
+    }
+    // The body is a hex sha256 + filename, e.g.:
+    //   "abc123...  GeoLite2-City-CSV_20260501.zip"
+    // First 12 chars of the sha256 is plenty for an op log.
+    const body = await res.text();
+    const firstChars = body.trim().split(/\s+/)[0]?.slice(0, 12) ?? null;
+    return { ok: true, status: 200, durationMs, error: null, source_sha256_first_chars: firstChars };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+      source_sha256_first_chars: null,
+    };
+  }
+}
+
 export const geoipRefreshAgent: AgentModule = {
   name: 'geoip_refresh',
   displayName: 'GeoIP Refresh',
@@ -73,14 +144,14 @@ export const geoipRefreshAgent: AgentModule = {
   // No AI surface — pure data plumbing.
   costGuard: 'exempt',
   budget: { monthlyTokenCap: 0 },
-  // Phase-1 stub only writes geo_ip_refresh_log. The MaxMind
-  // permalink fetch + geo_ip_ranges bulk-load lands in Phase 2
-  // (Cloudflare Workflow). Declarations track what the file
-  // actually does today — drift CI re-validates on each PR — so
-  // they grow when Phase 2 lands instead of lying about current
-  // surface area. The External Dependencies panel will pick up
-  // the new external resource declaration the moment it goes in.
-  reads: [],
+  // Phase-1 scaffold + Phase-2 connectivity probe write to
+  // geo_ip_refresh_log and read from MaxMind's permalink. The
+  // Phase-3 chunked CSV import (geo_ip_ranges writes) lands when
+  // the streaming-zip pipeline is ready; declarations grow with
+  // it. Drift CI re-validates per PR.
+  reads: [
+    { kind: 'external', name: 'MaxMind GeoLite2 Permalink', url: 'https://download.maxmind.com' },
+  ],
   writes: [
     // Lives in GEOIP_DB, not the main DB. The drift extractor sees
     // the SQL identifier and lists it under d1_table — accurate
@@ -180,19 +251,72 @@ export const geoipRefreshAgent: AgentModule = {
       };
     }
 
-    // ── Phase C: actual refresh (Phase-2 work) ──
-    // The download + chunked import is ~30-90 min on the City
-    // dataset and crosses the single-Worker-invocation budget. It
-    // will land as a Cloudflare Workflow in a follow-up PR. For now,
-    // we surface the configuration as healthy and let the operator
-    // import out-of-band via wrangler d1 execute (the lookup path
-    // is fully operational once any data lands in geo_ip_ranges).
+    // ── Phase C: MaxMind connectivity probe ──
+    // Verifies the license key is valid and entitled to
+    // GeoLite2-City BEFORE the (later, expensive) download phase.
+    // A 401 here means the operator typed the key wrong or it was
+    // rotated; surfacing it as a 'high' diagnostic gives them a
+    // clear actionable error instead of a mysterious failure
+    // partway through a 5M-row import.
+    const probe = await probeMaxMindLicense(env.MAXMIND_LICENSE_KEY!);
+
+    if (!probe.ok) {
+      const phase = probe.status === 401
+        ? 'license_invalid'
+        : probe.status === 403
+          ? 'license_unentitled'
+          : 'maxmind_unreachable';
+      const probeSummary =
+        probe.status === 401
+          ? `MaxMind rejected the license key (HTTP 401). Verify the secret value via the account portal — keys can be rotated/revoked. Probe took ${probe.durationMs}ms.`
+          : probe.status === 403
+            ? `MaxMind license key valid but not entitled to GeoLite2-City (HTTP 403). Ensure the account has the GeoLite2 product enabled.`
+            : `MaxMind probe failed: ${probe.error ?? 'unknown'} (status=${probe.status}, ${probe.durationMs}ms). Retrying on the next tick is safe.`;
+
+      try {
+        await env.GEOIP_DB!.prepare(`
+          UPDATE geo_ip_refresh_log
+          SET status = 'failed',
+              completed_at = datetime('now'),
+              duration_ms = ?,
+              error_message = ?
+          WHERE id = ?
+        `).bind(Date.now() - start, probeSummary, refreshId).run();
+      } catch {
+        // Non-fatal — the started_at was already recorded.
+      }
+
+      agentOutputs.push({
+        type: 'diagnostic',
+        summary: probeSummary,
+        severity: 'high',
+        details: { phase, probe, config },
+      });
+      return {
+        itemsProcessed: 0,
+        itemsCreated: 0,
+        itemsUpdated: 0,
+        output: { phase, probe, config, durationMs: Date.now() - start },
+        agentOutputs,
+      };
+    }
+
+    // ── Phase D: download + chunked import (Phase-3 work) ──
+    // The full ~80MB CSV.zip download + streaming unzip + 3.5M-row
+    // chunked import will land as a Cloudflare Workflow with
+    // durable per-step retry. Workers' single-invocation budgets
+    // (30s CPU on cron, 15min on hourly) can't fit it in one shot
+    // and naive resumability would re-write rows on each retry.
+    //
+    // Until then: the lookup path is fully operational once any
+    // data lands in geo_ip_ranges. To pre-populate today, import
+    // a CSV via:
+    //   wrangler d1 execute geoip-db --file=path/to/geoip.sql
     const durationMs = Date.now() - start;
     const message =
-      'Refresh scaffold ready. Download + chunked import pending ' +
-      'Phase-2 (Cloudflare Workflow) — see the agent module header ' +
-      'for the runbook. To pre-populate the table now, import a ' +
-      'CSV via `wrangler d1 execute geoip-db --file=path/to/geoip.sql`.';
+      `Probe ok (sha256 ${probe.source_sha256_first_chars ?? '?'}, ` +
+      `${probe.durationMs}ms). License key is valid and entitled. ` +
+      `Full download/import pending Phase-3 (Cloudflare Workflow).`;
 
     try {
       await env.GEOIP_DB!.prepare(`
@@ -201,26 +325,31 @@ export const geoipRefreshAgent: AgentModule = {
             completed_at = datetime('now'),
             rows_written = 0,
             duration_ms = ?,
-            error_message = ?
+            error_message = ?,
+            source_version = ?
         WHERE id = ?
-      `).bind(durationMs, message, refreshId).run();
+      `).bind(
+        durationMs,
+        message,
+        probe.source_sha256_first_chars,
+        refreshId,
+      ).run();
     } catch {
-      // Non-fatal — the row started_at was already written, the
-      // operator can still see the attempt happened.
+      // Non-fatal — the row started_at was already written.
     }
 
     agentOutputs.push({
       type: 'insight',
       summary: message,
       severity: 'info',
-      details: { phase: 'awaiting_phase2', config, durationMs },
+      details: { phase: 'probe_ok_awaiting_phase3', probe, config, durationMs },
     });
 
     return {
       itemsProcessed: 0,
       itemsCreated: 0,
       itemsUpdated: 0,
-      output: { phase: 'awaiting_phase2', config, durationMs },
+      output: { phase: 'probe_ok_awaiting_phase3', probe, config, durationMs },
       agentOutputs,
     };
   },
