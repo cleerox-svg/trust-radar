@@ -139,6 +139,51 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
       ).run();
     });
 
+    // ── Step 1.5: prepare-shadow-table ──────────────────────
+    // Atomic-swap pattern: load into geo_ip_ranges_new, then
+    // rename at the very end. Concurrent reads against
+    // geo_ip_ranges keep seeing the old data until we cut over,
+    // so cartographer's Phase 0.5 lookups never observe a
+    // half-loaded dataset.
+    //
+    // The shadow table CREATE is idempotent (DROP first), so a
+    // step retry doesn't fail on "already exists" if a prior
+    // attempt got partway through the import. SQLite has no
+    // CREATE TABLE LIKE; we mirror the schema by hand and keep
+    // the indexes too.
+    await step.do(
+      'prepare-shadow-table',
+      { retries: { limit: 2, delay: '5 seconds', backoff: 'constant' }, timeout: '60 seconds' },
+      async () => {
+        // Drop + recreate so a retried run starts clean. The
+        // primary geo_ip_ranges is untouched — concurrent
+        // lookups continue against it.
+        await this.env.GEOIP_DB.batch([
+          this.env.GEOIP_DB.prepare(`DROP TABLE IF EXISTS geo_ip_ranges_new`),
+          this.env.GEOIP_DB.prepare(`
+            CREATE TABLE geo_ip_ranges_new (
+              start_ip_int INTEGER PRIMARY KEY NOT NULL,
+              end_ip_int   INTEGER NOT NULL,
+              country_code TEXT,
+              country_name TEXT,
+              region       TEXT,
+              city         TEXT,
+              postal_code  TEXT,
+              lat          REAL,
+              lng          REAL,
+              asn          TEXT,
+              asn_org      TEXT,
+              source       TEXT NOT NULL,
+              loaded_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+          `),
+          this.env.GEOIP_DB.prepare(
+            `CREATE INDEX idx_geo_ip_end_new ON geo_ip_ranges_new(end_ip_int)`,
+          ),
+        ]);
+      },
+    );
+
     // ── Step 2: load-locations ──────────────────────────────
     // Parse the small Locations CSV into a Map for the join.
     // ~150K rows × ~150 bytes JSON each = ~22MB — well within
@@ -220,7 +265,7 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
               : (row.registeredCountryGeonameId ? locationsMap[row.registeredCountryGeonameId] : undefined);
             inserts.push(
               this.env.GEOIP_DB.prepare(`
-                INSERT OR IGNORE INTO geo_ip_ranges
+                INSERT OR IGNORE INTO geo_ip_ranges_new
                   (start_ip_int, end_ip_int, country_code, country_name,
                    region, city, postal_code, lat, lng, asn, asn_org, source)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'maxmind-geolite2-city')
@@ -273,9 +318,77 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
       }
     }
 
-    // ── Step N+1: finalize ──────────────────────────────────
-    // Mark the refresh log row as 'success'. Atomic-swap +
-    // R2 cleanup land in chunk 3 of Phase 3.
+    // ── Step N+1: atomic-swap ───────────────────────────────
+    // Cut over from the old geo_ip_ranges table to the freshly
+    // populated geo_ip_ranges_new in one D1 batch. Until this
+    // step runs, all cartographer Phase 0.5 lookups still hit
+    // the old data — no half-loaded view ever observable.
+    //
+    // SQLite lacks a true atomic RENAME-with-replace, so we
+    // wrap the three steps (drop old, rename new → live,
+    // recreate index) in db.batch(), which executes them as a
+    // single transaction. If any one fails the whole batch
+    // rolls back and the old table stays in place.
+    //
+    // We also rename the index to keep the bookkeeping clean —
+    // SQLite would otherwise leave us with idx_geo_ip_end on
+    // the old (now dropped) and idx_geo_ip_end_new on the live
+    // table, which makes ALTER queries surprising for the next
+    // operator.
+    const swapped = await step.do(
+      'atomic-swap',
+      { retries: { limit: 2, delay: '10 seconds', backoff: 'constant' }, timeout: '60 seconds' },
+      async () => {
+        const rowCountResult = await this.env.GEOIP_DB.prepare(
+          `SELECT COUNT(*) AS n FROM geo_ip_ranges_new`,
+        ).first<{ n: number }>();
+        const newRowCount = rowCountResult?.n ?? 0;
+        if (newRowCount === 0) {
+          throw new Error(
+            `Atomic swap aborted: geo_ip_ranges_new is empty. ` +
+            `Either chunk-import wrote zero rows or a prior step ` +
+            `dropped the table.`,
+          );
+        }
+
+        await this.env.GEOIP_DB.batch([
+          this.env.GEOIP_DB.prepare(`DROP INDEX IF EXISTS idx_geo_ip_end`),
+          this.env.GEOIP_DB.prepare(`DROP TABLE IF EXISTS geo_ip_ranges`),
+          this.env.GEOIP_DB.prepare(
+            `ALTER TABLE geo_ip_ranges_new RENAME TO geo_ip_ranges`,
+          ),
+          this.env.GEOIP_DB.prepare(`DROP INDEX IF EXISTS idx_geo_ip_end_new`),
+          this.env.GEOIP_DB.prepare(
+            `CREATE INDEX idx_geo_ip_end ON geo_ip_ranges(end_ip_int)`,
+          ),
+        ]);
+        return { newRowCount };
+      },
+    );
+
+    // ── Step N+2: cleanup-staging ───────────────────────────
+    // Delete the R2 objects we just imported. Avoids charging
+    // the operator for staging storage between refreshes and
+    // forces the next refresh to re-stage (which is the right
+    // behaviour — fresh upload guarantees the operator hasn't
+    // accidentally re-imported a stale CSV).
+    //
+    // Failures are non-fatal: the import already succeeded, so
+    // we'd rather mark the refresh log 'success' even if R2
+    // cleanup glitches. The operator can manually delete the
+    // staged objects via wrangler if it ever matters.
+    await step.do('cleanup-staging', async () => {
+      try {
+        await Promise.all([
+          this.env.GEOIP_STAGING.delete(locationsKey),
+          this.env.GEOIP_STAGING.delete(blocksKey),
+        ]);
+      } catch (err) {
+        console.error('[geoipRefresh] cleanup-staging non-fatal error:', err);
+      }
+    });
+
+    // ── Step N+3: finalize ──────────────────────────────────
     await step.do('finalize', async () => {
       await this.env.GEOIP_DB.prepare(`
         UPDATE geo_ip_refresh_log
@@ -286,16 +399,17 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
         WHERE id = ?
       `).bind(
         cumulativeRowsWritten,
-        `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks`,
+        `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks; live table swapped (${swapped.newRowCount} rows live).`,
         refreshLogId,
       ).run();
     });
 
     return {
-      message: `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks`,
+      message: `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks; ${swapped.newRowCount} rows live`,
       staging,
       refreshLogId,
       cumulativeRowsWritten,
+      liveRowCount: swapped.newRowCount,
       totalChunks,
     };
   }
