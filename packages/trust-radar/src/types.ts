@@ -21,6 +21,12 @@ export interface Env {
   CERTSTREAM_MONITOR: DurableObjectNamespace;
   CARTOGRAPHER_BACKFILL: Workflow;
   NEXUS_RUN: Workflow;
+  /** Durable refresh of the GeoLite2-City CSVs into GEOIP_DB.
+   *  Optional because the binding is provisioned alongside the
+   *  GEOIP_DB / GEOIP_STAGING setup — older deploys without
+   *  geoip support keep typechecking. The agent gracefully
+   *  reports an unconfigured workflow when this is undefined. */
+  GEOIP_REFRESH?: Workflow;
   // Workers Analytics Engine — per-endpoint D1 read attribution.
   // Optional so non-instrumented Worker entry points (tests, scripts)
   // don't have to bind it.

@@ -34,6 +34,7 @@ export { ThreatPushHub } from "./durableObjects/ThreatPushHub";
 export { CertStreamMonitor } from "./durableObjects/CertStreamMonitor";
 export { CartographerBackfillWorkflow } from "./workflows/cartographerBackfill";
 export { NexusWorkflow } from "./workflows/nexusRun";
+export { GeoipRefreshWorkflow } from "./workflows/geoipRefresh";
 
 // ─── Honeypot Domain Server ─────────────────────────────────────────
 async function serveHoneypotDomain(url: URL, env: Env): Promise<Response> {

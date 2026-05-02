@@ -70,6 +70,16 @@ name = "nexus-run"
 binding = "NEXUS_RUN"
 class_name = "NexusWorkflow"
 
+# Durable GeoIP refresh — multi-step CSV import into GEOIP_DB.
+# Triggered by the geoip_refresh agent (or POST /api/admin/geoip-refresh).
+# Steps: verify-staging → load-locations → chunk-import → atomic-swap.
+# Each step has its own retry policy so a single failed batch
+# doesn't restart the whole 3.5M-row import.
+[[workflows]]
+name = "geoip-refresh"
+binding = "GEOIP_REFRESH"
+class_name = "GeoipRefreshWorkflow"
+
 # ─── Queues (legacy ARCHITECT consumer — kept until CLI cleanup) ──
 # The architect-analysis queue is no longer enqueued to (Phase 4 Step 1).
 # The consumer binding MUST stay here until the Cloudflare-side consumer
@@ -143,6 +153,24 @@ dataset = "trust_radar_d1_reads"
 # [[r2_buckets]]
 # binding = "EVIDENCE"
 # bucket_name = "trust-radar-evidence"
+
+# ─── R2 Storage (GeoIP staging — uncompressed CSVs) ──────────
+# Staging area for the GeoLite2-City CSVs the GeoipRefresh
+# Workflow imports. Operator stages two files here before
+# triggering the workflow:
+#
+#   wrangler r2 object put geoip-staging/GeoLite2-City-Locations-en.csv \
+#     --file=./GeoLite2-City-Locations-en.csv
+#   wrangler r2 object put geoip-staging/GeoLite2-City-Blocks-IPv4.csv \
+#     --file=./GeoLite2-City-Blocks-IPv4.csv
+#
+# (Phase 3.5 will automate the download+unzip; until then the
+# operator runs `node scripts/load-geoip.js` locally to fetch
+# from MaxMind and upload here.)
+#
+# [[r2_buckets]]
+# binding = "GEOIP_STAGING"
+# bucket_name = "geoip-staging"
 
 # ─── Durable Objects (WebSocket push hub + CertStream monitor) ──
 [[durable_objects.bindings]]
