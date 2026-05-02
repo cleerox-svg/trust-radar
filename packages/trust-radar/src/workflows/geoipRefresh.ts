@@ -1,163 +1,178 @@
 /**
- * GeoIP Refresh Workflow — durable, resumable load of MaxMind
- * GeoLite2-City CSVs into the dedicated GEOIP_DB.
+ * GeoIP Refresh Workflow — Phase 3.5: zero-touch in-Worker import.
  *
- * Why a Workflow (not just an agent)
- * ──────────────────────────────────
- * The full GeoLite2-City dataset is ~3.5M IPv4 ranges. D1's batch
- * limit is 100 statements per call; at ~50ms per batch that's
- * ~1750s (29 min) of pure write time, plus parse + locations
- * join. No single Worker invocation fits that budget — even a
- * 5-minute paid-tier scheduled run only gets ~25% of the way
- * through.
+ * Pipeline shape
+ * ──────────────
+ *   Step 1  probe                → verify license key + fetch the
+ *                                  release sha256 fingerprint
+ *   Step 2  skip-if-current      → bail early if the live data
+ *                                  already matches this sha256
+ *   Step 3  prepare-shadow-table → drop+create geo_ip_ranges_new
+ *   Step 4  import-locations     → range-fetch + DEFLATE-decompress
+ *                                  Locations CSV from MaxMind, build
+ *                                  in-memory geoname → location map
+ *   Step 5  import-blocks        → range-fetch + decompress Blocks
+ *                                  CSV, parse row-by-row, batch
+ *                                  INSERT 100 rows per D1 round-trip
+ *                                  (no buffering of the full body)
+ *   Step 6  atomic-swap          → DROP+RENAME so cartographer's
+ *                                  next lookup hits the new data
+ *   Step 7  finalize             → mark refresh log success +
+ *                                  stamp source_version (sha256)
  *
- * Cloudflare Workflows give us:
- *   - Per-step durability — if step 47 fails, only step 47 retries,
- *     not the whole 70-chunk import
- *   - Multi-day execution window — total elapsed time can exceed
- *     any single Worker invocation budget
- *   - Built-in retry policy (configurable per step)
+ * No R2 dependency — `HttpZipReader` walks the MaxMind archive via
+ * HTTP Range requests, so the Worker never holds more than ~1MB
+ * of ZIP bytes in memory.
  *
- * Pipeline shape (chunks 1-3 of Phase 3 build this incrementally)
- * ──────────────────────────────────────────────────────────────
- *   Step 1  verify-staging   → confirm R2 has both CSVs
- *   Step 2  load-locations   → parse Locations CSV into in-memory
- *                              map (~150K rows, ~10MB JSON)
- *   Steps 3..N  chunk-import → read Blocks CSV slice, parse,
- *                              JOIN with locations, batch-insert
- *                              50K rows / step
- *   Step N+1  atomic-swap    → INSERT-OR-IGNORE plus rename _new
- *                              table for fully atomic cutover
- *   Step N+2  cleanup        → delete R2 objects, finalize log row
+ * Memory profile
+ * ──────────────
+ *   - HEAD + EOCD + central directory ranges: ~1MB peak
+ *   - Locations map (in step 4): ~22MB (150K rows × ~150b each)
+ *   - Blocks streaming (in step 5): ~few KB at a time
  *
- * Operator staging path
- * ─────────────────────
- * The operator runs a one-shot CLI locally to download MaxMind →
- * unzip → upload the two CSVs to R2:
+ * Recovery semantics
+ * ──────────────────
+ * Each step has its own retry policy. A network blip on step 5
+ * retries from the start of step 5 only — the chunk-import step
+ * is idempotent because INSERT OR IGNORE against the shadow table's
+ * PRIMARY KEY treats re-runs as no-ops.
  *
- *   wrangler r2 object put geoip-staging/GeoLite2-City-Locations-en.csv \
- *     --file=./GeoLite2-City-Locations-en.csv
- *   wrangler r2 object put geoip-staging/GeoLite2-City-Blocks-IPv4.csv \
- *     --file=./GeoLite2-City-Blocks-IPv4.csv
- *
- * Then triggers the workflow via the existing admin endpoint:
- *
- *   curl -X POST https://averrow.com/api/admin/geoip-refresh
- *
- * This split keeps the Workers' 128MB memory budget out of the
- * unzip path entirely. A future Phase 3.5 can automate the
- * download+unzip half (likely by using R2's multipart upload from a
- * separate one-shot worker tied to a longer execution context).
- *
- * This file ships chunk 1: scaffold + verify-staging step. Chunks
- * 2-3 add the load + import + swap.
+ * The shadow table approach also means a partially-written failure
+ * NEVER affects the live `geo_ip_ranges` until the atomic-swap step
+ * runs at the very end. Cartographer's Phase 0.5 lookups continue
+ * uninterrupted throughout.
  */
 
 import { WorkflowEntrypoint, type WorkflowStep, type WorkflowEvent } from 'cloudflare:workers';
 import {
-  parseLocationsCsv,
-  parseBlocksCsvChunk,
+  streamLocationsCsv,
+  streamBlocksCsv,
   cidrToIntRange,
   type LocationRow,
-  type BlockRow,
 } from '../lib/geoip-csv';
+import { HttpZipReader } from '../lib/zip-reader';
 
 interface GeoipRefreshParams {
-  /** Optional override for the R2 prefix where staged CSVs live.
-   *  Defaults to '' (root of GEOIP_STAGING bucket). Useful for
-   *  staging multiple datasets side-by-side or testing against a
-   *  separate prefix without touching production data. */
-  stagingPrefix?: string;
-  /** Refresh log row id — created by the geoip_refresh agent
-   *  before workflow dispatch so the workflow can update the
-   *  shared status row across all of its steps. */
+  /** Refresh log row id created by the geoip_refresh agent before
+   *  workflow dispatch. Each step updates this row so the operator
+   *  sees progress through `geo_ip_refresh_log` queries. */
   refreshLogId: string;
+  /** Skip the "is this version already loaded?" guard. Useful when
+   *  the operator wants a manual force-refresh after schema
+   *  changes or partial loads. */
+  forceReload?: boolean;
 }
 
 interface GeoipRefreshEnv {
   GEOIP_DB: D1Database;
-  GEOIP_STAGING: R2Bucket;
   GEOIP_REFRESH: Workflow;
+  MAXMIND_LICENSE_KEY: string;
 }
 
-const LOCATIONS_KEY = 'GeoLite2-City-Locations-en.csv';
-const BLOCKS_KEY = 'GeoLite2-City-Blocks-IPv4.csv';
+const LOCATIONS_FILENAME = 'GeoLite2-City-Locations-en.csv';
+const BLOCKS_FILENAME = 'GeoLite2-City-Blocks-IPv4.csv';
+
+/** D1 batch limit is 100 statements per call. Chunking the imports
+ *  at 100 rows means each round-trip writes a full batch. Round-trip
+ *  latency dominates beneath that, so smaller batches just increase
+ *  total wall time. */
+const D1_BATCH_LIMIT = 100;
 
 export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, GeoipRefreshParams> {
   async run(event: WorkflowEvent<GeoipRefreshParams>, step: WorkflowStep) {
-    const prefix = event.payload.stagingPrefix ?? '';
     const refreshLogId = event.payload.refreshLogId;
-    const locationsKey = prefix ? `${prefix.replace(/\/$/, '')}/${LOCATIONS_KEY}` : LOCATIONS_KEY;
-    const blocksKey = prefix ? `${prefix.replace(/\/$/, '')}/${BLOCKS_KEY}` : BLOCKS_KEY;
+    const forceReload = event.payload.forceReload ?? false;
+    const licenseKey = this.env.MAXMIND_LICENSE_KEY;
+    if (!licenseKey) {
+      throw new Error('MAXMIND_LICENSE_KEY not bound — workflow cannot start.');
+    }
 
-    // ── Step 1: verify-staging ──────────────────────────────────
-    // Confirm both CSVs were staged in R2 before we burn any of
-    // the remaining steps' time on parsing. .head() returns a
-    // metadata-only response so we don't read the body — safe to
-    // call against a 250MB object.
-    const staging = await step.do(
-      'verify-staging',
-      { retries: { limit: 2, delay: '5 seconds', backoff: 'constant' }, timeout: '30 seconds' },
-      async () => {
-        const [locHead, blockHead] = await Promise.all([
-          this.env.GEOIP_STAGING.head(locationsKey),
-          this.env.GEOIP_STAGING.head(blocksKey),
-        ]);
-        if (!locHead) {
-          throw new Error(
-            `R2 object missing: ${locationsKey}. ` +
-            `Stage the Locations CSV via \`wrangler r2 object put\` ` +
-            `before triggering the workflow.`,
-          );
+    const baseUrl = `https://download.maxmind.com/app/geoip_download` +
+      `?edition_id=GeoLite2-City-CSV&license_key=${encodeURIComponent(licenseKey)}`;
+
+    // ── Step 1: probe ────────────────────────────────────────
+    // Fetch the .sha256 fingerprint. Tiny request (~70 bytes)
+    // that authenticates the key AND identifies the release.
+    // Failure here prevents any wasted bandwidth on the full
+    // archive download.
+    const probe = await step.do(
+      'probe',
+      { retries: { limit: 3, delay: '15 seconds', backoff: 'exponential' }, timeout: '30 seconds' },
+      async (): Promise<{ sha256First12: string; full: string }> => {
+        const res = await fetch(`${baseUrl}&suffix=zip.sha256`);
+        if (!res.ok) {
+          throw new Error(`MaxMind probe ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
         }
-        if (!blockHead) {
-          throw new Error(
-            `R2 object missing: ${blocksKey}. ` +
-            `Stage the Blocks CSV via \`wrangler r2 object put\` ` +
-            `before triggering the workflow.`,
-          );
-        }
-        return {
-          locations: { key: locationsKey, size: locHead.size, etag: locHead.etag },
-          blocks: { key: blocksKey, size: blockHead.size, etag: blockHead.etag },
-        };
+        const body = await res.text();
+        const sha = body.trim().split(/\s+/)[0] ?? '';
+        return { sha256First12: sha.slice(0, 12), full: sha };
       },
     );
 
-    // Stamp the staging metadata onto the refresh log so the
-    // operator can correlate the workflow run back to the agent
-    // invocation that triggered it.
-    await step.do('log-staging-verified', async () => {
+    // ── Step 2: skip-if-current ──────────────────────────────
+    // If the live geo_ip_ranges already came from this exact
+    // sha256 (recorded as `source_version` on the most-recent
+    // success row), there's nothing to do. Mark the refresh log
+    // 'success' immediately and exit. This is what makes weekly
+    // auto-polling cheap — most polls find no new release.
+    const lastSuccess = await step.do(
+      'check-last-version',
+      async () => {
+        const r = await this.env.GEOIP_DB.prepare(`
+          SELECT source_version FROM geo_ip_refresh_log
+          WHERE status = 'success'
+          ORDER BY completed_at DESC
+          LIMIT 1
+        `).first<{ source_version: string | null }>();
+        return r?.source_version ?? null;
+      },
+    );
+
+    if (!forceReload && lastSuccess && probe.full.startsWith(lastSuccess)) {
+      await step.do('mark-no-op', async () => {
+        await this.env.GEOIP_DB.prepare(`
+          UPDATE geo_ip_refresh_log
+          SET status = 'success',
+              completed_at = datetime('now'),
+              rows_written = 0,
+              source_version = ?,
+              error_message = ?
+          WHERE id = ?
+        `).bind(
+          probe.sha256First12,
+          `No-op: live data already matches MaxMind release ${probe.sha256First12}`,
+          refreshLogId,
+        ).run();
+      });
+      return {
+        message: `No new release — already at ${probe.sha256First12}`,
+        skipped: true,
+        sha256: probe.sha256First12,
+      };
+    }
+
+    await step.do('log-refresh-starting', async () => {
       await this.env.GEOIP_DB.prepare(`
         UPDATE geo_ip_refresh_log
         SET status = 'running',
+            source_version = ?,
             error_message = ?
         WHERE id = ?
       `).bind(
-        `Staging verified: locations=${staging.locations.size}b, blocks=${staging.blocks.size}b`,
+        probe.sha256First12,
+        `New release ${probe.sha256First12}; loading from MaxMind...`,
         refreshLogId,
       ).run();
     });
 
-    // ── Step 1.5: prepare-shadow-table ──────────────────────
-    // Atomic-swap pattern: load into geo_ip_ranges_new, then
-    // rename at the very end. Concurrent reads against
-    // geo_ip_ranges keep seeing the old data until we cut over,
-    // so cartographer's Phase 0.5 lookups never observe a
-    // half-loaded dataset.
-    //
-    // The shadow table CREATE is idempotent (DROP first), so a
-    // step retry doesn't fail on "already exists" if a prior
-    // attempt got partway through the import. SQLite has no
-    // CREATE TABLE LIKE; we mirror the schema by hand and keep
-    // the indexes too.
+    // ── Step 3: prepare-shadow-table ─────────────────────────
+    // Atomic-swap pattern: write to geo_ip_ranges_new, then rename
+    // at the end. Concurrent cartographer Phase 0.5 lookups never
+    // observe a half-loaded dataset.
     await step.do(
       'prepare-shadow-table',
       { retries: { limit: 2, delay: '5 seconds', backoff: 'constant' }, timeout: '60 seconds' },
       async () => {
-        // Drop + recreate so a retried run starts clean. The
-        // primary geo_ip_ranges is untouched — concurrent
-        // lookups continue against it.
         await this.env.GEOIP_DB.batch([
           this.env.GEOIP_DB.prepare(`DROP TABLE IF EXISTS geo_ip_ranges_new`),
           this.env.GEOIP_DB.prepare(`
@@ -184,157 +199,113 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
       },
     );
 
-    // ── Step 2: load-locations ──────────────────────────────
-    // Parse the small Locations CSV into a Map for the join.
-    // ~150K rows × ~150 bytes JSON each = ~22MB — well within
-    // the 128MB Worker budget. We pass the serialized map
-    // through Workflow state so the chunk-import steps can
-    // resume after a Worker restart without re-parsing.
-    const locationsMap = await step.do(
-      'load-locations',
-      { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' }, timeout: '2 minutes' },
+    // ── Step 4: import-locations ─────────────────────────────
+    // Open the ZIP via HTTP Range, locate the Locations entry, and
+    // stream-decompress it through our CSV reader. Returns the
+    // built Map serialized as a Record so it survives Workflow's
+    // step-result JSON encoding for handoff to step 5.
+    const locationsRecord = await step.do(
+      'import-locations',
+      { retries: { limit: 3, delay: '20 seconds', backoff: 'exponential' }, timeout: '5 minutes' },
       async (): Promise<Record<string, LocationRow>> => {
-        const obj = await this.env.GEOIP_STAGING.get(locationsKey);
-        if (!obj) throw new Error(`Locations CSV vanished: ${locationsKey}`);
-        const text = await obj.text();
-        const map = parseLocationsCsv(text);
-        // Workflow step return values must be JSON-serializable.
-        // Convert Map → Record. Memory cost is the same; we
-        // re-Map() on the consume side.
+        const archiveUrl = `${baseUrl}&suffix=zip`;
+        const zip = new HttpZipReader(archiveUrl);
+        await zip.open();
+        const locEntry = zip.findEntry(LOCATIONS_FILENAME);
+        if (!locEntry) {
+          throw new Error(
+            `Locations CSV missing in MaxMind archive — listed entries: ` +
+            zip.listEntries().map((e) => e.name).slice(0, 5).join(', '),
+          );
+        }
+        const stream = await zip.streamEntry(locEntry);
+        const map = await streamLocationsCsv(stream);
         const record: Record<string, LocationRow> = {};
         for (const [k, v] of map) record[k] = v;
         return record;
       },
     );
 
-    // ── Steps 3..N: chunk-import ────────────────────────────
-    // Read the Blocks CSV in 5MB chunks via R2 range reads and
-    // import each chunk's rows. 250MB / 5MB = 50 chunks ×
-    // ~50K rows = ~3.5M rows total. Each step has an independent
-    // retry policy so a transient D1 hiccup on chunk 27 doesn't
-    // restart from chunk 1.
-    //
-    // Why 5MB chunks: large enough that fetch + parse overhead
-    // is amortised, small enough that one chunk fits in memory
-    // even with the locations map already loaded (~22MB), small
-    // enough that step retry latency stays bounded.
-    const CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
-    const blocksTotalSize = staging.blocks.size;
-    const totalChunks = Math.ceil(blocksTotalSize / CHUNK_SIZE_BYTES);
+    // ── Step 5: import-blocks ────────────────────────────────
+    // Stream-parse the 3.5M-row Blocks CSV and INSERT OR IGNORE in
+    // 100-row D1 batches. Total wall time ~30 min worst-case;
+    // fits within Workflow's max step timeout (1 hour).
+    const importResult = await step.do(
+      'import-blocks',
+      { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '1 hour' },
+      async (): Promise<{ rowsWritten: number; rowsParsed: number }> => {
+        const archiveUrl = `${baseUrl}&suffix=zip`;
+        const zip = new HttpZipReader(archiveUrl);
+        await zip.open();
+        const blocksEntry = zip.findEntry(BLOCKS_FILENAME);
+        if (!blocksEntry) {
+          throw new Error(`Blocks CSV missing in MaxMind archive`);
+        }
+        const stream = await zip.streamEntry(blocksEntry);
 
-    let cumulativeRowsWritten = 0;
-    let residual = '';
+        let pendingBatch: D1PreparedStatement[] = [];
+        let rowsWritten = 0;
+        let rowsParsed = 0;
 
-    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
-      const offsetStart = chunkIdx * CHUNK_SIZE_BYTES;
-      const offsetEnd = Math.min(offsetStart + CHUNK_SIZE_BYTES - 1, blocksTotalSize - 1);
-      const isFirstChunk = chunkIdx === 0;
-
-      // The residual closure has to be passed through as part of
-      // the step's payload because Workflows snapshot state
-      // between steps; capturing `residual` from the outer scope
-      // works in-process but won't survive a step restart. Stamp
-      // it into the refresh log's error_message column when needed,
-      // or accept that a step retry re-fetches the chunk and
-      // re-derives the same residual deterministically.
-      const result = await step.do(
-        `chunk-import-${chunkIdx}`,
-        {
-          retries: { limit: 3, delay: '15 seconds', backoff: 'exponential' },
-          timeout: '5 minutes',
-        },
-        async () => {
-          const obj = await this.env.GEOIP_STAGING.get(blocksKey, {
-            range: { offset: offsetStart, length: offsetEnd - offsetStart + 1 },
-          });
-          if (!obj) throw new Error(`Blocks CSV chunk ${chunkIdx} fetch failed`);
-          const text = residual + (await obj.text());
-          const { rows, residual: nextResidual } = parseBlocksCsvChunk(text, isFirstChunk);
-          residual = nextResidual;
-
-          // Build inserts. INSERT OR IGNORE makes each step
-          // idempotent — if Workflow retries a chunk we already
-          // partially wrote, the dupes are silently skipped and
-          // the step still reports its row count.
-          const inserts: D1PreparedStatement[] = [];
-          for (const row of rows) {
-            const range = cidrToIntRange(row.network);
-            if (!range) continue;
-            const loc = row.geonameId
-              ? locationsMap[row.geonameId]
-              : (row.registeredCountryGeonameId ? locationsMap[row.registeredCountryGeonameId] : undefined);
-            inserts.push(
-              this.env.GEOIP_DB.prepare(`
-                INSERT OR IGNORE INTO geo_ip_ranges_new
-                  (start_ip_int, end_ip_int, country_code, country_name,
-                   region, city, postal_code, lat, lng, asn, asn_org, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'maxmind-geolite2-city')
-              `).bind(
-                range.start, range.end,
-                loc?.countryCode ?? null,
-                loc?.countryName ?? null,
-                loc?.region ?? null,
-                loc?.city ?? null,
-                row.postalCode,
-                row.lat,
-                row.lng,
-              ),
-            );
+        const flushBatch = async () => {
+          if (pendingBatch.length === 0) return;
+          const results = await this.env.GEOIP_DB.batch(pendingBatch);
+          for (const r of results) {
+            rowsWritten += r.meta?.changes ?? 0;
           }
+          pendingBatch = [];
+        };
 
-          // D1 batch limit is 100 statements per call. Slice the
-          // inserts into 100-row sub-batches and write each.
-          let written = 0;
-          const D1_BATCH_LIMIT = 100;
-          for (let i = 0; i < inserts.length; i += D1_BATCH_LIMIT) {
-            const slice = inserts.slice(i, i + D1_BATCH_LIMIT);
-            const results = await this.env.GEOIP_DB.batch(slice);
-            for (const r of results) {
-              written += r.meta?.changes ?? 0;
-            }
+        const { rowsParsed: parsed } = await streamBlocksCsv(stream, async (row) => {
+          rowsParsed++;
+          const range = cidrToIntRange(row.network);
+          if (!range) return;
+          const loc = row.geonameId
+            ? locationsRecord[row.geonameId]
+            : (row.registeredCountryGeonameId ? locationsRecord[row.registeredCountryGeonameId] : undefined);
+          pendingBatch.push(
+            this.env.GEOIP_DB.prepare(`
+              INSERT OR IGNORE INTO geo_ip_ranges_new
+                (start_ip_int, end_ip_int, country_code, country_name,
+                 region, city, postal_code, lat, lng, asn, asn_org, source)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'maxmind-geolite2-city')
+            `).bind(
+              range.start, range.end,
+              loc?.countryCode ?? null,
+              loc?.countryName ?? null,
+              loc?.region ?? null,
+              loc?.city ?? null,
+              row.postalCode,
+              row.lat,
+              row.lng,
+            ),
+          );
+          if (pendingBatch.length >= D1_BATCH_LIMIT) {
+            await flushBatch();
           }
-          return { rowsParsed: rows.length, rowsWritten: written, chunkIdx };
-        },
-      );
-
-      cumulativeRowsWritten += result.rowsWritten;
-
-      // Light-touch progress update. Frequent UPDATEs would
-      // waste Workflow state writes, so we update every 10
-      // chunks (~50K rows) plus the final chunk.
-      if (chunkIdx % 10 === 9 || chunkIdx === totalChunks - 1) {
-        await step.do(`progress-update-${chunkIdx}`, async () => {
-          await this.env.GEOIP_DB.prepare(`
-            UPDATE geo_ip_refresh_log
-            SET rows_written = ?,
-                error_message = ?
-            WHERE id = ?
-          `).bind(
-            cumulativeRowsWritten,
-            `Chunk ${chunkIdx + 1}/${totalChunks} done — ${cumulativeRowsWritten} rows written`,
-            refreshLogId,
-          ).run();
         });
-      }
-    }
+        // Flush whatever's left in the partial batch.
+        await flushBatch();
+        return { rowsWritten, rowsParsed: parsed };
+      },
+    );
 
-    // ── Step N+1: atomic-swap ───────────────────────────────
-    // Cut over from the old geo_ip_ranges table to the freshly
-    // populated geo_ip_ranges_new in one D1 batch. Until this
-    // step runs, all cartographer Phase 0.5 lookups still hit
-    // the old data — no half-loaded view ever observable.
-    //
-    // SQLite lacks a true atomic RENAME-with-replace, so we
-    // wrap the three steps (drop old, rename new → live,
-    // recreate index) in db.batch(), which executes them as a
-    // single transaction. If any one fails the whole batch
-    // rolls back and the old table stays in place.
-    //
-    // We also rename the index to keep the bookkeeping clean —
-    // SQLite would otherwise leave us with idx_geo_ip_end on
-    // the old (now dropped) and idx_geo_ip_end_new on the live
-    // table, which makes ALTER queries surprising for the next
-    // operator.
+    await step.do('log-import-done', async () => {
+      await this.env.GEOIP_DB.prepare(`
+        UPDATE geo_ip_refresh_log
+        SET rows_written = ?,
+            error_message = ?
+        WHERE id = ?
+      `).bind(
+        importResult.rowsWritten,
+        `Imported ${importResult.rowsWritten} of ${importResult.rowsParsed} parsed rows; preparing atomic swap.`,
+        refreshLogId,
+      ).run();
+    });
+
+    // ── Step 6: atomic-swap ──────────────────────────────────
+    // Single D1 batch transaction. Either every operation lands or
+    // none do — no broken-table window for cartographer lookups.
     const swapped = await step.do(
       'atomic-swap',
       { retries: { limit: 2, delay: '10 seconds', backoff: 'constant' }, timeout: '60 seconds' },
@@ -344,13 +315,8 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
         ).first<{ n: number }>();
         const newRowCount = rowCountResult?.n ?? 0;
         if (newRowCount === 0) {
-          throw new Error(
-            `Atomic swap aborted: geo_ip_ranges_new is empty. ` +
-            `Either chunk-import wrote zero rows or a prior step ` +
-            `dropped the table.`,
-          );
+          throw new Error('Atomic swap aborted: shadow table is empty.');
         }
-
         await this.env.GEOIP_DB.batch([
           this.env.GEOIP_DB.prepare(`DROP INDEX IF EXISTS idx_geo_ip_end`),
           this.env.GEOIP_DB.prepare(`DROP TABLE IF EXISTS geo_ip_ranges`),
@@ -366,51 +332,30 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
       },
     );
 
-    // ── Step N+2: cleanup-staging ───────────────────────────
-    // Delete the R2 objects we just imported. Avoids charging
-    // the operator for staging storage between refreshes and
-    // forces the next refresh to re-stage (which is the right
-    // behaviour — fresh upload guarantees the operator hasn't
-    // accidentally re-imported a stale CSV).
-    //
-    // Failures are non-fatal: the import already succeeded, so
-    // we'd rather mark the refresh log 'success' even if R2
-    // cleanup glitches. The operator can manually delete the
-    // staged objects via wrangler if it ever matters.
-    await step.do('cleanup-staging', async () => {
-      try {
-        await Promise.all([
-          this.env.GEOIP_STAGING.delete(locationsKey),
-          this.env.GEOIP_STAGING.delete(blocksKey),
-        ]);
-      } catch (err) {
-        console.error('[geoipRefresh] cleanup-staging non-fatal error:', err);
-      }
-    });
-
-    // ── Step N+3: finalize ──────────────────────────────────
+    // ── Step 7: finalize ─────────────────────────────────────
     await step.do('finalize', async () => {
       await this.env.GEOIP_DB.prepare(`
         UPDATE geo_ip_refresh_log
         SET status = 'success',
             completed_at = datetime('now'),
             rows_written = ?,
+            source_version = ?,
             error_message = ?
         WHERE id = ?
       `).bind(
-        cumulativeRowsWritten,
-        `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks; live table swapped (${swapped.newRowCount} rows live).`,
+        importResult.rowsWritten,
+        probe.full,
+        `MaxMind release ${probe.sha256First12} live: ${swapped.newRowCount} rows. Imported ${importResult.rowsWritten} of ${importResult.rowsParsed} parsed.`,
         refreshLogId,
       ).run();
     });
 
     return {
-      message: `Imported ${cumulativeRowsWritten} ranges from ${totalChunks} chunks; ${swapped.newRowCount} rows live`,
-      staging,
-      refreshLogId,
-      cumulativeRowsWritten,
+      message: `MaxMind release ${probe.sha256First12} imported: ${swapped.newRowCount} rows live.`,
+      sha256: probe.full,
+      rowsWritten: importResult.rowsWritten,
+      rowsParsed: importResult.rowsParsed,
       liveRowCount: swapped.newRowCount,
-      totalChunks,
     };
   }
 }

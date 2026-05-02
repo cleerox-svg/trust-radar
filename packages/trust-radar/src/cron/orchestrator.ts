@@ -193,6 +193,33 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     }
   }
 
+  // ─── Weekly: GeoIP Refresh — Sundays at 02:00 UTC (02:07 actual) ───
+  // Polls MaxMind for a new GeoLite2-City release and re-imports
+  // when the .sha256 fingerprint differs from the last successful
+  // load. Most weeks are no-ops (one HTTPS HEAD + 70-byte GET; the
+  // workflow's skip-if-current step exits before any heavy work).
+  // When a new release is available, the workflow streams the ~80MB
+  // archive, decompresses, and atomically swaps in the new ranges.
+  // Cron-audit rule: hour-only gate, never minute. Sunday picked
+  // because MaxMind ships Tue-Thu typically — we catch the latest
+  // release within ~3 days.
+  if (now.getUTCDay() === 0 && hour === 2) {
+    try {
+      const { geoipRefreshAgent } = await import('../agents/geoip-refresh');
+      const { executeAgent } = await import('../lib/agentRunner');
+      // ctx.waitUntil so the agent dispatch (which itself spawns a
+      // long-running Workflow) doesn't block the rest of the
+      // orchestrator tick.
+      ctx.waitUntil(
+        executeAgent(env, geoipRefreshAgent, {}, 'cron', 'scheduled').catch((err) => {
+          logger.error('geoip_refresh_error', { error: err instanceof Error ? err.message : String(err) });
+        }),
+      );
+    } catch (err) {
+      logger.error('geoip_refresh_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   // Daily at 06:00 UTC: Observer briefing + threat narratives
   if (hour === 6) {
     const result = await runJob('observer_briefing', () => runObserverBriefing(env));

@@ -529,7 +529,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | POST | `/api/admin/backfill-saas-techniques` | Admin | Backfill SaaS attack technique classification (PushSecurity taxonomy) |
 | POST | `/api/admin/backfill-geo` | SuperAdmin | Backfill geo enrichment |
 | POST | `/api/admin/backfill-domain-geo` | Admin | Resolve malicious domains → IP → geo + hosting provider (Cloudflare DoH, 500/call) |
-| POST | `/api/admin/geoip-refresh` | Admin | Trigger the `geoip_refresh` agent — loads MaxMind GeoLite2 ranges into the dedicated `GEOIP_DB`. |
+| POST | `/api/admin/geoip-refresh` | Admin | Trigger the `geoip_refresh` agent. Polls MaxMind for a new GeoLite2-City release; auto-reimports only if the .sha256 differs from the last loaded version. Body `{ "forceReload": true }` bypasses the version guard. Auto-runs Sundays at 02:00 UTC. |
 | GET  | `/api/admin/geoip-status` | Admin | Dedicated GeoIP DB status: row count, last refresh, last error. Used by the Pipeline Automation card. |
 | POST | `/api/admin/backfill-brand-match` | SuperAdmin | Backfill brand matching |
 | POST | `/api/admin/backfill-brand-enrichment` | Admin | Populate brand logo_url, website_url, hq_lat/lng/country via Clearbit + DNS + ipapi (50/call) |
