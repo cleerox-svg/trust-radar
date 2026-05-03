@@ -635,22 +635,35 @@ export const flightControlAgent: AgentModule = {
     // jitter we've seen is ~1.4× from the orchestrator's :07 cron
     // alignment). 3× also tolerates one missed tick + one retry.
     //
+    // IMPORTANT: feed schedule_cron values like `*/5 * * * *` mean
+    // "minimum 5 min between pulls" — they do NOT mean the feed
+    // actually pulls every 5 min. The orchestrator only invokes
+    // runAllFeeds() once per hour at :07, so the maximum achievable
+    // dispatch cadence is 60 min regardless of what the cron says.
+    // Without this floor every sub-hourly feed (urlhaus, ct_logs,
+    // abuseipdb, seclookup, surbl, gsb, dbl) would false-positive at
+    // ~12× within an hour of a successful pull. The floor matches
+    // the dispatcher cadence (60 min); coarser-than-hourly crons
+    // (`0 */6 * * *`, `0 */12 * * *`, `0 0 * * *`) are unaffected.
+    //
     // group_key in the renderer is day-keyed so the operator gets at
     // most one alert per day even if 20 feeds go silent at once.
     {
       const SILENT_RATIO_THRESHOLD = 3;
+      const DISPATCHER_CADENCE_MS = 60 * 60 * 1000; // 60 min — orchestrator runs hourly
       const nowMs = Date.now();
       const overdue: Array<{ feed_name: string; ratio: number; hours_since: number }> = [];
 
       for (const cand of silentFeedCandidates.results) {
-        const intervalMs = parseCronIntervalMs(cand.schedule_cron);
+        const cronInterval = parseCronIntervalMs(cand.schedule_cron);
+        const effectiveIntervalMs = Math.max(cronInterval, DISPATCHER_CADENCE_MS);
         const lastPullStr = cand.last_successful_pull;
         const lastMs = Date.parse(
           lastPullStr.includes('Z') || lastPullStr.includes('+') ? lastPullStr : lastPullStr + 'Z'
         );
         if (!Number.isFinite(lastMs)) continue;
         const elapsedMs = nowMs - lastMs;
-        const ratio = elapsedMs / intervalMs;
+        const ratio = elapsedMs / effectiveIntervalMs;
         if (ratio >= SILENT_RATIO_THRESHOLD) {
           overdue.push({
             feed_name: cand.feed_name,
