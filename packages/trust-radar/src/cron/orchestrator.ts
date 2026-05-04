@@ -82,6 +82,26 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     logger.error('flight_control_error', { error: err instanceof Error ? err.message : String(err) });
   }
 
+  // ─── Incident auto-resolve sweep ───
+  // Walks open auto-created incidents and promotes ones whose
+  // underlying symptoms have cleared from `investigating`/`identified`
+  // → `monitoring`. Operator confirms `resolved` manually so flapping
+  // signals can't prematurely retire an incident. Best-effort —
+  // failure must not break the cron mesh.
+  try {
+    const { runIncidentRecoverySweep } = await import('../lib/incident-recovery');
+    const result = await runIncidentRecoverySweep(env);
+    if (result.recovered > 0 || result.stillFailing > 0) {
+      console.log(
+        `[cron] incident recovery: recovered=${result.recovered}, stillFailing=${result.stillFailing}, skipped=${result.skipped}`,
+      );
+    }
+  } catch (err) {
+    logger.error('incident_recovery_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // ─── CertStream: ensure persistent DO connection is alive ───
   try {
     const csId = env.CERTSTREAM_MONITOR.idFromName('certstream-primary');
