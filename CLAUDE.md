@@ -298,7 +298,7 @@ All agents below are dispatched from `runThreatFeedScan()` inside the orchestrat
 Time gates use `event.scheduledTime` hour-only — **no minute gates** (see cron-audit rule below).
 
 ```
-Always (every tick):  Flight Control, CertStream health, Enricher, agent_events consumer
+Always (every tick):  Flight Control, Incident recovery sweep, CertStream health, Enricher, agent_events consumer
 Always (every tick):  Feed ingestion, brand match, email security, Cartographer, Analyst
 Sentinel:             after feed ingestion if totalNew > 0 (inline await)
 Cartographer:         after Sentinel OR as fallback (dispatched as Workflow)
