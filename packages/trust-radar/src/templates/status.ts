@@ -140,7 +140,9 @@ function renderIncidentCard(inc: PublicIncident): string {
   return `
   <div class="incident-card">
     <div class="incident-card-head">
-      <div class="incident-card-title">${escapeHtml(inc.title)}</div>
+      <a href="/status/incidents/${escapeHtml(inc.id)}" class="incident-card-title-link">
+        <div class="incident-card-title">${escapeHtml(inc.title)}</div>
+      </a>
       <div class="incident-card-pill" style="background:${pill.bg};border:1px solid ${pill.border};color:${pill.text}">
         ${isResolved ? "Resolved" : escapeHtml(inc.status)}
       </div>
@@ -256,7 +258,9 @@ export async function renderStatusPage(env: Env): Promise<string> {
 .incidents-list { display: flex; flex-direction: column; gap: 8px; }
 .incident-card { background: var(--bg-card, rgba(22,30,48,0.65)); border: 1px solid var(--border-base, rgba(255,255,255,0.08)); border-radius: 10px; padding: 14px 16px; backdrop-filter: blur(8px); }
 .incident-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-.incident-card-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.incident-card-title-link { text-decoration: none; color: inherit; flex: 1; min-width: 0; }
+.incident-card-title-link:hover .incident-card-title { color: var(--accent, var(--amber, #E5A832)); }
+.incident-card-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-primary); transition: color 0.15s ease; }
 .incident-card-pill { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; flex-shrink: 0; }
 .incident-card-details { font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; line-height: 1.5; }
 .incident-card-foot { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); letter-spacing: 0.04em; }
