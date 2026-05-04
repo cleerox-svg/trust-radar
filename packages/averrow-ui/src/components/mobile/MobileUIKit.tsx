@@ -1,9 +1,31 @@
 // packages/averrow-ui/src/components/mobile/MobileUIKit.tsx
-// Shared dimensional UI components for Averrow mobile screens
+// Shared dimensional UI components for Averrow mobile screens.
+//
+// Phase 0 of the unified-Home rebuild: StatTile, GradeBadge, and
+// useCountUp have been promoted to the shared design system. This
+// file now re-exports them from their canonical locations so that
+// MobileCommandCenter (and any other consumers) keep working without
+// import-path churn. The remaining mobile-only primitives (DeepCard,
+// BrandAvatar, SevChip) and tokens (M, SEV, GRADE_CFG) stay here for
+// now and will be migrated in a follow-up phase.
 
-import { useState, useEffect } from 'react';
+import { useCountUp as _useCountUp } from '@/design-system/hooks/useCountUp';
 
-// ── Tokens ────────────────────────────────────────────────────────────────
+// ── Promoted primitives (re-exports) ──────────────────────────────────────
+export { StatTile } from '@/components/ui/StatTile';
+export type { StatTileProps } from '@/components/ui/StatTile';
+
+export { GradeBadge } from '@/components/ui/GradeBadge';
+export type { GradeBadgeProps } from '@/components/ui/GradeBadge';
+
+// Back-compat: MobileUIKit's useCountUp historically returned the
+// already-formatted string. The canonical hook returns a number, so
+// wrap it here for any caller still relying on the old signature.
+export function useCountUp(target: number, duration = 1100): string {
+  return _useCountUp(target, duration).toLocaleString();
+}
+
+// ── Tokens (kept here until token migration phase) ────────────────────────
 export const M = {
   AMBER:     '#E5A832',
   AMBER_DIM: '#B8821F',
@@ -32,25 +54,8 @@ export const GRADE_CFG: Record<string, { bg: string; border: string; text: strin
   'F':  { bg: 'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(239,68,68,0.08))',    border: 'rgba(239,68,68,0.45)',   text: '#fca5a5', glow: 'rgba(239,68,68,0.30)' },
 };
 
-// ── 1. useCountUp ─────────────────────────────────────────────────────────
-export function useCountUp(target: number, duration = 1100): string {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!Number.isFinite(target)) return;
-    let start: number | null = null;
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const p = Math.min((ts - start) / duration, 1);
-      setVal(Math.round((1 - Math.pow(1 - p, 3)) * target));
-      if (p < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration]);
-  return val.toLocaleString();
-}
+// ── Mobile-only primitives (deferred to Phase 0.5) ────────────────────────
 
-// ── 2. DeepCard ───────────────────────────────────────────────────────────
-// Dimensional glass: gradient fill + top rim highlight + bottom shadow
 interface DeepCardProps {
   children: React.ReactNode;
   accentColor?: string;
@@ -97,40 +102,6 @@ export function DeepCard({ children, accentColor, variant = 'base', style = {}, 
   );
 }
 
-// ── 3. StatTile ───────────────────────────────────────────────────────────
-interface StatTileProps {
-  label: string;
-  value: number | string;
-  sub?: string;
-  accent: string;
-  critical?: number;
-  onClick?: () => void;
-}
-export function StatTile({ label, value, sub, accent, critical, onClick }: StatTileProps) {
-  const display = useCountUp(typeof value === 'number' ? value : 0);
-  const isCrit = (critical ?? 0) > 0;
-  return (
-    <DeepCard variant="stat" accentColor={accent} onClick={onClick} style={{ padding: '16px 14px', userSelect: 'none' }}>
-      <div style={{ position: 'absolute', right: -20, bottom: -20, width: 100, height: 100, borderRadius: '50%', background: `radial-gradient(circle,${accent}35,transparent 70%)`, pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: 12, left: 14, width: 4, height: 4, borderRadius: '50%', background: accent, boxShadow: `0 0 8px ${accent}` }} />
-      {isCrit && (
-        <div style={{ position: 'absolute', top: 10, right: 10, background: `linear-gradient(135deg,${M.RED},${M.RED_DIM})`, borderRadius: 99, padding: '2px 8px', fontSize: 9, fontWeight: 800, color: '#fff', fontFamily: 'monospace', boxShadow: '0 2px 8px rgba(239,68,68,0.5),inset 0 1px 0 rgba(255,255,255,0.2)', border: '1px solid rgba(239,68,68,0.5)' }}>
-          {critical}
-        </div>
-      )}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, fontFamily: 'monospace', letterSpacing: -1, color: accent, textShadow: `0 0 20px ${accent}60,0 0 40px ${accent}30` }}>
-          {typeof value === 'number' ? display : value}
-        </div>
-        <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.20em', color: 'rgba(255,255,255,0.50)', marginTop: 7, textTransform: 'uppercase' }}>{label}</div>
-        {sub && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 3 }}>{sub}</div>}
-      </div>
-    </DeepCard>
-  );
-}
-
-// ── 4. BrandAvatar ────────────────────────────────────────────────────────
-// Same depth as the CL profile button: solid gradient, rim lighting, white text
 export function BrandAvatar({ name, color, dimColor }: { name: string; color: string; dimColor?: string }) {
   return (
     <div style={{
@@ -152,7 +123,6 @@ export function BrandAvatar({ name, color, dimColor }: { name: string; color: st
   );
 }
 
-// ── 5. SevChip ────────────────────────────────────────────────────────────
 export function SevChip({ severity }: { severity: string }) {
   const s = SEV[severity] ?? SEV.low;
   return (
@@ -164,23 +134,6 @@ export function SevChip({ severity }: { severity: string }) {
       boxShadow: `inset 0 1px 0 ${s.dot}30,0 2px 8px ${s.dot}20`,
     }}>
       {severity}
-    </span>
-  );
-}
-
-// ── 6. GradeBadge ─────────────────────────────────────────────────────────
-export function GradeBadge({ grade }: { grade?: string | null }) {
-  if (!grade) return null;
-  const g = GRADE_CFG[grade] ?? GRADE_CFG['F'];
-  return (
-    <span style={{
-      fontSize: 10, fontFamily: 'monospace', fontWeight: 900,
-      padding: '3px 10px', borderRadius: 8,
-      background: g.bg, border: `1px solid ${g.border}`, color: g.text,
-      boxShadow: `inset 0 1px 0 ${g.border},0 2px 8px ${g.glow}`,
-      letterSpacing: '0.05em',
-    }}>
-      {grade}
     </span>
   );
 }
