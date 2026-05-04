@@ -7,19 +7,16 @@ import { PageTransition } from '@/components/ui/PageTransition';
 import { useBreakpoint }  from '@/design-system/hooks';
 import { FirstSignInPasskeyPrompt } from '@/components/FirstSignInPasskeyPrompt';
 import { PlatformAlertBanner } from '@/components/PlatformAlertBanner';
-import { useHomeFlag } from '@/features/home';
 
 export function Shell() {
   const location     = useLocation();
   const { isMobile } = useBreakpoint();
   const isFullScreen = location.pathname.includes('/observatory');
   const isHome       = location.pathname === '/';
-  // Hide TopBar on Home when (a) on mobile (existing behavior) or
-  // (b) the unified-Home flag is on — the new shell renders its own
-  // header with bell + profile pill, so showing TopBar too would
-  // duplicate those affordances.
-  const homeFlag     = useHomeFlag();
-  const hideTopBar   = isHome && (isMobile || homeFlag);
+  // Home renders its own header with bell + profile pill (HomeUnified),
+  // so the global TopBar would just duplicate those affordances. Hide
+  // it on Home for everyone, mobile or not.
+  const hideTopBar   = isHome;
 
   return (
     <div
