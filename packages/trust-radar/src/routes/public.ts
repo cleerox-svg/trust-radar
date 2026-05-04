@@ -181,6 +181,29 @@ export function registerPublicRoutes(router: RouterType<IRequest>): void {
       },
     });
   });
+  // Public incident permalink — server-rendered, mirrors the
+  // /api/v1/public/incidents visibility gate (lib/incidents.toPublicShape).
+  // Returns a 404 shell when the incident is missing, internal-only,
+  // or has no public_title — same response body, different HTTP status,
+  // so crawlers don't index a non-existent / unpublished incident.
+  router.get("/status/incidents/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const { renderIncidentDetailPage } = await import("../templates/incident-detail");
+    const id = request.params["id"] ?? "";
+    const result = await renderIncidentDetailPage(env, id);
+    return new Response(result.html, {
+      status: result.found ? 200 : 404,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        // Cache slightly longer than /status — detail mutates only
+        // when the operator posts a new update, which the 60s window
+        // catches naturally. 404s get a shorter window so a newly
+        // promoted incident becomes reachable quickly.
+        "Cache-Control": result.found
+          ? "public, max-age=60, s-maxage=120"
+          : "public, max-age=15, s-maxage=30",
+      },
+    });
+  });
   router.get("/blog", htmlPage(renderBlogPage));
   router.get("/blog/email-security-posture-brand-defense", htmlPage(renderBlogPost1));
   router.get("/blog/cost-brand-impersonation-mid-market", htmlPage(renderBlogPost2));
