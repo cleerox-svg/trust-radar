@@ -24,6 +24,12 @@ export type { AvatarProps, AvatarSeverity } from '../../components/ui/Avatar';
 export { StatCard, SimpleStatCard, DetailStatCard } from '../../components/ui/StatCard';
 export type { StatCardProps } from '../../components/ui/StatCard';
 
+export { StatTile } from '../../components/ui/StatTile';
+export type { StatTileProps } from '../../components/ui/StatTile';
+
+export { GradeBadge } from '../../components/ui/GradeBadge';
+export type { GradeBadgeProps, Grade } from '../../components/ui/GradeBadge';
+
 // ── Entity cards (unified across Brands / Providers / Campaigns / Threat Actors)
 export { EntityCard } from '../../components/ui/EntityCard';
 export type { EntityCardProps } from '../../components/ui/EntityCard';
