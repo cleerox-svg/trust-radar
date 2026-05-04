@@ -185,10 +185,12 @@ function formatAxisTick(iso: string, window: Window): string {
 interface Props {
   /** Override the default desktop height (mobile uses a smaller height). */
   height?: number;
+  /** Initial time window. Defaults to "24h" — Home overrides to "7d". */
+  defaultWindow?: Window;
 }
 
-export function ThreatInflowChart({ height }: Props = {}) {
-  const [window, setWindow] = useState<Window>('24h');
+export function ThreatInflowChart({ height, defaultWindow = '24h' }: Props = {}) {
+  const [window, setWindow] = useState<Window>(defaultWindow);
   const { data, isLoading } = useThreatInflow(window);
 
   const containerRef = useRef<HTMLDivElement>(null);
