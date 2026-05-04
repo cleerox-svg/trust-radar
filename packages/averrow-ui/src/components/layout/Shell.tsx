@@ -6,6 +6,7 @@ import { DeepBackground } from '@/components/ui/DeepBackground';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { useBreakpoint }  from '@/design-system/hooks';
 import { FirstSignInPasskeyPrompt } from '@/components/FirstSignInPasskeyPrompt';
+import { PlatformAlertBanner } from '@/components/PlatformAlertBanner';
 
 export function Shell() {
   const location     = useLocation();
@@ -45,6 +46,12 @@ export function Shell() {
             padding: (!isFullScreen && !isMobile) ? '16px 24px' : undefined,
             // Mobile: pages handle their own padding
           }}>
+            {/* Self-gates to /, /agents, /feeds and only renders when
+                an unread platform_* notification exists that hasn't
+                been dismissed on this device. */}
+            <div style={{ padding: isMobile && (location.pathname === '/' || location.pathname === '/agents' || location.pathname === '/feeds') ? '8px 16px 0' : 0 }}>
+              <PlatformAlertBanner />
+            </div>
             <PageTransition>
               <Outlet />
             </PageTransition>
