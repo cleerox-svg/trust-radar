@@ -171,7 +171,6 @@ export function ThreatInflowChart({ height, defaultWindow = '24h' }: Props = {})
         <ResponsiveContainer
           width="100%"
           height={chartHeight}
-          className="max-md:!h-[160px]"
         >
           <AreaChart data={chartData} margin={{ top: 10, right: 8, bottom: 16, left: -16 }}>
             <XAxis
@@ -327,7 +326,10 @@ function WindowToggle({ value, onChange }: { value: Window; onChange: (v: Window
       role="tablist"
       aria-label="Time window"
       style={{
-        display: 'flex',
+        display: 'inline-flex',
+        // alignSelf prevents the parent flex-col from stretching this
+        // pill across the full width of the card on narrow mobile.
+        alignSelf: 'flex-start',
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 8,
