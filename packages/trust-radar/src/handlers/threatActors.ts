@@ -73,10 +73,13 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     // shape the frontend expects. target_sectors and active_campaigns are
     // derived/NULL for now (not stored as columns).
     //
-    // last_seen falls back to first_seen so the card footer always has a
-    // date to render. Migration 0093 backfills last_seen in the DB, but this
-    // COALESCE keeps the API honest for any row where Sentinel hasn't bumped
-    // last_seen yet.
+    // last_seen falls back to:
+    //   1. The most recent threat_attributions.observed_at for this actor
+    //      (Phase B — direct OTX/NEXUS/news attribution)
+    //   2. ta.last_seen (Sentinel ASN-based bump)
+    //   3. ta.first_seen (initial seed)
+    // so the card footer always has a date to render and the freshest
+    // signal wins.
     const selectCols = `ta.id, ta.name, ta.aliases,
           ta.affiliation AS attribution,
           ta.country_code AS country,
@@ -84,7 +87,11 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
           ta.capability,
           ta.description,
           ta.first_seen,
-          COALESCE(ta.last_seen, ta.first_seen) AS last_seen,
+          COALESCE(
+            (SELECT MAX(att.observed_at) FROM threat_attributions att WHERE att.actor_id = ta.id),
+            ta.last_seen,
+            ta.first_seen
+          ) AS last_seen,
           ta.status, ta.attribution_confidence,
           ta.created_at, ta.updated_at,
           NULL AS target_sectors,
@@ -107,11 +114,19 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
     });
 
     // Main query. If the join-count subqueries fail (tables missing), fall
-    // back to a basic query with 0 counts.
+    // back to a basic query with 0 counts. Includes attribution counts from
+    // threat_attributions (Phase B) so the UI can sort/filter actors by
+    // recent OTX/NEXUS/news activity instead of static seed dates.
     const rowsPromise = session.prepare(`
       SELECT ${selectCols},
         (SELECT COUNT(*) FROM threat_actor_infrastructure tai WHERE tai.threat_actor_id = ta.id) AS infra_count,
-        (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count
+        (SELECT COUNT(*) FROM threat_actor_targets tat WHERE tat.threat_actor_id = ta.id) AS target_count,
+        (SELECT COUNT(*) FROM threat_attributions att
+           WHERE att.actor_id = ta.id
+             AND att.observed_at >= datetime('now', '-7 days'))
+          AS attribution_count_7d,
+        (SELECT COUNT(*) FROM threat_attributions att WHERE att.actor_id = ta.id)
+          AS attribution_count_total
       FROM threat_actors ta
       ${where}
       ${orderBy}
@@ -120,7 +135,9 @@ export async function handleListThreatActors(request: Request, env: Env): Promis
       console.error('[threatActors] main query with joins failed, trying fallback:', err);
       try {
         return await session.prepare(`
-          SELECT ${selectCols}, 0 AS infra_count, 0 AS target_count
+          SELECT ${selectCols},
+                 0 AS infra_count, 0 AS target_count,
+                 0 AS attribution_count_7d, 0 AS attribution_count_total
           FROM threat_actors ta
           ${where}
           ${orderBy}
@@ -358,6 +375,16 @@ export async function handleThreatActorsByBrand(request: Request, env: Env, bran
 }
 
 // GET /api/threat-actors/:id/threats
+//
+// Surfaces threats linked to this actor from two complementary signals:
+//   1. threat_attributions — direct per-threat attributions written by
+//      the OTX feed (Phase B) when a pulse names this actor as adversary
+//      or carries an APT-tagged identifier.
+//   2. threat_actor_infrastructure — ASN-based co-occurrence: any
+//      threat from an ASN we've attributed to this actor.
+//
+// The two lists are unioned by threat id so a single threat that hit
+// both signals shows up once. Sorted most-recent first.
 export async function handleThreatActorThreats(request: Request, env: Env, actorId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -365,32 +392,49 @@ export async function handleThreatActorThreats(request: Request, env: Env, actor
     const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
-    // Get threats matching this actor's known ASNs (table may not exist)
+    // Pull this actor's tracked ASNs (may be empty for actors discovered
+    // by OTX that don't have hand-curated infrastructure).
     const infraAsns = await safeQueryAll(env.DB,
       env.DB.prepare(
         "SELECT DISTINCT asn FROM threat_actor_infrastructure WHERE threat_actor_id = ? AND asn IS NOT NULL"
       ).bind(actorId)
     );
+    const asns = infraAsns.results
+      .map(r => (r as Record<string, unknown>).asn as string)
+      .filter(Boolean);
 
-    const asns = infraAsns.results.map(r => (r as Record<string, unknown>).asn as string);
-    if (asns.length === 0) {
-      return json({ success: true, data: [], total: 0 }, 200, origin);
-    }
+    // Build the WHERE clause from whichever signals have rows. We always
+    // include the threat_attributions check; ASN match is conditional.
+    // Both clauses join via DISTINCT t.id at the outer query.
+    const asnPlaceholders = asns.length > 0 ? asns.map(() => "?").join(",") : "";
+    const asnClause = asns.length > 0 ? `OR t.asn IN (${asnPlaceholders})` : "";
 
-    const placeholders = asns.map(() => "?").join(",");
+    // Bind list: actor_id (for threat_attributions match), then asns
+    // (zero or more), then limit + offset on the main query. count
+    // query reuses the first N+1 binds (no limit/offset).
+    const filterBinds: unknown[] = [actorId, ...asns];
 
-    const countResult = await env.DB.prepare(
-      `SELECT COUNT(*) AS total FROM threats WHERE asn IN (${placeholders})`
-    ).bind(...asns).first<{ total: number }>();
+    const countResult = await env.DB.prepare(`
+      SELECT COUNT(DISTINCT t.id) AS total
+      FROM threats t
+      LEFT JOIN threat_attributions ta ON ta.threat_id = t.id
+      WHERE ta.actor_id = ?
+            ${asnClause}
+    `).bind(...filterBinds).first<{ total: number }>();
 
     const threats = await env.DB.prepare(`
-      SELECT t.*, b.name AS brand_name
+      SELECT DISTINCT t.*, b.name AS brand_name,
+             ta.source AS attribution_source,
+             ta.confidence AS attribution_confidence,
+             ta.source_pulse_name AS attribution_pulse_name
       FROM threats t
+      LEFT JOIN threat_attributions ta ON ta.threat_id = t.id AND ta.actor_id = ?
       LEFT JOIN brands b ON b.id = t.target_brand_id
-      WHERE t.asn IN (${placeholders})
+      WHERE ta.actor_id = ?
+            ${asnClause}
       ORDER BY t.created_at DESC
       LIMIT ? OFFSET ?
-    `).bind(...asns, limit, offset).all();
+    `).bind(actorId, ...filterBinds, limit, offset).all();
 
     return json({
       success: true,

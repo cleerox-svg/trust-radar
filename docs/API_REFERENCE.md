@@ -442,7 +442,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | GET | `/api/threat-actors/stats` | User | Threat actor statistics (KV cached, read replicas, parallel 6-query aggregation) |
 | GET | `/api/threat-actors/:id` | User | Get threat actor detail with infrastructure + targets |
 | GET | `/api/threat-actors/by-brand/:brandId` | User | Threat actors targeting a specific brand |
-| GET | `/api/threat-actors/:id/threats` | User | Threats linked to actor's known infrastructure |
+| GET | `/api/threat-actors/:id/threats` | User | Threats linked to actor via `threat_attributions` (Phase B — OTX/NEXUS/news) **OR** known ASN infrastructure |
 
 ## Intel
 
