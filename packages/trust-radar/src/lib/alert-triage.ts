@@ -1,50 +1,42 @@
-// Averrow — Alert auto-triage (Tier 1)
+// Averrow — Alert auto-triage (Tier 1 + Tier 1.5)
 //
-// Conservative rule-based pass that auto-dismisses alerts whose
-// underlying threat has been thoroughly enriched and shows zero
-// adverse signal across multiple independent reputation sources.
-// Reduces operator queue size without using AI tokens — every
-// decision is deterministic and replayable from the threat row.
+// Conservative rule-based pass that auto-dismisses alerts where the
+// existing evidence is strong enough that a human doesn't need to
+// look. Reduces the operator queue without using AI tokens — every
+// decision is deterministic, replayable from the source row, and
+// reversible (operator can flip status back to 'new' at any time).
 //
-// Why this exists: at 2,631 unacknowledged alerts (mostly auto-fired
-// from threat ingest), a human can't realistically work the queue.
-// Most of those are dismissable on data we already have. This module
-// surfaces the specific rule shape that says "all enrichment paths
-// agree this is benign" and stamps the alert as `false_positive`
-// with a stable, auditable reason. The operator can override at any
-// time — the action is reversible by changing status back to 'new'.
+// Three independent rule families dispatched by alert_type /
+// source_type:
 //
-// Conservative-by-design rules (ALL must hold to auto-dismiss):
-//   1. The alert is sourced from a threat row (source_type='threat')
-//      with a resolvable source_id.
-//   2. VirusTotal was consulted (vt_checked = 1) AND returned zero
-//      malicious detections (vt_malicious = 0).
-//   3. Google Safe Browsing was consulted (gsb_checked = 1) AND
-//      did not flag the URL/domain (gsb_flagged = 0).
-//   4. Either GreyNoise classified the IP as 'benign', OR GreyNoise
-//      did not flag the IP at all (NULL classification means no
-//      malicious classification was returned). Required if the
-//      threat has an IP — domain-only threats are exempt from this
-//      check.
-//   5. SecLookup risk score is either NULL (not consulted) OR < 30
-//      (low risk band). 30/100 is the platform's pre-existing
-//      "low confidence threat" cutoff.
+//   1. THREAT-SOURCED ALERTS (source_type='threat'): all reputation
+//      sources cleared the IOC. See `decideThreatAutoTriage`.
 //
-// NOT used as auto-dismiss criteria (intentional):
-//   - confidence_score: too easy for the upstream classifier to
-//     mis-set on a feed regression.
-//   - severity: alerts only fire at 'high'/'critical', so this
-//     adds no signal.
-//   - source feed: feed-quality scoring is a separate concern.
+//   2. SOCIAL IMPERSONATION (alert_type='social_impersonation'):
+//      either the handle is on the brand's official_handles
+//      allowlist (rule B), OR the impersonation score is below the
+//      noise threshold (rule A, default 0.5). See
+//      `decideSocialImpersonationTriage`.
 //
-// The rule errs heavily toward keeping ambiguous alerts open. False-
-// dismiss is the bigger risk; false-keep is just operator noise.
+//   3. APP STORE IMPERSONATION (alert_type='app_store_impersonation'):
+//      either the developer matches the brand's official_apps
+//      allowlist (rule B), OR the impersonation_score is below the
+//      noise threshold (rule A, default 0.5). See
+//      `decideAppStoreImpersonationTriage`.
+//
+// Every decision stamps a stable, machine-readable `reason` into
+// `alerts.resolution_notes` so the dismissal trail is auditable.
+// The rules err heavily toward keeping ambiguous alerts open —
+// false-dismiss is the bigger risk; false-keep is just operator
+// noise.
 
 import type { D1Database } from '@cloudflare/workers-types';
 
 export type AutoTriageDecision =
   | { action: 'dismiss'; reason: string }
   | { action: 'keep'; reason: string };
+
+// ─── Threat-sourced alerts (Tier 1) ──────────────────────────────
 
 export interface ThreatTriageSnapshot {
   vt_checked: number | null;
@@ -62,30 +54,21 @@ export interface ThreatTriageSnapshot {
  * auto-dismiss. Returns a `keep` decision (with reason) when any
  * single criterion fails.
  *
- * Exposed standalone so the same decision can be replayed in tests
- * and verified against synthetic snapshots without DB access.
+ * Conservative rule (ALL must hold):
+ *   - VT consulted AND zero malicious detections
+ *   - GSB consulted AND not flagged
+ *   - GreyNoise either 'benign' or NULL (only checked when IP is set)
+ *   - SecLookup risk score either NULL or below 30 (low band)
  */
-export function decideAutoTriage(snapshot: ThreatTriageSnapshot): AutoTriageDecision {
-  if (snapshot.vt_checked !== 1) {
-    return { action: 'keep', reason: 'vt_not_checked' };
-  }
-  if ((snapshot.vt_malicious ?? 0) > 0) {
-    return { action: 'keep', reason: 'vt_flagged' };
-  }
-  if (snapshot.gsb_checked !== 1) {
-    return { action: 'keep', reason: 'gsb_not_checked' };
-  }
-  if ((snapshot.gsb_flagged ?? 0) > 0) {
-    return { action: 'keep', reason: 'gsb_flagged' };
-  }
+export function decideThreatAutoTriage(snapshot: ThreatTriageSnapshot): AutoTriageDecision {
+  if (snapshot.vt_checked !== 1) return { action: 'keep', reason: 'vt_not_checked' };
+  if ((snapshot.vt_malicious ?? 0) > 0) return { action: 'keep', reason: 'vt_flagged' };
+  if (snapshot.gsb_checked !== 1) return { action: 'keep', reason: 'gsb_not_checked' };
+  if ((snapshot.gsb_flagged ?? 0) > 0) return { action: 'keep', reason: 'gsb_flagged' };
 
-  // GreyNoise check only applies when the threat has an IP. Domain-
-  // only threats can't be GreyNoise-checked at all, so we don't gate
-  // on it.
   if (snapshot.ip_address) {
     const gn = snapshot.greynoise_classification;
     if (gn !== null && gn !== 'benign') {
-      // GN consulted and returned malicious/unknown — keep open.
       return { action: 'keep', reason: 'greynoise_not_benign' };
     }
   }
@@ -97,12 +80,10 @@ export function decideAutoTriage(snapshot: ThreatTriageSnapshot): AutoTriageDeci
   return { action: 'dismiss', reason: 'auto: clean enrichment (vt+gsb+greynoise+seclookup)' };
 }
 
-/**
- * Look up the enrichment snapshot for an alert's underlying threat.
- * Returns null when the alert doesn't have a resolvable threat
- * source (in which case auto-triage doesn't apply and the alert
- * stays in its current status).
- */
+/** @deprecated Renamed to `decideThreatAutoTriage`. Re-exported for callers
+ *  that landed against the original Tier 1 module name. */
+export const decideAutoTriage = decideThreatAutoTriage;
+
 export async function loadThreatSnapshotForAlert(
   db: D1Database,
   sourceId: string,
@@ -119,53 +100,302 @@ export async function loadThreatSnapshotForAlert(
   return row ?? null;
 }
 
+// ─── Impersonation alerts (Tier 1.5) ─────────────────────────────
+
+/** Default impersonation-score threshold below which we auto-dismiss
+ *  (rule A). Scores 0.3-0.5 are mostly name-similarity noise without
+ *  strong corroborating signals. Tunable per call site if needed. */
+export const DEFAULT_IMPERSONATION_DISMISS_THRESHOLD = 0.5;
+
+export interface BrandAllowlist {
+  /** brands.official_handles parsed: {"twitter":"@acme","linkedin":"acmecorp",...} */
+  official_handles: Record<string, string> | null;
+  /** brands.official_apps parsed: array of OfficialApp records */
+  official_apps: Array<{
+    platform?: string;
+    app_id?: string;
+    bundle_id?: string;
+    developer_name?: string;
+    developer_id?: string;
+  }> | null;
+}
+
+export interface SocialImpersonationDetails {
+  /** Lower-cased platform string ('twitter', 'instagram', etc.) */
+  platform?: string;
+  /** Handle as observed; may include a leading '@'. */
+  handle?: string;
+  /** Impersonation score 0.0-1.0 — higher = more likely impersonation. */
+  score?: number;
+  // Other fields (url, signals, check_type) ignored by the triage rule.
+}
+
+/**
+ * Normalize a social handle so allowlist comparisons are
+ * case-insensitive and tolerant of leading '@' / whitespace.
+ */
+export function normalizeHandle(raw: string): string {
+  let h = raw.trim().toLowerCase();
+  if (h.startsWith('@')) h = h.slice(1);
+  return h;
+}
+
+/**
+ * Decide auto-triage for a social_impersonation alert.
+ *
+ *   Rule B (always-safe): handle matches the brand's official_handles
+ *     entry for the same platform → dismiss.
+ *   Rule A (low-confidence): impersonation score below threshold →
+ *     dismiss.
+ *
+ * Otherwise keep open for human review. Both rules are independent;
+ * either passing is sufficient to dismiss.
+ */
+export function decideSocialImpersonationTriage(
+  details: SocialImpersonationDetails | null,
+  allowlist: BrandAllowlist,
+  threshold = DEFAULT_IMPERSONATION_DISMISS_THRESHOLD,
+): AutoTriageDecision {
+  if (!details) return { action: 'keep', reason: 'social_details_missing' };
+
+  // Rule B — official handle match.
+  if (allowlist.official_handles && details.platform && details.handle) {
+    const platformKey = details.platform.toLowerCase();
+    const officialRaw = allowlist.official_handles[platformKey];
+    if (officialRaw) {
+      if (normalizeHandle(officialRaw) === normalizeHandle(details.handle)) {
+        return { action: 'dismiss', reason: 'auto: matches brand official handle' };
+      }
+    }
+  }
+
+  // Rule A — score below the dismiss threshold.
+  const score = typeof details.score === 'number' ? details.score : 1;
+  if (score < threshold) {
+    return { action: 'dismiss', reason: `auto: low impersonation score (${score.toFixed(2)} < ${threshold})` };
+  }
+
+  return { action: 'keep', reason: 'high_impersonation_score' };
+}
+
+export interface AppStoreImpersonationDetails {
+  /** Store identifier ('ios', 'google_play', etc.). */
+  store?: string;
+  app_id?: string;
+  bundle_id?: string;
+  app_name?: string;
+  developer_name?: string;
+  developer_id?: string;
+  app_url?: string;
+  /** Impersonation score 0.0-1.0 — higher = more likely impersonation. */
+  impersonation_score?: number;
+  // Other fields (signals, reason) ignored by the triage rule.
+}
+
+/**
+ * Decide auto-triage for an app_store_impersonation alert.
+ *
+ *   Rule B (always-safe): app's bundle_id, app_id, developer_id, OR
+ *     developer_name matches an entry in the brand's official_apps
+ *     allowlist for the same store → dismiss.
+ *   Rule A (low-confidence): impersonation_score below threshold →
+ *     dismiss.
+ */
+export function decideAppStoreImpersonationTriage(
+  details: AppStoreImpersonationDetails | null,
+  allowlist: BrandAllowlist,
+  threshold = DEFAULT_IMPERSONATION_DISMISS_THRESHOLD,
+): AutoTriageDecision {
+  if (!details) return { action: 'keep', reason: 'app_store_details_missing' };
+
+  // Rule B — official app allowlist match. Try the strongest
+  // identifiers first (bundle_id, app_id, developer_id) and fall
+  // back to a normalized developer_name match.
+  if (allowlist.official_apps && Array.isArray(allowlist.official_apps)) {
+    const store = details.store?.toLowerCase();
+    const candidates = allowlist.official_apps.filter(
+      (a) => !a.platform || !store || a.platform.toLowerCase() === store,
+    );
+
+    for (const off of candidates) {
+      if (off.bundle_id && details.bundle_id && off.bundle_id.toLowerCase() === details.bundle_id.toLowerCase()) {
+        return { action: 'dismiss', reason: 'auto: matches brand official bundle_id' };
+      }
+      if (off.app_id && details.app_id && String(off.app_id) === String(details.app_id)) {
+        return { action: 'dismiss', reason: 'auto: matches brand official app_id' };
+      }
+      if (off.developer_id && details.developer_id && String(off.developer_id) === String(details.developer_id)) {
+        return { action: 'dismiss', reason: 'auto: matches brand official developer_id' };
+      }
+      if (
+        off.developer_name && details.developer_name &&
+        off.developer_name.trim().toLowerCase() === details.developer_name.trim().toLowerCase()
+      ) {
+        return { action: 'dismiss', reason: 'auto: matches brand official developer' };
+      }
+    }
+  }
+
+  // Rule A — score below the dismiss threshold.
+  const score = typeof details.impersonation_score === 'number' ? details.impersonation_score : 1;
+  if (score < threshold) {
+    return { action: 'dismiss', reason: `auto: low impersonation score (${score.toFixed(2)} < ${threshold})` };
+  }
+
+  return { action: 'keep', reason: 'high_impersonation_score' };
+}
+
+// ─── Brand allowlist loading ─────────────────────────────────────
+
+/**
+ * Bulk-load `official_handles` + `official_apps` for a set of
+ * brand_ids in one query. Returns a Map keyed by brand_id with
+ * parsed JSON. Brands without rows or with malformed JSON yield
+ * an empty allowlist `{ official_handles: null, official_apps: null }`.
+ */
+export async function loadBrandAllowlists(
+  db: D1Database,
+  brandIds: string[],
+): Promise<Map<string, BrandAllowlist>> {
+  const result = new Map<string, BrandAllowlist>();
+  if (brandIds.length === 0) return result;
+
+  // De-dupe before binding to keep the IN-clause minimal even when
+  // a batch contains many alerts for the same brand.
+  const uniqueIds = Array.from(new Set(brandIds));
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const rows = await db.prepare(`
+    SELECT id, official_handles, official_apps
+    FROM brands
+    WHERE id IN (${placeholders})
+  `).bind(...uniqueIds).all<{
+    id: string;
+    official_handles: string | null;
+    official_apps: string | null;
+  }>();
+
+  for (const row of rows.results) {
+    let handles: BrandAllowlist['official_handles'] = null;
+    let apps: BrandAllowlist['official_apps'] = null;
+
+    if (row.official_handles) {
+      try {
+        const parsed = JSON.parse(row.official_handles);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          handles = parsed as Record<string, string>;
+        }
+      } catch { /* malformed JSON — treat as empty */ }
+    }
+
+    if (row.official_apps) {
+      try {
+        const parsed = JSON.parse(row.official_apps);
+        if (Array.isArray(parsed)) {
+          apps = parsed as BrandAllowlist['official_apps'];
+        }
+      } catch { /* malformed JSON — treat as empty */ }
+    }
+
+    result.set(row.id, { official_handles: handles, official_apps: apps });
+  }
+  return result;
+}
+
+// ─── Backfill ────────────────────────────────────────────────────
+
 export interface BackfillResult {
   scanned: number;
   dismissed: number;
   kept: number;
   no_threat: number;
+  /** Breakdown by alert family for visibility post-deploy. */
+  by_type: Record<string, { scanned: number; dismissed: number; kept: number }>;
+}
+
+interface AlertRow {
+  id: string;
+  brand_id: string;
+  source_type: string | null;
+  source_id: string | null;
+  alert_type: string;
+  details: string | null;
 }
 
 /**
  * Backfill pass over existing 'new' alerts. Processes a bounded
- * batch (default 500) per call so the worker can run this from an
- * admin endpoint without busting CPU/wall budgets. Operators can
- * call repeatedly until `scanned < limit` (queue drained).
+ * batch per call so the worker can run this from an admin endpoint
+ * without busting CPU/wall budgets. Operators call repeatedly until
+ * `scanned < limit` (queue drained). Idempotent — alerts whose
+ * status moved out of 'new' are no-ops on re-run.
  *
- * Conservative: only touches alerts in `status = 'new'`. Already-
- * triaged alerts (acknowledged, investigating, resolved,
- * false_positive) are never modified.
+ * Tier 1 + Tier 1.5: dispatches by alert_type:
+ *   - 'threat'-sourced       → reputation-source check
+ *   - 'social_impersonation' → official-handle + score-threshold
+ *   - 'app_store_impersonation' → official-app + score-threshold
+ *   - any other type         → skipped (counted as `kept` so
+ *                              operators see the queue isn't being
+ *                              ignored silently)
  */
 export async function runAlertTriageBackfill(
   db: D1Database,
-  opts?: { limit?: number },
+  opts?: { limit?: number; impersonationThreshold?: number },
 ): Promise<BackfillResult> {
   const limit = Math.min(1000, opts?.limit ?? 500);
+  const threshold = opts?.impersonationThreshold ?? DEFAULT_IMPERSONATION_DISMISS_THRESHOLD;
 
+  // Pull ALL 'new' alerts in this batch — not just threat-sourced —
+  // so we can apply the alert_type-specific rule to each.
   const rows = await db.prepare(`
-    SELECT id, source_id
+    SELECT id, brand_id, source_type, source_id, alert_type, details
     FROM alerts
     WHERE status = 'new'
-      AND source_type = 'threat'
-      AND source_id IS NOT NULL
     ORDER BY created_at ASC
     LIMIT ?
-  `).bind(limit).all<{ id: string; source_id: string }>();
+  `).bind(limit).all<AlertRow>();
+
+  // Pre-load brand allowlists for the impersonation alerts in the
+  // batch (one bulk query keeps it cheap regardless of batch size).
+  const brandIdsForAllowlist = rows.results
+    .filter((r) => r.alert_type === 'social_impersonation' || r.alert_type === 'app_store_impersonation')
+    .map((r) => r.brand_id);
+  const allowlists = await loadBrandAllowlists(db, brandIdsForAllowlist);
 
   let dismissed = 0;
   let kept = 0;
   let noThreat = 0;
+  const byType: Record<string, { scanned: number; dismissed: number; kept: number }> = {};
+
+  const trackType = (key: string, action: 'scanned' | 'dismissed' | 'kept') => {
+    if (!byType[key]) byType[key] = { scanned: 0, dismissed: 0, kept: 0 };
+    byType[key][action] += 1;
+  };
 
   for (const alert of rows.results) {
-    const snapshot = await loadThreatSnapshotForAlert(db, alert.source_id);
-    if (!snapshot) {
-      noThreat += 1;
-      continue;
+    const typeKey = alert.alert_type ?? 'unknown';
+    trackType(typeKey, 'scanned');
+
+    let decision: AutoTriageDecision = { action: 'keep', reason: 'unhandled_alert_type' };
+
+    if (alert.source_type === 'threat' && alert.source_id) {
+      const snapshot = await loadThreatSnapshotForAlert(db, alert.source_id);
+      if (!snapshot) {
+        noThreat += 1;
+        kept += 1;
+        trackType(typeKey, 'kept');
+        continue;
+      }
+      decision = decideThreatAutoTriage(snapshot);
+    } else if (alert.alert_type === 'social_impersonation') {
+      const details = parseDetails<SocialImpersonationDetails>(alert.details);
+      const allow = allowlists.get(alert.brand_id) ?? { official_handles: null, official_apps: null };
+      decision = decideSocialImpersonationTriage(details, allow, threshold);
+    } else if (alert.alert_type === 'app_store_impersonation') {
+      const details = parseDetails<AppStoreImpersonationDetails>(alert.details);
+      const allow = allowlists.get(alert.brand_id) ?? { official_handles: null, official_apps: null };
+      decision = decideAppStoreImpersonationTriage(details, allow, threshold);
     }
-    const decision = decideAutoTriage(snapshot);
+
     if (decision.action === 'dismiss') {
-      // Stamp resolution_notes with the reason so the dismissal
-      // trail is auditable. Keep status update cheap (single row).
       await db.prepare(`
         UPDATE alerts
         SET status = 'false_positive',
@@ -176,8 +406,10 @@ export async function runAlertTriageBackfill(
           AND status = 'new'
       `).bind(decision.reason, alert.id).run();
       dismissed += 1;
+      trackType(typeKey, 'dismissed');
     } else {
       kept += 1;
+      trackType(typeKey, 'kept');
     }
   }
 
@@ -186,5 +418,16 @@ export async function runAlertTriageBackfill(
     dismissed,
     kept,
     no_threat: noThreat,
+    by_type: byType,
   };
+}
+
+function parseDetails<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed as T;
+  } catch {
+    return null;
+  }
 }
