@@ -41,6 +41,50 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return;
   }
 
+  // ─── Daily briefing: dedicated trigger (13 13 * * *, once a day at 13:13 UTC) ───
+  // Runs in its own scheduled invocation so it gets a fresh CPU/wall
+  // budget instead of competing with the hourly mesh. Previously the
+  // briefing was gated at hour===13 inside runThreatFeedScan, but
+  // fetchComprehensiveBriefing's ~40 parallel queries exhausted the
+  // budget before INSERT INTO threat_briefings could land — observed
+  // as zero `cron:daily` entries despite the orchestrator firing
+  // hourly. Manual `user:` triggers continued to work because they
+  // came in via fetch with a fresh budget.
+  if (event.cron === '13 13 * * *') {
+    try {
+      const today = new Date(event.scheduledTime).toISOString().slice(0, 10);
+      let existing: { count: number } | null = null;
+      try {
+        existing = await env.DB.prepare(
+          `SELECT COUNT(*) as count FROM threat_briefings
+           WHERE report_date = ? AND trigger LIKE 'cron%' AND emailed = 1`
+        ).bind(today).first<{ count: number }>();
+      } catch (err) {
+        logger.error('briefing_dedup_check_failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      if (existing && existing.count > 0) {
+        logger.info('briefing_email_skipped_duplicate', { date: today });
+        return;
+      }
+
+      const { generateAndEmailBriefing } = await import('../handlers/briefing');
+      const result = await generateAndEmailBriefing(env);
+      if (!result.emailSent) {
+        logger.warn('briefing_email_not_sent', { briefingId: result.briefingId, error: result.error });
+      } else {
+        logger.info('briefing_email_delivered', { briefingId: result.briefingId });
+      }
+    } catch (err) {
+      logger.error('briefing_dedicated_cron_error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
   // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───
   // Heals retroactive enrichment drift that Navigator's current+prev-hour
   // refresh can't catch. Demoted from */20 to 6-hourly in Wave 1A to reduce
@@ -251,46 +295,14 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     results.push(narrativeResult);
   }
 
-  // Daily at 13:00 UTC (9 AM ET): Generate + email daily briefing
-  // NOTE: hour 13 avoids collision with social ops (hour % 6 === 0 runs at 0/6/12/18)
+  // Daily at hour 13: per-user notification digest envelopes.
+  // The briefing email itself moved to a dedicated `13 13 * * *` cron
+  // trigger (see handleScheduled above) — gating it inside the hourly
+  // mesh exhausted the worker budget every day before the briefing
+  // could run, leaving the threat_briefings table without a single
+  // `cron:daily` row for days. The digest envelope is lighter and
+  // can stay here.
   if (hour === 13) {
-    console.log('[CRON] 13:00 UTC — starting daily briefing generation');
-    const emailResult = await runJob('briefing_email', async () => {
-      // Dedup: only skip if a cron briefing already exists for today (manual ones don't count)
-      const today = now.toISOString().slice(0, 10);
-      let existing: { count: number } | null = null;
-      try {
-        existing = await env.DB.prepare(
-          `SELECT COUNT(*) as count FROM threat_briefings
-           WHERE report_date = ? AND trigger LIKE 'cron%' AND emailed = 1`
-        ).bind(today).first<{ count: number }>();
-      } catch (err) {
-        console.error('[CRON] Briefing dedup check failed:', err instanceof Error ? err.message : String(err));
-      }
-
-      if (existing && existing.count > 0) {
-        logger.info('briefing_email_skipped_duplicate', { date: today });
-        console.log('[CRON] Briefing already generated for today, skipping');
-        return;
-      }
-
-      console.log('[CRON] No existing cron briefing for today, generating...');
-      const { generateAndEmailBriefing } = await import('../handlers/briefing');
-      const result = await generateAndEmailBriefing(env);
-      if (!result.emailSent) {
-        logger.warn('briefing_email_not_sent', { briefingId: result.briefingId, error: result.error });
-        console.error('[CRON] Briefing email not sent:', result.error);
-      } else {
-        logger.info('briefing_email_delivered', { briefingId: result.briefingId });
-        console.log('[CRON] Briefing generated and emailed, id:', result.briefingId);
-      }
-    });
-    results.push(emailResult);
-
-    // B4 — notification_narrator: per-user daily digest envelopes.
-    // Runs at the same hour as the legacy briefing email; the
-    // digest envelope is additive in the bell, doesn't compete
-    // with the email path.
     const digestResult = await runJob('notification_narrator', async () => {
       const { executeAgent } = await import('../lib/agentRunner');
       const { notificationNarratorAgent } = await import('../agents/notification_narrator');

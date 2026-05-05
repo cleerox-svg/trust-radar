@@ -57,7 +57,17 @@ not_found_handling = "404-page"
 # The Cloudflare cron parser rejects '23 5 * * 0' with code 10100
 # even though it's standard 5-field cron — see fix at PR-fixing-#875.
 [triggers]
-crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *"]
+# `13 13 * * *` is the daily briefing — runs in its own scheduled
+# invocation so it gets a fresh per-request CPU/wall budget instead
+# of competing with the hourly mesh. Previously the briefing was
+# gated inside the orchestrator at hour===13 and silently failed
+# every day because runThreatFeedScan exhausted the budget before
+# fetchComprehensiveBriefing could complete (~40 parallel cube +
+# table queries). Confirmed via the briefing_status section of
+# /api/internal/platform-diagnostics: zero `cron:daily` entries
+# in threat_briefings between 2026-05-02 and 2026-05-05 despite
+# the orchestrator firing every hour during that window.
+crons = ["7 * * * *", "*/5 * * * *", "12 */6 * * *", "13 13 * * *"]
 
 # ─── Workflows (durable multi-step processing) ──────────────
 [[workflows]]
