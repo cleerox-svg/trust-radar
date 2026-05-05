@@ -2,12 +2,23 @@ import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
+import { upsertActorFromPulse, recordOtxAttribution } from "../lib/otx-attribution";
 
 /**
  * AlienVault OTX — Pulse activity feed.
  * Requires OTX_API_KEY for authenticated access (free account at otx.alienvault.com).
  * Falls back to public endpoint if no key, but may get HTTP 403.
  * Extracts domain, URL, and IPv4 indicators from recent pulses.
+ *
+ * As of Phase B (Threat Actors rebuild), this feed also persists the
+ * pulse-level attribution metadata it used to discard:
+ *   * Pulse `adversary` field + APT-tagged actor names → upsert into
+ *     threat_actors (auto-creating new rows for first-seen actors,
+ *     bumping last_seen on existing reference taxonomy).
+ *   * Each (threat, pulse) pair → row in threat_attributions so the
+ *     Threat Actors page can answer "who attacked whom, when, via
+ *     what" instead of rendering static seed data.
+ *
  * Schedule: every 2 hours.
  */
 export const otx_alienvault: FeedModule = {
@@ -33,8 +44,14 @@ export const otx_alienvault: FeedModule = {
 
     let body: {
       results?: Array<{
+        id?: string;
         name?: string;
+        description?: string;
+        adversary?: string;
         tags?: string[];
+        targeted_countries?: string[];
+        industries?: string[];
+        attack_ids?: string[];
         indicators?: Array<{ type: string; indicator: string }>;
       }>;
     };
@@ -57,6 +74,31 @@ export const otx_alienvault: FeedModule = {
       if (tags.some(t => t.includes("phishing"))) threatType = "phishing";
       else if (tags.some(t => t.includes("c2") || t.includes("c&c") || t.includes("command"))) threatType = "c2";
 
+      // Resolve (or auto-create) the threat actor for this pulse once,
+      // then attach every threat from the pulse to that actor below.
+      // Pulses without a recognizable adversary or APT-tagged actor
+      // skip attribution silently — the indicators still get inserted
+      // into threats, just without an actor link.
+      const pulseId = pulse.id ?? "";
+      let actorId: string | null = null;
+      if (pulseId) {
+        try {
+          actorId = await upsertActorFromPulse(ctx.env.DB, {
+            id:                 pulseId,
+            name:               pulse.name ?? "",
+            description:        pulse.description,
+            adversary:          pulse.adversary,
+            tags:               pulse.tags,
+            targeted_countries: pulse.targeted_countries,
+            industries:         pulse.industries,
+            attack_ids:         pulse.attack_ids,
+          });
+        } catch (e) {
+          // Non-fatal: attribution failure must not block ingest.
+          console.error(`[otx] actor upsert failed for pulse ${pulseId}:`, e);
+        }
+      }
+
       for (const ind of pulse.indicators ?? []) {
         if (total >= 200) break;
         const iocType = ind.type;
@@ -71,8 +113,9 @@ export const otx_alienvault: FeedModule = {
           const domain = iocType === "domain" ? iocValue : (iocType === "URL" ? extractDomain(iocValue) : null);
           const ip = iocType === "IPv4" ? iocValue : null;
 
+          const tid = threatId("otx", iocType, iocValue);
           await insertThreat(ctx.env.DB, {
-            id: threatId("otx", iocType, iocValue),
+            id: tid,
             source_feed: "otx_alienvault",
             threat_type: threatType,
             malicious_url: url,
@@ -82,6 +125,27 @@ export const otx_alienvault: FeedModule = {
             severity: threatType === "phishing" ? "high" : "medium",
             confidence_score: 65,
           });
+
+          // Persist the per-threat attribution row if we resolved an
+          // actor for this pulse. Best-effort — failures are logged
+          // but don't bubble up because the threat itself was inserted
+          // successfully.
+          if (actorId && pulseId) {
+            try {
+              await recordOtxAttribution(ctx.env.DB, tid, actorId, {
+                id:                 pulseId,
+                name:               pulse.name ?? "",
+                adversary:          pulse.adversary,
+                tags:               pulse.tags,
+                targeted_countries: pulse.targeted_countries,
+                industries:         pulse.industries,
+                attack_ids:         pulse.attack_ids,
+              });
+            } catch (e) {
+              console.error(`[otx] attribution write failed for threat ${tid}:`, e);
+            }
+          }
+
           await markSeen(ctx.env, iocType, iocValue);
           itemsNew++;
           total++;
