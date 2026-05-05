@@ -94,34 +94,45 @@ export async function createAlert(db: D1Database, params: CreateAlertParams): Pr
     recommendationsJson,
   ).run();
 
-  // Tier 1 auto-triage: if the alert is sourced from a threat row
-  // whose enrichment is fully clean across VT, GSB, GreyNoise, and
-  // SecLookup, immediately stamp it as `false_positive` so it
-  // doesn't enter the operator queue. Best-effort — any failure
+  // Tier 1 + Tier 1.5 auto-triage: dispatch by alert source/type and
+  // immediately mark as `false_positive` when the new alert meets
+  // its family's auto-dismiss criteria. Best-effort — any failure
   // here leaves the alert in 'new' status (the conservative
-  // outcome). See lib/alert-triage.ts for the rule definition.
-  if (params.sourceType === 'threat' && params.sourceId) {
-    try {
-      const { loadThreatSnapshotForAlert, decideAutoTriage } = await import('./alert-triage');
-      const snapshot = await loadThreatSnapshotForAlert(db, params.sourceId);
-      if (snapshot) {
-        const decision = decideAutoTriage(snapshot);
-        if (decision.action === 'dismiss') {
-          await db.prepare(`
-            UPDATE alerts
-            SET status = 'false_positive',
-                resolved_at = datetime('now'),
-                resolution_notes = ?,
-                updated_at = datetime('now')
-            WHERE id = ?
-          `).bind(decision.reason, id).run();
-        }
+  // outcome). See lib/alert-triage.ts for the rule definitions.
+  try {
+    const triage = await import('./alert-triage');
+
+    let decision: { action: 'dismiss' | 'keep'; reason: string } | null = null;
+
+    if (params.sourceType === 'threat' && params.sourceId) {
+      const snapshot = await triage.loadThreatSnapshotForAlert(db, params.sourceId);
+      if (snapshot) decision = triage.decideThreatAutoTriage(snapshot);
+    } else if (
+      params.alertType === 'social_impersonation' ||
+      params.alertType === 'app_store_impersonation'
+    ) {
+      const allowlists = await triage.loadBrandAllowlists(db, [params.brandId]);
+      const allow = allowlists.get(params.brandId) ?? { official_handles: null, official_apps: null };
+      if (params.alertType === 'social_impersonation') {
+        decision = triage.decideSocialImpersonationTriage(params.details ?? null, allow);
+      } else {
+        decision = triage.decideAppStoreImpersonationTriage(params.details ?? null, allow);
       }
-    } catch {
-      // Auto-triage is non-fatal. Worst case the alert stays 'new'
-      // for the operator to handle manually — same as before this
-      // pass existed.
     }
+
+    if (decision && decision.action === 'dismiss') {
+      await db.prepare(`
+        UPDATE alerts
+        SET status = 'false_positive',
+            resolved_at = datetime('now'),
+            resolution_notes = ?,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(decision.reason, id).run();
+    }
+  } catch {
+    // Auto-triage is non-fatal. Worst case the alert stays 'new'
+    // for the operator to handle manually.
   }
 
   return id;

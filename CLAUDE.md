@@ -395,23 +395,47 @@ swap to the pre-computed column or the matching cube.
 
 ### Alert auto-triage (`lib/alert-triage.ts`)
 
-When a threat-sourced alert is created, `createAlert` consults the
-underlying threat's enrichment snapshot and auto-marks the alert as
-`false_positive` if every reputation source has cleared the IOC:
-VT consulted with zero malicious detections, GSB consulted with no
-flag, GreyNoise either benign or not consulted, SecLookup risk
-score either null or below 30. The decision function is pure
-(`decideAutoTriage`) and unit-tested — replace, don't bypass.
+`createAlert` dispatches to one of three decision rules based on
+the new alert's source/type:
+
+1. **Threat-sourced** (`source_type='threat'`, Tier 1) —
+   `decideThreatAutoTriage` reads the underlying threat's
+   enrichment snapshot. Dismisses when VT was consulted with zero
+   malicious detections, GSB consulted with no flag, GreyNoise
+   either benign or not consulted, and SecLookup risk score either
+   null or below 30.
+
+2. **Social impersonation** (`alert_type='social_impersonation'`,
+   Tier 1.5) — `decideSocialImpersonationTriage` checks two
+   independent gates. Dismisses when the alerted handle matches
+   the brand's `official_handles` for the same platform (rule B,
+   always-safe), OR when `details.score < 0.5` (rule A,
+   low-confidence noise). Either gate is sufficient.
+
+3. **App-store impersonation** (`alert_type='app_store_impersonation'`,
+   Tier 1.5) — `decideAppStoreImpersonationTriage` mirrors social
+   for the app-store world. Dismisses when bundle_id, app_id,
+   developer_id, or developer_name matches the brand's
+   `official_apps` for the store (rule B), OR when
+   `details.impersonation_score < 0.5` (rule A).
+
+The `0.5` threshold is the platform default — tunable per call via
+the `impersonationThreshold` parameter on `runAlertTriageBackfill`.
+All decision functions are pure and unit-tested under
+`test/alert-triage.test.ts`.
 
 Operators run `POST /api/admin/alerts/backfill-triage?limit=500` to
 sweep existing 'new' alerts; the endpoint is idempotent and can be
-called repeatedly until `scanned < limit`. Each dismissal stamps
-the rule reason into `resolution_notes` so the action is auditable
-and reversible.
+called repeatedly until `scanned < limit`. Each response includes
+a `by_type` breakdown showing dismissed/kept counts per
+alert_type. Every dismissal stamps the rule reason into
+`resolution_notes` so the action is auditable and reversible.
 
-To loosen or tighten the rule, edit `decideAutoTriage` and update
-`test/alert-triage.test.ts` to match the new gates. Don't add a
-second classifier elsewhere; the rule should stay in one place.
+To add a new alert family's rule, write a new `decide…Triage`
+function alongside the existing three, add a case to
+`runAlertTriageBackfill`'s dispatch switch and to `createAlert`'s
+real-time hook. Don't add a second classifier elsewhere; the
+rules should stay in one place.
 
 ### KV Cache on page-load endpoints
 - Check `env.CACHE.get(cacheKey)` before querying D1 on any page-load GET endpoint
