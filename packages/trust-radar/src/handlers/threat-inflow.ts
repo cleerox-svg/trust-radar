@@ -65,68 +65,73 @@ export async function handleThreatInflow(request: Request, env: Env): Promise<Re
   // strftime to the same shape stored in threat_cube_status.hour_bucket
   // ('YYYY-MM-DD HH:00:00')
 
-  const rows = await env.DB.prepare(`
-    SELECT hour_bucket, threat_type, SUM(threat_count) AS count
-      FROM threat_cube_status
-     WHERE hour_bucket >= strftime('%Y-%m-%d %H:00:00', ${earliest})
-     GROUP BY hour_bucket, threat_type
-     ORDER BY hour_bucket ASC
-  `).all<{ hour_bucket: string; threat_type: string; count: number }>();
-
-  // Build the bucket axis client-side: every hour from (now - N) to
-  // now, padded with zeros for any (bucket, type) combination missing
-  // from the cube. This keeps the chart visually continuous even
-  // during low-activity windows.
-  const buckets: string[] = [];
-  const cursor = new Date();
-  cursor.setUTCMinutes(0, 0, 0);
-  cursor.setUTCHours(cursor.getUTCHours() - (bucketCount - 1));
-  for (let i = 0; i < bucketCount; i++) {
-    const yyyy = cursor.getUTCFullYear();
-    const mm = String(cursor.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(cursor.getUTCDate()).padStart(2, "0");
-    const hh = String(cursor.getUTCHours()).padStart(2, "0");
-    buckets.push(`${yyyy}-${mm}-${dd} ${hh}:00:00`);
-    cursor.setUTCHours(cursor.getUTCHours() + 1);
-  }
-  const bucketIdx = new Map(buckets.map((b, i) => [b, i]));
-
-  // Pivot rows into per-threat-type count arrays.
-  const byType = new Map<string, number[]>();
-  for (const r of rows.results) {
-    const idx = bucketIdx.get(r.hour_bucket);
-    if (idx === undefined) continue; // older than window, ignore
-    let counts = byType.get(r.threat_type);
-    if (!counts) {
-      counts = new Array<number>(bucketCount).fill(0);
-      byType.set(r.threat_type, counts);
-    }
-    counts[idx] = (counts[idx] ?? 0) + r.count;
-  }
-
-  // Sort series by total desc — the chart layers from largest to
-  // smallest so the dominant type sits flat on the baseline. Stable
-  // ordering also keeps the legend consistent across pages.
-  const series = Array.from(byType.entries())
-    .map(([threat_type, counts]) => {
-      const total = counts.reduce((s, n) => s + n, 0);
-      return { threat_type, counts, total };
-    })
-    .sort((a, b) => b.total - a.total);
-
-  const total = series.reduce((s, t) => s + t.total, 0);
-
-  const body: InflowResponse = {
-    window: windowParam,
-    buckets,
-    series,
-    total,
-    generated_at: new Date().toISOString(),
-  };
-
   try {
-    await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: CACHE_TTL_SECONDS });
-  } catch { /* non-fatal */ }
+    const rows = await env.DB.prepare(`
+      SELECT hour_bucket, threat_type, SUM(threat_count) AS count
+        FROM threat_cube_status
+       WHERE hour_bucket >= strftime('%Y-%m-%d %H:00:00', ${earliest})
+       GROUP BY hour_bucket, threat_type
+       ORDER BY hour_bucket ASC
+    `).all<{ hour_bucket: string; threat_type: string; count: number }>();
 
-  return json(body, 200, origin);
+    // Build the bucket axis client-side: every hour from (now - N) to
+    // now, padded with zeros for any (bucket, type) combination missing
+    // from the cube. This keeps the chart visually continuous even
+    // during low-activity windows.
+    const buckets: string[] = [];
+    const cursor = new Date();
+    cursor.setUTCMinutes(0, 0, 0);
+    cursor.setUTCHours(cursor.getUTCHours() - (bucketCount - 1));
+    for (let i = 0; i < bucketCount; i++) {
+      const yyyy = cursor.getUTCFullYear();
+      const mm = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(cursor.getUTCDate()).padStart(2, "0");
+      const hh = String(cursor.getUTCHours()).padStart(2, "0");
+      buckets.push(`${yyyy}-${mm}-${dd} ${hh}:00:00`);
+      cursor.setUTCHours(cursor.getUTCHours() + 1);
+    }
+    const bucketIdx = new Map(buckets.map((b, i) => [b, i]));
+
+    // Pivot rows into per-threat-type count arrays.
+    const byType = new Map<string, number[]>();
+    for (const r of rows.results) {
+      const idx = bucketIdx.get(r.hour_bucket);
+      if (idx === undefined) continue; // older than window, ignore
+      let counts = byType.get(r.threat_type);
+      if (!counts) {
+        counts = new Array<number>(bucketCount).fill(0);
+        byType.set(r.threat_type, counts);
+      }
+      counts[idx] = (counts[idx] ?? 0) + r.count;
+    }
+
+    // Sort series by total desc — the chart layers from largest to
+    // smallest so the dominant type sits flat on the baseline. Stable
+    // ordering also keeps the legend consistent across pages.
+    const series = Array.from(byType.entries())
+      .map(([threat_type, counts]) => {
+        const total = counts.reduce((s, n) => s + n, 0);
+        return { threat_type, counts, total };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    const total = series.reduce((s, t) => s + t.total, 0);
+
+    const body: InflowResponse = {
+      window: windowParam,
+      buckets,
+      series,
+      total,
+      generated_at: new Date().toISOString(),
+    };
+
+    try {
+      await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: CACHE_TTL_SECONDS });
+    } catch { /* non-fatal */ }
+
+    return json(body, 200, origin);
+  } catch (err) {
+    console.error('[threat_inflow]', windowParam, err instanceof Error ? err.message : String(err));
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
 }
