@@ -39,7 +39,11 @@ export async function handleBrandMovers(request: Request, env: Env): Promise<Res
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
-    const cacheKey = "brand_movers:v1";
+    // v2 cache prefix — invalidates stale cached payloads from the
+    // pre-fix week_ago anchor that was matching against gaps in
+    // daily_snapshots (so every brand showed delta_7d >= 0 → no
+    // "Cooling Down" rows).
+    const cacheKey = "brand_movers:v2";
     const cached = await env.CACHE.get(cacheKey);
     if (cached) {
       recordD1Reads(env, "brand_movers", newTally());
@@ -52,11 +56,23 @@ export async function handleBrandMovers(request: Request, env: Env): Promise<Res
     // for every brand that had non-zero active threats on either anchor day.
     // We then split rising/falling client-side from the same row set so we
     // only pay one round-trip.
+    //
+    // week_ago_anchor uses MAX(date) WHERE date <= today-7 instead of
+    // strict equality. daily_snapshots has gaps on days the cron misses
+    // (e.g. 2026-04-28, 04-29, 05-04 currently missing) — without this
+    // tolerance the comparison falls through to 0 and every brand looks
+    // like it's "Heating Up", leaving the Cooling Down list empty.
     const rows = await session.prepare(`
       WITH anchor AS (
         SELECT MAX(date) AS today_date
         FROM daily_snapshots
         WHERE entity_type = 'brand'
+      ),
+      week_ago_anchor AS (
+        SELECT MAX(date) AS week_ago_date
+        FROM daily_snapshots, anchor
+        WHERE entity_type = 'brand'
+          AND date <= date(anchor.today_date, '-7 days')
       ),
       today_snap AS (
         SELECT entity_id AS brand_id, active_threats AS today_count
@@ -65,8 +81,8 @@ export async function handleBrandMovers(request: Request, env: Env): Promise<Res
       ),
       week_ago_snap AS (
         SELECT entity_id AS brand_id, active_threats AS week_ago_count
-        FROM daily_snapshots, anchor
-        WHERE entity_type = 'brand' AND date = date(anchor.today_date, '-7 days')
+        FROM daily_snapshots, week_ago_anchor
+        WHERE entity_type = 'brand' AND date = week_ago_anchor.week_ago_date
       )
       SELECT
         b.id, b.name, b.canonical_domain, b.logo_url, b.email_security_grade,
