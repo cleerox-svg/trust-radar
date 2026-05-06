@@ -437,6 +437,18 @@ type PipelineMeta = {
   agent: string;
   schedule: string;
   endpoints?: Array<{ name: string; url: string }>;
+  /** Multi-line plain-English explanation of the pipeline's
+   *  dynamics: when does the backlog grow vs drain, what are the
+   *  rate-limits or external dependencies, what does an operator
+   *  do if it's stuck. Surfaced in the drill-down detail sheet. */
+  why_grows?: string;
+  /** Optional `feed_pull_history.feed_name` mapping. Used by the
+   *  detail sheet to compute 24h failure-rate stats for pipelines
+   *  that pull from an external feed. Most agent-driven pipelines
+   *  (cartographer, analyst, brand_enrich, domain_geo) have no
+   *  feed mapping — they enrich existing rows rather than pulling
+   *  new ones. */
+  feed_name?: string;
 };
 
 const PIPELINE_META: Record<string, PipelineMeta> = {
@@ -445,12 +457,25 @@ const PIPELINE_META: Record<string, PipelineMeta> = {
     description: 'IPs awaiting country / lat-lng / ASN resolution.',
     agent: 'cartographer',
     schedule: 'hourly',
+    why_grows:
+      'Grows when feed inflow exceeds the ~2,500 IPs Cartographer can ' +
+      'enrich per hour (5 batches × 500). Phase 0 calls ip-api.com (free ' +
+      '15 req/min) and Phase 0.5 falls back to the local MaxMind range ' +
+      'table for IPs both APIs miss. Drains naturally as Cartographer ' +
+      'catches up; Flight Control scales it up to 3 parallel instances ' +
+      'when the queue passes its high-water mark.',
   },
   analyst: {
     label: 'Brand Matching',
     description: 'Threats awaiting brand attribution via Haiku scoring.',
     agent: 'analyst',
     schedule: 'hourly',
+    why_grows:
+      'Grows when threats land faster than the Analyst can score them. ' +
+      'Each call is one Haiku invocation per threat (or per cluster of ' +
+      'similar threats). Flight Control scales to 3 parallel Analyst ' +
+      'instances when the unlinked-threat backlog passes 50k. Throttled ' +
+      'down or paused when AI budget enters hard / emergency state.',
   },
   domain_geo: {
     label: 'DNS Resolution',
@@ -462,60 +487,110 @@ const PIPELINE_META: Record<string, PipelineMeta> = {
       { name: 'Google DNS',         url: 'https://dns.google' },
       { name: 'Quad9 DNS',          url: 'https://dns.quad9.net:5053' },
     ],
+    why_grows:
+      'Grows when Navigator hits resolver rate limits or when feeds ' +
+      'emit domains that already 5x-failed resolution (those are skipped ' +
+      'after the cap to avoid re-asking dead resolvers). Three resolvers ' +
+      'rotate per call so a single resolver outage just slows things ' +
+      'rather than halts them.',
   },
   brand_enrich: {
     label: 'Brand Enrichment',
     description: 'Brands awaiting favicon / HQ geo / exposure-score backfill.',
     agent: 'enricher',
     schedule: 'hourly',
+    why_grows:
+      'Grows whenever a new brand is registered (Tranco import, manual ' +
+      'add, social-discovery) before the Enricher tick lands. Drains ' +
+      'within 1–2 hours under normal load. Stuck rows usually mean the ' +
+      'brand has a malformed canonical_domain or no public website.',
   },
   surbl: {
     label: 'SURBL',
     description: 'SURBL spam-URL blocklist lookup queue.',
     agent: 'surbl',
     schedule: 'hourly',
+    feed_name: 'surbl',
+    why_grows:
+      'Grows when the SURBL feed pull fails (DNS, HTTP) or when the agent ' +
+      'is paused by Flight Control. Re-pulls on the next hourly cron tick.',
   },
   virustotal: {
     label: 'VirusTotal',
     description: 'Domains awaiting VirusTotal verdict (4 req/min on free tier).',
     agent: 'virustotal',
     schedule: 'hourly',
+    feed_name: 'virustotal',
+    why_grows:
+      'Grows when feed inflow exceeds the 4 req/min API quota (free tier) ' +
+      'or when VT returns 429s during peak hours. Each domain is checked ' +
+      'at most once per 24h — repeat lookups are skipped via the ' +
+      '`vt_checked_at` stamp.',
   },
   gsb: {
     label: 'Safe Browsing',
     description: 'Google Safe Browsing lookups for malicious URLs.',
     agent: 'gsb',
     schedule: 'hourly',
+    feed_name: 'google_safe_browsing',
+    why_grows:
+      'Grows when the GSB API returns transient 5xxs or rate-limits. ' +
+      'Most threats clear in one tick; persistent backlog usually means ' +
+      'the API key has hit its daily quota.',
   },
   dbl: {
     label: 'Spamhaus DBL',
     description: 'Spamhaus Domain Block List reputation lookups.',
     agent: 'dbl',
     schedule: 'hourly',
+    feed_name: 'spamhaus_dbl',
+    why_grows:
+      'Grows when the DBL DNSBL query fails (UDP packet loss is common). ' +
+      'Re-runs on the next hourly tick. Spamhaus rate-limits at 100k ' +
+      'queries/day for free non-commercial use.',
   },
   abuseipdb: {
     label: 'AbuseIPDB',
     description: 'Malicious IPs awaiting AbuseIPDB reputation (1k req/day cap).',
     agent: 'abuseipdb',
     schedule: 'hourly',
+    feed_name: 'abuseipdb',
+    why_grows:
+      'Grows when threat inflow exceeds the 1,000 req/day quota on the ' +
+      'free tier. Resets at 00:00 UTC. Persistent growth means the cap ' +
+      'is too tight for current inflow — upgrade the API tier or ' +
+      'deprioritize lower-confidence IPs.',
   },
   pdns: {
     label: 'Passive DNS',
     description: 'Historical DNS-records lookup queue.',
     agent: 'pdns',
     schedule: 'hourly',
+    why_grows:
+      'Grows when Mnemonic / Farsight pDNS APIs throttle. Mostly used ' +
+      'for high-severity domains; lower-severity rows wait or get ' +
+      'skipped after the retry cap.',
   },
   greynoise: {
     label: 'GreyNoise',
     description: 'Internet-noise classification (filters scanners / honeypot traffic).',
     agent: 'greynoise',
     schedule: 'hourly',
+    feed_name: 'greynoise',
+    why_grows:
+      'Grows when GreyNoise quota is exhausted (free tier: 10k IPs/day). ' +
+      'Resets at 00:00 UTC. Persistent backlog suggests inflow > daily ' +
+      'quota — most useful as a filter, not a per-threat enrichment.',
   },
   seclookup: {
     label: 'SecLookup',
     description: 'Domain reputation enrichment queue.',
     agent: 'seclookup',
     schedule: 'hourly',
+    why_grows:
+      'Grows when SecLookup API throttles or when the score-cache window ' +
+      'expires for many domains at once. Drains within 2–3 hourly ticks ' +
+      'under normal conditions.',
   },
 };
 
@@ -695,6 +770,231 @@ export async function handlePipelineStatus(request: Request, env: Env): Promise<
   const data = { success: true, data: pipelines };
   await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
   return json(data, 200, origin);
+}
+
+// ─── Pipeline Detail (drill-down) ────────────────────────────────
+//
+// GET /api/admin/pipeline-status/:id
+//
+// Powers the tap-to-drill-down sheet on the Agents-Monitor view.
+// Returns the same per-pipeline shape as `handlePipelineStatus`
+// PLUS:
+//   - sparkline:           24h hourly backlog series
+//   - drained_last_hour:   delta vs the hour-ago snapshot
+//   - last_run:            most recent agent_runs row for the
+//                          owning agent (status, records, duration)
+//   - failure_rate_24h:    feed_pull_history aggregate (only for
+//                          pipelines mapped to a feed_name)
+//   - why_grows:           plain-English explanation of the
+//                          pipeline's growth dynamics
+//
+// Cached separately under `pipeline_detail:<id>:v1` for 60s.
+// Detail pages don't need the same 5-min freshness as the list —
+// operators tap through during a triage session and want fresh
+// numbers, but the underlying queries are cheap enough that 60s
+// cache + index-driven scans keeps D1 spend negligible.
+export async function handlePipelineDetail(
+  request: Request,
+  env: Env,
+  pipelineId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const cacheKey = `pipeline_detail:${pipelineId}:v1`;
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  // Geoip is special — its "backlog" is row count, not a draining
+  // queue. Detail-sheet treatment is the same shape, just with
+  // different prose.
+  if (pipelineId === 'geoip') {
+    return handleGeoipDetail(request, env, origin);
+  }
+
+  const meta = PIPELINE_META[pipelineId];
+  if (!meta) {
+    return json({ success: false, error: `Unknown pipeline: ${pipelineId}` }, 404, origin);
+  }
+
+  // Parallel queries — all index-driven, all bounded.
+  const [history, agentRun, feedStats] = await Promise.all([
+    // 24h sparkline. Each pipeline gets ~12 samples/24h (FC writes
+    // backlog snapshots roughly hourly), so this returns at most
+    // ~30 rows.
+    env.DB.prepare(`
+      SELECT count, recorded_at
+        FROM backlog_history
+       WHERE backlog_name = ?
+         AND recorded_at >= datetime('now', '-1 day')
+       ORDER BY recorded_at ASC
+    `).bind(pipelineId).all<{ count: number; recorded_at: string }>(),
+
+    // Latest agent run for the owning agent. Used for "Last run"
+    // row in the sheet. Bounded to 24h so the index range scan
+    // stays cheap.
+    env.DB.prepare(`
+      SELECT started_at, completed_at, duration_ms, status,
+             records_processed, error_message
+        FROM agent_runs
+       WHERE agent_id = ?
+         AND started_at >= datetime('now', '-1 day')
+       ORDER BY started_at DESC
+       LIMIT 1
+    `).bind(meta.agent).first<{
+      started_at: string;
+      completed_at: string | null;
+      duration_ms: number | null;
+      status: string;
+      records_processed: number | null;
+      error_message: string | null;
+    }>(),
+
+    // Failure rate from feed_pull_history. Only computed for
+    // pipelines mapped to a feed_name — agent-driven enrichment
+    // pipelines (cartographer, analyst, brand_enrich, domain_geo)
+    // have no feed_pull_history rows.
+    meta.feed_name
+      ? env.DB.prepare(`
+          SELECT
+            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+            SUM(CASE WHEN status = 'failed'  THEN 1 ELSE 0 END) AS failed,
+            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) AS partial,
+            COUNT(*) AS total
+          FROM feed_pull_history
+          WHERE feed_name = ?
+            AND started_at >= datetime('now', '-1 day')
+        `).bind(meta.feed_name).first<{
+          success: number;
+          failed: number;
+          partial: number;
+          total: number;
+        }>()
+      : Promise.resolve(null),
+  ]);
+
+  const sparkline = history.results.map((r) => ({
+    count: r.count,
+    recorded_at: r.recorded_at,
+  }));
+
+  // drained_last_hour = current count − count from ~1h ago. Works
+  // off whatever samples the history actually contains, falls back
+  // to null when we don't have an hour-ago data point.
+  const oneHourAgoMs = Date.now() - 60 * 60 * 1000;
+  const hourAgoSample = sparkline.find(
+    (s) => Math.abs(Date.parse(s.recorded_at + 'Z') - oneHourAgoMs) < 30 * 60 * 1000,
+  );
+  const currentCount = sparkline[sparkline.length - 1]?.count ?? null;
+  const drainedLastHour =
+    currentCount !== null && hourAgoSample
+      ? hourAgoSample.count - currentCount
+      : null;
+
+  const failureRate = feedStats && feedStats.total > 0
+    ? {
+        success: feedStats.success ?? 0,
+        failed:  feedStats.failed ?? 0,
+        partial: feedStats.partial ?? 0,
+        total:   feedStats.total,
+        pct:     Math.round(((feedStats.failed ?? 0) / feedStats.total) * 100),
+      }
+    : null;
+
+  const trendDirection = (() => {
+    if (sparkline.length < 2) return 'unknown' as const;
+    const first = sparkline[0]!.count;
+    const last = sparkline[sparkline.length - 1]!.count;
+    if (last < first) return 'down' as const;
+    if (last > first) return 'up' as const;
+    return 'flat' as const;
+  })();
+
+  const detail = {
+    id: pipelineId,
+    label: meta.label,
+    description: meta.description,
+    agent: meta.agent,
+    schedule: meta.schedule,
+    endpoints: meta.endpoints ?? null,
+    why_grows: meta.why_grows ?? null,
+    count: currentCount,
+    sparkline,
+    drained_last_hour: drainedLastHour,
+    trend_direction: trendDirection,
+    verdict: currentCount === null
+      ? { label: 'STALE', tone: 'pending' as const }
+      : computeBacklogVerdict(currentCount, trendDirection),
+    last_run: agentRun
+      ? {
+          started_at:        agentRun.started_at,
+          completed_at:      agentRun.completed_at,
+          duration_ms:       agentRun.duration_ms,
+          status:            agentRun.status,
+          records_processed: agentRun.records_processed,
+          error_message:     agentRun.error_message,
+        }
+      : null,
+    failure_rate_24h: failureRate,
+  };
+
+  const body = { success: true, data: detail };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 60 });
+  return json(body, 200, origin);
+}
+
+async function handleGeoipDetail(
+  _request: Request,
+  env: Env,
+  origin: string | null,
+): Promise<Response> {
+  const cacheKey = 'pipeline_detail:geoip:v1';
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  const { getGeoMmdbStatus } = await import("../lib/geoip-mmdb");
+  const status = await getGeoMmdbStatus(env);
+  const detail = {
+    id: 'geoip',
+    label: 'GeoIP Database',
+    description: 'MaxMind GeoLite2 IP→geo range table. Refreshed weekly.',
+    agent: 'geoip_refresh',
+    schedule: 'monthly',
+    endpoints: [{ name: 'MaxMind GeoLite2', url: 'https://download.maxmind.com' }],
+    why_grows:
+      'Reference dataset, not a backlog. Row count changes only when ' +
+      'the geoip_refresh agent imports a new MaxMind release. The ' +
+      "agent polls weekly (Sunday 02:07 UTC), checks MaxMind's " +
+      '.sha256 fingerprint, and skips the import if the live data is ' +
+      'already current. Failures are usually MaxMind 429s (daily quota), ' +
+      'R2 zip integrity errors, or the 1MiB Workflow step-output ' +
+      'ceiling — see workflows/geoipRefresh.ts.',
+    count: status.row_count ?? 0,
+    sparkline: [],
+    drained_last_hour: null,
+    trend_direction: status.last_refresh_rows_written && status.last_refresh_rows_written > 0
+      ? 'up' as const
+      : 'flat' as const,
+    verdict: computeReferenceDatasetVerdict(
+      status.row_count ?? 0,
+      status.configured,
+      status.last_refresh_rows_written ?? 0,
+    ),
+    last_run: status.last_refresh_at
+      ? {
+          started_at:        status.last_refresh_at,
+          completed_at:      status.last_refresh_at,
+          duration_ms:       status.last_refresh_duration_ms,
+          status:            status.last_refresh_status ?? 'unknown',
+          records_processed: status.last_refresh_rows_written,
+          error_message:     status.last_refresh_error,
+        }
+      : null,
+    failure_rate_24h: null,
+    recent_attempts: status.recent_attempts.slice(0, 5),
+  };
+  const body = { success: true, data: detail };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 60 });
+  return json(body, 200, origin);
 }
 
 export async function handleAdminListUsers(request: Request, env: Env): Promise<Response> {

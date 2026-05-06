@@ -13,6 +13,7 @@ import {
   handleBudgetLedgerHealth,
   handleCubeBackfill,
   handlePipelineStatus,
+  handlePipelineDetail,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -66,6 +67,17 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     if (!isAuthContext(ctx)) return ctx;
     return handlePipelineStatus(request, env);
   });
+  // Pipeline drill-down detail — must be defined after the bare
+  // /api/admin/pipeline-status above so itty-router doesn't
+  // intercept ":id" before the list route runs.
+  router.get(
+    "/api/admin/pipeline-status/:id",
+    async (request: Request & { params: Record<string, string> }, env: Env) => {
+      const ctx = await requireAdmin(request, env);
+      if (!isAuthContext(ctx)) return ctx;
+      return handlePipelineDetail(request, env, request.params["id"] ?? "");
+    },
+  );
   router.get("/api/admin/health", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
