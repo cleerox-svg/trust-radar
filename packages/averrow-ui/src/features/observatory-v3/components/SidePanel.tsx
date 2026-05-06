@@ -240,11 +240,11 @@ export function SidePanel({ period, visible }: SidePanelProps) {
       }}
     >
       <div className="flex-1 overflow-y-auto">
-        <SectionDivider label="Top Targeted Brands \u00b7 7d" />
+        <SectionDivider label={"Top Targeted Brands \u00b7 7d"} />
         <TopBrandsWidget period={period} />
 
         <Divider />
-        <SectionDivider label="Hosting Providers \u00b7 7d" />
+        <SectionDivider label={"Hosting Providers \u00b7 7d"} />
         <ProvidersWidget />
 
         <Divider />
@@ -252,7 +252,7 @@ export function SidePanel({ period, visible }: SidePanelProps) {
         <OperationsWidget />
 
         <Divider />
-        <SectionDivider label="Geopolitical Campaigns \u00b7 30d" />
+        <SectionDivider label={"Geopolitical Campaigns \u00b7 30d"} />
         <GeoCampaignsWidget />
       </div>
     </div>

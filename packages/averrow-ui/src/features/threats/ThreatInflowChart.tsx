@@ -45,9 +45,16 @@ function colorFor(type: string): string {
 }
 
 function prettyTypeLabel(type: string): string {
+  // Acronyms that should stay all-caps after the snake_case → space split.
+  // Without this, `malicious_ip` becomes "Malicious Ip" (regex \b\w only
+  // touches the first character of each word).
+  const ACRONYMS = new Set(['ip', 'c2', 'dns', 'mx', 'spf', 'dkim', 'dmarc', 'bimi', 'vmc', 'asn', 'ssl', 'tls', 'url']);
   return type
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .split('_')
+    .map((w) => (ACRONYMS.has(w.toLowerCase())
+      ? w.toUpperCase()
+      : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
 }
 
 interface InflowResponse {
@@ -186,7 +193,12 @@ export function ThreatInflowChart({ height, defaultWindow = '24h' }: Props = {})
               tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
               axisLine={false}
               tickLine={false}
-              width={32}
+              width={44}
+              tickFormatter={(v: number) => {
+                if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+                if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+                return String(v);
+              }}
             />
             <Tooltip
               content={<InflowTooltip window={window} />}
@@ -236,7 +248,17 @@ export function ThreatInflowChart({ height, defaultWindow = '24h' }: Props = {})
                   flexShrink: 0,
                 }}
               />
-              <span style={{ flex: 1, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  color: 'var(--text-secondary)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={prettyTypeLabel(s.threat_type)}
+              >
                 {prettyTypeLabel(s.threat_type)}
               </span>
               <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>

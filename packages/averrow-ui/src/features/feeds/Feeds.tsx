@@ -22,6 +22,7 @@ import {
 function humanizeCron(cron: string): string {
   const map: Record<string, string> = {
     '*/5 * * * *':   'Every 5 minutes',
+    '*/15 * * * *':  'Every 15 minutes',
     '*/30 * * * *':  'Every 30 minutes',
     '0 * * * *':     'Every hour',
     '0 */2 * * *':   'Every 2 hours',
@@ -29,9 +30,16 @@ function humanizeCron(cron: string): string {
     '0 */6 * * *':   'Every 6 hours',
     '0 */12 * * *':  'Every 12 hours',
     '0 0 * * *':     'Daily at midnight',
+    '0 3 * * *':     'Daily at 3 AM',
+    '0 4 * * *':     'Daily at 4 AM',
     '0 6 * * *':     'Daily at 6 AM',
+    '0 0 * * 0':     'Weekly on Sunday',
+    '0 0 * * 1':     'Weekly on Monday',
+    '0 0 1 * *':     'Monthly on the 1st',
   };
-  return map[cron] ?? cron;
+  // Fall back to a generic label rather than leaking cron syntax into
+  // user-visible copy (audit C9).
+  return map[cron] ?? 'Custom schedule';
 }
 
 function timeAgo(dateStr: string | null): string {
