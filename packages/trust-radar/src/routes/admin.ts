@@ -16,6 +16,7 @@ import {
   handlePipelineDetail,
   handleD1Budget,
   handleMetricsAiSpend,
+  handleMetricsGeoCoverage,
 } from "../handlers/admin";
 import { handleListSessionEvents, handleForceLogout } from "../handlers/sessions";
 import { handleCreateInvite, handleListInvites, handleRevokeInvite } from "../handlers/invites";
@@ -90,6 +91,11 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleMetricsAiSpend(request, env);
+  });
+  router.get("/api/admin/metrics/geo-coverage", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleMetricsGeoCoverage(request, env);
   });
   router.get("/api/admin/health", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
