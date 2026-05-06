@@ -1016,8 +1016,8 @@ export const REPO_MANIFEST: RepoInventory = {
       "path": "packages/trust-radar/src/feeds/threatfox.ts",
       "source_type": "unknown",
       "schedule": null,
-      "loc": 98,
-      "last_modified": "2026-04-27T17:44:54.464Z"
+      "loc": 111,
+      "last_modified": "2026-05-06T03:48:34.183Z"
     },
     {
       "name": "torExitNodes",
