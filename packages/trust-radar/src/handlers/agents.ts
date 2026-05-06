@@ -59,8 +59,10 @@ const NAVIGATOR_DEF = {
 
 // ─── List all agent definitions + their latest run ──────────────
 export const handleListAgents = handler(async (_request, env, ctx) => {
-  // KV cache: 7 parallel queries — cache for 5 minutes.
-  const cacheKey = 'agents_list';
+  // KV cache: 8 parallel queries — cache for 5 minutes. v2 prefix
+  // invalidates pre-recent_ticks payloads stored under v1 so the UI
+  // doesn't get a JSON shape missing the new field.
+  const cacheKey = 'agents_list:v2';
   const cached = await env.CACHE.get(cacheKey);
   if (cached) {
     recordD1Reads(env, "agents_list", newTally());
@@ -68,7 +70,7 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
   }
   const tally = newTally();
 
-  const [latestRuns, runStats24h, outputStats24h, hourlyActivity, lastOutputTimes, avgDurations, agentConfigs] = await Promise.all([
+  const [latestRuns, runStats24h, outputStats24h, hourlyActivity, recentTickRows, lastOutputTimes, avgDurations, agentConfigs] = await Promise.all([
     env.DB.prepare(
       `SELECT agent_id, status, started_at, completed_at, duration_ms, error_message
        FROM agent_runs
@@ -104,6 +106,46 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
        WHERE started_at >= datetime('now', '-1 day')
        GROUP BY agent_id, hour`
     ).all<{ agent_id: string; hour: number; cnt: number }>(),
+
+    // Recent ticks for the run-status-blocks 2D timeline. We bucket by
+    // hour and group by trigger so multiple cron firings inside the
+    // same hour (Navigator runs 12×/h) collapse to one tile while
+    // Flight-Control scale-ups (cartographer/analyst, see
+    // flightControl.scaleAgents) show up as additional stacked tiles.
+    //
+    // worst_rank lets the UI render a single representative status
+    // per (bucket, trigger): running > failed > partial > success >
+    // anything else. This keeps a partial cron failure visible even
+    // if the next minute's cron run succeeded.
+    env.DB.prepare(
+      `SELECT agent_id,
+              strftime('%Y-%m-%d %H:00:00', started_at) AS bucket,
+              trigger,
+              COUNT(*) AS n,
+              MAX(CASE status
+                    WHEN 'running' THEN 4
+                    WHEN 'failed'  THEN 3
+                    WHEN 'partial' THEN 2
+                    WHEN 'success' THEN 1
+                    ELSE 0 END) AS worst_rank,
+              AVG(duration_ms) AS avg_duration_ms
+         FROM agent_runs
+        WHERE started_at >= datetime('now', '-5 hours')
+        GROUP BY agent_id, bucket, trigger
+        ORDER BY agent_id, bucket DESC,
+                 CASE trigger
+                   WHEN 'cron'           THEN 1
+                   WHEN 'flight_control' THEN 2
+                   ELSE                       3
+                 END`
+    ).all<{
+      agent_id: string;
+      bucket: string;
+      trigger: string;
+      n: number;
+      worst_rank: number;
+      avg_duration_ms: number | null;
+    }>(),
 
     // Bound to the last 30 days so the index range scan stays cheap
     // as agent_outputs grows. Operationally, an agent that hasn't
@@ -163,6 +205,63 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     activityMap.get(row.agent_id)![idx] = row.cnt;
   }
 
+  // ─── Build recent_ticks per agent (last 5 hour buckets) ───────────
+  //
+  // Shape sent to the UI:
+  //   recent_ticks: Array<{
+  //     bucket: string;            // 'YYYY-MM-DD HH:00:00' UTC
+  //     instances: Array<{
+  //       status: 'success' | 'failed' | 'partial' | 'running' | 'idle';
+  //       trigger: string;         // 'cron' | 'flight_control' | 'event' | …
+  //       count: number;           // collapsed runs in this (bucket,trigger)
+  //       avg_duration_ms: number | null;
+  //     }>;
+  //   }>
+  //
+  // The frontend renders one column per tick, one stacked block per
+  // instance (capped at 3). Cartographer/analyst FC scale-ups land
+  // here as extra `flight_control`-triggered instances on top of the
+  // baseline `cron` row. Everything else stays single-block as today.
+  const RANK_TO_STATUS = ['idle', 'success', 'partial', 'failed', 'running'] as const;
+  const TICKS_PER_AGENT = 5;
+  const MAX_INSTANCES_PER_TICK = 3;
+  type TickInstance = {
+    status: typeof RANK_TO_STATUS[number];
+    trigger: string;
+    count: number;
+    avg_duration_ms: number | null;
+  };
+  type Tick = { bucket: string; instances: TickInstance[] };
+  const ticksByAgent = new Map<string, Map<string, TickInstance[]>>();
+  for (const row of recentTickRows.results) {
+    let perAgent = ticksByAgent.get(row.agent_id);
+    if (!perAgent) {
+      perAgent = new Map<string, TickInstance[]>();
+      ticksByAgent.set(row.agent_id, perAgent);
+    }
+    let arr = perAgent.get(row.bucket);
+    if (!arr) {
+      arr = [];
+      perAgent.set(row.bucket, arr);
+    }
+    if (arr.length >= MAX_INSTANCES_PER_TICK) continue;
+    arr.push({
+      status: RANK_TO_STATUS[row.worst_rank] ?? 'idle',
+      trigger: row.trigger,
+      count: row.n,
+      avg_duration_ms: row.avg_duration_ms,
+    });
+  }
+  function recentTicksFor(agentId: string): Tick[] {
+    const perAgent = ticksByAgent.get(agentId);
+    if (!perAgent) return [];
+    return [...perAgent.entries()]
+      .map(([bucket, instances]) => ({ bucket, instances }))
+      .sort((a, b) => (a.bucket < b.bucket ? 1 : -1))
+      .slice(0, TICKS_PER_AGENT)
+      .reverse(); // chronological left→right
+  }
+
   function deriveStatus(agentName: string): string {
     const latest = latestRunMap.get(agentName);
     if (!latest) return "idle";
@@ -193,6 +292,7 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
       outputs_24h: outputMap.get(def.name) ?? 0,
       error_count_24h: stats?.error_count_24h ?? 0,
       activity: activityMap.get(def.name) ?? new Array(24).fill(0),
+      recent_ticks: recentTicksFor(def.name),
       last_run_at: latestRun?.started_at ?? null,
       last_run_status: latestRun?.status ?? null,
       last_run_duration_ms: latestRun?.duration_ms ?? null,
@@ -263,6 +363,30 @@ export const handleListAgents = handler(async (_request, env, ctx) => {
     outputs_24h: navOutputs,
     error_count_24h: navErrors,
     activity: navActivity,
+    // Navigator's recent_ticks merges both id histories. Per-bucket
+    // instance lists from the two ids get concatenated; the natural
+    // dedupe is that historical 'fast_tick' rows fall outside the
+    // 5-hour window, so usually only 'navigator' contributes.
+    recent_ticks: (() => {
+      const merged = new Map<string, TickInstance[]>();
+      for (const id of NAVIGATOR_IDS) {
+        const perAgent = ticksByAgent.get(id);
+        if (!perAgent) continue;
+        for (const [bucket, instances] of perAgent) {
+          const existing = merged.get(bucket) ?? [];
+          for (const inst of instances) {
+            if (existing.length >= MAX_INSTANCES_PER_TICK) break;
+            existing.push(inst);
+          }
+          merged.set(bucket, existing);
+        }
+      }
+      return [...merged.entries()]
+        .map(([bucket, instances]) => ({ bucket, instances }))
+        .sort((a, b) => (a.bucket < b.bucket ? 1 : -1))
+        .slice(0, TICKS_PER_AGENT)
+        .reverse();
+    })(),
     last_run_at: navLatest?.started_at ?? null,
     last_run_status: navLatest?.status ?? null,
     last_run_duration_ms: navLatest?.duration_ms ?? null,

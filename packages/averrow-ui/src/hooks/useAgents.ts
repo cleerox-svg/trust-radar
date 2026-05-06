@@ -1,6 +1,26 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+/** One column in the run-status-blocks 2D timeline. Each tick is an
+ *  hour bucket; `instances` are the (trigger, status)-deduped runs
+ *  that landed in that bucket. Capped at 3 by the backend. */
+export interface AgentTickInstance {
+  /** Worst-case run outcome in this (bucket, trigger) group. */
+  status: 'success' | 'failed' | 'partial' | 'running' | 'idle';
+  /** 'cron' | 'flight_control' | 'event' | 'manual' | … */
+  trigger: string;
+  /** How many runs the row collapsed (12 cron firings/h for Navigator
+   *  show as count=12 instead of 12 stacked tiles). */
+  count: number;
+  avg_duration_ms: number | null;
+}
+export interface AgentTick {
+  /** UTC ISO 'YYYY-MM-DD HH:00:00' */
+  bucket: string;
+  /** 1–3 entries, ordered cron → flight_control → other. */
+  instances: AgentTickInstance[];
+}
+
 export interface Agent {
   agent_id: string;
   name: string;
@@ -12,7 +32,12 @@ export interface Agent {
   jobs_24h: number;
   outputs_24h: number;
   error_count_24h: number;
+  /** Hourly run counts over last 24h. Kept for any downstream chart
+   *  that still expects the flat shape. */
   activity: number[];
+  /** Newer per-tick shape that drives RunStatusBlocks (last 5 hours,
+   *  oldest → newest). Empty for any agent that hasn't run in 5h. */
+  recent_ticks: AgentTick[];
   last_run_at: string | null;
   last_run_status: string | null;
   last_run_duration_ms: number | null;
