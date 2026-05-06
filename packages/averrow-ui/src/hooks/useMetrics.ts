@@ -175,3 +175,60 @@ export function useGeoCoverage() {
     refetchInterval: 300_000,
   });
 }
+
+// ─── Feed Failure Board ─────────────────────────────────────────
+
+export interface FeedFailureVerdict {
+  tone: 'success' | 'warning' | 'failed' | 'pending' | 'inactive';
+  label: string;
+}
+
+export interface FeedFailureRow {
+  feed_name: string;
+  display_name: string;
+  enabled: boolean;
+  paused_reason: string | null;
+  pulls: number;
+  success: number;
+  failed: number;
+  partial: number;
+  failure_rate_pct: number;
+  records_ingested: number;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  consecutive_failures: number;
+  threshold: number;
+  pct_to_auto_pause: number;
+  verdict: FeedFailureVerdict;
+}
+
+export interface FeedFailurePayload {
+  totals_24h: {
+    total_pulls: number;
+    total_success: number;
+    total_failed: number;
+    total_records: number;
+    feeds_active: number;
+  };
+  per_feed: FeedFailureRow[];
+  recent_errors: Array<{
+    feed_name: string;
+    started_at: string;
+    error_message: string;
+  }>;
+  generated_at: string;
+}
+
+export function useFeedFailures() {
+  return useQuery({
+    queryKey: ['metrics-feed-failures'],
+    queryFn: async () => {
+      const res = await api.get<FeedFailurePayload>('/api/admin/metrics/feed-failures');
+      return res.data ?? null;
+    },
+    placeholderData: keepPreviousData,
+    // Backend caches at 60s; poll at the same cadence so the table
+    // refreshes about as fast as the underlying data moves.
+    refetchInterval: 60_000,
+  });
+}

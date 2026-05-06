@@ -2903,3 +2903,207 @@ export async function handleMetricsGeoCoverage(
   await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 300 });
   return json(body, 200, origin);
 }
+
+// ─── Feed Failures (Metrics page section 5) ─────────────────────
+//
+// GET /api/admin/metrics/feed-failures
+//
+// Powers the Feed Failures section on /admin/metrics. Aggregates
+// feed_pull_history over 24h, joins feed_status (consecutive
+// failures) + feed_configs (enabled / paused_reason / threshold)
+// so the operator sees auto-pause risk alongside raw failure
+// rate. Cached at 60s.
+export async function handleMetricsFeedFailures(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const cacheKey = "metrics_feed_failures:v1";
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  const [perFeedRows, statusRows, configRows, recentErrors] = await Promise.all([
+    env.DB.prepare(`
+      SELECT feed_name,
+             COUNT(*) AS pulls,
+             SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+             SUM(CASE WHEN status = 'failed'  THEN 1 ELSE 0 END) AS failed,
+             SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) AS partial,
+             COALESCE(SUM(CASE WHEN status = 'success' THEN records_ingested END), 0) AS records,
+             MAX(CASE WHEN status = 'success' THEN started_at END) AS last_success_at,
+             MAX(CASE WHEN status = 'failed'  THEN started_at END) AS last_failure_at
+        FROM feed_pull_history
+       WHERE started_at >= datetime('now', '-1 day')
+       GROUP BY feed_name
+    `).all<{
+      feed_name: string;
+      pulls: number;
+      success: number;
+      failed: number;
+      partial: number;
+      records: number;
+      last_success_at: string | null;
+      last_failure_at: string | null;
+    }>(),
+
+    env.DB.prepare(`
+      SELECT feed_name, consecutive_failures, health_status, last_error
+        FROM feed_status
+    `).all<{
+      feed_name: string;
+      consecutive_failures: number;
+      health_status: string | null;
+      last_error: string | null;
+    }>(),
+
+    env.DB.prepare(`
+      SELECT feed_name, display_name, enabled, paused_reason,
+             COALESCE(consecutive_failure_threshold, 5) AS threshold
+        FROM feed_configs
+    `).all<{
+      feed_name: string;
+      display_name: string | null;
+      enabled: number;
+      paused_reason: string | null;
+      threshold: number;
+    }>(),
+
+    env.DB.prepare(`
+      SELECT feed_name, started_at, error_message
+        FROM feed_pull_history
+       WHERE status = 'failed'
+         AND started_at >= datetime('now', '-1 day')
+         AND error_message IS NOT NULL
+       ORDER BY started_at DESC
+       LIMIT 10
+    `).all<{
+      feed_name: string;
+      started_at: string;
+      error_message: string;
+    }>(),
+  ]);
+
+  const statusByName = new Map(statusRows.results.map((r) => [r.feed_name, r]));
+
+  // Walk feed_configs as the source of truth so paused / 0-pull
+  // feeds still show up.
+  const seen = new Set<string>();
+  const perFeed = configRows.results.map((cfg) => {
+    seen.add(cfg.feed_name);
+    const pulls = perFeedRows.results.find((p) => p.feed_name === cfg.feed_name);
+    const status = statusByName.get(cfg.feed_name);
+    const total   = pulls?.pulls   ?? 0;
+    const success = pulls?.success ?? 0;
+    const failed  = pulls?.failed  ?? 0;
+    const failureRatePct = total > 0 ? Math.round((failed / total) * 100) : 0;
+    const consec = status?.consecutive_failures ?? 0;
+    const pctToAutoPause = cfg.threshold > 0
+      ? Math.round((consec / cfg.threshold) * 100)
+      : 0;
+    return {
+      feed_name: cfg.feed_name,
+      display_name: cfg.display_name ?? cfg.feed_name,
+      enabled: cfg.enabled === 1,
+      paused_reason: cfg.paused_reason,
+      pulls: total,
+      success,
+      failed,
+      partial: pulls?.partial ?? 0,
+      failure_rate_pct: failureRatePct,
+      records_ingested: pulls?.records ?? 0,
+      last_success_at: pulls?.last_success_at ?? null,
+      last_failure_at: pulls?.last_failure_at ?? null,
+      consecutive_failures: consec,
+      threshold: cfg.threshold,
+      pct_to_auto_pause: pctToAutoPause,
+      verdict: computeFeedVerdict({
+        enabled: cfg.enabled === 1,
+        pulls: total,
+        failureRatePct,
+        pctToAutoPause,
+      }),
+    };
+  });
+
+  // Surface pull-history rows with no feed_configs match (orphan).
+  for (const p of perFeedRows.results) {
+    if (seen.has(p.feed_name)) continue;
+    const failureRatePct = p.pulls > 0 ? Math.round((p.failed / p.pulls) * 100) : 0;
+    perFeed.push({
+      feed_name: p.feed_name,
+      display_name: p.feed_name,
+      enabled: false,
+      paused_reason: 'orphan: no feed_configs row',
+      pulls: p.pulls,
+      success: p.success,
+      failed: p.failed,
+      partial: p.partial,
+      failure_rate_pct: failureRatePct,
+      records_ingested: p.records,
+      last_success_at: p.last_success_at,
+      last_failure_at: p.last_failure_at,
+      consecutive_failures: 0,
+      threshold: 0,
+      pct_to_auto_pause: 0,
+      verdict: { tone: 'inactive' as const, label: 'ORPHAN' },
+    });
+  }
+
+  // Sort by verdict severity so the operator's first-glance
+  // problem is at the top of the table.
+  const VERDICT_RANK: Record<string, number> = {
+    'CRITICAL': 0,
+    'AT RISK':  1,
+    'WATCH':    2,
+    'PAUSED':   3,
+    'ORPHAN':   4,
+    'HEALTHY':  5,
+    'IDLE':     6,
+  };
+  perFeed.sort((a, b) => {
+    const ra = VERDICT_RANK[a.verdict.label] ?? 99;
+    const rb = VERDICT_RANK[b.verdict.label] ?? 99;
+    if (ra !== rb) return ra - rb;
+    if (a.failure_rate_pct !== b.failure_rate_pct) return b.failure_rate_pct - a.failure_rate_pct;
+    return a.feed_name.localeCompare(b.feed_name);
+  });
+
+  const totals = perFeed.reduce(
+    (acc, f) => {
+      acc.total_pulls    += f.pulls;
+      acc.total_success  += f.success;
+      acc.total_failed   += f.failed;
+      acc.total_records  += f.records_ingested;
+      if (f.pulls > 0) acc.feeds_active += 1;
+      return acc;
+    },
+    { total_pulls: 0, total_success: 0, total_failed: 0, total_records: 0, feeds_active: 0 },
+  );
+
+  const data = {
+    totals_24h: totals,
+    per_feed: perFeed,
+    recent_errors: recentErrors.results,
+    generated_at: new Date().toISOString(),
+  };
+
+  const body = { success: true, data };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 60 });
+  return json(body, 200, origin);
+}
+
+function computeFeedVerdict(input: {
+  enabled: boolean;
+  pulls: number;
+  failureRatePct: number;
+  pctToAutoPause: number;
+}): { tone: 'success' | 'warning' | 'failed' | 'pending' | 'inactive'; label: string } {
+  if (!input.enabled)              return { tone: 'inactive', label: 'PAUSED'   };
+  if (input.pctToAutoPause >= 80)  return { tone: 'failed',   label: 'AT RISK'  };
+  if (input.failureRatePct >= 30)  return { tone: 'failed',   label: 'CRITICAL' };
+  if (input.failureRatePct >= 10)  return { tone: 'warning',  label: 'WATCH'    };
+  if (input.pctToAutoPause >= 60)  return { tone: 'warning',  label: 'WATCH'    };
+  if (input.pulls === 0)           return { tone: 'inactive', label: 'IDLE'     };
+  return                                  { tone: 'success',  label: 'HEALTHY'  };
+}
