@@ -2,6 +2,7 @@ import type { FeedModule, FeedContext, FeedResult, ThreatRow } from "./types";
 import { threatId, extractDomain } from "./types";
 import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 import { diagnosticFetch } from "../lib/feedDiagnostic";
+import { sanitizeIp } from "../lib/sanitizeIp";
 
 /** ThreatFox (abuse.ch) — IOCs: domains, URLs, IPs, hashes */
 export const threatfox: FeedModule = {
@@ -48,13 +49,25 @@ export const threatfox: FeedModule = {
         const isIp = iocType === "ip";
         const confidence = ioc.confidence_level ?? 50;
 
+        // ThreatFox emits IPs as `1.2.3.4:port` for ioc_type='ip:port'.
+        // Strip the port — every downstream consumer (ip-api batch,
+        // MMDB lookup, NEXUS clustering) parses bare IPv4 only. See
+        // lib/sanitizeIp.ts. malicious_domain mirrors the same string
+        // when the IOC is IP-shaped, so it gets the same treatment.
+        const ipForRow = isIp ? sanitizeIp(ioc.ioc) : null;
+        const domainForRow = iocType === "domain"
+          ? domain
+          : isIp
+            ? ipForRow
+            : domain;
+
         await insertThreat(ctx.env.DB, {
           id: threatId("threatfox", iocType, ioc.ioc),
           source_feed: "threatfox",
           threat_type: mapThreatType(ioc.threat_type),
           malicious_url: isUrl ? ioc.ioc : null,
-          malicious_domain: domain,
-          ip_address: isIp ? ioc.ioc : null,
+          malicious_domain: domainForRow,
+          ip_address: ipForRow,
           ioc_value: ioc.ioc,
           severity: confidenceToSeverity(confidence),
           confidence_score: confidence,
