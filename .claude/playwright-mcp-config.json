@@ -1,0 +1,19 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": true,
+      "channel": "chrome",
+      "args": [
+        "--ignore-certificate-errors",
+        "--disable-quic",
+        "--disable-features=AlternateProtocols",
+        "--no-sandbox"
+      ]
+    },
+    "contextOptions": {
+      "ignoreHTTPSErrors": true
+    }
+  }
+}

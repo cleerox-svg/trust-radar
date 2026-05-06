@@ -9,7 +9,7 @@
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]
+      "args": ["-y", "@playwright/mcp@latest", "--config", ".claude/playwright-mcp-config.json"]
     },
     "chrome-devtools": {
       "command": "npx",
