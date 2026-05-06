@@ -1,10 +1,10 @@
 import { Fragment, useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
-import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus } from '@/hooks/useAgents';
+import { useAgents, useAgentDetail, useAgentHealth, useAgentOutputsByName, useApiUsage, useDashboardStats, usePipelineStatus, usePipelineDetail } from '@/hooks/useAgents';
 import { usePendingApprovals } from '@/hooks/useAgentApprovals';
 import { useGeoipRefresh } from '@/hooks/useGeoipRefresh';
-import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, AgentTick, PipelineEntry } from '@/hooks/useAgents';
+import type { Agent, AgentDetailResponse, AgentHealthResponse, AgentOutput, AgentTick, PipelineDetail, PipelineEntry } from '@/hooks/useAgents';
 import { Card, StatCard, StatGrid, PageHeader, Tabs } from '@/design-system/components';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -805,6 +805,341 @@ function GeoipRefreshAction() {
   );
 }
 
+// ─── Pipeline detail sheet (drill-down) ─────────────────────────────
+//
+// Opens when an operator taps any Pipeline Automation card. Shows
+// everything the small card couldn't fit:
+//   - 24h backlog sparkline (so trend is visible at a glance)
+//   - drained-last-hour throughput
+//   - last-run row (status, records, duration, error if any)
+//   - failure-rate-24h for feed-backed pipelines
+//   - plain-language "why does this grow?" prose
+//   - external endpoints + per-pipeline action buttons (geoip)
+//
+// Renders as a centered modal on every screen size. The list grid
+// stays visible behind a translucent backdrop so the operator keeps
+// orientation. Closing returns focus to where they were — no
+// navigation changes.
+function PipelineDetailSheet({
+  pipelineId,
+  onClose,
+}: {
+  pipelineId: string | null;
+  onClose: () => void;
+}) {
+  const { data: detail, isLoading, isError } = usePipelineDetail(pipelineId);
+  if (!pipelineId) return null;
+
+  // Mini sparkline. Stays empty when the backend hasn't accumulated
+  // enough samples (e.g. pipeline only started bucketing recently).
+  const sparkData = (detail?.sparkline ?? []).map((s) => ({
+    t: s.recorded_at.slice(11, 16), // "HH:MM"
+    v: s.count,
+  }));
+
+  return (
+    <div
+      role="dialog"
+      aria-label={detail ? `${detail.label} — pipeline details` : 'Pipeline details'}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl max-w-lg w-full max-h-[88vh] overflow-y-auto"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-base)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="min-w-0">
+              <div
+                className="font-mono text-[9px] uppercase tracking-[0.22em]"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Pipeline · {detail?.id ?? pipelineId}
+              </div>
+              <div
+                className="font-display text-base font-bold mt-0.5 truncate"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {detail?.label ?? '…'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="font-mono text-[12px] px-2 py-1 rounded hover:bg-white/[0.06]"
+              style={{ color: 'var(--text-tertiary)' }}
+              aria-label="Close detail"
+            >
+              ✕
+            </button>
+          </div>
+
+          {isError ? (
+            <div className="font-mono text-[10px] py-3" style={{ color: 'var(--sev-critical)' }}>
+              Failed to load detail. Try again in a moment.
+            </div>
+          ) : isLoading || !detail ? (
+            <div className="font-mono text-[10px] py-3" style={{ color: 'var(--text-muted)' }}>
+              Loading detail…
+            </div>
+          ) : (
+            <>
+              {/* Description */}
+              {detail.description && (
+                <p
+                  className="font-mono text-[11px] leading-relaxed mb-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {detail.description}
+                </p>
+              )}
+
+              {/* Verdict + count */}
+              <div className="flex items-baseline gap-2 mb-3">
+                <span
+                  className="font-display text-2xl font-bold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {detail.count != null ? detail.count.toLocaleString() : '—'}
+                </span>
+                <Badge status={detail.verdict.tone} label={detail.verdict.label} size="xs" />
+                {detail.drained_last_hour != null && detail.drained_last_hour !== 0 && (
+                  <span
+                    className="font-mono text-[10px]"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    · {detail.drained_last_hour > 0 ? 'drained' : 'grew'}{' '}
+                    {Math.abs(detail.drained_last_hour).toLocaleString()} in last hour
+                  </span>
+                )}
+              </div>
+
+              {/* 24h sparkline */}
+              {sparkData.length > 1 && (
+                <div className="mb-3" style={{ height: 80 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparkData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="pdSparkFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--amber)" stopOpacity={0.45} />
+                          <stop offset="100%" stopColor="var(--amber)" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="t" tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.30)' }} interval="preserveStartEnd" axisLine={false} tickLine={false} />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-base)',
+                          borderRadius: 6,
+                          fontSize: 10,
+                        }}
+                        labelStyle={{ color: 'var(--text-secondary)' }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="v"
+                        stroke="var(--amber)"
+                        strokeWidth={1.5}
+                        fill="url(#pdSparkFill)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div
+                    className="font-mono text-[8px] uppercase tracking-wider mt-0.5"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Last 24h
+                  </div>
+                </div>
+              )}
+
+              {/* Detail rows */}
+              <PipelineDetailRow k="Owning agent" v={detail.agent} />
+              <PipelineDetailRow k="Schedule" v={detail.schedule} />
+              {detail.last_run && (
+                <PipelineDetailRow
+                  k="Last run"
+                  v={
+                    `${detail.last_run.status}` +
+                    (detail.last_run.records_processed != null
+                      ? ` · ${detail.last_run.records_processed.toLocaleString()} rec`
+                      : '') +
+                    (detail.last_run.duration_ms != null
+                      ? ` · ${formatDuration(detail.last_run.duration_ms)}`
+                      : '') +
+                    ` · ${relativeTime(detail.last_run.started_at)}`
+                  }
+                />
+              )}
+              {detail.failure_rate_24h && (
+                <PipelineDetailRow
+                  k="Failure rate (24h)"
+                  v={`${detail.failure_rate_24h.pct}% (${detail.failure_rate_24h.failed}/${detail.failure_rate_24h.total} pulls)`}
+                  vTone={
+                    detail.failure_rate_24h.pct >= 30
+                      ? 'critical'
+                      : detail.failure_rate_24h.pct >= 10
+                        ? 'warning'
+                        : 'normal'
+                  }
+                />
+              )}
+              {detail.last_run?.error_message && (
+                <PipelineDetailRow
+                  k="Last error"
+                  v={detail.last_run.error_message}
+                  vTone="critical"
+                  truncate
+                />
+              )}
+
+              {/* Why does this grow? */}
+              {detail.why_grows && (
+                <div
+                  className="mt-4 p-3 rounded-md"
+                  style={{
+                    background: 'rgba(255,255,255,0.025)',
+                    border: '1px solid var(--border-base)',
+                  }}
+                >
+                  <div
+                    className="font-mono text-[9px] uppercase tracking-[0.22em] mb-1"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Why does this grow?
+                  </div>
+                  <p
+                    className="font-mono text-[11px] leading-relaxed"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {detail.why_grows}
+                  </p>
+                </div>
+              )}
+
+              {/* External endpoints */}
+              {detail.endpoints && detail.endpoints.length > 0 && (
+                <div className="mt-3">
+                  <div
+                    className="font-mono text-[9px] uppercase tracking-[0.22em] mb-1.5"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    External endpoints
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {detail.endpoints.map((e) => (
+                      <a
+                        key={e.url}
+                        href={e.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[9px] px-2 py-1 rounded transition-colors hover:bg-white/[0.05]"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          border: '1px solid var(--border-base)',
+                        }}
+                        title={e.url}
+                      >
+                        {e.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Per-pipeline actions (currently geoip-only) */}
+              {detail.id === 'geoip' && (
+                <div className="mt-4">
+                  <GeoipRefreshAction />
+                </div>
+              )}
+
+              {/* Geoip recent attempts — refresh history. Skipped
+                  for non-geoip pipelines. */}
+              {detail.id === 'geoip' && detail.recent_attempts && detail.recent_attempts.length > 0 && (
+                <div className="mt-4">
+                  <div
+                    className="font-mono text-[9px] uppercase tracking-[0.22em] mb-1.5"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Recent refresh attempts
+                  </div>
+                  <ul className="space-y-1">
+                    {detail.recent_attempts.map((a) => (
+                      <li
+                        key={a.id}
+                        className="font-mono text-[10px] flex items-baseline gap-2"
+                      >
+                        <Badge
+                          status={
+                            a.status === 'success' ? 'success'
+                              : a.status === 'failed' ? 'failed'
+                                : a.status === 'running' ? 'running'
+                                  : 'inactive'
+                          }
+                          label={a.status}
+                          size="xs"
+                        />
+                        <span style={{ color: 'var(--text-tertiary)' }}>
+                          {relativeTime(a.started_at)}
+                          {a.rows_written > 0 && ` · ${a.rows_written.toLocaleString()} rows`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PipelineDetailRow({
+  k,
+  v,
+  vTone,
+  truncate,
+}: {
+  k: string;
+  v: string;
+  vTone?: 'normal' | 'warning' | 'critical';
+  truncate?: boolean;
+}) {
+  const valueColor =
+    vTone === 'critical' ? 'var(--sev-critical)'
+      : vTone === 'warning' ? 'var(--sev-medium)'
+        : 'var(--text-primary)';
+  return (
+    <div className="flex items-start justify-between gap-3 py-1 border-b border-white/[0.04]">
+      <span
+        className="font-mono text-[9px] uppercase tracking-wider shrink-0"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
+        {k}
+      </span>
+      <span
+        className={cn('font-mono text-[10px] text-right', truncate && 'line-clamp-2')}
+        style={{ color: valueColor }}
+        title={truncate ? v : undefined}
+      >
+        {v}
+      </span>
+    </div>
+  );
+}
+
 // ─── Pipeline legend (one-shot onboarding modal) ────────────────────
 //
 // Explains the card encoding to a first-time operator:
@@ -898,6 +1233,7 @@ function PipelineLegendModal({ open, onClose }: { open: boolean; onClose: () => 
 function PipelineStrip({ agents }: { agents: Agent[] }) {
   const { data: pipelines } = usePipelineStatus(agents);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // Auto-open legend the very first time. We don't show it on every
   // mount — that's annoying — just once per device per `localStorage`
@@ -925,6 +1261,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
   return (
     <Card style={{ padding: '16px' }}>
       <PipelineLegendModal open={legendOpen} onClose={() => setLegendOpen(false)} />
+      <PipelineDetailSheet pipelineId={detailId} onClose={() => setDetailId(null)} />
       <div className="flex items-center gap-2 mb-3">
         <span className="section-label font-mono font-bold">Pipeline Automation</span>
         <button
@@ -955,7 +1292,16 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
           return (
             <div
               key={p.id}
-              className="rounded-lg overflow-hidden"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailId(p.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setDetailId(p.id);
+                }
+              }}
+              className="rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-[1.01]"
               style={{
                 background: 'rgba(22,30,48,0.50)',
                 backdropFilter: 'blur(12px)',
@@ -964,6 +1310,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
                 borderTop: `3px solid ${topBorderColor}`,
                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.40)',
               }}
+              aria-label={`Open ${p.label} details`}
             >
               <div className="p-3">
                 {/* Header: label + agent badge */}
@@ -1049,6 +1396,7 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
                         href={e.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(ev) => ev.stopPropagation()}
                         className="font-mono text-[8px] px-1.5 py-0.5 rounded transition-colors hover:bg-white/[0.05]"
                         style={{
                           color: 'var(--text-tertiary)',
@@ -1066,7 +1414,11 @@ function PipelineStrip({ agents }: { agents: Agent[] }) {
                     pipeline because it's the only one with a
                     meaningful on-demand trigger; other tiles run
                     on feed cadence. */}
-                {p.id === 'geoip' && <GeoipRefreshAction />}
+                {p.id === 'geoip' && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <GeoipRefreshAction />
+                  </div>
+                )}
               </div>
             </div>
           );

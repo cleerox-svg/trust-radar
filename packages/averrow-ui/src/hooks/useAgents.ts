@@ -208,6 +208,63 @@ export function usePipelineStatus(_agents?: Agent[] | undefined) {
   });
 }
 
+export interface PipelineDetail {
+  id: string;
+  label: string;
+  description: string;
+  agent: string;
+  schedule: string;
+  endpoints: Array<{ name: string; url: string }> | null;
+  why_grows: string | null;
+  count: number | null;
+  sparkline: Array<{ count: number; recorded_at: string }>;
+  drained_last_hour: number | null;
+  trend_direction: 'up' | 'down' | 'flat' | 'unknown';
+  verdict: PipelineVerdict;
+  last_run: {
+    started_at: string;
+    completed_at: string | null;
+    duration_ms: number | null;
+    status: string;
+    records_processed: number | null;
+    error_message: string | null;
+  } | null;
+  failure_rate_24h: {
+    success: number;
+    failed:  number;
+    partial: number;
+    total:   number;
+    pct:     number;
+  } | null;
+  /** Geoip-only — recent refresh attempts list. */
+  recent_attempts?: Array<{
+    id: string;
+    status: string;
+    source_version: string | null;
+    rows_written: number;
+    started_at: string;
+    completed_at: string | null;
+    error_message: string | null;
+  }>;
+}
+
+export function usePipelineDetail(pipelineId: string | null) {
+  return useQuery({
+    queryKey: ['pipeline-detail', pipelineId],
+    enabled: !!pipelineId,
+    queryFn: async () => {
+      if (!pipelineId) return null;
+      const res = await api.get<PipelineDetail>(`/api/admin/pipeline-status/${pipelineId}`);
+      return res.data ?? null;
+    },
+    placeholderData: keepPreviousData,
+    // Detail sheet refreshes every 30s so a triaging operator sees
+    // live progress as a backlog drains. Cheap — the backend caches
+    // for 60s anyway, so most polls hit KV.
+    refetchInterval: 30_000,
+  });
+}
+
 export function useTriggerAgent() {
   const queryClient = useQueryClient();
   return useMutation({
