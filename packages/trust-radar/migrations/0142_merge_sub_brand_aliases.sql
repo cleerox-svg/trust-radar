@@ -63,10 +63,13 @@ SET target_brand_id = (
 )
 WHERE target_brand_id IN (SELECT alias_id FROM brand_dedup);
 
-UPDATE threat_cube_brand
-SET target_brand_id = (
-  SELECT master_id FROM brand_dedup WHERE alias_id = threat_cube_brand.target_brand_id
-)
+-- threat_cube_brand's PK includes target_brand_id, so UPDATE-ing
+-- collides with any pre-existing master-id row for the same
+-- (hour_bucket, threat_type, severity, source_feed). Drop the
+-- alias rows; cube-healer (cron 12 */6 * * *) rebuilds 30 days of
+-- brand cubes from threats every 6 hours, picking up the now-master
+-- target_brand_id naturally on the next rebuild.
+DELETE FROM threat_cube_brand
 WHERE target_brand_id IN (SELECT alias_id FROM brand_dedup);
 
 -- takedown_requests + alerts use `brand_id` (not target_brand_id);
