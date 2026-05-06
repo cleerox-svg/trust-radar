@@ -2,15 +2,19 @@
 // Windows Hello / Android fingerprint) on first sign-in. Triggers when:
 //   · WebAuthn supported (isPasskeySupported)
 //   · user has zero passkeys (passkey_count === 0)
-//   · user hasn't dismissed before on this device (localStorage flag)
+//   · user hasn't dismissed AND isn't currently snoozed (localStorage)
 //
-// Dismissal lives in localStorage per-device. A user with multiple
-// devices sees the prompt once on each — that's intentional, since
-// each device needs its own platform-authenticator credential.
+// Per-device state, since each device needs its own platform
+// authenticator credential. Two stored flags:
+//   · `…dismissed` ('1') — permanent: user clicked × / backdrop or
+//     completed registration. Never re-prompt.
+//   · `…snoozedUntil` (epoch ms) — user clicked "Maybe later". Stay
+//     quiet until that timestamp.
 //
-// "Maybe later" closes WITHOUT marking dismissed (gives the user a
-// chance to come back to it on the next visit). Only "Set up
-// biometric" or the click-outside / × close path marks dismissed.
+// The earlier behavior was "Maybe later" closes without persisting,
+// so the prompt re-fired on every full reload. Audit H4 (2026-05-06)
+// flagged this as confusing UX — most users expect "later" to mean
+// "snooze for at least a session." Now snoozes 7 days.
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -19,14 +23,26 @@ import { useToast } from '@/components/ui/Toast';
 import { isPasskeySupported, registerPasskey } from '@/lib/passkeys';
 
 const DISMISS_KEY = 'averrow.passkey-prompt.dismissed';
+const SNOOZE_KEY  = 'averrow.passkey-prompt.snoozedUntil';
+const SNOOZE_MS   = 7 * 24 * 60 * 60 * 1000;
 
-function isDismissed(): boolean {
-  try { return localStorage.getItem(DISMISS_KEY) === '1'; }
-  catch { return false; }
+function isSuppressed(): boolean {
+  try {
+    if (localStorage.getItem(DISMISS_KEY) === '1') return true;
+    const snooze = Number(localStorage.getItem(SNOOZE_KEY) ?? 0);
+    return Number.isFinite(snooze) && snooze > Date.now();
+  } catch {
+    return false;
+  }
 }
 
 function markDismissed(): void {
   try { localStorage.setItem(DISMISS_KEY, '1'); }
+  catch { /* SSR / private mode */ }
+}
+
+function markSnoozed(): void {
+  try { localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS)); }
   catch { /* SSR / private mode */ }
 }
 
@@ -39,7 +55,7 @@ export function FirstSignInPasskeyPrompt() {
   useEffect(() => {
     if (!user) return;
     if ((user.passkey_count ?? 0) > 0) return;
-    if (isDismissed()) return;
+    if (isSuppressed()) return;
     if (!isPasskeySupported()) return;
     // Slight delay so the prompt doesn't slam in right at sign-in.
     const t = window.setTimeout(() => setOpen(true), 1000);
@@ -76,9 +92,13 @@ export function FirstSignInPasskeyPrompt() {
     setOpen(false);
   };
 
-  // "Maybe later" — close without dismissing, so the prompt shows again
-  // next session.
-  const onMaybeLater = () => setOpen(false);
+  // "Maybe later" — snooze for 7 days. The prompt will re-fire after
+  // the snooze expires; until then the user gets to use the app
+  // without being interrupted on every page load.
+  const onMaybeLater = () => {
+    markSnoozed();
+    setOpen(false);
+  };
 
   if (typeof document === 'undefined') return null;
 

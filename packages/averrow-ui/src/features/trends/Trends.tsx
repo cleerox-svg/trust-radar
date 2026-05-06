@@ -53,6 +53,17 @@ const THREAT_TYPE_LABELS: Record<string, string> = {
 
 const THREAT_TYPES = Object.keys(THREAT_TYPE_COLORS);
 
+// Briefing summaries arrive as markdown — typically `**Title** — body…`.
+// Cards and modal headers want a clean preview, not raw markdown
+// asterisks. Extract the bold title when present, otherwise fall back
+// to the plain prefix. ReportPanel still parses the full markdown body.
+function briefingPreview(summary: string | undefined, maxLen = 100): string {
+  if (!summary) return 'Untitled';
+  const boldMatch = summary.match(/^\*\*(.+?)\*\*/);
+  const text = boldMatch ? boldMatch[1] : summary;
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
 /* ── Tooltip ── */
 
 function ChartTooltip({ active, payload, label }: {
@@ -79,8 +90,8 @@ function ChartTooltip({ active, payload, label }: {
 function BriefingCard({ briefing, onOpen }: { briefing: IntelligenceBriefing; onOpen: (b: IntelligenceBriefing) => void }) {
   const sev = briefing.severity?.toLowerCase() ?? 'low';
   const dotColor = SEVERITY_COLORS[sev] ?? '#78A0C8';
-  const title = briefing.summary?.slice(0, 100) ?? 'Untitled';
-  const hasMore = (briefing.summary?.length ?? 0) > 100;
+  const title = briefingPreview(briefing.summary, 100);
+  const hasMore = (briefing.summary?.length ?? 0) > title.length;
 
   return (
     <div className="rounded-xl p-4" style={{ background:'rgba(15,23,42,0.50)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)', border: sev === 'critical' ? '1px solid rgba(200,60,60,0.30)' : sev === 'high' ? '1px solid rgba(229,168,50,0.30)' : '1px solid rgba(255,255,255,0.07)', borderRadius:'0.75rem', boxShadow:'0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
@@ -149,7 +160,7 @@ function IntelligenceBriefings() {
       <ReportPanel
         isOpen={!!selected}
         onClose={() => setSelected(null)}
-        title={selected?.summary?.slice(0, 80) ?? 'Intelligence Briefing'}
+        title={briefingPreview(selected?.summary, 80)}
         subtitle="Observer Intelligence — Powered by ASTRA"
         badge={
           selected ? (
