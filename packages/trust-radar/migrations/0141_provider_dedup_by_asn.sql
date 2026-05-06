@@ -55,13 +55,14 @@ SET hosting_provider_id = (
 )
 WHERE hosting_provider_id IN (SELECT old_id FROM provider_dedup);
 
--- Repoint cubes (threat_cube_provider) so historical aggregates
--- collapse onto the canonical id.
-UPDATE threat_cube_provider
-SET hosting_provider_id = (
-  SELECT canonical_id FROM provider_dedup
-  WHERE old_id = threat_cube_provider.hosting_provider_id
-)
+-- threat_cube_provider's PK includes hosting_provider_id, so an UPDATE
+-- on that column collides with any pre-existing canonical-id row for
+-- the same (hour_bucket, threat_type, severity, source_feed). Drop
+-- the old-id rows instead — the cube-healer cron (12 */6 * * * per
+-- CLAUDE.md) rebuilds 30 days of provider cubes every 6 hours from
+-- threats (which we just repointed to canonical), so aggregates
+-- recover within one cube-healer cycle.
+DELETE FROM threat_cube_provider
 WHERE hosting_provider_id IN (SELECT old_id FROM provider_dedup);
 
 -- infrastructure_clusters stores `hosting_provider_ids` as a JSON
