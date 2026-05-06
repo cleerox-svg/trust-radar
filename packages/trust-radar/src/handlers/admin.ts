@@ -2786,3 +2786,120 @@ export async function handleMetricsAiSpend(
   await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 300 });
   return json(body, 200, origin);
 }
+
+// ─── Geo Coverage Trend (Metrics page section 4) ────────────────
+//
+// GET /api/admin/metrics/geo-coverage
+//
+// Powers the Geo Coverage section on /admin/metrics. Three
+// windowed coverage numbers (24h / 7d / 30d) + a 30-day daily
+// series for the trend chart + the cartographer-exhausted
+// pile summary so operators can see WHY coverage is low when
+// it is.
+//
+// Coverage = mapped (threats with lat/lng) / total. Computed
+// from threat_cube_geo + threat_cube_status — same source as
+// the diagnostics endpoint, just sliced for the UI.
+//
+// Cached at 5 min. Cube data refreshes every 5 min via
+// Navigator anyway.
+export async function handleMetricsGeoCoverage(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const cacheKey = "metrics_geo_coverage:v1";
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  const windowDefs: Array<{ key: '24h' | '7d' | '30d'; offset: string }> = [
+    { key: '24h', offset: "datetime('now', '-1 day')" },
+    { key: '7d',  offset: "datetime('now', '-7 days')" },
+    { key: '30d', offset: "datetime('now', '-30 days')" },
+  ];
+
+  const [windows, daily, exhausted, exhaustedByFeed] = await Promise.all([
+    Promise.all(windowDefs.map(async (w) => {
+      const [mapped, total] = await Promise.all([
+        env.DB.prepare(
+          `SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_geo
+            WHERE hour_bucket >= strftime('%Y-%m-%d %H:00:00', ${w.offset})`
+        ).first<{ n: number }>(),
+        env.DB.prepare(
+          `SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status
+            WHERE hour_bucket >= strftime('%Y-%m-%d %H:00:00', ${w.offset})`
+        ).first<{ n: number }>(),
+      ]);
+      const m = mapped?.n ?? 0;
+      const t = total?.n ?? 0;
+      return {
+        window: w.key,
+        mapped: m,
+        total: t,
+        unmapped: Math.max(0, t - m),
+        coverage_pct: t > 0 ? Math.round((m / t) * 1000) / 10 : null,
+      };
+    })),
+
+    // Daily coverage series for the trend chart. Joined off the
+    // status cube so we only emit days that had any threats —
+    // rendering empty days with 0% would be misleading.
+    env.DB.prepare(`
+      WITH g AS (
+        SELECT date(hour_bucket) AS day, SUM(threat_count) AS mapped
+          FROM threat_cube_geo
+         WHERE hour_bucket >= datetime('now', '-30 days')
+         GROUP BY day
+      ),
+      s AS (
+        SELECT date(hour_bucket) AS day, SUM(threat_count) AS total
+          FROM threat_cube_status
+         WHERE hour_bucket >= datetime('now', '-30 days')
+         GROUP BY day
+      )
+      SELECT s.day,
+             COALESCE(g.mapped, 0) AS mapped,
+             s.total,
+             CASE WHEN s.total > 0
+                  THEN ROUND(COALESCE(g.mapped, 0) * 100.0 / s.total, 1)
+                  ELSE NULL
+             END AS coverage_pct
+        FROM s LEFT JOIN g ON g.day = s.day
+       ORDER BY s.day ASC
+    `).all<{ day: string; mapped: number; total: number; coverage_pct: number | null }>(),
+
+    env.DB.prepare(`
+      SELECT COUNT(*) AS n
+        FROM threats
+       WHERE status = 'active'
+         AND enriched_at IS NULL
+         AND enrichment_attempts >= 5
+    `).first<{ n: number }>(),
+
+    env.DB.prepare(`
+      SELECT source_feed, threat_type, COUNT(*) AS n
+        FROM threats
+       WHERE status = 'active'
+         AND enriched_at IS NULL
+         AND enrichment_attempts >= 5
+       GROUP BY source_feed, threat_type
+       ORDER BY n DESC
+       LIMIT 10
+    `).all<{ source_feed: string; threat_type: string; n: number }>(),
+  ]);
+
+  const data = {
+    windows,
+    daily_30d: daily.results,
+    exhausted: {
+      total: exhausted?.n ?? 0,
+      by_feed: exhaustedByFeed.results,
+    },
+    generated_at: new Date().toISOString(),
+  };
+
+  const body = { success: true, data };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 300 });
+  return json(body, 200, origin);
+}

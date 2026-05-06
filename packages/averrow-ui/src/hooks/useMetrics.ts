@@ -130,3 +130,48 @@ export function useAiSpend() {
     refetchInterval: 300_000,
   });
 }
+
+// ─── Geo Coverage Trend ─────────────────────────────────────────
+
+export interface GeoCoverageWindow {
+  window: '24h' | '7d' | '30d';
+  mapped: number;
+  total: number;
+  unmapped: number;
+  coverage_pct: number | null;
+}
+
+export interface GeoCoverageDaily {
+  day: string;
+  mapped: number;
+  total: number;
+  coverage_pct: number | null;
+}
+
+export interface GeoCoverageExhaustedByFeed {
+  source_feed: string;
+  threat_type: string;
+  n: number;
+}
+
+export interface GeoCoveragePayload {
+  windows: GeoCoverageWindow[];
+  daily_30d: GeoCoverageDaily[];
+  exhausted: {
+    total: number;
+    by_feed: GeoCoverageExhaustedByFeed[];
+  };
+  generated_at: string;
+}
+
+export function useGeoCoverage() {
+  return useQuery({
+    queryKey: ['metrics-geo-coverage'],
+    queryFn: async () => {
+      const res = await api.get<GeoCoveragePayload>('/api/admin/metrics/geo-coverage');
+      return res.data ?? null;
+    },
+    placeholderData: keepPreviousData,
+    refetchInterval: 300_000,
+  });
+}

@@ -16,6 +16,7 @@ import {
 } from './metrics/PipelineAutomation';
 import { D1BudgetSection } from './metrics/D1Budget';
 import { AiSpendSection } from './metrics/AiSpend';
+import { GeoCoverageSection } from './metrics/GeoCoverage';
 
 export function Metrics() {
   const { data: agents = [] } = useAgents();
@@ -36,11 +37,8 @@ export function Metrics() {
       {/* 3. AI Spend Trend */}
       <AiSpendSection />
 
-      {/* 4. Geo Coverage Trend — placeholder, follow-up PR. */}
-      <SectionPlaceholder
-        title="Geo Coverage"
-        subtitle="% of threats with lat/lng populated over 24h / 7d / 30d. Tracks Cartographer's enrichment yield against feed inflow."
-      />
+      {/* 4. Geo Coverage Trend */}
+      <GeoCoverageSection />
 
       {/* 5. Feed-Failure Board — placeholder, follow-up PR. */}
       <SectionPlaceholder
