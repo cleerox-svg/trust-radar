@@ -47,3 +47,6 @@ logs/
 
 # Railway
 .railway/
+
+# Claude Code local state (plans, scratch notes)
+.claude/
