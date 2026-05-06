@@ -26,7 +26,10 @@ export async function handleProviderMovers(request: Request, env: Env): Promise<
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
-    const cacheKey = "provider_movers:v1";
+    // v2 cache prefix — see brand_movers for the full reasoning. Same
+    // gap-tolerance fix applied here so the Provider Movers "Cooling
+    // Down" list isn't permanently empty.
+    const cacheKey = "provider_movers:v2";
     const cached = await env.CACHE.get(cacheKey);
     if (cached) {
       recordD1Reads(env, "provider_movers", newTally());
@@ -41,6 +44,12 @@ export async function handleProviderMovers(request: Request, env: Env): Promise<
         FROM daily_snapshots
         WHERE entity_type = 'provider'
       ),
+      week_ago_anchor AS (
+        SELECT MAX(date) AS week_ago_date
+        FROM daily_snapshots, anchor
+        WHERE entity_type = 'provider'
+          AND date <= date(anchor.today_date, '-7 days')
+      ),
       today_snap AS (
         SELECT entity_id AS provider_id, active_threats AS today_count
         FROM daily_snapshots, anchor
@@ -48,8 +57,8 @@ export async function handleProviderMovers(request: Request, env: Env): Promise<
       ),
       week_ago_snap AS (
         SELECT entity_id AS provider_id, active_threats AS week_ago_count
-        FROM daily_snapshots, anchor
-        WHERE entity_type = 'provider' AND date = date(anchor.today_date, '-7 days')
+        FROM daily_snapshots, week_ago_anchor
+        WHERE entity_type = 'provider' AND date = week_ago_anchor.week_ago_date
       )
       SELECT
         hp.id, hp.name, hp.asn, hp.country, hp.reputation_score,
