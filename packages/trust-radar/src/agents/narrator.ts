@@ -230,18 +230,13 @@ export async function generateNarrativesForBrand(env: Env, brandId: string): Pro
   // 5. Create an alert if severity is HIGH or CRITICAL
   if (result.severity === "HIGH" || result.severity === "CRITICAL") {
     try {
-      // Find the brand owner for the alert. brand_profiles has no brand_id
-      // column — link via brands.canonical_domain → brand_profiles.domain.
-      // Wrap in .catch so schema drift doesn't skip the alert (fall back
-      // to userId='system' which is the intended default).
-      const brandOwner = await env.DB.prepare(
-        `SELECT bp.user_id
-         FROM brand_profiles bp
-         JOIN brands b ON b.canonical_domain = bp.domain
-         WHERE b.id = ? LIMIT 1`
-      ).bind(brandId).first<{ user_id: string }>().catch(() => null);
-
-      const userId = brandOwner?.user_id ?? "system";
+      // brand_profiles retired (2026-05-07, R3). Alerts are now
+      // tenant-scoped via brand_id → org_brands at read time, so we
+      // attribute creation to a stable 'system' userId. The legacy
+      // path used to look up an owning user via brand_profiles; that
+      // table is dead. If a per-creator attribution is needed in
+      // future, look up an org_member with admin role for the brand.
+      const userId = "system";
 
       await createAlert(env.DB, {
         brandId,
@@ -282,7 +277,6 @@ export const narratorAgent: AgentModule = {
   budget: { monthlyTokenCap: 5_000_000 },
   reads: [
     { kind: "d1_table", name: "app_store_listings" },
-    { kind: "d1_table", name: "brand_profiles" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "ct_certificates" },
     { kind: "d1_table", name: "dark_web_mentions" },

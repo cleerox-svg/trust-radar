@@ -16,15 +16,8 @@ import {
   handleReassessSocialProfile,
   handleComputeBrandScore,
 } from "../handlers/brands";
-import {
-  handleCreateBrand as handleCreateBrandProfile,
-  handleListBrands as handleListBrandProfiles,
-  handleGetBrand as handleGetBrandProfile,
-  handleUpdateBrand as handleUpdateBrandProfile,
-  handleDeleteBrand as handleDeleteBrandProfile,
-  handleUpdateHandles as handleUpdateBrandHandles,
-  handleGetHandles as handleGetBrandHandles,
-} from "../handlers/brandProfiles";
+// brand-profiles handler imports retired — see R1 of the
+// brand_profiles deprecation. Routes below return 410 Gone.
 import {
   handleSocialOverview, handleBrandSocialMonitor, handleSocialAlerts, handleTriggerSocialScan,
 } from "../handlers/socialMonitor";
@@ -224,42 +217,29 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
     return handleGetThreatAssessment(request, env, request.params["brandId"] ?? "");
   });
 
-  // ─── Brand Profiles (Social Monitoring) ──────────────────────────
-  router.post("/api/brand-profiles", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleCreateBrandProfile(request, env, ctx.userId);
-  });
-  router.get("/api/brand-profiles", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleListBrandProfiles(request, env, ctx.userId);
-  });
-  router.get("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleGetBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
-  });
-  router.patch("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleUpdateBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
-  });
-  router.delete("/api/brand-profiles/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleDeleteBrandProfile(request, env, request.params["id"] ?? "", ctx.userId);
-  });
-  router.post("/api/brand-profiles/:id/handles", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleUpdateBrandHandles(request, env, request.params["id"] ?? "", ctx.userId);
-  });
-  router.get("/api/brand-profiles/:id/handles", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
-    if (!isAuthContext(ctx)) return ctx;
-    return handleGetBrandHandles(request, env, request.params["id"] ?? "", ctx.userId);
-  });
+  // ─── /api/brand-profiles* — DEPRECATED 2026-05-07 ────────────────
+  // The brand_profiles user-owned registry has been retired in favor
+  // of the org_brands tenant-scoped binding. UI no longer calls these
+  // routes (zero traffic) but we keep them mounted to return a clean
+  // 410 Gone with the replacement path in the body, so any forgotten
+  // integration gets a directional error instead of 404.
+  // See `docs/v3/BRAND_PROFILES_DEPRECATION.md` R1.
+  const brandProfilesGone = () =>
+    new Response(JSON.stringify({
+      success: false,
+      error: "The /api/brand-profiles endpoints have been retired. Use /api/orgs/:orgId/brands instead. See docs/v3/BRAND_PROFILES_DEPRECATION.md.",
+      code: "ENDPOINT_RETIRED",
+    }), {
+      status: 410,
+      headers: { "content-type": "application/json" },
+    });
+  router.post  ("/api/brand-profiles",                brandProfilesGone);
+  router.get   ("/api/brand-profiles",                brandProfilesGone);
+  router.get   ("/api/brand-profiles/:id",            brandProfilesGone);
+  router.patch ("/api/brand-profiles/:id",            brandProfilesGone);
+  router.delete("/api/brand-profiles/:id",            brandProfilesGone);
+  router.post  ("/api/brand-profiles/:id/handles",    brandProfilesGone);
+  router.get   ("/api/brand-profiles/:id/handles",    brandProfilesGone);
 
   // ─── Social Monitoring Dashboard ─────────────────────────────────
   router.get("/api/social/monitor", async (request: Request, env: Env) => {
@@ -284,25 +264,27 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   });
 
   // ─── Lookalike Domain Monitoring ─────────────────────────────────
+  // Ownership: super_admin → any brand; org member → org_brands only.
+  // R2 of brand_profiles deprecation (2026-05-07).
   router.get("/api/lookalikes/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleListLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleListLookalikes(request, env, request.params["brandId"] ?? "", ctx);
   });
   router.post("/api/lookalikes/:brandId/generate", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleGenerateLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleGenerateLookalikes(request, env, request.params["brandId"] ?? "", ctx);
   });
   router.patch("/api/lookalikes/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleUpdateLookalike(request, env, request.params["id"] ?? "", ctx.userId);
+    return handleUpdateLookalike(request, env, request.params["id"] ?? "", ctx);
   });
   router.post("/api/lookalikes/:brandId/scan", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleScanLookalikes(request, env, request.params["brandId"] ?? "", ctx);
   });
 
   // ─── App Store Impersonation Monitoring ──────────────────────────
@@ -355,25 +337,27 @@ export function registerBrandRoutes(router: RouterType<IRequest>): void {
   });
 
   // ─── Certificate Transparency Monitoring ─────────────────────────
+  // CT routes: ownership via org_brands. R2 of brand_profiles
+  // deprecation (2026-05-07).
   router.get("/api/ct/certificates/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleListCertificates(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleListCertificates(request, env, request.params["brandId"] ?? "", ctx);
   });
   router.get("/api/ct/certificates/:brandId/stats", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleCertStats(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleCertStats(request, env, request.params["brandId"] ?? "", ctx);
   });
   router.patch("/api/ct/certificates/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleUpdateCertificate(request, env, request.params["id"] ?? "", ctx.userId);
+    return handleUpdateCertificate(request, env, request.params["id"] ?? "", ctx);
   });
   router.post("/api/ct/scan/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleTriggerCTScan(request, env, request.params["brandId"] ?? "", ctx.userId);
+    return handleTriggerCTScan(request, env, request.params["brandId"] ?? "", ctx);
   });
 
   // ─── Threat Narratives ────────────────────────────────────────────

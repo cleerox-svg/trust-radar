@@ -2,12 +2,41 @@
 /**
  * Lookalike Domain API Handlers — CRUD and trigger endpoints for
  * continuous lookalike domain monitoring.
+ *
+ * Ownership: super_admin sees any brand; org members see only brands
+ * in their org_brands. Replaces the old user_id-via-brand_profiles
+ * scoping (R2 of brand_profiles deprecation, 2026-05-07).
  */
 
 import { json } from "../lib/cors";
 import { generateAndStoreLookalikes, checkLookalikeBatch } from "../scanners/lookalike-domains";
 import { logger } from "../lib/logger";
 import type { Env } from "../types";
+import type { AuthContext } from "../middleware/auth";
+
+// ─── Brand-access helpers ─────────────────────────────────────────
+// Super_admin can touch any brand. Org members must have the brand
+// assigned in org_brands. Brand-existence + ownership rolled into one
+// query so we can return 404 vs 403 cleanly.
+
+async function findBrandForCaller(
+  env:     Env,
+  brandId: string,
+  ctx:     AuthContext,
+): Promise<{ id: string; canonical_domain: string } | null> {
+  if (ctx.role === "super_admin") {
+    return env.DB.prepare(
+      "SELECT id, canonical_domain FROM brands WHERE id = ?",
+    ).bind(brandId).first<{ id: string; canonical_domain: string }>();
+  }
+  if (!ctx.orgId) return null;
+  return env.DB.prepare(
+    `SELECT b.id, b.canonical_domain
+     FROM brands b
+     JOIN org_brands ob ON ob.brand_id = b.id
+     WHERE b.id = ? AND ob.org_id = ?`,
+  ).bind(brandId, ctx.orgId).first<{ id: string; canonical_domain: string }>();
+}
 
 // ─── GET /api/lookalikes/:brandId — List lookalike domains for a brand ───
 
@@ -15,22 +44,12 @@ export async function handleListLookalikes(
   request: Request,
   env: Env,
   brandId: string,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Check brand_profiles first (user-created), then fall back to brands table
-    const brandProfile = await env.DB.prepare(
-      "SELECT id FROM brand_profiles WHERE id = ? AND user_id = ?",
-    ).bind(brandId, userId).first<{ id: string }>();
-
-    const brandRecord = !brandProfile
-      ? await env.DB.prepare(
-          "SELECT id FROM brands WHERE id = ?",
-        ).bind(brandId).first<{ id: string }>()
-      : null;
-
-    if (!brandProfile && !brandRecord) {
+    const brand = await findBrandForCaller(env, brandId, ctx);
+    if (!brand) {
       return json({ success: false, error: "Brand not found" }, 404, origin);
     }
 
@@ -80,36 +99,25 @@ export async function handleGenerateLookalikes(
   request: Request,
   env: Env,
   brandId: string,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Check brand_profiles first (user-created), then fall back to brands table
-    let brand = await env.DB.prepare(
-      "SELECT id, domain FROM brand_profiles WHERE id = ? AND user_id = ?",
-    ).bind(brandId, userId).first<{ id: string; domain: string }>();
-
-    if (!brand) {
-      brand = await env.DB.prepare(
-        "SELECT id, canonical_domain AS domain FROM brands WHERE id = ?",
-      ).bind(brandId).first<{ id: string; domain: string }>();
-    }
-
+    const brand = await findBrandForCaller(env, brandId, ctx);
     if (!brand) {
       return json({ success: false, error: "Brand not found" }, 404, origin);
     }
-
-    if (!brand.domain) {
-      return json({ success: false, error: "Brand profile has no domain configured" }, 400, origin);
+    if (!brand.canonical_domain) {
+      return json({ success: false, error: "Brand has no canonical domain configured" }, 400, origin);
     }
 
-    const newCount = await generateAndStoreLookalikes(env, brandId, brand.domain);
+    const newCount = await generateAndStoreLookalikes(env, brandId, brand.canonical_domain);
 
     return json({
       success: true,
       data: {
         brand_id: brandId,
-        domain: brand.domain,
+        domain: brand.canonical_domain,
         new_permutations: newCount,
       },
     }, 200, origin);
@@ -124,17 +132,25 @@ export async function handleUpdateLookalike(
   request: Request,
   env: Env,
   id: string,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Verify ownership via brand_profiles join
-    const existing = await env.DB.prepare(
-      `SELECT ld.id, ld.brand_id
-       FROM lookalike_domains ld
-       JOIN brand_profiles bp ON bp.id = ld.brand_id
-       WHERE ld.id = ? AND bp.user_id = ?`,
-    ).bind(id, userId).first<{ id: string; brand_id: string }>();
+    // Verify ownership: super_admin → any lookalike; org member →
+    // lookalikes whose parent brand is in their org_brands.
+    let existing: { id: string; brand_id: string } | null = null;
+    if (ctx.role === "super_admin") {
+      existing = await env.DB.prepare(
+        "SELECT id, brand_id FROM lookalike_domains WHERE id = ?",
+      ).bind(id).first<{ id: string; brand_id: string }>();
+    } else if (ctx.orgId) {
+      existing = await env.DB.prepare(
+        `SELECT ld.id, ld.brand_id
+         FROM lookalike_domains ld
+         JOIN org_brands ob ON ob.brand_id = ld.brand_id
+         WHERE ld.id = ? AND ob.org_id = ?`,
+      ).bind(id, ctx.orgId).first<{ id: string; brand_id: string }>();
+    }
 
     if (!existing) {
       return json({ success: false, error: "Lookalike domain not found" }, 404, origin);
@@ -204,22 +220,12 @@ export async function handleScanLookalikes(
   request: Request,
   env: Env,
   brandId: string,
-  userId: string,
+  ctx: AuthContext,
 ): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    // Check brand_profiles first (user-created), then fall back to brands table
-    const brandProfile = await env.DB.prepare(
-      "SELECT id FROM brand_profiles WHERE id = ? AND user_id = ?",
-    ).bind(brandId, userId).first<{ id: string }>();
-
-    const brandRecord = !brandProfile
-      ? await env.DB.prepare(
-          "SELECT id FROM brands WHERE id = ?",
-        ).bind(brandId).first<{ id: string }>()
-      : null;
-
-    if (!brandProfile && !brandRecord) {
+    const brand = await findBrandForCaller(env, brandId, ctx);
+    if (!brand) {
       return json({ success: false, error: "Brand not found" }, 404, origin);
     }
 
@@ -237,7 +243,8 @@ export async function handleScanLookalikes(
 
     logger.info("lookalike_scan_triggered", {
       brand_id: brandId,
-      user_id: userId,
+      user_id: ctx.userId,
+      org_id: ctx.orgId,
       domains_queued: resetCount,
     });
 
