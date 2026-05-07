@@ -28,6 +28,7 @@ import { useAgents } from '@/hooks/useAgents';
 import { useThreatActorStats } from '@/hooks/useThreatActors';
 import { useIncidents } from '@/features/admin-incidents/useIncidents';
 import { useAuth } from '@/lib/auth';
+import { useObservatoryVersion } from '@/design-system/hooks';
 
 interface ModuleCardProps {
   icon:        LucideIcon;
@@ -63,6 +64,7 @@ function ModuleCard({ icon: Icon, label, description, stat, accent, onClick }: M
 export function ModuleHub() {
   const navigate = useNavigate();
   const { isSuperAdmin } = useAuth();
+  const { path: observatoryPath } = useObservatoryVersion();
 
   const { data: obsStats }    = useObservatoryStats();
   const { data: brandStats }  = useBrandStats();
@@ -90,7 +92,7 @@ export function ModuleHub() {
           description="Global threat map · live"
           stat={obsStats ? `${obsStats.threats_mapped.toLocaleString()} threats · ${obsStats.countries} countries` : ''}
           accent="var(--blue)"
-          onClick={() => navigate('/observatory')}
+          onClick={() => navigate(observatoryPath)}
         />
         <ModuleCard
           icon={Shield}

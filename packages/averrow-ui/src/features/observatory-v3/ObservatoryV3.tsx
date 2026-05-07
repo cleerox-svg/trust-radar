@@ -14,7 +14,8 @@ import type { MapMode } from './components/ThreatMapV3';
 import { SidePanel } from './components/SidePanel';
 import { useOperations } from '@/hooks/useOperations';
 import type { Operation } from '@/hooks/useOperations';
-import { Card, Tabs, Badge } from '@/components/ui';
+import { Card, Tabs } from '@/components/ui';
+import { ObservatoryVersionToggle } from '@/components/ui/ObservatoryVersionToggle';
 import { EventTicker } from '@/features/observatory/components/EventTicker';
 import { cn } from '@/lib/cn';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
@@ -132,8 +133,8 @@ export function ObservatoryV3() {
 
       {/* ─── Top-right: Status + controls ─────────────────────── */}
       <div className="absolute top-3 right-4 z-10 flex items-center gap-2">
-        {/* v3 badge */}
-        <Badge status="running" label="V3" size="xs" pulse />
+        {/* v2 / v3 toggle */}
+        <ObservatoryVersionToggle />
         {/* Live indicator */}
         <LiveIndicator />
         {/* Refresh */}

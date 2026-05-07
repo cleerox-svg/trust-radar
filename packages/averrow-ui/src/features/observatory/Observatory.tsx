@@ -13,6 +13,7 @@ import { EventTicker } from './components/EventTicker';
 import { relativeTime } from '@/lib/time';
 import { cn } from '@/lib/cn';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
+import { ObservatoryVersionToggle } from '@/components/ui/ObservatoryVersionToggle';
 import { X, ChevronDown, Activity, Loader2, RefreshCw } from 'lucide-react';
 import { ObservatoryOverlay } from './components/ObservatoryOverlay';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -314,9 +315,15 @@ export function Observatory() {
         </div>
       )}
 
-      {/* Top-right: Live clock — hidden on mobile to avoid overlap with control bar */}
-      <div className="hidden md:block absolute top-4 right-16 z-10">
+      {/* Top-right: Version toggle + Live clock — hidden on mobile to avoid overlap with control bar */}
+      <div className="hidden md:flex absolute top-4 right-16 z-10 items-center gap-3">
+        <ObservatoryVersionToggle />
         <div className="font-mono text-lg font-bold tabular-nums" style={{ color: 'var(--amber)' }}>{clock}</div>
+      </div>
+
+      {/* Mobile: version toggle pinned to top-right corner */}
+      <div className="md:hidden absolute top-3 right-3 z-20">
+        <ObservatoryVersionToggle />
       </div>
 
       {/* Legend */}

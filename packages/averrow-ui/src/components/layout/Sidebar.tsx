@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Globe, Shield, Server, Activity, TrendingUp, Crosshair,
   Gavel, Bell, Inbox, Target, Siren,
@@ -11,12 +11,18 @@ import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { AverrowLogo } from '@/components/brand/AverrowLogo';
 import { Badge } from '@/design-system/components';
+import { useObservatoryVersion } from '@/design-system/hooks';
 
 interface NavItem {
   label: string;
   path: string;
   icon: LucideIcon;
   badge?: number;
+  // Highlight this entry when location matches any of these prefixes
+  // (used so the single Observatory entry stays active across both
+  // /observatory and /observatory-v3 regardless of which version
+  // the user has selected).
+  matchPrefixes?: string[];
 }
 
 interface NavSection {
@@ -81,6 +87,8 @@ const NAV_ACTIVE_STYLE: React.CSSProperties = {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout, isSuperAdmin, isBrandAdmin } = useAuth();
   const [alertCount, setAlertCount] = useState(0);
+  const { path: observatoryPath } = useObservatoryVersion();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchAlerts = () => {
@@ -124,8 +132,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       label: 'INTELLIGENCE',
       items: [
         { label: 'Home',         path: '/',             icon: LayoutDashboard },
-        { label: 'Observatory',  path: '/observatory',  icon: Globe },
-        { label: 'Observatory v3', path: '/observatory-v3', icon: Globe },
+        { label: 'Observatory',  path: observatoryPath, icon: Globe, matchPrefixes: ['/observatory', '/observatory-v3'] },
         { label: 'Brands',       path: '/brands',       icon: Shield },
         { label: 'Threats',      path: '/threats',       icon: Crosshair },
         { label: 'Apps',         path: '/apps',          icon: Smartphone },
@@ -202,32 +209,38 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </div>
             {section.items.map(item => {
               const Icon = item.icon;
+              const prefixActive = item.matchPrefixes?.some(p =>
+                location.pathname === p || location.pathname.startsWith(p + '/'),
+              );
               return (
                 <NavLink
-                  key={item.path}
+                  key={item.label}
                   to={item.path}
                   onClick={onNavigate}
                   end
-                  style={({ isActive }) => (isActive ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE)}
+                  style={({ isActive }) => ((isActive || prefixActive) ? NAV_ACTIVE_STYLE : NAV_INACTIVE_STYLE)}
                 >
-                  {({ isActive }) => (
-                    <>
-                      <Icon
-                        size={16}
-                        style={{
-                          flexShrink: 0,
-                          color: isActive ? '#E5A832' : 'rgba(255,255,255,0.40)',
-                          filter: isActive ? 'drop-shadow(0 0 4px rgba(229,168,50,0.60))' : undefined,
-                        }}
-                      />
-                      <span>{item.label}</span>
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <span className="ml-auto">
-                          <Badge severity="critical" label={String(item.badge)} size="xs" />
-                        </span>
-                      )}
-                    </>
-                  )}
+                  {({ isActive }) => {
+                    const active = isActive || !!prefixActive;
+                    return (
+                      <>
+                        <Icon
+                          size={16}
+                          style={{
+                            flexShrink: 0,
+                            color: active ? '#E5A832' : 'rgba(255,255,255,0.40)',
+                            filter: active ? 'drop-shadow(0 0 4px rgba(229,168,50,0.60))' : undefined,
+                          }}
+                        />
+                        <span>{item.label}</span>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="ml-auto">
+                            <Badge severity="critical" label={String(item.badge)} size="xs" />
+                          </span>
+                        )}
+                      </>
+                    );
+                  }}
                 </NavLink>
               );
             })}
