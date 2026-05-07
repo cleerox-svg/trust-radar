@@ -6,6 +6,8 @@ import { Modules } from '@/features/modules/Modules';
 import { ModulePlaceholder } from '@/features/modules/ModulePlaceholder';
 import { Settings, TakedownAuthorizationPage } from '@/features/settings/Settings';
 import { Notifications, Alerts } from '@/features/notifications/Notifications';
+import { Domain } from '@/features/domain/Domain';
+import { BrandDomainFindings } from '@/features/domain/BrandDomainFindings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +29,10 @@ export function App() {
               <Route path="alerts" element={<Alerts />} />
               <Route path="notifications" element={<Notifications />} />
 
-              <Route path="modules/domain"        element={<ModulePlaceholder moduleKey="domain" />} />
+              {/* Domain Monitoring — first per-module surface (Phase B sprint 1) */}
+              <Route path="modules/domain"                    element={<Domain />} />
+              <Route path="modules/domain/brands/:brandId"    element={<BrandDomainFindings />} />
+
               <Route path="modules/social"        element={<ModulePlaceholder moduleKey="social" />} />
               <Route path="modules/app-store"     element={<ModulePlaceholder moduleKey="app_store" />} />
               <Route path="modules/dark-web"      element={<ModulePlaceholder moduleKey="dark_web" />} />

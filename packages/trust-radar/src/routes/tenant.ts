@@ -26,6 +26,9 @@ import {
 import {
   handleGetActiveAuthorization, handleAdminRecordAuthorization, handleRevokeAuthorization,
 } from "../handlers/takedownAuthorizations";
+import {
+  handleGetDomainModuleSummary, handleGetBrandDomainFindings,
+} from "../handlers/tenantDomainModule";
 
 export function registerTenantRoutes(router: RouterType<IRequest>): void {
   // ─── Organizations (org-scoped) ───────────────────────────────────
@@ -234,6 +237,23 @@ export function registerTenantRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleRevokeAuthorization(request, env, request.params["orgId"] ?? "", ctx);
+  });
+
+  // ─── Module surfaces — Domain Monitoring (v3 Phase B) ─────────
+  router.get("/api/orgs/:orgId/modules/domain", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetDomainModuleSummary(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/modules/domain/brands/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetBrandDomainFindings(
+      request, env,
+      request.params["orgId"] ?? "",
+      request.params["brandId"] ?? "",
+      ctx,
+    );
   });
 
   // ─── Monitoring Config (org-brand scoped) ────────────────────────
