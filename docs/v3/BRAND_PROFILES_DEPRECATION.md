@@ -1,8 +1,8 @@
 # Brand Profiles deprecation reconciliation
 
-**Status:** Confirmed dead in production. Code retirement scheduled as v2-side cleanup before Mode B ingest dual-write starts (per ADR-002).
+**Status:** ✅ **Complete.** R1–R9 shipped across PRs #1105, #1108, #1109; R4 (drop the table) shipped in migration 0149.
 **Date:** 2026-05-07
-**Phase:** Phase 0 step 5
+**Phase:** Phase 0 step 5 (planning) → Phase A sprints 3, 6 (execution)
 **Related:** `.claude/plans/v3.md` §2.8 (Brand Profiles deprecated note), §9.6 (brand-health destination), ADR-001, ADR-002
 
 ---
@@ -93,15 +93,17 @@ Sequenced as a **v2-side cleanup** before Mode B ingest dual-write starts (ADR-0
 
 | Step | What | Risk | Effort |
 |---|---|---|---|
-| **R1** | Mark `/api/brand-profiles*` routes as deprecated (return `410 Gone` with a body explaining the replacement) | None — zero production traffic | 1 hour |
-| **R2** | Rewrite `lookalikeDomains.ts` + `ctMonitor.ts` ownership joins to use `org_brands.org_id` instead of `brand_profiles.user_id`. Delete the unused `brand_profiles` handler | Low — these handlers are gated behind auth that's already org-scoped | 4 hours |
-| **R3** | Rewrite `sentinel.ts` + `narrator.ts` JOINs to drop `brand_profiles` entirely; resolve via `brands.canonical_domain` (already the fallback path) | Low — JOINs return 0 rows today; the fallback already runs | 2 hours |
-| **R4** | Migration 014X: archive the single remaining `brand_profiles` row to a `_legacy_brand_profiles_2026_05` table; drop `brand_profiles` | Low — single row, no FKs from production code after R1-R3 | 30 minutes |
-| **R5** | Regenerate `architect/manifest.generated.ts` after R3 lands | None — auto-generated | 5 minutes |
+| **R1** ✅ | Mark `/api/brand-profiles*` routes as `410 Gone` with directional body | None — zero production traffic | Shipped PR #1105 |
+| **R2** ✅ | Rewrite `lookalikeDomains.ts` + `ctMonitor.ts` ownership joins to use `org_brands.org_id`. Deleted the `brandProfiles.ts` handler (458 LOC) | Low — closed a tenant-isolation gap as a side-effect | Shipped PR #1105 |
+| **R3** ✅ | Drop `brand_profiles` JOINs from `sentinel.ts` + `narrator.ts`; alerts attribute to `userId='system'` | Low — JOINs were already returning 0 rows | Shipped PR #1105 |
+| **R4** ✅ | Migration `0149_drop_brand_profiles.sql` — archive the single remaining row to `_legacy_brand_profiles_2026_05`; drop `brand_profiles` | Low — single row, no FKs after R1–R9 | Shipped this PR |
+| **R5** ✅ | Regenerate `architect/manifest.generated.ts` after R3 lands | None — auto-generated | Shipped PR #1105 |
+| **R6** ✅ | `scanners/ct-monitor.ts` — brand-list query reads from `brands JOIN org_brands` instead of `brand_profiles WHERE monitoring_enabled=1`. Inline `resolveUserForBrand()` helper deleted | Low — `brand_profiles` was already empty | Shipped PR #1108 |
+| **R7** ✅ | `scanners/lookalike-domains.ts` — brand context lookup reads name + canonical_domain from `brands` directly | Low | Shipped PR #1108 |
+| **R8** ✅ | `cron/orchestrator.ts:704` — email-grade-change alert no longer looks up the brand owner; attributes to `userId='system'` | Low | Shipped PR #1108 |
+| **R9** ✅ | `/api/admin/backfill-social-config` — 158 LOC of already-run migration code retired; endpoint returns `410 Gone` | None — migration completed pre-deprecation | Shipped PR #1108 |
 
-**Total: ~1 day of focused engineering** before Mode B starts. Deferring R1-R4 doesn't break anything but means v3 carries the dead surface forward (counter to ADR-002's "v3 starts clean" framing).
-
-R1-R5 are not part of this Phase 0 docs PR — they're scheduled as an early-Phase-1 cleanup task. This doc captures the plan; the work itself ships when Phase 1 begins.
+**Total shipped:** 9 of 9 deprecation steps. `brand_profiles` retired from the codebase + the database.
 
 ---
 
@@ -130,7 +132,7 @@ When v3 ingest starts dual-writing in Mode B, the v3 schema does **not** include
 
 | # | Question | Owner | When |
 |---|---|---|---|
-| Q1 | Does the single remaining `brand_profiles` row need to be reconstructed into `org_brands` form before R4 archives it? Or is it operator test data that can just be dropped? | Operator | Pre-R4 (Phase 1 start) |
+| Q1 ✅ | Single remaining `brand_profiles` row was a "Trust Radar" test profile (cleerox@gmail.com, trustradar.ca, never scanned, no matching `brands` row). Operator decision 2026-05-07: **drop**. Archived to `_legacy_brand_profiles_2026_05` and removed in migration 0149 | Operator | Closed — Phase A sprint 7 |
 
 ---
 
