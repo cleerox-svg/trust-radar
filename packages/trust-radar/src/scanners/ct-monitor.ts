@@ -23,12 +23,10 @@ interface CrtShEntry {
   serial_number: string;
 }
 
-interface BrandProfile {
-  id: string;
-  brand_id: string;
-  user_id: string;
-  domain: string;
-  brand_keywords: string | null;
+interface BrandToScan {
+  brand_id:        string;
+  domain:          string;
+  brand_keywords:  string | null;
 }
 
 // Free CAs commonly used for phishing sites
@@ -51,39 +49,42 @@ const KV_CACHE_TTL = 3600; // 1 hour
  * Called by the cron orchestrator every 5 minutes.
  */
 export async function pollCertificates(env: Env): Promise<void> {
-  // 1. Get all active brand_profiles with their domains and brand_keywords
-  const profiles = await env.DB.prepare(
-    `SELECT bp.id, bp.brand_id, bp.user_id,
-            COALESCE(bp.domain, b.canonical_domain) AS domain,
-            bp.brand_keywords
-     FROM brand_profiles bp
-     JOIN brands b ON b.id = bp.brand_id
-     WHERE bp.monitoring_enabled = 1
-       AND COALESCE(bp.domain, b.canonical_domain) IS NOT NULL`
-  ).all<BrandProfile>();
+  // R6 (2026-05-07): brand_profiles retired. Scan list comes from
+  // brands that have at least one row in org_brands — i.e. a tenant
+  // is actively monitoring the brand. DISTINCT keeps multi-tenant
+  // brands (same brand assigned to multiple orgs) from being scanned
+  // more than once per cycle.
+  const brands = await env.DB.prepare(
+    `SELECT DISTINCT b.id AS brand_id,
+            b.canonical_domain AS domain,
+            b.brand_keywords
+     FROM brands b
+     JOIN org_brands ob ON ob.brand_id = b.id
+     WHERE b.canonical_domain IS NOT NULL`
+  ).all<BrandToScan>();
 
-  if (profiles.results.length === 0) {
-    logger.info('ct_monitor_skip', { reason: 'no active brand profiles' });
+  if (brands.results.length === 0) {
+    logger.info('ct_monitor_skip', { reason: 'no tenant-monitored brands' });
     return;
   }
 
-  logger.info('ct_monitor_start', { brands: profiles.results.length });
+  logger.info('ct_monitor_start', { brands: brands.results.length });
 
   let totalCerts = 0;
   let totalSuspicious = 0;
   let totalNew = 0;
 
   // 2. Process brands in batches of BRAND_BATCH_SIZE
-  for (let i = 0; i < profiles.results.length; i += BRAND_BATCH_SIZE) {
-    const batch = profiles.results.slice(i, i + BRAND_BATCH_SIZE);
+  for (let i = 0; i < brands.results.length; i += BRAND_BATCH_SIZE) {
+    const batch = brands.results.slice(i, i + BRAND_BATCH_SIZE);
 
     const results = await Promise.allSettled(
-      batch.map(async (profile) => {
-        const keywords = profile.brand_keywords
-          ? JSON.parse(profile.brand_keywords) as string[]
+      batch.map(async (brand) => {
+        const keywords = brand.brand_keywords
+          ? JSON.parse(brand.brand_keywords) as string[]
           : [];
-        const result = await checkCertForBrand(env, profile.brand_id, profile.domain, keywords, profile.user_id);
-        return result;
+        // userId omitted — alerts now attribute to 'system' (R3/R6).
+        return checkCertForBrand(env, brand.brand_id, brand.domain, keywords);
       })
     );
 
@@ -99,7 +100,7 @@ export async function pollCertificates(env: Env): Promise<void> {
   }
 
   logger.info('ct_monitor_complete', {
-    brands: profiles.results.length,
+    brands: brands.results.length,
     totalCerts,
     totalNew,
     totalSuspicious,
@@ -282,7 +283,10 @@ async function processCertEntries(
     if (isSuspicious) {
       suspicious++;
 
-      const resolvedUserId = userId ?? await resolveUserForBrand(env, brandId);
+      // brand_profiles retired (R6, 2026-05-07). Alerts attribute to
+      // 'system' when no caller-supplied userId is present. The
+      // alert is still tenant-scoped at read time via brand_id.
+      const resolvedUserId = userId ?? 'system';
 
       if (resolvedUserId) {
         try {
@@ -373,11 +377,6 @@ function determineSuspicion(
   return true;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────
-
-async function resolveUserForBrand(env: Env, brandId: string): Promise<string | null> {
-  const row = await env.DB.prepare(
-    'SELECT user_id FROM brand_profiles WHERE brand_id = ? LIMIT 1'
-  ).bind(brandId).first<{ user_id: string }>();
-  return row?.user_id ?? null;
-}
+// resolveUserForBrand removed in R6 (2026-05-07) — brand_profiles
+// retired. Alerts now attribute to a stable 'system' userId when no
+// caller passes one in.
