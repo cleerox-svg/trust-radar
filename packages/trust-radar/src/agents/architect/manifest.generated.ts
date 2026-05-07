@@ -358,7 +358,6 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [
         "DB",
         "app_store_listings",
-        "brand_profiles",
         "brands",
         "ct_certificates",
         "dark_web_mentions",
@@ -371,8 +370,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threat_narratives"
       ],
       "ai_models_referenced": [],
-      "loc": 487,
-      "last_modified": "2026-05-04T17:56:39.962Z"
+      "loc": 481,
+      "last_modified": "2026-05-07T14:52:41.416Z"
     },
     {
       "name": "news-watcher",
@@ -572,7 +571,6 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "reads": [
         "DB",
-        "brand_profiles",
         "brands",
         "monitored_brands",
         "social_monitor_results",
@@ -588,8 +586,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 592,
-      "last_modified": "2026-05-06T18:46:42.168Z"
+      "loc": 601,
+      "last_modified": "2026-05-07T14:55:22.364Z"
     },
     {
       "name": "social-ai-assessor",

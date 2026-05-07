@@ -85,7 +85,6 @@ export const sentinelAgent: AgentModule = {
   // ingestion. Sized for ~50-200 calls per hourly run.
   budget: { monthlyTokenCap: 100_000_000 },
   reads: [
-    { kind: "d1_table", name: "brand_profiles" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "monitored_brands" },
     { kind: "d1_table", name: "social_monitor_results" },
@@ -464,11 +463,21 @@ interface SocialAssessmentAI {
  * Uses the same callAnthropic pattern as the main sentinel classification loop.
  */
 export async function runSentinelSocialAssessment(env: Env): Promise<void> {
-  // Fetch unassessed HIGH/CRITICAL results
+  // Fetch unassessed HIGH/CRITICAL results.
+  // brand_profiles retired (R3, 2026-05-07) — query the brands
+  // table directly. Pre-deprecation rows whose brand_id is a stale
+  // brand_profiles.id won't match brands.id and get skipped here;
+  // that's correct (the assessment loop was silently no-op'ing
+  // those rows anyway since brand_profiles is empty).
   const rows = await env.DB.prepare(`
-    SELECT smr.*, bp.brand_name, bp.domain, bp.official_handles
+    SELECT smr.id, smr.brand_id, smr.platform, smr.handle_checked,
+           smr.suspicious_account_url, smr.suspicious_account_name,
+           smr.impersonation_score, smr.impersonation_signals, smr.severity,
+           b.name AS brand_name,
+           b.canonical_domain AS domain,
+           b.official_handles
     FROM social_monitor_results smr
-    JOIN brand_profiles bp ON bp.id = smr.brand_id
+    JOIN brands b ON b.id = smr.brand_id
     WHERE smr.severity IN ('HIGH', 'CRITICAL')
       AND smr.ai_assessment IS NULL
       AND smr.status = 'open'
