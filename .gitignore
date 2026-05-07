@@ -12,6 +12,7 @@ dist/
 # Frontend built assets (built in CI before deploy)
 packages/imprsn8/public/
 packages/trust-radar/public/v2/
+packages/trust-radar/public/tenant/
 
 # Python
 __pycache__/
