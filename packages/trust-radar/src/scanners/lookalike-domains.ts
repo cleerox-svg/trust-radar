@@ -130,18 +130,21 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
            WHERE id = ? AND first_seen IS NULL`,
         ).bind(row.id).run();
 
-        // Get the brand info for context
-        const brand = await env.DB.prepare(
-          `SELECT bp.brand_name, bp.domain, bp.user_id
-           FROM brand_profiles bp
-           WHERE bp.id = ?`,
+        // R7 (2026-05-07): brand_profiles retired. Pull brand context
+        // straight from `brands`. user_id-as-owner is dead; alerts
+        // attribute to 'system' (read-side scoping is via brand_id →
+        // org_brands, not user_id).
+        const brandRow = await env.DB.prepare(
+          `SELECT name AS brand_name, canonical_domain AS domain
+           FROM brands
+           WHERE id = ?`,
         ).bind(row.brand_id).first<{
           brand_name: string;
           domain: string;
-          user_id: string;
         }>();
 
-        if (!brand) return;
+        if (!brandRow) return;
+        const brand = { ...brandRow, user_id: 'system' };
 
         // Request AI assessment
         let threatLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'MEDIUM';

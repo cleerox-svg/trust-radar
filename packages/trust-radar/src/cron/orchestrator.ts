@@ -699,12 +699,12 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
       const degraded = ['F', 'D'].includes(change.current_grade);
       const severity = degraded ? 'HIGH' : 'MEDIUM';
 
-      // Look up the brand owner (user_id) for the alert
-      const brandOwner = await env.DB.prepare(
-        `SELECT user_id FROM brand_profiles WHERE brand_id = ? LIMIT 1`
-      ).bind(change.brand_id).first<{ user_id: string }>();
-
-      const userId = brandOwner?.user_id ?? 'system';
+      // brand_profiles retired (R8, 2026-05-07). Email-grade-change
+      // alerts are tenant-scoped at read time via brand_id → org_brands,
+      // so creation attributes to a stable 'system' userId. The legacy
+      // path looked up an owning user via brand_profiles; that table
+      // is dead.
+      const userId = 'system';
 
       await createAlert(env.DB, {
         brandId: change.brand_id,
