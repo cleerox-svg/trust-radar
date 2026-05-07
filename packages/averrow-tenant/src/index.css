@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Mirrors averrow-ui design system tokens for cross-app consistency.
+     Long-term these come from a shared @averrow/design-system package. */
+  --bg-page:           #060A14;
+  --bg-card:           rgba(22,30,48,0.85);
+  --bg-sidebar:        rgba(10,16,30,0.96);
+  --amber:             #E5A832;
+  --amber-dim:         #B8821F;
+  --text-primary:      rgba(255,255,255,0.92);
+  --text-secondary:    rgba(255,255,255,0.60);
+  --text-tertiary:     rgba(255,255,255,0.40);
+  --text-muted:        rgba(255,255,255,0.25);
+  --border-base:       rgba(255,255,255,0.08);
+  --border-strong:     rgba(255,255,255,0.14);
+  --sev-critical:      #f87171;
+  --sev-high:          #fb923c;
+  --sev-medium:        #fbbf24;
+  --sev-low:           #60a5fa;
+}
+
+html, body, #root { height: 100%; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
