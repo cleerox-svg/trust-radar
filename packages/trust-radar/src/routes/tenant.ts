@@ -35,6 +35,9 @@ import {
 import {
   handleGetAppStoreModuleSummary, handleGetBrandAppStoreFindings,
 } from "../handlers/tenantAppStoreModule";
+import {
+  handleGetDarkWebModuleSummary, handleGetBrandDarkWebFindings,
+} from "../handlers/tenantDarkWebModule";
 
 export function registerTenantRoutes(router: RouterType<IRequest>): void {
   // ─── Organizations (org-scoped) ───────────────────────────────────
@@ -289,6 +292,23 @@ export function registerTenantRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGetBrandAppStoreFindings(
+      request, env,
+      request.params["orgId"] ?? "",
+      request.params["brandId"] ?? "",
+      ctx,
+    );
+  });
+
+  // ─── Module surfaces — Dark Web Monitoring (v3 Phase B) ────────
+  router.get("/api/orgs/:orgId/modules/dark-web", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetDarkWebModuleSummary(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/modules/dark-web/brands/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetBrandDarkWebFindings(
       request, env,
       request.params["orgId"] ?? "",
       request.params["brandId"] ?? "",
