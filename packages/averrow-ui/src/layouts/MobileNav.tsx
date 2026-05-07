@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useAuth } from '@/lib/auth';
+import { useObservatoryVersion } from '@/design-system/hooks';
 
 const AMBER   = '#E5A832';
 const RED     = '#C83C3C';
@@ -19,19 +20,21 @@ interface NavItem {
   exact?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: 'home',   icon: '🏠', label: 'Home',   path: '/',           exact: true },
-  { id: 'obs',    icon: '🌐', label: 'Map',    path: '/observatory' },
-  { id: 'brands', icon: '🛡', label: 'Brands', path: '/brands' },
-  { id: 'alerts', icon: '🔔', label: 'Alerts', path: '/alerts' },
-];
+function buildNavItems(observatoryPath: string): NavItem[] {
+  return [
+    { id: 'home',   icon: '🏠', label: 'Home',   path: '/',                  exact: true },
+    { id: 'obs',    icon: '🌐', label: 'Map',    path: observatoryPath },
+    { id: 'brands', icon: '🛡', label: 'Brands', path: '/brands' },
+    { id: 'alerts', icon: '🔔', label: 'Alerts', path: '/alerts' },
+  ];
+}
 
-const MORE_SECTIONS = [
+function buildMoreSections(observatoryPath: string) {
+  return [
   {
     label: 'Intelligence',
     items: [
-      { icon: '🌐', label: 'Observatory',   path: '/observatory' },
-      { icon: '🌐', label: 'Observatory v3', path: '/observatory-v3' },
+      { icon: '🌐', label: 'Observatory',    path: observatoryPath },
       { icon: '🛡', label: 'Brands',        path: '/brands' },
       { icon: '📱', label: 'Apps',          path: '/apps' },
       { icon: '🕶', label: 'Dark Web',      path: '/dark-web' },
@@ -69,14 +72,18 @@ const MORE_SECTIONS = [
       { icon: '🔔', label: 'Notifications', path: '/notifications' },
     ],
   },
-];
+  ];
+}
 
 export function MobileNav() {
   const navigate      = useNavigate();
   const location      = useLocation();
   const { isSuperAdmin } = useAuth();
   const { data: unreadData } = useUnreadCount();
+  const { path: observatoryPath } = useObservatoryVersion();
   const [showMore, setShowMore]   = useState(false);
+
+  const NAV_ITEMS = buildNavItems(observatoryPath);
 
   const unreadCount = typeof unreadData === 'number'
     ? unreadData
@@ -84,6 +91,10 @@ export function MobileNav() {
 
   function isActive(item: NavItem): boolean {
     if (item.exact) return location.pathname === item.path;
+    // Observatory entry should highlight on either /observatory or /observatory-v3
+    if (item.id === 'obs') {
+      return location.pathname.startsWith('/observatory');
+    }
     return location.pathname.startsWith(item.path);
   }
 
@@ -97,7 +108,7 @@ export function MobileNav() {
   }
 
   // Add Organizations for super admins only
-  const sections = MORE_SECTIONS.map(s =>
+  const sections = buildMoreSections(observatoryPath).map(s =>
     s.label === 'Platform' && isSuperAdmin
       ? {
           ...s,
