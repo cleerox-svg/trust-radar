@@ -11,6 +11,8 @@ import { Domain } from '@/features/domain/Domain';
 import { BrandDomainFindings } from '@/features/domain/BrandDomainFindings';
 import { Social } from '@/features/social/Social';
 import { BrandSocialFindings } from '@/features/social/BrandSocialFindings';
+import { AppStore } from '@/features/app-store/AppStore';
+import { BrandAppStoreFindings } from '@/features/app-store/BrandAppStoreFindings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,7 +41,9 @@ export function App() {
               {/* Social Media Impersonation — Phase B sprint 3 */}
               <Route path="modules/social"                    element={<Social />} />
               <Route path="modules/social/brands/:brandId"    element={<BrandSocialFindings />} />
-              <Route path="modules/app-store"     element={<ModulePlaceholder moduleKey="app_store" />} />
+              {/* App Store Impersonation — Phase B sprint 4 */}
+              <Route path="modules/app-store"                    element={<AppStore />} />
+              <Route path="modules/app-store/brands/:brandId"    element={<BrandAppStoreFindings />} />
               <Route path="modules/dark-web"      element={<ModulePlaceholder moduleKey="dark_web" />} />
               <Route path="modules/abuse-mailbox" element={<ModulePlaceholder moduleKey="abuse_mailbox" />} />
               <Route path="modules/trademark"     element={<ModulePlaceholder moduleKey="trademark" />} />
