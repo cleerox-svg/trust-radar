@@ -190,3 +190,91 @@
     font-size: 26px;
   }
 }
+
+/* ============================================================
+   Light-theme parity overrides (Phase D D2d).
+
+   Tailwind's `text-white/X` / `bg-white/X` / `border-white/X` /
+   `bg-black/X` utilities hard-code white or black at runtime —
+   they do NOT consult our [data-theme="light"] CSS vars. Without
+   the rules below, the entire ops UI renders white-on-white
+   under the light theme.
+
+   Set is exhaustive against grep across packages/averrow-ops/src/.
+   New opacity values added later need a matching rule here.
+   The averrow-tenant package carries an analogous block in
+   src/index.css (Phase D D1) — keep them in sync.
+   ============================================================ */
+
+/* text-white/X */
+[data-theme="light"] .text-white\/95         { color: rgba(15,20,35,0.95); }
+[data-theme="light"] .text-white\/90         { color: rgba(15,20,35,0.90); }
+[data-theme="light"] .text-white\/85         { color: rgba(15,20,35,0.85); }
+[data-theme="light"] .text-white\/80         { color: rgba(15,20,35,0.80); }
+[data-theme="light"] .text-white\/70         { color: rgba(15,20,35,0.70); }
+[data-theme="light"] .text-white\/65         { color: rgba(15,20,35,0.65); }
+[data-theme="light"] .text-white\/60         { color: rgba(15,20,35,0.60); }
+[data-theme="light"] .text-white\/55         { color: rgba(15,20,35,0.62); }
+[data-theme="light"] .text-white\/50         { color: rgba(15,20,35,0.55); }
+[data-theme="light"] .text-white\/45         { color: rgba(15,20,35,0.50); }
+[data-theme="light"] .text-white\/40         { color: rgba(15,20,35,0.48); }
+[data-theme="light"] .text-white\/35         { color: rgba(15,20,35,0.42); }
+[data-theme="light"] .text-white\/30         { color: rgba(15,20,35,0.36); }
+[data-theme="light"] .text-white\/25         { color: rgba(15,20,35,0.30); }
+[data-theme="light"] .text-white\/20         { color: rgba(15,20,35,0.24); }
+[data-theme="light"] .text-white\/10         { color: rgba(15,20,35,0.18); }
+[data-theme="light"] .text-white\/\[0\.15\]  { color: rgba(15,20,35,0.20); }
+
+/* bg-white/X */
+[data-theme="light"] .bg-white\/30           { background-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .bg-white\/20           { background-color: rgba(15,20,35,0.08); }
+[data-theme="light"] .bg-white\/10           { background-color: rgba(15,20,35,0.06); }
+[data-theme="light"] .bg-white\/5            { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .bg-white\/\[0\.1\]     { background-color: rgba(15,20,35,0.07); }
+[data-theme="light"] .bg-white\/\[0\.08\]    { background-color: rgba(15,20,35,0.06); }
+[data-theme="light"] .bg-white\/\[0\.06\]    { background-color: rgba(15,20,35,0.05); }
+[data-theme="light"] .bg-white\/\[0\.05\]    { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .bg-white\/\[0\.04\]    { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .bg-white\/\[0\.03\]    { background-color: rgba(15,20,35,0.03); }
+[data-theme="light"] .bg-white\/\[0\.02\]    { background-color: rgba(15,20,35,0.02); }
+[data-theme="light"] .bg-white\/\[0\.015\]   { background-color: rgba(15,20,35,0.02); }
+
+/* bg-black/X — overlays + tooltips. Light-mode equivalents are
+   pale-tinted dark, not white, since these typically need contrast
+   against bright surfaces. */
+[data-theme="light"] .bg-black\/80           { background-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .bg-black\/60           { background-color: rgba(15,20,35,0.07); }
+[data-theme="light"] .bg-black\/30           { background-color: rgba(15,20,35,0.04); }
+
+/* border-white/X */
+[data-theme="light"] .border-white\/30          { border-color: rgba(15,20,35,0.20); }
+[data-theme="light"] .border-white\/20          { border-color: rgba(15,20,35,0.18); }
+[data-theme="light"] .border-white\/15          { border-color: rgba(15,20,35,0.14); }
+[data-theme="light"] .border-white\/10          { border-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .border-white\/8           { border-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .border-white\/5           { border-color: rgba(15,20,35,0.08); }
+[data-theme="light"] .border-white\/\[0\.10\]   { border-color: rgba(15,20,35,0.12); }
+[data-theme="light"] .border-white\/\[0\.1\]    { border-color: rgba(15,20,35,0.12); }
+[data-theme="light"] .border-white\/\[0\.08\]   { border-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .border-white\/\[0\.07\]   { border-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .border-white\/\[0\.06\]   { border-color: rgba(15,20,35,0.10); }
+[data-theme="light"] .border-white\/\[0\.05\]   { border-color: rgba(15,20,35,0.09); }
+[data-theme="light"] .border-white\/\[0\.04\]   { border-color: rgba(15,20,35,0.08); }
+[data-theme="light"] .border-white\/\[0\.03\]   { border-color: rgba(15,20,35,0.07); }
+
+/* The detail-stat-divider gradient hard-codes white in dark mode;
+   flip it for light theme. */
+[data-theme="light"] .detail-stat-divider {
+  background: linear-gradient(180deg, transparent, rgba(15,20,35,0.12) 30%, rgba(15,20,35,0.12) 70%, transparent);
+}
+@container (max-width: 220px) {
+  [data-theme="light"] .detail-stat-divider {
+    background: linear-gradient(90deg, transparent, rgba(15,20,35,0.12) 30%, rgba(15,20,35,0.12) 70%, transparent);
+  }
+}
+
+/* The detail-stat-metric-label hard-codes white at 25% in dark
+   mode; flip it. */
+[data-theme="light"] .detail-stat-metric-label {
+  color: rgba(15,20,35,0.40);
+}
