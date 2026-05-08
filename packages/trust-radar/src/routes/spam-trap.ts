@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { requireStaff, requireAdmin, isAuthContext } from "../middleware/auth";
 import {
   handleSpamTrapStats, handleSpamTrapCaptures, handleSpamTrapCapturesByBrand,
   handleSpamTrapCaptureDetail, handleSpamTrapSources, handleSpamTrapCampaigns,
@@ -22,7 +22,7 @@ export function registerSpamTrapRoutes(router: RouterType<IRequest>): void {
     return handleSpamTrapCaptures(request, env);
   });
   router.get("/api/spam-trap/captures/brand/:brandId", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleSpamTrapCapturesByBrand(request, env, request.params["brandId"] ?? "");
   });
