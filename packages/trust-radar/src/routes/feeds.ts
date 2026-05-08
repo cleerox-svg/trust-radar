@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext } from "../middleware/auth";
+import { requireStaff, requireAdmin, isAuthContext } from "../middleware/auth";
 import { json } from "../lib/cors";
 import {
   handleListFeeds, handleGetFeed, handleUpdateFeed, handleTriggerFeed,
@@ -13,44 +13,44 @@ import {
 export function registerFeedRoutes(router: RouterType<IRequest>): void {
   // ─── Feeds page endpoints (aggregated overview) ──────────────
   router.get("/api/feeds/overview", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleFeedsOverview(request, env);
   });
   router.get("/api/feeds/aggregate-stats", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleFeedsAggregateStats(request, env);
   });
   router.get("/api/feeds/:id/history", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleFeedPullHistory(request, env, request.params["id"] ?? "");
   });
 
   // ─── Existing feed endpoints ─────────────────────────────────
   router.get("/api/feeds", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListFeeds(request, env);
   });
   router.get("/api/feeds/stats", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleFeedStats(request, env);
   });
   router.get("/api/feeds/jobs", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleIngestionJobs(request, env);
   });
   router.get("/api/feeds/quota", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleFeedQuota(request, env);
   });
   router.get("/api/feeds/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleGetFeed(request, env, request.params["id"] ?? "");
   });
