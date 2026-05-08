@@ -141,7 +141,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         { label: 'Metrics',      path: '/admin/metrics',     icon: BarChart3 },
         { label: 'Dashboard',    path: '/admin',             icon: LayoutDashboard },
         { label: 'Team', path: '/admin/users?tab=members', icon: Users, matchPrefixes: ['/admin/users'] },
-        ...(isSuperAdmin ? [{ label: 'Organizations', path: '/admin/organizations', icon: Building2 }] : []),
+        ...(isSuperAdmin ? [{ label: 'Customers', path: '/admin/customers', icon: Building2, matchPrefixes: ['/admin/customers', '/admin/organizations'] }] : []),
         { label: 'Audit Log',    path: '/admin/audit',       icon: ClipboardList },
         ...(isSuperAdmin ? [{ label: 'Push Config', path: '/admin/push', icon: BellRing }] : []),
       ],
