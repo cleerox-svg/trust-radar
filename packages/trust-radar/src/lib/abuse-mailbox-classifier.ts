@@ -1,0 +1,345 @@
+// Averrow — Abuse Mailbox AI classifier
+//
+// Per-message Haiku call that classifies forwarded suspicious emails
+// sitting in `abuse_inbox_messages` with classification='pending'.
+// Pairs with the Email Worker in `handlers/abuseMailboxEmail.ts`
+// which inserts those rows.
+//
+// Cost shape: 1 Haiku call per message (~$0.001/message). At a
+// realistic customer scale (5-20 forwarded mails/day across the
+// fleet) this is sub-dollar/month — and customer-perceived value
+// is high because the determination email is the entire pitch.
+//
+// Verdict surface (matches the schema in 0150_abuse_mailbox.sql):
+//   classification ∈ phishing | spam | benign | malware | ambiguous
+//   ai_action      ∈ safe | review | escalate | takedown
+//   severity       ∈ LOW | MEDIUM | HIGH | CRITICAL
+//
+// We map the AI's verdict to severity here in code (not in the
+// model output) so the threshold stays auditable + tunable
+// without re-prompting.
+//
+// Per CLAUDE.md AI rules:
+//   - Haiku for classification (this fits)
+//   - All AI calls go through AI Gateway via callAnthropicJSON
+//   - BudgetManager throttling is automatic via the haiku helper
+
+import type { D1Database } from '@cloudflare/workers-types';
+import type { Env } from '../types';
+import { callAnthropicJSON, AnthropicError } from './anthropic';
+import { HOT_PATH_HAIKU } from './ai-models';
+
+// ─── Public types ────────────────────────────────────────────────
+
+export type AbuseClassification =
+  | 'phishing'
+  | 'spam'
+  | 'benign'
+  | 'malware'
+  | 'ambiguous';
+
+export type AbuseAction = 'safe' | 'review' | 'escalate' | 'takedown';
+
+export type AbuseSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface ClassifyResult {
+  classification: AbuseClassification;
+  action:         AbuseAction;
+  confidence:     number;     // 0-100
+  reasoning:      string;     // one short sentence
+}
+
+export interface AbuseClassifyContext {
+  original_from:         string | null;
+  original_subject:      string | null;
+  original_body_snippet: string | null;
+  url_count:             number;
+  attachment_count:      number;
+  brand_name:            string | null;
+  brand_domain:          string | null;
+}
+
+const SYSTEM_PROMPT = `You are a phishing analyst classifying forwarded suspicious emails.
+Customers' employees forwarded these to their company's abuse alias.
+
+Return JSON with exactly these keys:
+- classification: "phishing" | "spam" | "benign" | "malware" | "ambiguous"
+- action: "safe" | "review" | "escalate" | "takedown"
+- confidence: 0-100 integer
+- reasoning: one short sentence (max 200 chars)
+
+Classification rules:
+- "phishing" — credential harvesting, fake login pages, urgent payment
+  requests impersonating a brand, fake invoice/order confirmations
+  with bait links, account-suspension scams.
+- "malware" — attachments or links plausibly delivering malicious
+  payloads (.zip / .iso / .scr / fake invoice .pdf with macros,
+  off-brand executable links).
+- "spam" — bulk marketing, newsletter unsubscribed-by-employee,
+  generic sales prospecting. Annoying but not malicious.
+- "benign" — legitimate communication that the forwarder
+  misidentified (real password reset they triggered, real receipt,
+  real partner email).
+- "ambiguous" — insufficient evidence to call. Default to this when
+  uncertain. Operators clear ambiguous items faster than they
+  recover from a misclassified phish.
+
+Action mapping (advice for the security team):
+- "safe" — file it; nothing required.
+- "review" — human eyes recommended before responding to forwarder.
+- "escalate" — likely active campaign; tell the security team.
+- "takedown" — phishing/malware against a target brand we should
+  initiate takedown for. Only for clear cases targeting the
+  customer's own brand.
+
+Be conservative on "benign" — false-benign is worse than
+false-ambiguous. If the customer's brand is the SUBJECT of
+impersonation in the forwarded mail, lean toward
+phishing+takedown.`;
+
+/**
+ * Build the user-message prompt fragment from a message context.
+ * Pure function — no I/O. Exposed for unit testing the shape of
+ * what gets sent to the model.
+ */
+export function buildClassifyPrompt(ctx: AbuseClassifyContext): string {
+  const lines: string[] = [];
+  if (ctx.brand_name) {
+    lines.push(`Customer brand: ${ctx.brand_name}${ctx.brand_domain ? ` (${ctx.brand_domain})` : ''}`);
+  }
+  lines.push(`Forwarded email metadata:`);
+  if (ctx.original_from)    lines.push(`From: ${ctx.original_from}`);
+  if (ctx.original_subject) lines.push(`Subject: ${ctx.original_subject}`);
+  lines.push(`URLs in body: ${ctx.url_count}`);
+  lines.push(`Attachments: ${ctx.attachment_count}`);
+  if (ctx.original_body_snippet) {
+    lines.push('');
+    lines.push('Body snippet (truncated):');
+    lines.push(ctx.original_body_snippet.slice(0, 1500));
+  }
+  lines.push('');
+  lines.push('Return JSON.');
+  return lines.join('\n');
+}
+
+/**
+ * Validate + normalize the raw model output. Any shape error returns
+ * null so the caller can leave the row in classification='pending'
+ * for a follow-up retry.
+ */
+export function parseClassifyResult(raw: unknown): ClassifyResult | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const cls    = obj.classification;
+  const action = obj.action;
+  const conf   = obj.confidence;
+  const reason = obj.reasoning;
+
+  const validCls: AbuseClassification[] = ['phishing', 'spam', 'benign', 'malware', 'ambiguous'];
+  const validAct: AbuseAction[]         = ['safe', 'review', 'escalate', 'takedown'];
+
+  if (typeof cls !== 'string' || !validCls.includes(cls as AbuseClassification)) return null;
+  if (typeof action !== 'string' || !validAct.includes(action as AbuseAction))    return null;
+  if (typeof conf !== 'number' || conf < 0 || conf > 100)                          return null;
+  if (typeof reason !== 'string' || reason.length === 0)                           return null;
+
+  return {
+    classification: cls    as AbuseClassification,
+    action:         action as AbuseAction,
+    confidence:     Math.round(conf),
+    reasoning:      reason.slice(0, 240).trim(),
+  };
+}
+
+/**
+ * Map a (classification, confidence) pair to a severity label that
+ * gets stamped on the row. Threshold table is tuned so that
+ * "phishing @ 80%+" pages the security team and "ambiguous @
+ * any-conf" never auto-escalates. Pure function — unit-testable.
+ */
+export function severityFor(
+  classification: AbuseClassification,
+  confidence:     number,
+): AbuseSeverity {
+  if (classification === 'malware')  return 'CRITICAL';
+  if (classification === 'phishing') return confidence >= 80 ? 'HIGH' : 'MEDIUM';
+  if (classification === 'spam')     return 'LOW';
+  if (classification === 'benign')   return 'LOW';
+  return 'MEDIUM'; // ambiguous
+}
+
+/**
+ * Call Haiku for one message and return a structured classification.
+ * Returns null on transport failure or unparseable output — the
+ * caller leaves the row in classification='pending' so the next
+ * backfill pass can retry.
+ */
+export async function classifyAbuseMessageWithAI(
+  env: Env,
+  ctx: AbuseClassifyContext,
+): Promise<ClassifyResult | null> {
+  try {
+    const { parsed } = await callAnthropicJSON<unknown>(env, {
+      agentId: 'abuse_mailbox_classifier',
+      runId:   null,
+      model:   HOT_PATH_HAIKU,
+      system:  SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildClassifyPrompt(ctx) }],
+      maxTokens: 256,
+    });
+    return parseClassifyResult(parsed);
+  } catch (err) {
+    if (err instanceof AnthropicError) {
+      console.error('[abuse_mailbox_classifier] anthropic error:', err.message);
+    } else {
+      console.error('[abuse_mailbox_classifier] unexpected error:',
+        err instanceof Error ? err.message : String(err));
+    }
+    return null;
+  }
+}
+
+// ─── Backfill ────────────────────────────────────────────────────
+
+export interface ClassifyBackfillResult {
+  scanned:    number;
+  classified: number;
+  failed:     number;
+  by_classification: Record<AbuseClassification | 'parse_error', number>;
+}
+
+interface MessageRow {
+  id:                    string;
+  brand_id:              string | null;
+  original_from:         string | null;
+  original_subject:      string | null;
+  original_body_snippet: string | null;
+  url_count:             number;
+  attachment_count:      number;
+}
+
+interface BrandRow {
+  id:               string;
+  name:             string | null;
+  canonical_domain: string | null;
+}
+
+/**
+ * Backfill pass: classify abuse_inbox_messages rows that are still
+ * in classification='pending'. Skips already-classified rows so the
+ * call is idempotent on retry.
+ *
+ * - `limit` bounds the batch (default 50, max 200) to keep AI cost
+ *   per call predictable. ~$0.001/message via Haiku.
+ * - Operator runs repeatedly until `scanned < limit`.
+ * - On parse failure, the row stays in 'pending' so the next pass
+ *   can retry. We don't burn the row — phishing rows that failed
+ *   today might be classifiable tomorrow once the model warms.
+ * - Severity is computed in code (severityFor) so it stays
+ *   auditable + tunable without re-prompting.
+ */
+export async function runAbuseClassifierBackfill(
+  env:   Env,
+  opts?: { limit?: number; offset?: number },
+): Promise<ClassifyBackfillResult> {
+  const limit  = Math.min(200, opts?.limit  ?? 50);
+  const offset = Math.max(0,   opts?.offset ?? 0);
+
+  const rows = await env.DB.prepare(`
+    SELECT id, brand_id, original_from, original_subject,
+           original_body_snippet, url_count, attachment_count
+    FROM abuse_inbox_messages
+    WHERE classification = 'pending'
+    ORDER BY received_at ASC
+    LIMIT ? OFFSET ?
+  `).bind(limit, offset).all<MessageRow>();
+
+  // Bulk-load brand metadata for the batch in one query so we can
+  // include the customer's brand name in the prompt for every
+  // classification.
+  const brandIds = Array.from(
+    new Set(rows.results.map((r) => r.brand_id).filter((b): b is string => !!b))
+  );
+  const brandMap = await loadBrandsForClassifier(env.DB, brandIds);
+
+  const result: ClassifyBackfillResult = {
+    scanned:    rows.results.length,
+    classified: 0,
+    failed:     0,
+    by_classification: {
+      phishing:    0,
+      spam:        0,
+      benign:      0,
+      malware:     0,
+      ambiguous:   0,
+      parse_error: 0,
+    },
+  };
+
+  for (const m of rows.results) {
+    const brand = m.brand_id ? brandMap.get(m.brand_id) ?? null : null;
+
+    const verdict = await classifyAbuseMessageWithAI(env, {
+      original_from:         m.original_from,
+      original_subject:      m.original_subject,
+      original_body_snippet: m.original_body_snippet,
+      url_count:             m.url_count,
+      attachment_count:      m.attachment_count,
+      brand_name:            brand?.name             ?? null,
+      brand_domain:          brand?.canonical_domain ?? null,
+    });
+
+    if (!verdict) {
+      result.failed += 1;
+      result.by_classification.parse_error += 1;
+      continue;
+    }
+
+    result.classified += 1;
+    result.by_classification[verdict.classification] += 1;
+
+    const severity = severityFor(verdict.classification, verdict.confidence);
+    const aiAssessment =
+      `[AI ${verdict.classification} @${verdict.confidence}%] ${verdict.reasoning}`;
+
+    await env.DB.prepare(`
+      UPDATE abuse_inbox_messages
+      SET classification            = ?,
+          classified_by             = 'ai',
+          classification_confidence = ?,
+          classification_reason     = ?,
+          ai_assessment             = ?,
+          ai_action                 = ?,
+          severity                  = ?,
+          updated_at                = datetime('now')
+      WHERE id = ?
+        AND classification = 'pending'
+    `).bind(
+      verdict.classification,
+      verdict.confidence,
+      verdict.reasoning,
+      aiAssessment,
+      verdict.action,
+      severity,
+      m.id,
+    ).run();
+  }
+
+  return result;
+}
+
+async function loadBrandsForClassifier(
+  db:       D1Database,
+  brandIds: string[],
+): Promise<Map<string, BrandRow>> {
+  const result = new Map<string, BrandRow>();
+  if (brandIds.length === 0) return result;
+  const ph = brandIds.map(() => '?').join(',');
+  const rows = await db.prepare(`
+    SELECT id, name, canonical_domain
+    FROM brands
+    WHERE id IN (${ph})
+  `).bind(...brandIds).all<BrandRow>();
+  for (const r of rows.results) result.set(r.id, r);
+  return result;
+}
