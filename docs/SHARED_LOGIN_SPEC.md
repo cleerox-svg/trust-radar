@@ -128,15 +128,47 @@ neutral Send-link) is unchanged.
 
 ## 2. Profile page
 
-### Section order (must match top to bottom)
+**The Profile page is now a single canonical component shared by
+both products.** Both `/v2/profile` (averrow-ops) and
+`/tenant/profile` (averrow-tenant) render
+`<ProfilePage>` from `@averrow/shared/profile`. Per-product deltas
+flow through props (api client, feature flags, callbacks, brand
+text). Edit the shared component, NOT the per-product wrappers.
 
-1. **Identity** — avatar (initials only) + display_name + email + role badge.
-2. **Account** — display_name editor with "Save" + helper text "Shown instead of your Google name. Leave blank to use Google." + read-only email field.
+```
+packages/shared/src/profile/
+  ProfilePage.tsx       — composition + section order
+  sections.tsx          — IdentitySection, AccountSection, …
+  primitives.tsx        — Card, Button, Input, Pill, helpers
+  types.ts              — ProfilePageProps, ProfileApiClient,
+                          PasskeyAdapter, ProfileFeature
+  index.ts              — public exports
+```
+
+### Section order (canonical, enforced inside ProfilePage)
+
+1. **Identity** — avatar (initials only) + display_name + email + role badge + org pill.
+2. **Account** — display_name editor + read-only email.
 3. **Preferences** — theme toggle (Dark / Light) + timezone select.
-4. **Install** — `<InstallAppCard />`. Hidden when `isStandalone()`.
-5. **Passkeys** — `<PasskeysCard />`. Per-device list with `BIOMETRIC` badge when `transports` includes `"internal"`.
-6. **Notifications** — single-row card linking to `/notifications/preferences`.
-7. **Security** — active sessions count + "Revoke other sessions" button + per-session list (top 5).
+4. **Passkeys** — per-device list with `BIOMETRIC` badge when `transports` includes `"internal"`. Add-on-this-device + per-row remove.
+5. **Notifications** — single-row card linking to the host app's notifications-preferences route.
+6. **Billing** (tenant only) — single-row card linking to `/settings/billing`. Plan badge inline.
+7. **Security** — active-sessions count + "Revoke other sessions" button + per-session list (top 5).
+8. **Sign out** — closing card with red button.
+
+Skipped sections render `null` based on the `features` prop. Future sections (e.g. **Install**, **Organization**, **2FA / TOTP**) plug into the same composition without changing per-product wrappers.
+
+### Per-product feature flags
+
+| Feature      | /v2 (staff) | /tenant (customer) |
+|---|---|---|
+| `identity`     | ✓ | ✓ |
+| `account`      | ✓ | ✓ |
+| `preferences`  | ✓ | ✓ |
+| `passkeys`     | ✓ | ✓ |
+| `notifications`| ✓ | ✓ |
+| `billing`      | ✗ | ✓ |
+| `security`     | ✓ | (deferred — needs tenant-scoped sessions endpoint) |
 
 ### Required parity
 
