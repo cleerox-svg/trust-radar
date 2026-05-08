@@ -80,3 +80,17 @@ export async function apiPatch<T, B = unknown>(path: string, body: B): Promise<A
   }
   return res.json() as Promise<ApiSuccess<T>>;
 }
+
+export async function apiDelete<T>(path: string): Promise<ApiSuccess<T>> {
+  const token = getToken();
+  const res = await fetch(path, {
+    method: 'DELETE',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let parsed: ApiError | null = null;
+    try { parsed = await res.json() as ApiError; } catch { /* non-json */ }
+    throw new Error(parsed?.error ?? `${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<ApiSuccess<T>>;
+}
