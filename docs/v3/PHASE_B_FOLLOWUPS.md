@@ -40,3 +40,46 @@ averrow-ops rebadge. This is not blocking sprints B5-B8.
 
 **Tracking.** Open this as a dedicated PR in Phase D rather than
 folding into a sprint, so the diff is reviewable by design.
+
+**Update 2026-05-08 (post-D2d).** Phase D D1 + D2d shipped the
+finite opacity-class overrides for averrow-tenant + averrow-ops.
+Operator note flagged this is still a "full-platform" audit gap:
+the `/scan` landing (dark-only), worker-rendered pages, email
+templates, observatory WebGL chrome, and any one-off marketing
+surface haven't been swept yet. Treat the D1+D2d work as Wave 1
+of the parity audit; Wave 2 covers everything outside the two
+React SPA packages.
+
+## Pricing — keep config in the DB, not hardcoded
+
+**Flagged:** 2026-05-08 by operator, while scoping Stripe.
+
+**Constraint.** When pricing wiring lands, the pricing config
+itself must live in the DB so super_admins can edit baseline
+tier prices, individual module prices, and per-customer
+overrides without a code deploy. Stripe handles the billing
+event (charge, invoice, retry) but the source of truth for what
+each org's effective price IS lives in trust-radar.
+
+**Design implication for the Stripe sprint(s).**
+- New `pricing_plans` table (tier_id, name, monthly_price_cents,
+  included_modules JSON, trial_days). Seeded with the three
+  default tiers from CLAUDE.md (Professional $1,499 / Business
+  $3,999 / Enterprise custom).
+- New `module_prices` table (module_key, monthly_price_cents)
+  for à-la-carte / per-module subscriptions.
+- New `org_pricing_overrides` table — super_admin records a
+  custom price per org with `override_type`
+  (`tier_price` / `module_price` / `discount_percent`),
+  `value`, `reason`, `set_by_user_id`, `effective_until`.
+  Lets enterprise discounts and bespoke deals stay configurable
+  without a code change.
+- The Stripe subscription create flow reads our pricing config,
+  applies any active override, and either uses the matching
+  Stripe `price_id` (for standard tiers) OR a one-off
+  custom-price subscription item (for overridden / enterprise
+  customers).
+- Super_admin "Customers" page (rename from "Organizations" per
+  the same operator note) carries a Pricing sub-section that
+  lists current plan, effective monthly total, applied
+  overrides, and an edit form.

@@ -155,6 +155,9 @@ export default function App() {
         <Route path="admin/takedowns" element={lazyRoute(<Takedowns />)} />
         <Route path="admin/spam-trap" element={lazyRoute(<SpamTrap />)} />
         <Route path="admin/users" element={lazyRoute(<Organization />)} />
+        {/* Customers page (renamed from Organizations in v3 D Stripe sprint 1).
+            Keep /admin/organizations as an alias so saved bookmarks resolve. */}
+        <Route path="admin/customers" element={lazyRoute(<SuperAdminOrgs />)} />
         <Route path="admin/organizations" element={lazyRoute(<SuperAdminOrgs />)} />
         <Route path="admin/audit" element={lazyRoute(<AdminAudit />)} />
         <Route path="admin/incidents" element={lazyRoute(<AdminIncidents />)} />

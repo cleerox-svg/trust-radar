@@ -52,6 +52,9 @@ import {
 import { handleCartographerHealth } from "../handlers/cartographer-health";
 import { handleD1Health } from "../handlers/d1-health";
 import { handleGenerateQualifiedReport } from "../handlers/qualifiedReport";
+import {
+  handleListPricingPlans, handleListModulePrices, handleGetCustomerPricing,
+} from "../handlers/adminPricing";
 import { handleSendLeadOutreach, handleConvertLeadToTenant } from "../handlers/leadConversion";
 import {
   handleListPendingApprovals, handleGetApproval, handleGetReviewBundle,
@@ -327,6 +330,27 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleUpdateOrg(request, env, request.params["orgId"] ?? "");
+  });
+
+  // ─── Customers (super_admin pricing surface) ──────────────────
+  // /api/admin/customers/* mirrors /api/admin/organizations/* but
+  // adds the Stripe + pricing read endpoints. The averrow-ops
+  // sidebar entry "Organizations" is being renamed to "Customers"
+  // in a sibling sprint.
+  router.get("/api/admin/customers/:orgId/pricing", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetCustomerPricing(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/admin/pricing/plans", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListPricingPlans(request, env, ctx);
+  });
+  router.get("/api/admin/pricing/modules", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleListModulePrices(request, env, ctx);
   });
   router.get("/api/admin/brands/search", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
