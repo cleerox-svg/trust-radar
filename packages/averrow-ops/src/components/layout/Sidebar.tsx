@@ -35,14 +35,17 @@ interface SidebarProps {
 }
 
 const SIDEBAR_CONTAINER_STYLE: React.CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(10,16,30,0.96) 0%, rgba(6,10,20,0.99) 100%)',
+  // Use --bg-sidebar so the gradient flips with the theme. The
+  // start/end stops are the same var twice — keeps the original
+  // gradient API but lets light mode read the light surface.
+  background: 'linear-gradient(180deg, var(--bg-sidebar) 0%, var(--bg-sidebar) 100%)',
   backdropFilter: 'blur(24px)',
   WebkitBackdropFilter: 'blur(24px)',
-  borderRight: '1px solid rgba(255,255,255,0.07)',
+  borderRight: '1px solid var(--border-base)',
   boxShadow: [
-    '4px 0 48px rgba(0,0,0,0.60)',
-    'inset -1px 0 0 rgba(255,255,255,0.05)',
-    'inset 0 1px 0 rgba(255,255,255,0.06)',
+    '4px 0 48px rgba(0,0,0,0.30)',
+    'inset -1px 0 0 var(--border-base)',
+    'inset 0 1px 0 var(--border-base)',
   ].join(', '),
 };
 
@@ -53,7 +56,7 @@ const NAV_INACTIVE_STYLE: React.CSSProperties = {
   padding: '9px 14px',
   margin: '1px 8px',
   borderRadius: 10,
-  color: 'rgba(255,255,255,0.55)',
+  color: 'var(--text-secondary)',
   background: 'transparent',
   border: '1px solid transparent',
   transition: 'all 0.15s ease',
@@ -156,7 +159,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <div
         className="px-4 pt-4"
         style={{
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid var(--border-base)',
           paddingBottom: 16,
           marginBottom: 8,
         }}
@@ -172,7 +175,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   fontSize: 9,
                   fontFamily: 'monospace',
                   letterSpacing: '0.22em',
-                  color: 'rgba(255,255,255,0.35)',
+                  color: 'var(--text-tertiary)',
                   textTransform: 'uppercase',
                   whiteSpace: 'nowrap',
                   fontWeight: 700,
@@ -184,7 +187,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 style={{
                   flex: 1,
                   height: 1,
-                  background: 'linear-gradient(90deg, rgba(255,255,255,0.08), transparent)',
+                  background: 'linear-gradient(90deg, var(--border-base), transparent)',
                 }}
               />
             </div>
@@ -213,7 +216,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                           size={16}
                           style={{
                             flexShrink: 0,
-                            color: active ? '#E5A832' : 'rgba(255,255,255,0.40)',
+                            color: active ? '#E5A832' : 'var(--text-tertiary)',
                             filter: active ? 'drop-shadow(0 0 4px rgba(229,168,50,0.60))' : undefined,
                           }}
                         />
@@ -234,7 +237,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </nav>
       <div
         style={{
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderTop: '1px solid var(--border-base)',
           padding: '12px 16px',
           marginTop: 'auto',
         }}
@@ -246,7 +249,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         )}
         <div
           className="truncate"
-          style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace' }}
+          style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'monospace' }}
         >
           {user?.email}
         </div>
@@ -255,7 +258,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           className="mt-2 hover:text-accent transition-colors"
           style={{
             fontSize: 10,
-            color: 'rgba(255,255,255,0.30)',
+            color: 'var(--text-muted)',
             cursor: 'pointer',
             fontFamily: 'monospace',
             letterSpacing: '0.12em',

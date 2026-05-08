@@ -38,11 +38,11 @@ function SimpleStatCard({
     position: 'relative',
     userSelect: 'none',
     cursor: onClick ? 'pointer' : undefined,
-    background: 'rgba(22,30,48,0.50)',
+    background: 'var(--bg-card)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
     border: '1px solid rgba(229,168,50,0.15)',
-    boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+    boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 var(--border-base)',
     ...(accentColor && {
       borderLeftWidth: '3px',
       borderLeftStyle: 'solid',
@@ -77,7 +77,7 @@ function SimpleStatCard({
       <div style={{ marginTop: 8, position: 'relative' }}>
         <div style={{
           fontSize: 9, fontFamily: 'var(--font-mono)',
-          letterSpacing: '0.20em', color: 'rgba(255,255,255,0.40)',
+          letterSpacing: '0.20em', color: 'var(--text-tertiary)',
           textTransform: 'uppercase', marginBottom: 6,
         }}>
           {label}
@@ -96,7 +96,7 @@ function SimpleStatCard({
         )}
 
         {sublabel && (
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
             {sublabel}
           </div>
         )}
@@ -143,17 +143,17 @@ function DetailStatCard({
       style={{
         padding: '14px 16px',
         cursor: onClick ? 'pointer' : undefined,
-        background: 'rgba(22,30,48,0.50)',
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         border: '1px solid rgba(229,168,50,0.15)',
-        boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 rgba(255,255,255,0.04)',
+        boxShadow: '0 0 20px rgba(229,168,50,0.05), inset 0 1px 0 var(--border-base)',
         containerType: 'inline-size',
       }}
     >
       <div style={{
         fontSize: 9, fontFamily: 'var(--font-mono)',
-        letterSpacing: '0.20em', color: 'rgba(255,255,255,0.40)',
+        letterSpacing: '0.20em', color: 'var(--text-tertiary)',
         textTransform: 'uppercase', marginBottom: 10,
       }}>
         {title}
