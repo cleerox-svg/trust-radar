@@ -29,6 +29,7 @@ export const sparrowAgent: AgentModule = {
     { kind: "d1_table", name: "app_store_listings" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "org_brands" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "social_profiles" },
     { kind: "d1_table", name: "takedown_evidence" },
