@@ -192,24 +192,40 @@ interface PreferencesProps {
 }
 
 export function PreferencesSection({ user, apiClient, onUserUpdated, onToast }: PreferencesProps) {
-  const [theme, setTheme] = useState<'dark' | 'light'>(
-    (document.documentElement.getAttribute('data-theme') as 'dark' | 'light' | null)
-      ?? user.theme_preference
-      ?? 'dark',
-  );
+  // Auto / Dark / Light tri-state. 'auto' follows OS via
+  // prefers-color-scheme (handled by @averrow/shared/theme's
+  // bootstrap + listener). The DOM data-theme attribute always
+  // resolves to dark|light so CSS only ever sees the two
+  // concrete states.
+  const [theme, setTheme] = useState<'auto' | 'dark' | 'light'>(() => {
+    try {
+      const stored = localStorage.getItem('averrow-theme');
+      if (stored === 'auto' || stored === 'dark' || stored === 'light') return stored;
+    } catch {}
+    return user.theme_preference ?? 'auto';
+  });
   const [timezone, setTimezone] = useState<string>(user.timezone ?? browserTimezone());
 
   useEffect(() => {
-    if (user.theme_preference) setTheme(user.theme_preference);
     if (user.timezone) setTimezone(user.timezone);
-  }, [user.theme_preference, user.timezone]);
+  }, [user.timezone]);
 
-  const persistTheme = async (next: 'dark' | 'light') => {
-    document.documentElement.setAttribute('data-theme', next);
+  const resolveSystemTheme = (): 'dark' | 'light' => {
+    if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  };
+
+  const persistTheme = async (next: 'auto' | 'dark' | 'light') => {
+    const resolved = next === 'auto' ? resolveSystemTheme() : next;
+    document.documentElement.setAttribute('data-theme', resolved);
     try { localStorage.setItem('averrow-theme', next); } catch {}
     setTheme(next);
+    // Persist 'auto' to the backend by writing null (the backend
+    // treats null as "follow OS / app default"). dark/light stamp
+    // the explicit preference.
+    const body = next === 'auto' ? { theme_preference: null } : { theme_preference: next };
     try {
-      const res = await apiClient.patch('/api/profile', { theme_preference: next });
+      const res = await apiClient.patch('/api/profile', body);
       if (res.success) onUserUpdated();
       else onToast(res.error ?? 'Theme save failed.', 'error');
     } catch {
@@ -239,7 +255,7 @@ export function PreferencesSection({ user, apiClient, onUserUpdated, onToast }: 
         <div>
           <ProfileFieldLabel>Theme</ProfileFieldLabel>
           <div style={{ display: 'inline-flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-base)' }}>
-            {(['dark', 'light'] as const).map((value) => (
+            {(['auto', 'dark', 'light'] as const).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -262,6 +278,9 @@ export function PreferencesSection({ user, apiClient, onUserUpdated, onToast }: 
               </button>
             ))}
           </div>
+          <ProfileFieldHelper>
+            <strong>Auto</strong> follows your OS appearance. Pick Dark or Light to override.
+          </ProfileFieldHelper>
         </div>
 
         <div>
