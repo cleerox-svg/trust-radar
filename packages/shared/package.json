@@ -11,7 +11,8 @@
     "./alert-types": "./src/alert-types.ts",
     "./profile": "./src/profile/index.ts",
     "./login": "./src/login/index.ts",
-    "./auth": "./src/auth/index.ts"
+    "./auth": "./src/auth/index.ts",
+    "./passkeys": "./src/passkeys/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -19,6 +20,10 @@
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^11.0.0",
+    "@simplewebauthn/types": "^11.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
