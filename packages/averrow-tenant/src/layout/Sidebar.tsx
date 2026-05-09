@@ -6,7 +6,7 @@
 // once that lands in Phase B).
 
 import { NavLink } from 'react-router-dom';
-import { Globe, Users, Smartphone, EyeOff, Inbox, Award, Crosshair, Settings, Bell, AlertTriangle, Send, Sun, Moon, type LucideIcon } from 'lucide-react';
+import { Globe, Users, Smartphone, EyeOff, Inbox, Award, Crosshair, Settings, Bell, AlertTriangle, Send, Sun, Moon, Laptop, type LucideIcon } from 'lucide-react';
 import { useTenantModules, MODULE_LABELS, type ModuleKey } from '@/lib/modules';
 import { useTheme } from '@/lib/useTheme';
 import { cn } from '@/lib/cn';
@@ -36,9 +36,22 @@ const NAV_BASE = 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] trans
 const NAV_INACTIVE = 'text-white/55 hover:bg-white/[0.04] hover:text-white/85';
 const NAV_ACTIVE   = 'bg-amber/[0.10] text-amber border border-amber/[0.20]';
 
+function themeIconFor(theme: 'auto' | 'dark' | 'light') {
+  if (theme === 'auto')  return Laptop;
+  if (theme === 'light') return Sun;
+  return Moon;
+}
+
+function themeLabelFor(theme: 'auto' | 'dark' | 'light'): string {
+  if (theme === 'auto')  return 'Theme: auto (follows OS) — click for dark';
+  if (theme === 'dark')  return 'Theme: dark — click for light';
+  return 'Theme: light — click for auto';
+}
+
 export function Sidebar() {
   const { data, isLoading } = useTenantModules();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, cycle: cycleTheme } = useTheme();
+  const ThemeIcon = themeIconFor(theme);
 
   const active = (data?.modules ?? []).filter((m) => m.status === 'active' || m.status === 'trial');
   const locked = (data?.modules ?? []).filter((m) => m.status === 'not_entitled' || m.status === 'suspended');
@@ -49,12 +62,12 @@ export function Sidebar() {
         <AverrowLogo />
         <button
           type="button"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          onClick={cycleTheme}
+          aria-label={themeLabelFor(theme)}
+          title={themeLabelFor(theme)}
           className="p-1.5 rounded text-white/55 hover:text-white/95 hover:bg-white/[0.06] transition-colors"
         >
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          <ThemeIcon size={14} />
         </button>
       </div>
 

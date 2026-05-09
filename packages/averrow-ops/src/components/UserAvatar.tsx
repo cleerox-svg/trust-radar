@@ -1,9 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Bell, Building2, Key, LogOut, Sun, Moon, UserPlus } from 'lucide-react';
+import { User, Bell, Building2, Key, LogOut, UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/useWindowWidth';
-import { useTheme } from '@/design-system/hooks';
 import { parseInitials, SELF_AVATAR_COLOR } from '@/lib/avatar';
 import { Dropdown } from './Dropdown';
 import { BottomSheet } from './BottomSheet';
@@ -19,7 +18,6 @@ interface MenuItem {
 function ProfileMenu({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { toggle, isDark } = useTheme();
 
   const initials = parseInitials(user?.name, user?.email);
 
@@ -28,14 +26,13 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
     : user?.role === 'analyst' ? 'Analyst'
     : 'Client';
 
+  // Theme toggle lives in the sidebar header now (canonical
+  // quick-access surface) + Profile → Preferences (canonical
+  // explicit picker with Auto / Dark / Light). Removed from this
+  // dropdown to keep one toggle per product, no duplication.
   const menuItems: MenuItem[] = [
     { label: 'Profile & Settings', icon: User, path: '/profile' },
     { label: 'Notification Preferences', icon: Bell, path: '/notifications/preferences' },
-    {
-      label: isDark ? 'Light Mode' : 'Dark Mode',
-      icon: isDark ? Sun : Moon,
-      onClick: () => { toggle(); onClose(); },
-    },
     { label: 'Organization', icon: Building2, path: '/admin' },
     { label: 'API Keys', icon: Key, path: '/admin' },
   ];
