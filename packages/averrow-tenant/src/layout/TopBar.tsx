@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, LogOut, UserCircle, Settings as SettingsIcon, UserPlus } from 'lucide-react';
+import { parseInitials } from '@averrow/shared/avatar';
 import { useAuth } from '@/lib/auth';
 
 // Tenant TopBar — header with org context + clickable user avatar.
@@ -21,7 +22,7 @@ export function TopBar() {
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const orgName  = user?.organization?.name ?? 'Your Organization';
-  const initials = computeInitials(user?.display_name ?? user?.name ?? user?.email ?? null);
+  const initials = parseInitials(user?.display_name ?? user?.name, user?.email);
 
   useEffect(() => {
     if (!open) return;
@@ -153,18 +154,3 @@ export function TopBar() {
   );
 }
 
-function computeInitials(input: string | null): string {
-  if (!input) return '';
-  const parts = input.trim().split(/\s+/);
-  if (parts.length === 0) return '';
-  if (parts.length === 1) {
-    // Email or single-word display name → first char.
-    const first = parts[0]?.[0]?.toUpperCase() ?? '';
-    return first;
-  }
-  // First + last word, drops middles (matches parseInitials in
-  // averrow-ops/src/lib/avatar.ts).
-  const first = parts[0]?.[0]?.toUpperCase() ?? '';
-  const last  = parts[parts.length - 1]?.[0]?.toUpperCase() ?? '';
-  return `${first}${last}`;
-}
