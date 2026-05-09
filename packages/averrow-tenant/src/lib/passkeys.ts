@@ -1,118 +1,38 @@
-// Passkey (WebAuthn) browser-side helpers for averrow-tenant.
+// /tenant passkey lib — thin wrapper over @averrow/shared/passkeys.
 //
-// Mirrors averrow-ops/src/lib/passkeys.ts using the tenant's
-// apiGet/apiPost/apiDelete wrappers. Both products talk to the
-// same backend endpoints (/api/passkeys/*); only the HTTP client
-// shape differs.
-//
-// FUTURE: lift this whole module into @averrow/shared once a
-// shared HTTP client adapter pattern is in place.
+// Per SHARED_LOGIN_SPEC the WebAuthn flows are canonical and live
+// in the shared package. This file just instantiates the client
+// with the tenant HTTP adapter (try/catch around the throwing
+// apiGet/apiPost/apiDelete to produce the standard envelope) and
+// re-exports the surface so existing call sites keep working.
 
-import {
-  startRegistration,
-  startAuthentication,
-  browserSupportsWebAuthn,
-  browserSupportsWebAuthnAutofill,
-} from '@simplewebauthn/browser';
-import type {
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-} from '@simplewebauthn/types';
+import { createPasskeyClient } from '@averrow/shared/passkeys';
+import type { PasskeyApiResponse, PasskeyHttpClient } from '@averrow/shared/passkeys';
 import { apiGet, apiPost, apiDelete } from './api';
 
-export interface PasskeyDevice {
-  id:           string;
-  device_label: string | null;
-  user_agent:   string | null;
-  backed_up:    number;
-  transports:   string[];
-  created_at:   string;
-  last_used_at: string | null;
-}
-
-export function isPasskeySupported(): boolean {
-  return browserSupportsWebAuthn();
-}
-
-export async function isAutofillSupported(): Promise<boolean> {
+async function adapt<T>(p: Promise<{ success: true; data: T; total?: number }>): Promise<PasskeyApiResponse<T>> {
   try {
-    return await browserSupportsWebAuthnAutofill();
-  } catch {
-    return false;
+    const res = await p;
+    return { success: res.success, data: res.data };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Request failed' };
   }
 }
 
-export async function registerPasskey(deviceLabel?: string): Promise<void> {
-  if (!isPasskeySupported()) throw new Error('This browser does not support passkeys.');
+const httpClient: PasskeyHttpClient = {
+  get:    <T,>(path: string) => adapt<T>(apiGet<T>(path)),
+  post:   <T,>(path: string, body?: unknown) => adapt<T>(apiPost<T>(path, body ?? {})),
+  delete: <T,>(path: string) => adapt<T>(apiDelete<T>(path)),
+};
 
-  const begin = await apiPost<PublicKeyCredentialCreationOptionsJSON>(
-    '/api/passkeys/register/begin', {},
-  );
-  if (!begin.data) throw new Error('Failed to start passkey registration.');
+const client = createPasskeyClient(httpClient, { defaultReturnTo: '/tenant/' });
 
-  const attResp = await startRegistration({ optionsJSON: begin.data });
+export const isPasskeySupported   = client.isSupported;
+export const isAutofillSupported  = client.isAutofillSupported;
+export const startConditionalUI   = client.startConditionalUI;
+export const signInWithPasskey    = client.signInWithPasskey;
+export const registerPasskey      = client.registerPasskey;
+export const listPasskeys         = client.listPasskeys;
+export const removePasskey        = client.removePasskey;
 
-  await apiPost<{ success: boolean }>('/api/passkeys/register/finish', {
-    response: attResp,
-    device_label: deviceLabel,
-  });
-}
-
-interface BeginResponse extends PublicKeyCredentialRequestOptionsJSON {
-  challenge_key: string;
-}
-
-export interface SignInOptions {
-  email?:       string;
-  conditional?: boolean;
-  returnTo?:    string;
-}
-
-export async function signInWithPasskey(opts: SignInOptions = {}): Promise<boolean> {
-  if (!isPasskeySupported()) throw new Error('This browser does not support passkeys.');
-
-  const begin = await apiPost<BeginResponse>('/api/passkeys/auth/begin', { email: opts.email });
-  if (!begin.data) throw new Error('Failed to start passkey sign-in.');
-
-  const { challenge_key, ...optionsJSON } = begin.data;
-
-  let assertResp;
-  try {
-    assertResp = await startAuthentication({
-      optionsJSON,
-      useBrowserAutofill: opts.conditional ?? false,
-    });
-  } catch (err) {
-    if (err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
-      return false;
-    }
-    throw err;
-  }
-
-  const finish = await apiPost<{ access_token: string; expires_in: number; return_to: string }>(
-    '/api/passkeys/auth/finish',
-    { response: assertResp, challenge_key, return_to: opts.returnTo ?? '/tenant/' },
-  );
-  if (!finish.data) throw new Error('Passkey verification failed.');
-
-  const { access_token, expires_in, return_to } = finish.data;
-  window.location.assign(`${return_to}#token=${access_token}&expires_in=${expires_in}`);
-  return true;
-}
-
-export async function startConditionalUI(returnTo?: string): Promise<void> {
-  if (!isPasskeySupported()) return;
-  if (!(await isAutofillSupported())) return;
-  try {
-    await signInWithPasskey({ conditional: true, returnTo });
-  } catch { /* silent */ }
-}
-
-export async function listPasskeys(): Promise<PasskeyDevice[]> {
-  const res = await apiGet<PasskeyDevice[]>('/api/passkeys');
-  return res.data ?? [];
-}
-
-export async function removePasskey(id: string): Promise<void> {
-  await apiDelete(`/api/passkeys/${id}`);
-}
+export type { PasskeyDevice, SignInOptions } from '@averrow/shared/passkeys';
