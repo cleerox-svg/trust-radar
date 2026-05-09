@@ -14,7 +14,8 @@
     "./auth": "./src/auth/index.ts",
     "./passkeys": "./src/passkeys/index.ts",
     "./theme": "./src/theme/index.ts",
-    "./theme.css": "./src/theme/tokens.css"
+    "./theme.css": "./src/theme/tokens.css",
+    "./avatar": "./src/avatar/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -246,26 +246,8 @@ export function ProfilePill({ children, tone = 'neutral' }: PillProps) {
   );
 }
 
-// ─── Initials helper ─────────────────────────────────────────
-//
-// Mirrors averrow-ops/src/lib/avatar.ts:parseInitials. First +
-// last word, uppercase, drops middles. Falls back to first char
-// of email local-part. Returns "?" when nothing is available.
-
-export function parseInitials(displayName?: string | null, email?: string | null): string {
-  const src = (displayName ?? '').trim();
-  if (src) {
-    const parts = src.split(/\s+/).filter(Boolean);
-    if (parts.length === 1) {
-      return parts[0]?.[0]?.toUpperCase() ?? '?';
-    }
-    const first = parts[0]?.[0] ?? '';
-    const last  = parts[parts.length - 1]?.[0] ?? '';
-    return `${first}${last}`.toUpperCase();
-  }
-  if (email) {
-    const localPart = email.split('@')[0] ?? '';
-    return localPart[0]?.toUpperCase() ?? '?';
-  }
-  return '?';
-}
+// Re-export the canonical avatar helper from
+// @averrow/shared/avatar so callers inside the profile module
+// have a single import path. The implementation lives in the
+// shared/avatar module per SHARED_LOGIN_SPEC §3.
+export { parseInitials } from '../avatar';
