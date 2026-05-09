@@ -188,7 +188,13 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: '/v2/icon-192.svg',
-    badge: '/v2/icon-192.svg',
+    // Android renders `badge` as the status-bar small icon and
+    // expects a monochrome white-on-transparent silhouette.
+    // icon-192 is multi-color (dark fill + red gradient), so Android
+    // can't extract a clean silhouette and shows a generic file
+    // glyph fallback. notification-badge.svg is the proper
+    // monochrome Averrow A mark. iOS/desktop ignore `badge`.
+    badge: '/v2/notification-badge.svg',
     tag: data.tag || `averrow-${data.type || 'generic'}`,
     renotify: true,
     // Stash the click target + in-app id on the notification itself so the
