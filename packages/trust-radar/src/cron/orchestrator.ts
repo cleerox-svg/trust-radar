@@ -965,6 +965,21 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
   } catch (err) {
     logger.error('threat_feed_scan_snapshots_error', { error: err instanceof Error ? err.message : String(err) });
   }
+
+  // Daily brand-score snapshot (Brand Health + Exposure split per v3 §9.6).
+  // Runs once at hour===0. Scores monitored+customer tiers only; tracked
+  // brands have no signal worth snapshotting and there are tens of
+  // thousands of them. Per-brand recompute on signal change still happens
+  // via computeBrandExposureScore from the analyst/scanner paths.
+  if (hour === 0) {
+    try {
+      const { computeBrandScoresBatch } = await import('../lib/brand-scoring');
+      const summary = await computeBrandScoresBatch(env);
+      logger.info('brand_scores_daily_batch', summary);
+    } catch (err) {
+      logger.error('brand_scores_daily_batch_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
 }
 
 async function runSocialDiscovery(env: Env): Promise<void> {

@@ -2174,6 +2174,35 @@ async function extractCsvFromZip(buffer: ArrayBuffer): Promise<string | null> {
   return null;
 }
 
+// ─── POST /api/admin/brand-scores/recompute-all ─────────────────
+// Triggers the daily Brand Health + Brand Exposure batch on demand.
+// Useful (a) right after deploy to populate the new scores without
+// waiting for the 00:00 UTC cron, (b) after schema/weight changes,
+// (c) for spot-fixing if the daily job failed silently.
+//
+// Scores monitored+customer tier brands only; tracked tier is
+// scored on-demand via per-brand recompute.
+
+export async function handleRecomputeBrandScores(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { computeBrandScoresBatch } = await import('../lib/brand-scoring');
+    const summary = await computeBrandScoresBatch(env);
+    return json({
+      success: true,
+      data: {
+        ...summary,
+        message: `Scored ${summary.scored} of ${summary.scanned} brands in ${summary.duration_ms}ms (${summary.errors} errors)`,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "Recompute failed",
+    }, 500, origin);
+  }
+}
+
 // ─── GET /api/admin/brands — Admin brand management ─────────────
 
 export async function handleAdminListBrands(request: Request, env: Env): Promise<Response> {

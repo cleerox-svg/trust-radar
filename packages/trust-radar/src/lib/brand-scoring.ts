@@ -1,10 +1,28 @@
 /**
- * Composite Brand Exposure Score
+ * Brand scoring — Health (defensive posture) + Exposure (offensive pressure)
  *
- * Computes a weighted exposure score across seven signal categories:
- * threat activity, email security, social risk, domain risk, campaign
- * association, app-store risk, and dark-web risk.
- * Updates the brands table with computed scores.
+ * Per the v3 architecture decision (.claude/plans/v3.md §9.6 + research
+ * synthesis), brand scoring splits into TWO orthogonal dimensions:
+ *
+ *   brand_health_score   — 0-100, higher = better defensive posture
+ *                          (email auth, official social/app presence,
+ *                          monitoring engagement)
+ *   brand_exposure_score — 0-100, higher = worse offensive pressure
+ *                          (active threats, impersonations, dark web,
+ *                          lookalikes, open takedowns)
+ *
+ * No major DRP vendor publishes this two-axis decomposition (per the
+ * Phase 2 research). It's a Averrow differentiator. The legacy single
+ * `exposure_score` column (mixing defense + offense) is kept in sync
+ * for backward-compatible read paths until callers migrate over.
+ *
+ * Per-brand recompute: `computeBrandExposureScore(env, brandId)` —
+ * unchanged signature; existing 5 callers (analyst, brands handler,
+ * dark-web/social/app-store scanners) trigger this on signal changes.
+ *
+ * Daily batch: `computeBrandScoresBatch(env)` — efficient at scale
+ * via one aggregate query per signal category, grouped by brand_id.
+ * Writes columns + a brand_score_snapshots row per brand per day.
  */
 
 import type { Env } from "../types";
@@ -28,6 +46,9 @@ export interface BrandExposureResult {
   campaign_score: number;
   app_store_score: number;
   dark_web_score: number;
+  brand_health_score?: number;     // v3: defense-only score
+  brand_exposure_score?: number;   // v3: offense-only score
+  brand_health_grade?: string;     // v3: A+..F derived from brand_health_score
 }
 
 export async function computeBrandExposureScore(
@@ -102,7 +123,7 @@ export async function computeBrandExposureScore(
     (darkWebCounts?.suspicious || 0) * 5
   );
 
-  // Weighted composite
+  // Weighted composite (legacy — mixes defense + offense)
   const composite = Math.round(
     threatScore * WEIGHTS.threat_activity +
     emailScore * WEIGHTS.email_security +
@@ -113,17 +134,74 @@ export async function computeBrandExposureScore(
     darkWebScore * WEIGHTS.dark_web_risk
   );
 
-  // Update the brand record. app_store_score and dark_web_score are not
-  // persisted as dedicated columns yet — we expose them in the return type
-  // for callers that want the per-category breakdown. If a future migration
-  // adds columns, they can be bound here alongside existing risk fields.
+  // ─── v3 split: Brand Health (defense) vs Brand Exposure (offense) ───
+  //
+  // Brand Health = inverted email score (defense is GOOD when email
+  // posture is GOOD — emailScore in this function uses a 0=A+ to
+  // 100=F scale, so we invert) plus a small monitoring-engagement
+  // bonus when the brand is being actively scanned.
+  const brandRow = await env.DB.prepare(`
+    SELECT monitoring_status, official_handles, official_apps
+    FROM brands WHERE id = ?
+  `).bind(brandId).first<{
+    monitoring_status: string | null;
+    official_handles: string | null;
+    official_apps: string | null;
+  }>();
+
+  const officialSocialCount = countJsonEntries(brandRow?.official_handles);
+  const officialAppCount    = countJsonEntries(brandRow?.official_apps);
+
+  const healthFromEmail = 100 - emailScore;                                    // higher = better
+  const healthFromSocials = Math.min(20, officialSocialCount * 5);             // 0-20
+  const healthFromApps    = Math.min(10, officialAppCount * 5);                // 0-10
+  const healthFromActive  = brandRow?.monitoring_status === 'active' ? 10 : 0; // 0-10
+
+  // Re-weight email contribution to 60 max so socials/apps/active can
+  // top up to 100 (60 + 20 + 10 + 10 = 100). Linear remap from 0-100 → 0-60.
+  const emailContribution = Math.round((healthFromEmail / 100) * 60);
+  const brandHealthScore  = Math.min(100,
+    emailContribution + healthFromSocials + healthFromApps + healthFromActive,
+  );
+  const brandHealthGrade  = scoreToGrade(brandHealthScore);
+
+  // Brand Exposure = the offense-only weighted composite (re-normalized
+  // to drop the email_security weight since that belongs to Health now).
+  const offenseDenom =
+    WEIGHTS.threat_activity +
+    WEIGHTS.social_risk +
+    WEIGHTS.domain_risk +
+    WEIGHTS.campaign_association +
+    WEIGHTS.app_store_risk +
+    WEIGHTS.dark_web_risk;
+  const brandExposureScore = Math.round((
+    threatScore   * WEIGHTS.threat_activity +
+    socialScore   * WEIGHTS.social_risk +
+    domainScore   * WEIGHTS.domain_risk +
+    campaignScore * WEIGHTS.campaign_association +
+    appStoreScore * WEIGHTS.app_store_risk +
+    darkWebScore  * WEIGHTS.dark_web_risk
+  ) / offenseDenom);
+
+  // Single UPDATE that writes both legacy + v3 columns. Existing callers
+  // reading exposure_score keep working; new callers (BrandDetail v3 Risk
+  // tab in PR8) read brand_health_score + brand_exposure_score.
   await env.DB.prepare(`
     UPDATE brands SET
       exposure_score = ?,
       social_risk_score = ?,
-      domain_risk_score = ?
+      domain_risk_score = ?,
+      brand_health_score = ?,
+      brand_exposure_score = ?,
+      brand_health_grade = ?,
+      brand_health_updated_at = datetime('now'),
+      brand_exposure_updated_at = datetime('now')
     WHERE id = ?
-  `).bind(composite, socialScore, domainScore, brandId).run();
+  `).bind(
+    composite, socialScore, domainScore,
+    brandHealthScore, brandExposureScore, brandHealthGrade,
+    brandId,
+  ).run();
 
   return {
     exposure_score: composite,
@@ -134,5 +212,114 @@ export async function computeBrandExposureScore(
     campaign_score: campaignScore,
     app_store_score: appStoreScore,
     dark_web_score: darkWebScore,
+    brand_health_score: brandHealthScore,
+    brand_exposure_score: brandExposureScore,
+    brand_health_grade: brandHealthGrade,
   };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function scoreToGrade(score: number): string {
+  if (score >= 95) return 'A+';
+  if (score >= 90) return 'A';
+  if (score >= 85) return 'A-';
+  if (score >= 80) return 'B+';
+  if (score >= 75) return 'B';
+  if (score >= 70) return 'B-';
+  if (score >= 60) return 'C';
+  if (score >= 50) return 'D';
+  return 'F';
+}
+
+// official_handles is stored as JSON object {"twitter":"@x","linkedin":"y"};
+// official_apps is stored as JSON array. Count matches either shape.
+function countJsonEntries(json: string | null | undefined): number {
+  if (!json) return 0;
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) return parsed.length;
+    if (typeof parsed === 'object' && parsed !== null) return Object.keys(parsed).length;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ─── Daily batch + snapshot ────────────────────────────────────────
+//
+// Recomputes scores for all monitored+customer brands and writes a
+// row per brand per day to brand_score_snapshots. Used by the daily
+// orchestrator hour===0 path so the Risk tab can render score
+// sparklines and the Intel tab can surface "improving brands"
+// (week-over-week brand_health_score delta).
+//
+// Skips 'tracked' tier brands by design: 100K of them with no
+// signal would balloon the snapshot table. They get scored on-demand
+// when queried via per-brand recompute.
+
+export interface BatchScoreSummary {
+  scanned: number;
+  scored: number;
+  skipped: number;
+  errors: number;
+  duration_ms: number;
+}
+
+export async function computeBrandScoresBatch(env: Env): Promise<BatchScoreSummary> {
+  const start = Date.now();
+  const summary: BatchScoreSummary = { scanned: 0, scored: 0, skipped: 0, errors: 0, duration_ms: 0 };
+
+  // Score only monitored + customer tiers — tracked brands have no signal
+  // worth snapshotting and there are tens of thousands of them.
+  const targets = await env.DB.prepare(`
+    SELECT id FROM brands WHERE tier IN ('monitored', 'customer')
+  `).all<{ id: string }>();
+  summary.scanned = targets.results.length;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const { id } of targets.results) {
+    try {
+      const result = await computeBrandExposureScore(env, id);
+
+      // Snapshot — single UPSERT per brand per day. Inputs JSON
+      // captures the breakdown so weight tuning is replayable.
+      await env.DB.prepare(`
+        INSERT INTO brand_score_snapshots
+          (brand_id, snapshot_day, brand_health_score, brand_exposure_score, brand_health_grade,
+           health_inputs_json, exposure_inputs_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(brand_id, snapshot_day) DO UPDATE SET
+          brand_health_score = excluded.brand_health_score,
+          brand_exposure_score = excluded.brand_exposure_score,
+          brand_health_grade = excluded.brand_health_grade,
+          health_inputs_json = excluded.health_inputs_json,
+          exposure_inputs_json = excluded.exposure_inputs_json
+      `).bind(
+        id, today,
+        result.brand_health_score ?? null,
+        result.brand_exposure_score ?? null,
+        result.brand_health_grade ?? null,
+        JSON.stringify({
+          email: result.email_score,
+        }),
+        JSON.stringify({
+          threats:    result.threat_score,
+          social:     result.social_risk_score,
+          domain:     result.domain_risk_score,
+          campaigns:  result.campaign_score,
+          app_store:  result.app_store_score,
+          dark_web:   result.dark_web_score,
+        }),
+      ).run();
+
+      summary.scored++;
+    } catch {
+      summary.errors++;
+    }
+  }
+  summary.skipped = summary.scanned - summary.scored - summary.errors;
+  summary.duration_ms = Date.now() - start;
+  return summary;
 }
