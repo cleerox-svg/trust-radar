@@ -14,9 +14,10 @@
 
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip } from 'recharts';
 import { useAuth } from '@/lib/auth';
-import { useBrandStats, useBrands } from '@/hooks/useBrands';
-import { useBrandMovers } from '@/hooks/useBrandMovers';
+import { useBrandStats } from '@/hooks/useBrands';
+import { useBrandMovers, type BrandMover } from '@/hooks/useBrandMovers';
 import {
   useBrandCandidates,
   usePromoteBrandCandidate,
@@ -25,6 +26,7 @@ import {
 } from '@/hooks/useBrandCandidates';
 import { Brands as BrandsV2 } from '@/features/brands/Brands';
 import { Card } from '@/components/ui/Card';
+import { DeepCard } from '@/components/ui/DeepCard';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SectionLabel } from '@/components/ui/SectionLabel';
@@ -92,21 +94,25 @@ export function BrandsV3() {
 
 // ── INTEL ───────────────────────────────────────────────────────────────
 // Catalog-level overview. "What's happening across the brand catalog
-// this week." Each tile pulls existing endpoints — no new backend work.
+// this week." All data pulled from existing endpoints — no new backend
+// work. The visual rebuild lifts the surface from "stat tiles + plain
+// lists" (PR6 scaffold) to a chart-led intel surface with sector
+// donut, threat-type breakdown bars, and DeepCard-treated stat hero.
 function IntelTab({ isStaff }: { isStaff: boolean }) {
-  const { data: stats } = useBrandStats();
-  const { data: movers } = useBrandMovers();
+  const { data: stats, isLoading: statsLoading } = useBrandStats();
+  const { data: movers, isLoading: moversLoading } = useBrandMovers();
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile label="Total tracked"       value={String(stats?.total_tracked ?? 0)} />
-        <StatTile label="New this week"       value={String(stats?.new_this_week ?? 0)}
-                  sub={stats?.newest_brand_name ?? undefined} />
-        <StatTile label="Fastest rising"      value={`${stats?.fastest_rising_pct ?? 0}%`}
-                  sub={stats?.fastest_rising ?? undefined} tone="warn" />
-        <StatTile label="Top attack"          value={(stats?.top_threat_type ?? '—').replace(/_/g, ' ')}
-                  tone="crit" />
+    <div className="space-y-5">
+      <HeroStrip stats={stats} loading={statsLoading} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <SectorDonut breakdown={stats?.sector_breakdown ?? null} totalTracked={stats?.total_tracked ?? 0} />
+        <ThreatTypeBreakdown stats={stats} />
+        {isStaff
+          ? <HotProspectsTeaser />
+          : <CatalogStatusCard stats={stats} />
+        }
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -115,80 +121,381 @@ function IntelTab({ isStaff }: { isStaff: boolean }) {
           rows={movers?.rising ?? []}
           tone="crit"
           emptyMsg="No rising attack pressure this week"
+          loading={moversLoading}
         />
         <MoversCard
           title="Cooling down"
           rows={movers?.falling ?? []}
           tone="ok"
           emptyMsg="No brands cooling significantly this week"
+          loading={moversLoading}
         />
       </div>
 
-      <Card hover={false}>
-        <SectionLabel>Sector mix</SectionLabel>
-        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {(stats?.sector_breakdown ?? []).slice(0, 8).map(s => (
-            <div key={s.sector} style={{
-              padding: 12, borderRadius: 8,
-              border: '1px solid var(--border-base)', background: 'var(--bg-input)',
-            }}>
-              <div className="text-[10px] uppercase tracking-[0.18em] font-mono text-[var(--text-muted)]">
-                {s.sector}
-              </div>
-              <div className="mt-1 text-lg font-bold text-[var(--text-primary)]">{s.count}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {isStaff && <HotProspectsTeaser />}
+      <CatalogStatusFooter />
     </div>
   );
 }
 
-function MoversCard({ title, rows, tone, emptyMsg }: {
-  title: string;
-  rows: Array<{ id: string; name: string; canonical_domain: string; today_count: number; delta_7d: number }>;
-  tone: 'crit' | 'ok';
-  emptyMsg: string;
+// ── HeroStrip ────────────────────────────────────────────────────────
+// 4 stat tiles using DeepCard with accent gradients, big numbers,
+// and contextual sub-info. Replaces the flat 4-tile strip from the
+// PR6 scaffold which had no visual hierarchy.
+function HeroStrip({ stats, loading }: { stats: any; loading: boolean }) {
+  const tiles = [
+    {
+      label: 'Total tracked',
+      value: stats?.total_tracked != null ? formatNumber(stats.total_tracked) : '—',
+      sub: 'across catalog',
+      accent: '#E5A832',
+    },
+    {
+      label: 'New this week',
+      value: stats?.new_this_week != null ? `+${formatNumber(stats.new_this_week)}` : '—',
+      sub: stats?.newest_brand_name ?? 'newly seeded',
+      accent: '#3CB878',
+    },
+    {
+      label: 'Fastest rising',
+      value: stats?.fastest_rising_pct != null ? `+${stats.fastest_rising_pct}%` : '—',
+      sub: stats?.fastest_rising ?? '7-day delta',
+      accent: '#E8923C',
+    },
+    {
+      label: 'Top attack',
+      value: stats?.top_threat_type ? humanizeThreatType(stats.top_threat_type) : '—',
+      sub: stats?.top_threat_type_pct != null ? `${stats.top_threat_type_pct}% of incidents` : 'across all brands',
+      accent: '#C83C3C',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {tiles.map((t, i) => (
+        <DeepCard key={t.label} variant="active" accent={t.accent}
+          style={{ padding: '18px 20px', position: 'relative', overflow: 'hidden', minHeight: 110 }}>
+          <div style={{
+            position: 'absolute', top: 12, left: 16,
+            width: 4, height: 4, borderRadius: '50%',
+            background: t.accent, boxShadow: `0 0 8px ${t.accent}`,
+          }} />
+          <div style={{
+            position: 'absolute', right: -20, bottom: -20,
+            width: 110, height: 110, borderRadius: '50%',
+            background: `radial-gradient(circle, ${t.accent}30, transparent 70%)`,
+            pointerEvents: 'none',
+          }} />
+          <div style={{ position: 'relative', marginTop: 4 }}>
+            <div style={{
+              fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.20em',
+              color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 8,
+            }}>
+              {t.label}
+            </div>
+            <div style={{
+              fontSize: i === 3 ? 22 : 30,
+              fontWeight: 800,
+              color: t.accent,
+              textShadow: `0 0 12px ${t.accent}55`,
+              textTransform: i === 3 ? 'capitalize' : 'none',
+              lineHeight: 1.05,
+            }}>
+              {loading ? '…' : t.value}
+            </div>
+            {t.sub && (
+              <div className="mt-1 text-[11px] font-mono text-[var(--text-tertiary)] truncate">
+                {t.sub}
+              </div>
+            )}
+          </div>
+        </DeepCard>
+      ))}
+    </div>
+  );
+}
+
+// ── SectorDonut ──────────────────────────────────────────────────────
+// Replaces the empty grid of sector tiles (most Tranco-imported brands
+// have no sector classified, so the grid was rendering blank). Uses
+// recharts PieChart so even sparse data presents as an intelligible
+// chart with a "%-of-classified" framing.
+const SECTOR_COLORS = [
+  '#E5A832', '#0A8AB5', '#3CB878', '#C83C3C', '#E8923C',
+  '#9B59B6', '#1ABC9C', '#34495E',
+];
+
+function SectorDonut({ breakdown, totalTracked }: {
+  breakdown: { sector: string; count: number }[] | null;
+  totalTracked: number;
 }) {
-  const navigate = useNavigate();
-  const accent = tone === 'crit' ? 'var(--sev-critical)' : 'var(--green)';
+  const data = (breakdown ?? []).slice(0, 8);
+  const sumClassified = data.reduce((s, x) => s + x.count, 0);
+  const unclassified = Math.max(0, totalTracked - sumClassified);
+
+  if (data.length === 0) {
+    return (
+      <Card hover={false} style={{ minHeight: 220 }}>
+        <SectionLabel>Sector mix</SectionLabel>
+        <div className="mt-3 flex items-center justify-center" style={{ height: 160 }}>
+          <span className="text-xs text-[var(--text-tertiary)]">
+            Sector classification pending for {formatNumber(totalTracked)} brands
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card hover={false}>
-      <SectionLabel>{title}</SectionLabel>
-      <div className="mt-3 space-y-2">
-        {rows.length === 0 && (
-          <div className="text-xs text-[var(--text-tertiary)] py-4 text-center">{emptyMsg}</div>
-        )}
-        {rows.slice(0, 5).map(b => (
-          <div
-            key={b.id}
-            onClick={() => navigate(`/brands-v3/${b.id}`)}
-            className="cursor-pointer hover:bg-white/[0.02] transition-colors"
-            style={{
-              padding: '8px 12px', borderRadius: 6,
-              border: '1px solid var(--border-base)', background: 'var(--bg-input)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-            }}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{b.name}</div>
-              <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">{b.canonical_domain}</div>
-            </div>
-            <div className="text-right" style={{ minWidth: 70 }}>
-              <div className="text-sm font-bold" style={{ color: accent }}>
-                {b.delta_7d >= 0 ? '+' : ''}{b.delta_7d}
+      <div className="flex items-center justify-between">
+        <SectionLabel>Sector mix</SectionLabel>
+        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+          {formatNumber(sumClassified)} classified
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 items-center">
+        <div style={{ height: 160 }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie data={data} dataKey="count" nameKey="sector"
+                innerRadius={42} outerRadius={68} paddingAngle={2} stroke="none">
+                {data.map((_, i) => (
+                  <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                ))}
+              </Pie>
+              <RTooltip
+                contentStyle={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border-base)',
+                  borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="space-y-1">
+          {data.map((s, i) => (
+            <div key={s.sector} className="flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <span style={{
+                  width: 8, height: 8, borderRadius: 2,
+                  background: SECTOR_COLORS[i % SECTOR_COLORS.length],
+                  flexShrink: 0,
+                }} />
+                <span className="font-mono text-[var(--text-secondary)] truncate capitalize">
+                  {s.sector}
+                </span>
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
-                {b.today_count} active
-              </div>
+              <span className="font-mono text-[var(--text-tertiary)] flex-shrink-0">
+                {Math.round((s.count / sumClassified) * 100)}%
+              </span>
             </div>
-          </div>
-        ))}
+          ))}
+          {unclassified > 0 && (
+            <div className="flex items-center justify-between text-[11px] mt-2 pt-2 border-t border-white/[0.04]">
+              <span className="font-mono text-[var(--text-muted)]">Unclassified</span>
+              <span className="font-mono text-[var(--text-muted)]">
+                {formatNumber(unclassified)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   );
+}
+
+// ── ThreatTypeBreakdown ──────────────────────────────────────────────
+// Bar-chart of the top 3 threat types from useBrandStats. Replaces
+// the implicit "Top attack" tile-only treatment with explicit ranking
+// so an operator sees the full breakdown at a glance.
+function ThreatTypeBreakdown({ stats }: { stats: any }) {
+  const types: Array<{ name: string; pct: number; rank: number }> = [];
+  if (stats?.top_threat_type) {
+    types.push({ name: stats.top_threat_type, pct: stats.top_threat_type_pct ?? 0, rank: 1 });
+  }
+  if (stats?.second_threat_type) {
+    types.push({ name: stats.second_threat_type, pct: 0, rank: 2 });
+  }
+  if (stats?.third_threat_type) {
+    types.push({ name: stats.third_threat_type, pct: 0, rank: 3 });
+  }
+
+  // Bar widths: top one is the actual %, 2nd/3rd are scaled relative
+  // to top so the visual hierarchy matches even when 2nd/3rd %s
+  // aren't published by the endpoint.
+  const topPct = types[0]?.pct ?? 0;
+
+  return (
+    <Card hover={false}>
+      <SectionLabel>Attack types</SectionLabel>
+      <div className="mt-3 space-y-2.5">
+        {types.length === 0 && (
+          <div className="text-xs text-[var(--text-tertiary)] py-4 text-center">
+            No threat type data yet
+          </div>
+        )}
+        {types.map((t, i) => {
+          const barPct = i === 0 ? topPct : Math.max(10, topPct - (i * 18));
+          const accent = i === 0 ? '#C83C3C' : i === 1 ? '#E8923C' : '#DCAA32';
+          return (
+            <div key={t.name}>
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-[var(--text-primary)] capitalize">
+                  {humanizeThreatType(t.name)}
+                </span>
+                <span className="text-[var(--text-tertiary)]">
+                  {i === 0 ? `${t.pct}%` : `#${t.rank}`}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                <div className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${barPct}%`,
+                    background: `linear-gradient(90deg, ${accent}, ${accent}80)`,
+                    boxShadow: i === 0 ? `0 0 8px ${accent}55` : 'none',
+                  }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ── CatalogStatusCard ─────────────────────────────────────────────
+// Non-staff fallback for the third column (Hot prospects is staff-
+// only). Shows "what's running automatically" so customers
+// understand the platform's freshness model.
+function CatalogStatusCard({ stats }: { stats: any }) {
+  const items = [
+    { label: 'Tranco import',         schedule: 'Daily 06:00 UTC' },
+    { label: 'Brand-Health snapshot', schedule: 'Daily 00:00 UTC' },
+    { label: 'CT candidate sweep',    schedule: 'Daily 00:00 UTC' },
+    { label: 'Firmographic enricher', schedule: 'Hourly' },
+  ];
+  return (
+    <Card hover={false}>
+      <SectionLabel>Catalog automation</SectionLabel>
+      <div className="mt-3 space-y-2">
+        {items.map(it => (
+          <div key={it.label} className="flex items-center justify-between text-[11px] font-mono">
+            <span className="flex items-center gap-2">
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: 'var(--green)',
+                boxShadow: '0 0 6px var(--green)',
+              }} />
+              <span className="text-[var(--text-secondary)]">{it.label}</span>
+            </span>
+            <span className="text-[var(--text-tertiary)]">{it.schedule}</span>
+          </div>
+        ))}
+      </div>
+      {stats?.total_tracked != null && (
+        <div className="mt-3 pt-2 border-t border-white/[0.04] text-[10px] font-mono text-[var(--text-muted)]">
+          Auto-sweeps {formatNumber(stats.total_tracked)} brands continuously
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── CatalogStatusFooter ──────────────────────────────────────────────
+// Catalog-wide status footer: "what just ran" / "next refresh in X."
+// Keeps the user oriented without an admin button.
+function CatalogStatusFooter() {
+  return (
+    <div className="text-[10px] font-mono text-[var(--text-muted)] text-center pt-2">
+      Catalog data refreshes hourly; brand-health + exposure snapshots run nightly.
+      Tranco rank refreshes daily.
+    </div>
+  );
+}
+
+function MoversCard({ title, rows, tone, emptyMsg, loading }: {
+  title: string;
+  rows: BrandMover[];
+  tone: 'crit' | 'ok';
+  emptyMsg: string;
+  loading?: boolean;
+}) {
+  const navigate = useNavigate();
+  const accent = tone === 'crit' ? 'var(--sev-critical)' : 'var(--green)';
+  // Bar widths relative to the largest abs delta in this card's set
+  const maxDelta = rows.length > 0
+    ? Math.max(...rows.slice(0, 5).map(r => Math.abs(r.delta_7d)), 1)
+    : 1;
+  const top5 = rows.slice(0, 5);
+
+  return (
+    <Card hover={false}>
+      <div className="flex items-center justify-between">
+        <SectionLabel>{title}</SectionLabel>
+        {rows.length > 0 && (
+          <span className="text-[10px] font-mono text-[var(--text-muted)]">
+            top {Math.min(5, rows.length)} of {rows.length}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 space-y-1.5">
+        {loading && (
+          <div className="text-xs text-[var(--text-tertiary)] py-4 text-center">Loading…</div>
+        )}
+        {!loading && rows.length === 0 && (
+          <div className="text-xs text-[var(--text-tertiary)] py-4 text-center">{emptyMsg}</div>
+        )}
+        {top5.map(b => {
+          const barPct = (Math.abs(b.delta_7d) / maxDelta) * 100;
+          return (
+            <div
+              key={b.id}
+              onClick={() => navigate(`/brands-v3/${b.id}`)}
+              className="cursor-pointer hover:bg-white/[0.03] transition-colors group"
+              style={{
+                padding: '10px 12px', borderRadius: 6,
+                border: '1px solid var(--border-base)', background: 'var(--bg-input)',
+                position: 'relative', overflow: 'hidden',
+              }}
+            >
+              {/* delta-magnitude bar — visual weight matches the data */}
+              <div style={{
+                position: 'absolute', left: 0, top: 0, bottom: 0,
+                width: `${barPct}%`,
+                background: `linear-gradient(90deg, ${accent}18, ${accent}06)`,
+                pointerEvents: 'none',
+              }} />
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-[var(--text-primary)] truncate group-hover:text-[var(--amber)] transition-colors">
+                    {b.name}
+                  </div>
+                  <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">{b.canonical_domain}</div>
+                </div>
+                <div className="text-right flex-shrink-0" style={{ minWidth: 76 }}>
+                  <div className="text-sm font-bold" style={{ color: accent, textShadow: `0 0 6px ${accent}55` }}>
+                    {b.delta_7d >= 0 ? '+' : ''}{b.delta_7d}
+                  </div>
+                  <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                    {b.today_count} active
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+function formatNumber(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+function humanizeThreatType(t: string): string {
+  return (t || '').replace(/_/g, ' ');
 }
 
 function HotProspectsTeaser() {
@@ -417,23 +724,3 @@ function ReviewedRow({ c, onJumpBrand }: { c: BrandCandidate; onJumpBrand?: (bra
   );
 }
 
-// ── Shared tile ──────────────────────────────────────────────────────
-function StatTile({ label, value, sub, tone }: {
-  label: string; value: string; sub?: string; tone?: 'warn' | 'crit';
-}) {
-  const valueColor = tone === 'crit' ? 'var(--sev-critical)'
-    : tone === 'warn' ? 'var(--amber)'
-    : 'var(--text-primary)';
-  return (
-    <div style={{
-      padding: 14, borderRadius: 8,
-      border: '1px solid var(--border-base)', background: 'var(--bg-card)',
-    }}>
-      <div className="text-[10px] uppercase tracking-[0.18em] font-mono text-[var(--text-muted)]">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-bold" style={{ color: valueColor }}>{value}</div>
-      {sub && <div className="mt-1 text-[11px] text-[var(--text-tertiary)] truncate">{sub}</div>}
-    </div>
-  );
-}
