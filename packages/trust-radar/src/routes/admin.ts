@@ -830,6 +830,12 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     if (!isAuthContext(ctx)) return ctx;
     return handleImportTranco(request, env);
   });
+  router.post("/api/admin/brand-scores/recompute-all", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleRecomputeBrandScores } = await import("../handlers/admin");
+    return handleRecomputeBrandScores(request, env);
+  });
   router.post("/api/admin/backfill-social-config", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
