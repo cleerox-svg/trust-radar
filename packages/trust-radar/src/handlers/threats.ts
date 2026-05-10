@@ -110,6 +110,34 @@ export async function handleListThreats(request: Request, env: Env, scope?: OrgS
   }
 }
 
+// ─── Threats catalog aggregate ───────────────────────────────────
+// Slice-aware narrative numbers powering /threats Intel surface.
+// Honors the same filters as handleListThreats so aggregates match
+// what the operator sees in the list. Cached 5min via cachedValue.
+export async function handleThreatsAggregate(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
+  try {
+    const url = new URL(request.url);
+    const { threatAggregate } = await import('../lib/threat-aggregates');
+    const data = await threatAggregate(env, {
+      severity: url.searchParams.get("severity") ?? undefined,
+      type:     url.searchParams.get("type") ?? undefined,
+      status:   url.searchParams.get("status") ?? undefined,
+      source:   url.searchParams.get("source") ?? undefined,
+      search:   url.searchParams.get("q") ?? undefined,
+      brand_id: url.searchParams.get("brand_id") ?? undefined,
+      actor_id: url.searchParams.get("actor_id") ?? undefined,
+      country:  url.searchParams.get("country") ?? undefined,
+      since:    url.searchParams.get("since") ?? undefined,
+    }, scope);
+    return attachBookmark(json({ success: true, data }, 200, origin), session);
+  } catch (err) {
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
+  }
+}
+
 // ─── Threat stats for dashboard ─────────────────────────────────
 export async function handleThreatStats(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
