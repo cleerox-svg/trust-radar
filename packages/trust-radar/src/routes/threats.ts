@@ -4,7 +4,8 @@ import type { Env } from "../types";
 import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
 import { rateLimitCustom } from "../middleware/rateLimit";
 import {
-  handleListThreats, handleThreatStats, handleGetThreat, handleUpdateThreat,
+  handleListThreats, handleThreatStats, handleThreatsAggregate,
+  handleGetThreat, handleUpdateThreat,
   handleListBriefings, handleGetBriefing, handleListSocialIOCs, handleEnrichGeo,
   handleEnrichAll, handleDailySnapshots, handleGeoClusters, handleAttackFlows,
   handleRecentThreats,
@@ -51,6 +52,15 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleThreatStats(request, env);
+  });
+  // Slice-aware catalog aggregate — narrative numbers for the Threats
+  // Intel surface. Honors same filters as /api/threats list. Scope-
+  // gated so tenants get their own slice.
+  router.get("/api/threats/aggregate", async (request: Request, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleThreatsAggregate(request, env, scope);
   });
   router.get("/api/threats/heatmap", async (request: Request, env: Env) => {
     const ctx = await requireAuth(request, env);
