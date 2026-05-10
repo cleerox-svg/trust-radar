@@ -91,17 +91,28 @@ function CardSparkline({
   if (!values || values.length < 2) return null;
   const N = values.length;
   const peak = Math.max(...values, 1);
-  const stepX = N > 1 ? width / (N - 1) : width;
+  // Inset the drawing area by half the stroke width on each side so
+  // the leftmost and rightmost stroke pixels render fully inside the
+  // SVG viewport (no half-thickness clip at the edges).
+  const STROKE = 1.2;
+  const PAD = STROKE / 2;
+  const innerW = width - PAD * 2;
+  const stepX = N > 1 ? innerW / (N - 1) : innerW;
   const points = values.map((v, i) => {
-    const x = i * stepX;
+    const x = PAD + i * stepX;
     const y = height - (v / peak) * (height - 2) - 1;
     return { x, y };
   });
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-  const areaPath = `${linePath} L ${(N - 1) * stepX} ${height} L 0 ${height} Z`;
+  const areaPath = `${linePath} L ${(width - PAD).toFixed(1)} ${height} L ${PAD.toFixed(1)} ${height} Z`;
   const gradId   = `pipeline-card-spark-${Math.random().toString(36).slice(2, 9)}`;
   return (
-    <svg width={width} height={height} className="overflow-visible">
+    // Default SVG clipping (no overflow-visible) so strokes near the
+    // right edge don't bleed into the card border. The card row uses
+    // justify-between, so this SVG sits flush against the right
+    // padded edge — overflow-visible would push the rightmost stroke
+    // pixel past the card's rounded corner.
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="5%"  stopColor={color} stopOpacity={0.40} />
@@ -109,7 +120,7 @@ function CardSparkline({
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradId})`} />
-      <path d={linePath} stroke={color} strokeWidth={1.2} fill="none" strokeLinejoin="round" />
+      <path d={linePath} stroke={color} strokeWidth={STROKE} fill="none" strokeLinejoin="round" />
     </svg>
   );
 }
