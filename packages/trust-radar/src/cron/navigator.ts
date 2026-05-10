@@ -29,6 +29,7 @@ import {
 } from '../lib/platform-milestones';
 import { runDomainGeoBackfillBatch, type DnsBackfillResult } from '../lib/dns-backfill';
 import { reapOrphanFeedPullHistory } from '../lib/feed-pull-reaper';
+import { reapOrphanAgentRuns } from '../lib/agent-runs-reaper';
 import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour, buildStatusCubeForHour } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
 import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
@@ -137,6 +138,21 @@ async function runNavigatorImpl(
       }
     } catch (err) {
       console.error('[navigator] orphan pull-history reap error:', err);
+      // Non-fatal — continue to DNS backfill
+    }
+
+    // ── 1c. Reap orphan agent_runs rows ──
+    // Same architectural pattern as 1b, applied to the agent_runs
+    // lifecycle. Without this, the diagnostic surfaces killed_runs
+    // but the rows themselves stay 'partial' forever, and downstream
+    // metrics (avg_duration_ms, last_completed_at) drift.
+    try {
+      const reapedAgentCount = await reapOrphanAgentRuns(env);
+      if (reapedAgentCount > 0) {
+        console.warn(`[navigator] reaped ${reapedAgentCount} orphan agent_runs rows (status=partial, > 15min)`);
+      }
+    } catch (err) {
+      console.error('[navigator] orphan agent_runs reap error:', err);
       // Non-fatal — continue to DNS backfill
     }
 
