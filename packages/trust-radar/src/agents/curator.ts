@@ -23,6 +23,20 @@ const SAFE_DOMAINS = [
   'cloudflare.com', 'fastly.net', 'akamai.net', 'akamaitechnologies.com',
 ];
 
+// Task 1 (email security scan) controls. Prior implementation was an
+// unbounded 500-brand serial loop with no per-brand timeout. Per-brand
+// cost ceiling is ~20s (4 parallel 5-s DNS lookups + sequential BIMI
+// scan with up to three more 5-s ops). With the queue's "easy" brands
+// scanned first, the remaining long-tail averaged enough to push the
+// whole curator past the 90-min navigator reaper threshold — 0
+// successes / 0 records processed across 12 attempts in the 6-h
+// window before this fix. New shape: bounded LIMIT, wall-clock
+// budget, concurrent waves, per-brand Promise.race.
+const TASK1_FETCH_LIMIT = 100;          // brands fetched per curator tick
+const TASK1_WALLTIME_MS = 5 * 60_000;   // 5-min cap on Task 1 as a whole
+const TASK1_CONCURRENCY = 5;            // brands processed in parallel
+const TASK1_PER_BRAND_MS = 25_000;      // hard ceiling per brand
+
 // ─── Agent Module ────────────────────────────────────────────────
 
 export const curatorAgent: AgentModule = {
@@ -62,21 +76,48 @@ export const curatorAgent: AgentModule = {
     };
 
     // ── TASK 1: Email security scanning ──────────────────────────
-    // Find brands with no email_security_grade, scan up to 500
+    // Find brands with no email_security_grade, scan up to LIMIT
+    // per tick. Bounded by TASK1_WALLTIME_MS so a long-tail of
+    // slow-DNS brands can't run the whole curator past the
+    // 90-min navigator reaper. Concurrent waves of TASK1_CONCURRENCY
+    // are race-free because JS is single-threaded between awaits;
+    // same pattern as feeds/abuseipdb.ts and agents/sentinel.ts
+    // post the diagnostic-driven refactors.
     const unscanned = await db.prepare(`
       SELECT id, canonical_domain, name FROM brands
       WHERE email_security_grade IS NULL
       AND monitoring_tier != 'none'
       ORDER BY threat_count DESC
-      LIMIT 500
-    `).all<{ id: number; canonical_domain: string | null; name: string }>();
+      LIMIT ?
+    `).bind(TASK1_FETCH_LIMIT).all<{ id: number; canonical_domain: string | null; name: string }>();
 
-    for (const brand of unscanned.results) {
+    const task1Start = Date.now();
+    let task1BudgetHit = false;
+
+    const scanOneBrand = async (brand: { id: number; canonical_domain: string | null; name: string }): Promise<void> => {
       try {
         const domain = brand.canonical_domain || brand.name.toLowerCase();
-        if (!domain) continue;
+        if (!domain) return;
 
-        const scanResult = await runEmailSecurityScan(domain);
+        // Per-brand wall-clock race. The inner DNS lookups + BIMI
+        // HEAD fetches each have their own 5-s AbortSignal.timeout,
+        // but those don't compose into a single brand-level ceiling
+        // — a brand making all 7 network ops sequentially could run
+        // 20+ s legitimately. Race against TASK1_PER_BRAND_MS so any
+        // single brand's slow path can't pin the wave.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`brand ${brand.id} email-security scan timed out after ${TASK1_PER_BRAND_MS}ms`)),
+            TASK1_PER_BRAND_MS,
+          );
+        });
+        let scanResult;
+        try {
+          scanResult = await Promise.race([runEmailSecurityScan(domain), timeoutPromise]);
+        } finally {
+          if (timer !== undefined) clearTimeout(timer);
+        }
         await saveEmailSecurityScan(db, brand.id, scanResult);
         await db.prepare(`
           UPDATE brands
@@ -86,8 +127,17 @@ export const curatorAgent: AgentModule = {
 
         results.emailScansCompleted++;
       } catch {
-        // Silent fail — next weekly run picks up remainder
+        // Silent fail — next run picks up the remainder.
       }
+    };
+
+    for (let i = 0; i < unscanned.results.length; i += TASK1_CONCURRENCY) {
+      if (Date.now() - task1Start > TASK1_WALLTIME_MS) {
+        task1BudgetHit = true;
+        break;
+      }
+      const wave = unscanned.results.slice(i, i + TASK1_CONCURRENCY);
+      await Promise.all(wave.map(scanOneBrand));
     }
 
     // ── TASK 2: Safe domain false-positive cleanup ───────────────
@@ -157,15 +207,16 @@ export const curatorAgent: AgentModule = {
     // ── Log completion ───────────────────────────────────────────
     const summaryText =
       `Curator weekly hygiene: ` +
-      `${results.emailScansCompleted} email scans, ` +
-      `${results.falsePositivesRemoved} false positives removed, ` +
+      `${results.emailScansCompleted} email scans` +
+      (task1BudgetHit ? ` (Task 1 budget hit — remainder deferred)` : '') +
+      `, ${results.falsePositivesRemoved} false positives removed, ` +
       `${results.socialProfilesDiscovered} brands with new social profiles`;
 
     outputs.push({
       type: 'hygiene_report',
       summary: summaryText,
       severity: 'info',
-      details: results,
+      details: { ...results, task1BudgetHit },
     });
 
     return {

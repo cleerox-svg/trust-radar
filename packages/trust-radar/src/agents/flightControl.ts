@@ -273,7 +273,7 @@ export const flightControlAgent: AgentModule = {
     mark('anthropic_check');
 
     // Run all reads in parallel — single round trip to D1
-    const [backlogs, health, navigatorHealth, budgetStatus, agentLimits, lastCuratorRun, unscannedEmails, degradedFeeds, autoPausedFeeds, silentFeedCandidates, trippedAgents] = await Promise.all([
+    const [backlogs, health, navigatorHealth, budgetStatus, agentLimits, lastCuratorRun, curatorHealth, unscannedEmails, degradedFeeds, autoPausedFeeds, silentFeedCandidates, trippedAgents] = await Promise.all([
       measureBacklogs(env, db),
       getAgentHealth(db),
       getNavigatorHealth(db),
@@ -284,6 +284,24 @@ export const flightControlAgent: AgentModule = {
         FROM agent_outputs
         WHERE agent_id = 'curator' AND type = 'hygiene_report'
       `).first<{ last_run: string | null }>(),
+      // Curator dispatch-gate health: count recent reaper-stamped
+      // failures and find the most recent agent_runs success. The
+      // dispatch gate below uses these to back off when curator is
+      // chronically broken (3+ failures in 3 h with no recent
+      // success) — without this, FC re-dispatched a failing
+      // curator every hour, producing zero work and filling
+      // agent_runs with reaped rows. See the curator deep-dive
+      // 2026-05-10 for the receipts.
+      db.prepare(`
+        SELECT
+          COUNT(CASE WHEN status = 'failed'
+                       AND started_at > datetime('now', '-3 hours')
+                     THEN 1 END) AS recent_failures,
+          MAX(CASE WHEN status = 'success' THEN started_at END) AS last_success_at
+        FROM agent_runs
+        WHERE agent_id = 'curator'
+          AND started_at > datetime('now', '-6 hours')
+      `).first<{ recent_failures: number; last_success_at: string | null }>().catch(() => ({ recent_failures: 0, last_success_at: null })),
       db.prepare(`
         SELECT COUNT(*) as count FROM brands
         WHERE email_security_grade IS NULL
@@ -901,25 +919,50 @@ export const flightControlAgent: AgentModule = {
     // Run if: > 6 days since last run (weekly) OR email scan backlog very large
     // Skip curator if budget is at hard or emergency level
     if ((daysSinceCuratorRun > 6 || (unscannedEmails?.count ?? 0) > 5000) && !agentLimits.skip_curator) {
-      const { curatorAgent } = await import('./curator');
-      const { executeAgent } = await import('../lib/agentRunner');
-      // Fire-and-forget via ctx.waitUntil — curator's full hygiene run
-      // can take 5–7 min. Awaiting it inline blocks the entire FC tick,
-      // which delays navigator supervision and feed-pause emit. Same
-      // pattern as scaleAgents() / recoverStalledAgents() below.
-      const curatorExecCtx = ctx.input._executionCtx as ExecutionContext | undefined;
-      const curatorPromise = executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event');
-      if (curatorExecCtx) {
-        curatorExecCtx.waitUntil(curatorPromise.catch(() => { /* logged by agentRunner */ }));
-      } else {
-        try { await curatorPromise; } catch { /* logged by agentRunner */ }
-      }
+      // Backoff guard. Skip the dispatch when curator has hit 3+
+      // reaper-stamped failures in the last 3 h with no successful
+      // completion in that window — otherwise FC re-dispatches a
+      // failing curator every hour, producing zero work. Emits a
+      // critical notification so operators see the regression
+      // surface (notifications are deduped by group_key inside
+      // emitPlatformNotification, so this fires once per
+      // failure-burst, not every tick).
+      const recentFailures = curatorHealth?.recent_failures ?? 0;
+      const lastSuccessAt = curatorHealth?.last_success_at
+        ? new Date(curatorHealth.last_success_at + 'Z').getTime()
+        : 0;
+      const lastSuccessRecent = lastSuccessAt > Date.now() - 3 * 3600_000;
+      const curatorRecentlyBroken = recentFailures >= 3 && !lastSuccessRecent;
 
-      await logActivity(db, 'flight_control', 'info', 'scheduling',
-        'Triggered Curator weekly hygiene run', {
-          days_since_last: Math.round(daysSinceCuratorRun),
-          unscanned_emails: unscannedEmails?.count ?? 0,
-        });
+      if (curatorRecentlyBroken) {
+        await logActivity(db, 'flight_control', 'critical', 'curator_backoff',
+          `Skipping Curator dispatch — ${recentFailures} failures in last 3h with no successful completion. Investigate before next attempt.`,
+          {
+            recent_failures: recentFailures,
+            last_success_at: curatorHealth?.last_success_at,
+            unscanned_emails: unscannedEmails?.count ?? 0,
+          });
+      } else {
+        const { curatorAgent } = await import('./curator');
+        const { executeAgent } = await import('../lib/agentRunner');
+        // Fire-and-forget via ctx.waitUntil — curator's full hygiene run
+        // can take 5–7 min. Awaiting it inline blocks the entire FC tick,
+        // which delays navigator supervision and feed-pause emit. Same
+        // pattern as scaleAgents() / recoverStalledAgents() below.
+        const curatorExecCtx = ctx.input._executionCtx as ExecutionContext | undefined;
+        const curatorPromise = executeAgent(env, curatorAgent, { trigger: 'flight_control' }, 'flight_control', 'event');
+        if (curatorExecCtx) {
+          curatorExecCtx.waitUntil(curatorPromise.catch(() => { /* logged by agentRunner */ }));
+        } else {
+          try { await curatorPromise; } catch { /* logged by agentRunner */ }
+        }
+
+        await logActivity(db, 'flight_control', 'info', 'scheduling',
+          'Triggered Curator weekly hygiene run', {
+            days_since_last: Math.round(daysSinceCuratorRun),
+            unscanned_emails: unscannedEmails?.count ?? 0,
+          });
+      }
     }
 
     const stalled = health.filter(h => h.is_stalled).map(h => h.agent_id);
