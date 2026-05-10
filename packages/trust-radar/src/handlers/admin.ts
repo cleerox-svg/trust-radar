@@ -2174,6 +2174,116 @@ async function extractCsvFromZip(buffer: ArrayBuffer): Promise<string | null> {
   return null;
 }
 
+// ─── GET /api/admin/brand-candidates ──────────────────────────────
+// List pending CT-driven brand candidates for operator review. Sorted
+// by cert_count DESC so the highest-signal candidates float to top.
+
+export async function handleListBrandCandidates(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") ?? "pending";
+    const limit = Math.min(200, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+
+    const rows = await env.DB.prepare(`
+      SELECT id, apex_domain, source, status, cert_count, distinct_issuers,
+             first_seen, last_seen, reviewed_at, reviewed_by, promoted_brand_id, notes
+      FROM brand_candidates
+      WHERE status = ?
+      ORDER BY cert_count DESC, last_seen DESC
+      LIMIT ? OFFSET ?
+    `).bind(status, limit, offset).all();
+
+    const count = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM brand_candidates WHERE status = ?`
+    ).bind(status).first<{ n: number }>();
+
+    return json({
+      success: true,
+      data: rows.results,
+      total: count?.n ?? 0,
+    }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "List candidates failed",
+    }, 500, origin);
+  }
+}
+
+// ─── POST /api/admin/brand-candidates/aggregate ───────────────────
+// Manual trigger for the CT-driven aggregator (also runs nightly via
+// the orchestrator). Useful right after a big CT-feed catch-up.
+
+export async function handleAggregateBrandCandidates(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { aggregateBrandCandidates } = await import('../lib/brand-candidates');
+    const summary = await aggregateBrandCandidates(env);
+    return json({
+      success: true,
+      data: {
+        ...summary,
+        message: `Aggregator: scanned ${summary.scanned} apexes, proposed ${summary.proposed}, refreshed ${summary.refreshed}, skipped ${summary.skipped_existing_brand} existing brands + ${summary.skipped_already_candidate} existing candidates in ${summary.duration_ms}ms`,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "Aggregate failed",
+    }, 500, origin);
+  }
+}
+
+// ─── POST /api/admin/brand-candidates/:id/promote ──────────────────
+// Operator approves a pending candidate — creates a brand row at
+// tier='monitored' + a brand_domains apex entry. Requires admin.
+
+export async function handlePromoteBrandCandidate(
+  request: Request,
+  env: Env,
+  candidateId: string,
+  reviewerUserId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const { promoteCandidate } = await import('../lib/brand-candidates');
+    const result = await promoteCandidate(env, candidateId, reviewerUserId);
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "Promote failed",
+    }, 500, origin);
+  }
+}
+
+// ─── POST /api/admin/brand-candidates/:id/reject ───────────────────
+
+export async function handleRejectBrandCandidate(
+  request: Request,
+  env: Env,
+  candidateId: string,
+  reviewerUserId: string,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const body = await request.json().catch(() => null) as { notes?: string } | null;
+    const { rejectCandidate } = await import('../lib/brand-candidates');
+    await rejectCandidate(env, candidateId, reviewerUserId, body?.notes ?? null);
+    return json({ success: true, data: { candidate_id: candidateId } }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "Reject failed",
+    }, 500, origin);
+  }
+}
+
 // ─── POST /api/admin/brand-firmographics/enrich ──────────────────
 // Triggers the free-source firmographic enricher (SEC EDGAR +
 // Companies House + Wikidata). Picks up to 200 monitored+customer

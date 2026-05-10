@@ -979,6 +979,18 @@ async function runThreatFeedScan(env: Env, ctx: ExecutionContext, scheduledTime:
     } catch (err) {
       logger.error('brand_scores_daily_batch_error', { error: err instanceof Error ? err.message : String(err) });
     }
+
+    // CT-driven brand candidate aggregator. Runs once daily at hour===0.
+    // Surfaces apex domains seen ≥3x across ≥2 distinct issuers in the
+    // last 30 days as proposed brand candidates for operator review.
+    // Existing brands and existing candidates are skipped.
+    try {
+      const { aggregateBrandCandidates } = await import('../lib/brand-candidates');
+      const summary = await aggregateBrandCandidates(env);
+      logger.info('brand_candidates_aggregator', summary);
+    } catch (err) {
+      logger.error('brand_candidates_aggregator_error', { error: err instanceof Error ? err.message : String(err) });
+    }
   }
 }
 
