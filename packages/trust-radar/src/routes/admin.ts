@@ -842,6 +842,30 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const { handleBackfillBrandFirmographics } = await import("../handlers/admin");
     return handleBackfillBrandFirmographics(request, env);
   });
+  router.get("/api/admin/brand-candidates", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleListBrandCandidates } = await import("../handlers/admin");
+    return handleListBrandCandidates(request, env);
+  });
+  router.post("/api/admin/brand-candidates/aggregate", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleAggregateBrandCandidates } = await import("../handlers/admin");
+    return handleAggregateBrandCandidates(request, env);
+  });
+  router.post("/api/admin/brand-candidates/:id/promote", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handlePromoteBrandCandidate } = await import("../handlers/admin");
+    return handlePromoteBrandCandidate(request, env, request.params["id"] ?? "", ctx.userId);
+  });
+  router.post("/api/admin/brand-candidates/:id/reject", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleRejectBrandCandidate } = await import("../handlers/admin");
+    return handleRejectBrandCandidate(request, env, request.params["id"] ?? "", ctx.userId);
+  });
   router.post("/api/admin/backfill-social-config", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
