@@ -35,7 +35,7 @@ export const SURFACES: Record<Surface, SurfaceConfig> = {
     // .claude/plans/v3.md §9.6). Path entries here are list-level — the
     // BrandsVersionToggle component substitutes :brandId at render time.
     storageKey:     'averrow.brands-version',
-    defaultVersion: 'v2',
+    defaultVersion: 'v3', // v3 outcome-shaped IA ships as default
     paths:          { v2: '/brands', v3: '/brands-v3' },
   },
 };
