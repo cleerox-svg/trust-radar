@@ -1,0 +1,254 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "AVERROW THREAT INTERCEPTOR" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - img [ref=e5]
+        - generic [ref=e9]:
+          - text: AVERROW
+          - generic [ref=e10]: THREAT INTERCEPTOR
+      - list [ref=e11]:
+        - listitem [ref=e12]:
+          - link "Platform" [ref=e13] [cursor=pointer]:
+            - /url: /platform
+        - listitem [ref=e14]:
+          - link "Pricing" [ref=e15] [cursor=pointer]:
+            - /url: /pricing
+        - listitem [ref=e16]:
+          - link "About" [ref=e17] [cursor=pointer]:
+            - /url: /about
+        - listitem [ref=e18]:
+          - link "Security" [ref=e19] [cursor=pointer]:
+            - /url: /security
+        - listitem [ref=e20]:
+          - link "Blog" [ref=e21] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=e22]:
+          - link "Contact" [ref=e23] [cursor=pointer]:
+            - /url: /contact
+      - generic [ref=e24]:
+        - button "Toggle theme" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: ☀
+        - link "Login" [ref=e27] [cursor=pointer]:
+          - /url: /login
+        - link "Free Scan" [ref=e28] [cursor=pointer]:
+          - /url: /scan
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic:
+        - img
+      - generic [ref=e31]:
+        - generic [ref=e32]: Threat Interceptor
+        - heading "Your brand is under attack right now." [level=1] [ref=e33]:
+          - text: Your brand is under attack
+          - text: right now.
+        - paragraph [ref=e34]: Averrow detects impersonation, phishing, and brand abuse across domains, email, and social media — before it reaches your customers.
+        - generic [ref=e35]:
+          - textbox "Enter any domain" [ref=e36]
+          - button "Launch Sortie" [ref=e37] [cursor=pointer]
+        - generic [ref=e38]: Enter any domain — no signup required
+    - separator [ref=e39]
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]: 24/7
+        - generic [ref=e43]: Continuous monitoring
+      - generic [ref=e44]:
+        - generic [ref=e45]: "27"
+        - generic [ref=e46]: AI agents deployed
+      - generic [ref=e47]:
+        - generic [ref=e48]: <5min
+        - generic [ref=e49]: Threat detection time
+      - generic [ref=e50]:
+        - generic [ref=e51]: 34+
+        - generic [ref=e52]: Brand protection feeds
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]: 254K+
+        - generic [ref=e56]: Threats detected to date
+      - generic [ref=e57]:
+        - generic [ref=e58]: 78K+
+        - generic [ref=e59]: Brands in coverage
+    - generic [ref=e60]:
+      - generic [ref=e61]: Agent Squadron
+      - heading "Six core agents. 27 on the field." [level=2] [ref=e62]
+      - paragraph [ref=e63]: A deployed mesh of 27 AI agents — six core agents shown here, plus specialized agents handling enrichment, infrastructure clustering, takedowns, social discovery, and continuous health monitoring.
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - img [ref=e66]
+          - generic [ref=e72]: Sentinel
+          - generic [ref=e73]: Threat Detection
+          - generic [ref=e74]: Continuous radar sweep across all feeds
+        - generic [ref=e75]:
+          - img [ref=e76]
+          - generic [ref=e80]: ASTRA
+          - generic [ref=e81]: Fire Control
+          - generic [ref=e82]: Classifies, scores, and prioritizes threat severity
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - generic [ref=e88]: Observer
+          - generic [ref=e89]: Strategic Intel
+          - generic [ref=e90]: Daily briefings and macro trend analysis
+        - generic [ref=e91]:
+          - img [ref=e92]
+          - generic [ref=e96]: Navigator
+          - generic [ref=e97]: Geo Mapping
+          - generic [ref=e98]: Plots threat origins and infrastructure
+        - generic [ref=e99]:
+          - img [ref=e100]
+          - generic [ref=e104]: Blackbox
+          - generic [ref=e105]: Flight Recorder
+          - generic [ref=e106]: Captures threat timelines and narratives
+        - generic [ref=e107]:
+          - img [ref=e108]
+          - generic [ref=e114]: Pathfinder
+          - generic [ref=e115]: Target Acquisition
+          - generic [ref=e116]: Identifies prospects and generates outreach
+    - separator [ref=e117]
+    - generic [ref=e118]:
+      - generic [ref=e119]: How It Works
+      - generic [ref=e120]:
+        - generic [ref=e121]:
+          - generic [ref=e122]: "01"
+          - generic [ref=e123]: Connect your brand
+          - generic [ref=e124]: Enter any domain — no signup required. We start scanning immediately.
+        - generic [ref=e125]: →
+        - generic [ref=e126]:
+          - generic [ref=e127]: "02"
+          - generic [ref=e128]: We scan everything
+          - generic [ref=e129]: Six AI agents sweep threat feeds, email authentication, domains, and social platforms.
+        - generic [ref=e130]: →
+        - generic [ref=e131]:
+          - generic [ref=e132]: "03"
+          - generic [ref=e133]: AI agents investigate
+          - generic [ref=e134]: Cross-referencing signals to produce actionable intelligence and severity scoring.
+        - generic [ref=e135]: →
+        - generic [ref=e136]:
+          - generic [ref=e137]: "04"
+          - generic [ref=e138]: Threats neutralized
+          - generic [ref=e139]: You get actionable intelligence with takedown evidence and remediation steps.
+    - separator [ref=e140]
+    - separator [ref=e141]
+    - generic [ref=e142]:
+      - generic [ref=e143]: Capabilities
+      - heading "Full-spectrum brand protection" [level=2] [ref=e144]
+      - generic [ref=e145]:
+        - generic [ref=e146]:
+          - img [ref=e147]
+          - generic [ref=e153]: Threat Feed Intelligence
+          - generic [ref=e154]: Stop brand abuse before customers are deceived — continuous scanning across phishing databases, malware feeds, and newly registered domains
+        - generic [ref=e155]:
+          - img [ref=e156]
+          - generic [ref=e161]: Email Security Posture
+          - generic [ref=e162]: Prevent email spoofing before attackers impersonate your brand — SPF, DKIM, DMARC analysis and grading
+        - generic [ref=e163]:
+          - img [ref=e164]
+          - generic [ref=e170]: Social Airspace Monitoring
+          - generic [ref=e171]: Stop impersonation before customers are deceived — fake accounts, handle squatting, and unauthorized brand usage across six platforms
+        - generic [ref=e172]:
+          - img [ref=e173]
+          - generic [ref=e179]: Lookalike Domain Detection
+          - generic [ref=e180]: Fuzzy matching, homoglyph analysis, and NRD monitoring for brand abuse
+        - generic [ref=e181]:
+          - img [ref=e182]
+          - generic [ref=e186]: Certificate Transparency
+          - generic [ref=e187]: Real-time monitoring of SSL certificate issuance for brand domains
+        - generic [ref=e188]:
+          - img [ref=e189]
+          - generic [ref=e193]: AI Threat Narratives
+          - generic [ref=e194]: Understand exactly what happened and why it matters — human-readable threat timelines and remediation steps
+    - separator [ref=e195]
+    - generic [ref=e198]:
+      - generic:
+        - img
+      - heading "Ready to protect your brand?" [level=2] [ref=e199]
+      - generic [ref=e200]:
+        - link "Launch Free Scan" [ref=e201] [cursor=pointer]:
+          - /url: /scan
+        - link "View Pricing" [ref=e202] [cursor=pointer]:
+          - /url: /pricing
+    - link [ref=e203] [cursor=pointer]:
+      - /url: mailto:spider-scan-footer-20260511@averrow.com
+      - text: contact
+    - link [ref=e204] [cursor=pointer]:
+      - /url: mailto:spider-scan-meta-20260511@averrow.com
+      - text: support
+    - link [ref=e205] [cursor=pointer]:
+      - /url: mailto:spider-scan-link-20260511@averrow.com
+      - text: info
+  - contentinfo [ref=e206]:
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - generic [ref=e209]:
+          - link "AVERROW" [ref=e210] [cursor=pointer]:
+            - /url: /
+            - img [ref=e211]
+            - generic [ref=e215]: AVERROW
+          - paragraph [ref=e216]: AI-powered brand protection by LRX Enterprises Inc. Continuous airspace defense against impersonation, phishing, and social media abuse.
+          - paragraph [ref=e217]:
+            - link "hello@averrow.com" [ref=e218] [cursor=pointer]:
+              - /url: mailto:hello@averrow.com
+          - img [ref=e219]
+        - generic [ref=e223]:
+          - generic [ref=e224]: Product
+          - list [ref=e225]:
+            - listitem [ref=e226]:
+              - link "Platform" [ref=e227] [cursor=pointer]:
+                - /url: /platform
+            - listitem [ref=e228]:
+              - link "Pricing" [ref=e229] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e230]:
+              - link "Free Scan" [ref=e231] [cursor=pointer]:
+                - /url: /scan
+        - generic [ref=e232]:
+          - generic [ref=e233]: Resources
+          - list [ref=e234]:
+            - listitem [ref=e235]:
+              - link "Blog" [ref=e236] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e237]:
+              - link "Changelog" [ref=e238] [cursor=pointer]:
+                - /url: /changelog
+            - listitem [ref=e239]:
+              - link "Security" [ref=e240] [cursor=pointer]:
+                - /url: /security
+            - listitem [ref=e241]:
+              - link "Status" [ref=e242] [cursor=pointer]:
+                - /url: /status
+        - generic [ref=e243]:
+          - generic [ref=e244]: Company
+          - list [ref=e245]:
+            - listitem [ref=e246]:
+              - link "About" [ref=e247] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e248]:
+              - link "Contact" [ref=e249] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e250]:
+          - generic [ref=e251]: Legal
+          - list [ref=e252]:
+            - listitem [ref=e253]:
+              - link "Privacy" [ref=e254] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e255]:
+              - link "Terms" [ref=e256] [cursor=pointer]:
+                - /url: /terms
+            - listitem [ref=e257]:
+              - link "DPA" [ref=e258] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e260]: © 2026 LRX Enterprises Inc. All rights reserved.
+  - link [ref=e261] [cursor=pointer]:
+    - /url: mailto:sp.trap01@averrow.com
+    - text: Email our security team
+  - link [ref=e262] [cursor=pointer]:
+    - /url: mailto:sp.trap02@trustradar.ca
+    - text: Contact support
+  - link [ref=e263] [cursor=pointer]:
+    - /url: mailto:sp.trap03@averrow.com
+    - text: Report abuse
+  - link [ref=e264] [cursor=pointer]:
+    - /url: mailto:sp.trap04@trustradar.ca
+    - text: Business inquiries
+  - link [ref=e265] [cursor=pointer]:
+    - /url: mailto:sp.trap05@averrow.com
+    - text: Press contact
