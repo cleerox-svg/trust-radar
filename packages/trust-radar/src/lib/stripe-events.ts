@@ -204,13 +204,21 @@ export async function syncOrgFromSubscription(
 
   // 3. Sync org_modules to match the new entitlement set. Delegated
   //    to syncOrgModulesToPlan() in lib/entitlements.ts so the policy
-  //    lives in one place. À-la-carte modules from per-module Stripe
-  //    items are passed via extraModules; they land active alongside
-  //    the plan's bundled modules.
+  //    lives in one place.
+  //
+  //    Pass planModulesOverride so the helper doesn't re-SELECT the
+  //    plan row — we already parsed `included_modules` above to
+  //    populate `includedModules`. Same call also passes the explicit
+  //    plan id (kept for the result struct + future logging) and
+  //    skips the `organizations` SELECT.
+  //
+  //    À-la-carte modules from per-module Stripe items go through
+  //    `extraModules` and land active alongside the plan's bundle.
   await syncOrgModulesToPlan(env, org.id, {
     planId:                resolvedPlanId,
     billingStatusOverride: billingStatus,
     trialEndsAt,
+    planModulesOverride:   Array.from(includedModules) as ModuleKey[],
     extraModules:          Array.from(aLaCarteModules) as ModuleKey[],
   });
 

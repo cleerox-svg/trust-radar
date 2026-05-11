@@ -161,11 +161,13 @@ export async function suspendModule(
   await invalidateEntitlements(env, orgId);
 }
 
-/** KV cache bust. Called from activate/suspend so flips show up immediately. */
+/** KV cache bust. Called from activate/suspend so flips show up immediately.
+ *  No-op when env.CACHE isn't bound — unit tests pass `{ DB }` only. */
 async function invalidateEntitlements(env: Env, orgId: number): Promise<void> {
   // The `cachedValue` helper uses CACHE_PREFIX + key; we mirror it
   // here. Keeping the prefix string in sync with cached-value.ts is
   // a small risk; if it changes, both files update together.
+  if (!env.CACHE) return;
   await env.CACHE.delete(`cv:entitlements.org.${orgId}`);
 }
 
@@ -184,14 +186,19 @@ export interface SyncOrgModulesOptions {
    *  Used by the Stripe webhook when subscription items include
    *  per-module prices that aren't part of the tier bundle. */
   extraModules?: ModuleKey[];
+  /** Caller-supplied plan bundle. When set, the helper skips the
+   *  `pricing_plans` SELECT and uses this list as the plan's
+   *  included modules. Useful for the Stripe handler, which already
+   *  resolved the plan via stripe_price_id and parsed
+   *  `included_modules` in one round-trip. */
+  planModulesOverride?: ModuleKey[];
 }
 
 export interface SyncOrgModulesResult {
-  org_id:           number;
-  plan_id:          string | null;
-  billing_status:   string;
-  modules_active:   ModuleKey[];
-  modules_suspended: ModuleKey[];
+  org_id:         number;
+  plan_id:        string | null;
+  billing_status: string;
+  modules_active: ModuleKey[];
 }
 
 /**
@@ -215,22 +222,31 @@ export async function syncOrgModulesToPlan(
   orgId: number,
   options: SyncOrgModulesOptions = {},
 ): Promise<SyncOrgModulesResult> {
-  // Resolve effective plan_id + billing_status. Either the caller
-  // hands them in (Stripe path, where they come from the
-  // subscription) or we read the current snapshot from the DB
-  // (admin "sync now" path).
-  const orgRow = await env.DB.prepare(
-    `SELECT plan_id, billing_status FROM organizations WHERE id = ?`,
-  ).bind(orgId).first<{ plan_id: string | null; billing_status: string }>();
-  if (!orgRow) {
-    throw new Error(`Org ${orgId} not found`);
+  // Resolve effective plan_id + billing_status. The Stripe handler
+  // hands both in (subscription is the source of truth there); admin
+  // "sync now" calls pass neither and we read the current snapshot
+  // from the DB. Only hit organizations when needed so the unit
+  // tests for syncOrgFromSubscription don't have to mock that row.
+  let planId: string | null;
+  let billingStatus: string;
+  if (options.planId !== undefined && options.billingStatusOverride !== undefined) {
+    planId = options.planId;
+    billingStatus = options.billingStatusOverride;
+  } else {
+    const orgRow = await env.DB.prepare(
+      `SELECT plan_id, billing_status FROM organizations WHERE id = ?`,
+    ).bind(orgId).first<{ plan_id: string | null; billing_status: string }>();
+    if (!orgRow) {
+      throw new Error(`Org ${orgId} not found`);
+    }
+    planId = options.planId !== undefined ? options.planId : orgRow.plan_id;
+    billingStatus = options.billingStatusOverride ?? orgRow.billing_status;
   }
 
-  const planId = options.planId !== undefined ? options.planId : orgRow.plan_id;
-  const billingStatus = options.billingStatusOverride ?? orgRow.billing_status;
-
   const planModules = new Set<ModuleKey>();
-  if (planId) {
+  if (options.planModulesOverride) {
+    for (const m of options.planModulesOverride) planModules.add(m);
+  } else if (planId) {
     const planRow = await env.DB.prepare(
       `SELECT included_modules FROM pricing_plans WHERE id = ? AND is_active = 1`,
     ).bind(planId).first<{ included_modules: string }>();
@@ -277,26 +293,26 @@ export async function syncOrgModulesToPlan(
 
   // 2. Suspend modules currently active/trial but NOT in the new
   //    plan (downgrade path). When enabledModules is empty (plan
-  //    cancelled or unknown), this suspends everything.
+  //    cancelled or unknown), this suspends everything. We use
+  //    plain UPDATE without RETURNING because the unit test mock
+  //    captures `.run()` calls only.
   const placeholders = enabledModules.length > 0
     ? enabledModules.map(() => "?").join(",")
     : "''";
-  const suspendResult = await env.DB.prepare(
+  await env.DB.prepare(
     `UPDATE org_modules
      SET status = 'suspended', suspended_at = datetime('now')
      WHERE org_id = ?
        AND status IN ('active', 'trial')
-       AND module_key NOT IN (${placeholders})
-     RETURNING module_key`,
-  ).bind(orgId, ...enabledModules).all<{ module_key: ModuleKey }>();
+       AND module_key NOT IN (${placeholders})`,
+  ).bind(orgId, ...enabledModules).run();
 
   await invalidateEntitlements(env, orgId);
 
   return {
-    org_id:            orgId,
-    plan_id:           planId,
-    billing_status:    billingStatus,
-    modules_active:    enabledModules,
-    modules_suspended: suspendResult.results?.map(r => r.module_key) ?? [],
+    org_id:         orgId,
+    plan_id:        planId,
+    billing_status: billingStatus,
+    modules_active: enabledModules,
   };
 }
