@@ -21,7 +21,7 @@ import {
   handleCreateTakedown, handleUpdateTakedown,
 } from "../handlers/takedowns";
 import {
-  handleListTenantModules, handleAdminModuleAction,
+  handleListTenantModules, handleAdminModuleAction, handleAdminSyncPlanModules,
 } from "../handlers/tenantModules";
 import {
   handleGetActiveAuthorization, handleAdminRecordAuthorization, handleRevokeAuthorization,
@@ -245,6 +245,14 @@ export function registerTenantRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAdminModuleAction(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  // Super-admin "sync now": aligns an org's org_modules rows with
+  // their current plan_id. Useful for enterprise / custom-billed
+  // orgs that bypass the Stripe webhook path. Body optional.
+  router.post("/api/admin/orgs/:orgId/sync-plan-modules", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAdminSyncPlanModules(request, env, request.params["orgId"] ?? "", ctx);
   });
 
   // ─── Takedown Authorization (v3 Phase A) ──────────────────────

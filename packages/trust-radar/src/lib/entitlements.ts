@@ -168,3 +168,135 @@ async function invalidateEntitlements(env: Env, orgId: number): Promise<void> {
   // a small risk; if it changes, both files update together.
   await env.CACHE.delete(`cv:entitlements.org.${orgId}`);
 }
+
+// ─── Plan-driven org_modules sync ────────────────────────────────
+
+export interface SyncOrgModulesOptions {
+  /** Optional explicit plan id (e.g. 'enterprise'). If omitted the
+   *  function reads `organizations.plan_id` for the org. */
+  planId?: string | null;
+  /** Optional override for billing_status. Determines whether modules
+   *  land as 'active' (default), 'trial', or 'suspended'. */
+  billingStatusOverride?: "trialing" | "active" | "past_due" | "cancelled" | "unbilled";
+  /** ISO trial-end timestamp passed through to org_modules.trial_ends_at. */
+  trialEndsAt?: string | null;
+  /** À-la-carte modules to add on top of whatever the plan covers.
+   *  Used by the Stripe webhook when subscription items include
+   *  per-module prices that aren't part of the tier bundle. */
+  extraModules?: ModuleKey[];
+}
+
+export interface SyncOrgModulesResult {
+  org_id:           number;
+  plan_id:          string | null;
+  billing_status:   string;
+  modules_active:   ModuleKey[];
+  modules_suspended: ModuleKey[];
+}
+
+/**
+ * Idempotently align an org's `org_modules` rows with its current
+ * `plan_id`. Reads the plan's `included_modules` JSON from
+ * `pricing_plans`, then:
+ *   - activates (or sets to 'trial' / 'suspended' depending on
+ *     billing_status) every module in the plan
+ *   - suspends every active/trial module NOT in the plan (downgrade
+ *     handling)
+ *   - invalidates the KV entitlement cache so the change shows up
+ *     on the next request
+ *
+ * The Stripe webhook handler delegates to this. An admin "sync now"
+ * endpoint also calls it for orgs whose plan was set offline (e.g.
+ * enterprise customers without a Stripe subscription). Safe to call
+ * any number of times.
+ */
+export async function syncOrgModulesToPlan(
+  env: Env,
+  orgId: number,
+  options: SyncOrgModulesOptions = {},
+): Promise<SyncOrgModulesResult> {
+  // Resolve effective plan_id + billing_status. Either the caller
+  // hands them in (Stripe path, where they come from the
+  // subscription) or we read the current snapshot from the DB
+  // (admin "sync now" path).
+  const orgRow = await env.DB.prepare(
+    `SELECT plan_id, billing_status FROM organizations WHERE id = ?`,
+  ).bind(orgId).first<{ plan_id: string | null; billing_status: string }>();
+  if (!orgRow) {
+    throw new Error(`Org ${orgId} not found`);
+  }
+
+  const planId = options.planId !== undefined ? options.planId : orgRow.plan_id;
+  const billingStatus = options.billingStatusOverride ?? orgRow.billing_status;
+
+  const planModules = new Set<ModuleKey>();
+  if (planId) {
+    const planRow = await env.DB.prepare(
+      `SELECT included_modules FROM pricing_plans WHERE id = ? AND is_active = 1`,
+    ).bind(planId).first<{ included_modules: string }>();
+    if (planRow?.included_modules) {
+      try {
+        const parsed = JSON.parse(planRow.included_modules) as unknown;
+        if (Array.isArray(parsed)) {
+          for (const m of parsed) {
+            if (typeof m === "string" && (MODULE_KEYS as readonly string[]).includes(m)) {
+              planModules.add(m as ModuleKey);
+            }
+          }
+        }
+      } catch {
+        // Bad JSON in the plan row — fail soft, leave planModules empty.
+      }
+    }
+  }
+
+  // Union of plan-bundled modules + à-la-carte extras (Stripe items).
+  const enabledModules: ModuleKey[] = Array.from(
+    new Set<ModuleKey>([...planModules, ...(options.extraModules ?? [])]),
+  );
+
+  // Decide the per-module status from billing_status. Mirror of the
+  // Stripe handler's logic, kept in one place so the policy doesn't
+  // drift across call sites.
+  const isLive = billingStatus === "trialing" || billingStatus === "active";
+  const moduleStatus: ModuleStatus =
+    billingStatus === "trialing" ? "trial" : isLive ? "active" : "suspended";
+
+  // 1. Activate every module the plan covers.
+  for (const moduleKey of enabledModules) {
+    await env.DB.prepare(
+      `INSERT INTO org_modules (org_id, module_key, status, activated_at, suspended_at, trial_ends_at)
+       VALUES (?, ?, ?, datetime('now'), NULL, ?)
+       ON CONFLICT(org_id, module_key) DO UPDATE SET
+         status        = excluded.status,
+         activated_at  = COALESCE(org_modules.activated_at, excluded.activated_at),
+         suspended_at  = NULL,
+         trial_ends_at = excluded.trial_ends_at`,
+    ).bind(orgId, moduleKey, moduleStatus, options.trialEndsAt ?? null).run();
+  }
+
+  // 2. Suspend modules currently active/trial but NOT in the new
+  //    plan (downgrade path). When enabledModules is empty (plan
+  //    cancelled or unknown), this suspends everything.
+  const placeholders = enabledModules.length > 0
+    ? enabledModules.map(() => "?").join(",")
+    : "''";
+  const suspendResult = await env.DB.prepare(
+    `UPDATE org_modules
+     SET status = 'suspended', suspended_at = datetime('now')
+     WHERE org_id = ?
+       AND status IN ('active', 'trial')
+       AND module_key NOT IN (${placeholders})
+     RETURNING module_key`,
+  ).bind(orgId, ...enabledModules).all<{ module_key: ModuleKey }>();
+
+  await invalidateEntitlements(env, orgId);
+
+  return {
+    org_id:            orgId,
+    plan_id:           planId,
+    billing_status:    billingStatus,
+    modules_active:    enabledModules,
+    modules_suspended: suspendResult.results?.map(r => r.module_key) ?? [],
+  };
+}

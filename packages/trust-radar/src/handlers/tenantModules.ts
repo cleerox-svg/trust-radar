@@ -24,6 +24,7 @@ import {
   listEnabledModules,
   activateModule,
   suspendModule,
+  syncOrgModulesToPlan,
 } from "../lib/entitlements";
 import {
   listMetricDefinitions,
@@ -189,4 +190,64 @@ export async function handleAdminModuleAction(
       action:     body.action,
     },
   }, 200, origin);
+}
+
+// ─── POST /api/admin/orgs/:orgId/sync-plan-modules ─────────────
+//
+// Operator action: "this org's plan_id is X, make their modules
+// reflect that". Mostly used for enterprise / custom-billed orgs
+// that don't flow through Stripe — the Stripe webhook path syncs
+// automatically. Idempotent.
+//
+// Optional body: { plan_id?, billing_status?, trial_ends_at? }
+// All fields fall back to the current row in `organizations` when
+// omitted, so the no-body call ("just sync to current state") is
+// the common usage.
+
+export interface AdminSyncPlanModulesBody {
+  plan_id?:        string;
+  billing_status?: "trialing" | "active" | "past_due" | "cancelled" | "unbilled";
+  trial_ends_at?:  string | null;
+}
+
+export async function handleAdminSyncPlanModules(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (ctx.role !== "super_admin") {
+    return json({ success: false, error: "Super admin required" }, 403, origin);
+  }
+
+  const orgIdNum = Number(orgId);
+  if (!Number.isFinite(orgIdNum)) {
+    return json({ success: false, error: "Invalid organization id" }, 400, origin);
+  }
+
+  // Body is optional — accept no body, empty body, or JSON.
+  let body: AdminSyncPlanModulesBody = {};
+  try {
+    const text = await request.text();
+    if (text.trim().length > 0) {
+      body = JSON.parse(text) as AdminSyncPlanModulesBody;
+    }
+  } catch {
+    return json({ success: false, error: "Invalid JSON body" }, 400, origin);
+  }
+
+  try {
+    const result = await syncOrgModulesToPlan(env, orgIdNum, {
+      planId:                body.plan_id,
+      billingStatusOverride: body.billing_status,
+      trialEndsAt:           body.trial_ends_at ?? null,
+    });
+    return json({ success: true, data: result }, 200, origin);
+  } catch (err) {
+    return json({
+      success: false,
+      error:   err instanceof Error ? err.message : "Sync failed",
+    }, 500, origin);
+  }
 }

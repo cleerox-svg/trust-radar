@@ -44,7 +44,7 @@
 // v3 Phase D Stripe sprint 4.
 
 import type { Env } from "../types";
-import type { ModuleKey } from "./entitlements";
+import { syncOrgModulesToPlan, type ModuleKey } from "./entitlements";
 
 // ─── Event payload shapes (subset of Stripe's API) ─────────────
 
@@ -202,37 +202,17 @@ export async function syncOrgFromSubscription(
     org.id,
   ).run();
 
-  // 3. Sync org_modules to match the new entitlement set.
-  // For each module in enabledModules, INSERT OR REPLACE with status
-  // matching billing_status. For modules in org_modules NOT in
-  // enabledModules, mark as suspended.
-  const isLive =
-    billingStatus === "trialing" ||
-    billingStatus === "active";
-
-  for (const moduleKey of enabledModules) {
-    const status = billingStatus === "trialing" ? "trial" : (isLive ? "active" : "suspended");
-    await env.DB.prepare(
-      `INSERT INTO org_modules (org_id, module_key, status, activated_at, suspended_at, trial_ends_at)
-       VALUES (?, ?, ?, datetime('now'), NULL, ?)
-       ON CONFLICT(org_id, module_key) DO UPDATE SET
-         status        = excluded.status,
-         activated_at  = COALESCE(org_modules.activated_at, excluded.activated_at),
-         suspended_at  = NULL,
-         trial_ends_at = excluded.trial_ends_at`,
-    ).bind(org.id, moduleKey, status, trialEndsAt).run();
-  }
-
-  // Suspend modules NOT in the new enablement set (the customer
-  // downgraded or removed an à-la-carte subscription).
-  const enabledList = enabledModules.length > 0 ? enabledModules.map(() => "?").join(",") : "''";
-  await env.DB.prepare(
-    `UPDATE org_modules
-     SET status = 'suspended', suspended_at = datetime('now')
-     WHERE org_id = ?
-       AND status IN ('active', 'trial')
-       AND module_key NOT IN (${enabledList})`,
-  ).bind(org.id, ...enabledModules).run();
+  // 3. Sync org_modules to match the new entitlement set. Delegated
+  //    to syncOrgModulesToPlan() in lib/entitlements.ts so the policy
+  //    lives in one place. À-la-carte modules from per-module Stripe
+  //    items are passed via extraModules; they land active alongside
+  //    the plan's bundled modules.
+  await syncOrgModulesToPlan(env, org.id, {
+    planId:                resolvedPlanId,
+    billingStatusOverride: billingStatus,
+    trialEndsAt,
+    extraModules:          Array.from(aLaCarteModules) as ModuleKey[],
+  });
 
   return {
     org_id:          org.id,
