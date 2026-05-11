@@ -28,34 +28,72 @@ export function renderNav(): string {
       </div>
     </a>
     <ul class="nav-links">
-      <li><a href="/platform">Platform</a></li>
-      <li><a href="/pricing">Pricing</a></li>
-      <li><a href="/about">About</a></li>
-      <li><a href="/security">Security</a></li>
-      <li><a href="/blog">Blog</a></li>
-      <li><a href="/contact">Contact</a></li>
+      <li><a href="/platform" class="nav-link" data-path="/platform">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></span>
+        <span class="nav-link-label">Platform</span>
+      </a></li>
+      <li><a href="/pricing" class="nav-link" data-path="/pricing">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25" fill="currentColor"/></svg></span>
+        <span class="nav-link-label">Pricing</span>
+      </a></li>
+      <li><a href="/about" class="nav-link" data-path="/about">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h2"/><path d="M13 9h2"/><path d="M9 13h2"/><path d="M13 13h2"/><path d="M9 17h2"/><path d="M13 17h2"/></svg></span>
+        <span class="nav-link-label">About</span>
+      </a></li>
+      <li><a href="/security" class="nav-link" data-path="/security">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <span class="nav-link-label">Security</span>
+      </a></li>
+      <li><a href="/blog" class="nav-link" data-path="/blog">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 8h16"/><path d="M8 4v16"/></svg></span>
+        <span class="nav-link-label">Blog</span>
+      </a></li>
+      <li><a href="/contact" class="nav-link" data-path="/contact">
+        <span class="nav-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 5l9 8 9-8"/></svg></span>
+        <span class="nav-link-label">Contact</span>
+      </a></li>
     </ul>
     <div class="nav-right">
       <button class="nav-hamburger" onclick="toggleMobileMenu()" aria-label="Toggle menu">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-        <span id="theme-icon">\u2600</span>
+      <button class="theme-toggle" onclick="cycleTheme()" aria-label="Cycle theme" title="Cycle theme (auto / dark / light)">
+        <span id="theme-icon" class="theme-icon-wrap" aria-hidden="true"></span>
       </button>
       <a href="/login" class="btn btn-outline" style="font-size:0.82rem;padding:0.45rem 1rem;">Login</a>
       <a href="/scan" class="btn btn-primary" style="font-size:0.82rem;padding:0.45rem 1rem;">Free Scan</a>
     </div>
   </div>
 </nav>
-<div class="mobile-menu" id="mobileMenu">
-  <a href="/platform">Platform</a>
-  <a href="/pricing">Pricing</a>
-  <a href="/about">About</a>
-  <a href="/security">Security</a>
-  <a href="/blog">Blog</a>
-  <a href="/contact">Contact</a>
-  <a href="/login">Login</a>
-  <a href="/scan">Free Scan</a>
+<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+  <div class="mobile-menu-section-label">Navigate</div>
+  <a href="/platform" class="mobile-link" data-path="/platform">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></span>
+    <span>Platform</span>
+  </a>
+  <a href="/pricing" class="mobile-link" data-path="/pricing">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.25" fill="currentColor"/></svg></span>
+    <span>Pricing</span>
+  </a>
+  <a href="/about" class="mobile-link" data-path="/about">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h2"/><path d="M13 9h2"/><path d="M9 13h2"/><path d="M13 13h2"/><path d="M9 17h2"/><path d="M13 17h2"/></svg></span>
+    <span>About</span>
+  </a>
+  <a href="/security" class="mobile-link" data-path="/security">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+    <span>Security</span>
+  </a>
+  <a href="/blog" class="mobile-link" data-path="/blog">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 8h16"/><path d="M8 4v16"/></svg></span>
+    <span>Blog</span>
+  </a>
+  <a href="/contact" class="mobile-link" data-path="/contact">
+    <span class="mobile-link-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v14H3z"/><path d="M3 5l9 8 9-8"/></svg></span>
+    <span>Contact</span>
+  </a>
+  <div class="mobile-menu-divider"></div>
+  <a href="/login" class="mobile-link mobile-link-secondary">Login</a>
+  <a href="/scan" class="mobile-link mobile-link-primary">Free Scan</a>
 </div>`;
 }
 
@@ -381,25 +419,73 @@ img { max-width: 100%; }
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
   list-style: none;
 }
 
-.nav-links a {
-  padding: 0.5rem 0.85rem;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 500;
+/* Horizontal port of the back-end sidebar nav pattern.
+   Active: amber gradient pill + amber bottom border (analog of the
+   sidebar's left border) + amber icon glow. */
+.nav-links .nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  position: relative;
 }
-
-.nav-links a:hover {
+.nav-links .nav-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: color 0.15s, filter 0.15s;
+}
+.nav-links .nav-link-icon svg { width: 16px; height: 16px; }
+.nav-links .nav-link-label { line-height: 1; }
+.nav-links .nav-link:hover {
   color: var(--text-primary);
-  background: var(--accent-bg);
+  background: rgba(229,168,50,0.06);
+  text-decoration: none;
+}
+.nav-links .nav-link:hover .nav-link-icon { color: var(--amber); }
+.nav-links .nav-link.is-active {
+  color: var(--amber);
+  background: linear-gradient(135deg, rgba(229,168,50,0.12), rgba(229,168,50,0.06));
+  border-color: rgba(229,168,50,0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(229,168,50,0.20),
+    0 0 12px rgba(229,168,50,0.08);
+  font-weight: 600;
+}
+.nav-links .nav-link.is-active .nav-link-icon {
+  color: var(--amber);
+  filter: drop-shadow(0 0 4px rgba(229,168,50,0.60));
+}
+/* Amber underline on the active item — horizontal echo of the
+   sidebar's left-edge accent strip. */
+.nav-links .nav-link.is-active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -3px;
+  height: 2px;
+  background: var(--amber);
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(229,168,50,0.45);
 }
 
 .nav-right {
@@ -418,15 +504,21 @@ img { max-width: 100%; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
   transition: all 0.2s;
   color: var(--text-secondary);
 }
-
 .theme-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--amber);
+  color: var(--amber);
 }
+.theme-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+.theme-icon-wrap svg { width: 16px; height: 16px; }
 
 /* ── BUTTONS ── */
 .btn {
@@ -857,23 +949,82 @@ section {
   right: 0;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: 1rem 2rem;
+  padding: 12px 16px 16px;
   z-index: 999;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 1px;
   box-shadow: var(--shadow-lg);
 }
 .mobile-menu.open { display: flex; }
-.mobile-menu a {
-  display: block;
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
+.mobile-menu-section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  padding: 12px 14px 6px;
+}
+.mobile-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 1px 0;
+  font-family: var(--font-display);
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-decoration: none;
+  transition: all 0.15s ease;
 }
-.mobile-menu a:hover { background: var(--accent-bg); color: var(--accent); }
+.mobile-link:hover {
+  background: rgba(229,168,50,0.06);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.mobile-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.mobile-link-icon svg { width: 16px; height: 16px; }
+.mobile-link:hover .mobile-link-icon { color: var(--amber); }
+.mobile-link.is-active {
+  color: var(--amber);
+  background: linear-gradient(135deg, rgba(229,168,50,0.12), rgba(229,168,50,0.06));
+  border-color: rgba(229,168,50,0.22);
+  border-left: 2px solid var(--amber);
+  padding-left: 12px;
+  font-weight: 600;
+}
+.mobile-link.is-active .mobile-link-icon {
+  color: var(--amber);
+  filter: drop-shadow(0 0 4px rgba(229,168,50,0.60));
+}
+.mobile-menu-divider {
+  height: 1px;
+  margin: 8px 8px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+.mobile-link-primary {
+  background: var(--accent);
+  color: white;
+  justify-content: center;
+  margin-top: 4px;
+}
+.mobile-link-primary:hover { background: var(--accent-hover); color: white; }
+.mobile-link-secondary {
+  border: 1px solid var(--border);
+  justify-content: center;
+}
 
 @media (max-width: 768px) {
   .nav-hamburger { display: flex; }
@@ -1224,14 +1375,22 @@ export function wrapPage(title: string, description: string, content: string): s
 ${renderHead(title, description)}
 <script>
   // Pre-paint theme load — avoids a flash from the dark default to a
-  // saved-light preference. Runs before <body> so the variables are set
-  // before the first paint.
+  // saved-light preference. Three modes match the back-end sidebar:
+  //   auto  -> follow OS prefers-color-scheme
+  //   dark  -> forced dark
+  //   light -> forced light
+  // Runs before <body> so the data-theme attribute lands before paint.
   (function(){
     try {
       var saved = localStorage.getItem('averrow-theme');
+      var resolved = 'dark';
       if (saved === 'light' || saved === 'dark') {
-        document.documentElement.setAttribute('data-theme', saved);
+        resolved = saved;
+      } else if (saved === 'auto' || saved === null) {
+        var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        resolved = prefersLight ? 'light' : 'dark';
       }
+      document.documentElement.setAttribute('data-theme', resolved);
     } catch (e) {}
   })();
 </script>
@@ -1259,21 +1418,85 @@ ${renderFooter()}
 </div>
 
 <script>
-function toggleTheme() {
-  const html = document.documentElement;
-  const current = html.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
-  html.setAttribute('data-theme', next);
-  const icon = document.getElementById('theme-icon');
-  if (icon) icon.textContent = next === 'light' ? '\\u2600' : '\\u263E';
-  try { localStorage.setItem('averrow-theme', next); } catch (e) {}
+// Theme cycle: matches the back-end sidebar — auto -> dark -> light -> auto.
+// Stored preference can be 'auto' | 'dark' | 'light' | null (treated as auto).
+// When the preference is 'auto', data-theme still resolves to dark/light so
+// CSS works, but the button shows the laptop icon to signal OS-follow mode.
+var THEME_ICONS = {
+  auto:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
+  dark:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+  light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></svg>'
+};
+
+function getSavedTheme() {
+  try {
+    var saved = localStorage.getItem('averrow-theme');
+    if (saved === 'auto' || saved === 'dark' || saved === 'light') return saved;
+  } catch (e) {}
+  return 'auto';
 }
 
-// Sync icon to whatever theme the pre-paint script settled on
-(function(){
-  var theme = document.documentElement.getAttribute('data-theme') || 'dark';
+function resolveTheme(mode) {
+  if (mode === 'dark' || mode === 'light') return mode;
+  var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  return prefersLight ? 'light' : 'dark';
+}
+
+function paintThemeIcon(mode) {
   var icon = document.getElementById('theme-icon');
-  if (icon) icon.textContent = theme === 'light' ? '\\u2600' : '\\u263E';
+  if (icon) icon.innerHTML = THEME_ICONS[mode] || THEME_ICONS.auto;
+  var btn = icon && icon.parentElement;
+  if (btn) {
+    btn.setAttribute('aria-label',
+      mode === 'auto'  ? 'Theme: auto (follows OS) — click for dark' :
+      mode === 'dark'  ? 'Theme: dark — click for light' :
+                         'Theme: light — click for auto');
+  }
+}
+
+function cycleTheme() {
+  var current = getSavedTheme();
+  var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+  try { localStorage.setItem('averrow-theme', next); } catch (e) {}
+  document.documentElement.setAttribute('data-theme', resolveTheme(next));
+  paintThemeIcon(next);
+}
+
+// Backwards-compat alias for any inline onclick still calling toggleTheme.
+function toggleTheme() { cycleTheme(); }
+
+// Initial paint of the theme icon based on saved preference.
+// Pre-paint script already set data-theme; this just syncs the button.
+(function(){
+  paintThemeIcon(getSavedTheme());
+})();
+
+// Re-resolve when OS theme flips while in auto mode (no localStorage write).
+if (window.matchMedia) {
+  var mq = window.matchMedia('(prefers-color-scheme: light)');
+  var listener = function() {
+    if (getSavedTheme() === 'auto') {
+      document.documentElement.setAttribute('data-theme', resolveTheme('auto'));
+    }
+  };
+  if (mq.addEventListener) mq.addEventListener('change', listener);
+  else if (mq.addListener) mq.addListener(listener);
+}
+
+// Active-link detection — mirror of sidebar's NavLink active styling.
+// Runs once on load; nav is server-rendered so there's no flash.
+(function() {
+  var path = location.pathname.replace(/\\/$/, '') || '/';
+  function pathMatches(linkPath) {
+    if (linkPath === path) return true;
+    // Sub-pages activate their parent: /blog/<slug>, /security#anchor, etc.
+    if (linkPath !== '/' && path.indexOf(linkPath + '/') === 0) return true;
+    return false;
+  }
+  document.querySelectorAll('.nav-link, .mobile-link').forEach(function(el) {
+    var linkPath = el.getAttribute('data-path');
+    if (linkPath && pathMatches(linkPath)) el.classList.add('is-active');
+  });
 })();
 
 // Smooth scroll for anchor links
@@ -1335,10 +1558,15 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
-// Mobile menu
+// Mobile menu — also reflects open state on the hamburger and the menu
+// itself via aria-expanded / aria-hidden for assistive tech.
 function toggleMobileMenu() {
-  const menu = document.getElementById('mobileMenu');
-  if (menu) menu.classList.toggle('open');
+  var menu = document.getElementById('mobileMenu');
+  if (!menu) return;
+  var open = menu.classList.toggle('open');
+  menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  var btn = document.querySelector('.nav-hamburger');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 </script>
 
