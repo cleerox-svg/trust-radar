@@ -49,6 +49,13 @@ import { seclookup } from "./seclookup";
 import { c2_intel_feeds } from "./c2intelfeeds";
 import { typosquat_scanner } from "./typosquat_scanner";
 
+// ─── Tier-A volume adds (OSINT-expansion plan) ─────────────────
+// Public, no-auth phishing feeds that complement the existing
+// openphish / phishtank / urlhaus corpus. Each lands as its own
+// feed_configs row + module here.
+import { phishstats } from "./phishstats";
+import { urlscanio } from "./urlscanio";
+
 // ─── Generic STIX/TAXII 2.1 Consumer ────────────────────────────
 // One module shared across every TAXII-backed collection; each
 // subscribed collection is a feed_configs row whose feed_name
@@ -87,6 +94,10 @@ export const feedModules: Record<string, FeedModule> = {
   c2_intel_feeds,
   typosquat_scanner,
   cisa_iran_iocs,
+
+  // Tier-A volume adds — public, no-auth phishing feeds.
+  phishstats,
+  urlscanio,
 
   // STIX/TAXII collections — all dispatch to the same generic
   // module; the per-collection params live in feed_configs columns.
