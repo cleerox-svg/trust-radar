@@ -59,9 +59,12 @@ import { urlscanio } from "./urlscanio";
 // ─── No-auth supplemental feeds ────────────────────────────────
 // NIST NVD full CVE catalog (supplements CISA KEV with broader
 // vuln coverage) + CryptoScamDB (crypto-specific phishing /
-// scam URLs, valuable for fintech customers).
+// scam URLs, valuable for fintech customers) + DigitalSide.it
+// OSINT lists + TweetFeed (researcher-curated IOCs from X).
 import { nvd_cve } from "./nvd_cve";
 import { cryptoscamdb } from "./cryptoscamdb";
+import { digitalside_osint } from "./digitalside_osint";
+import { tweetfeed } from "./tweetfeed";
 
 // ─── Generic STIX/TAXII 2.1 Consumer ────────────────────────────
 // One module shared across every TAXII-backed collection; each
@@ -106,9 +109,12 @@ export const feedModules: Record<string, FeedModule> = {
   phishstats,
   urlscanio,
 
-  // Supplemental no-auth feeds — vulnerabilities + crypto scams.
+  // Supplemental no-auth feeds — vulnerabilities + crypto scams
+  // + researcher-curated IOCs.
   nvd_cve,
   cryptoscamdb,
+  digitalside_osint,
+  tweetfeed,
 
   // STIX/TAXII collections — all dispatch to the same generic
   // module; the per-collection params live in feed_configs columns.
