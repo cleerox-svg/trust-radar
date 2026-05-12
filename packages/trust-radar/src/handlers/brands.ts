@@ -184,13 +184,23 @@ export async function handleBrandStats(request: Request, env: Env): Promise<Resp
 }
 
 // GET /api/brands?tab=under_attack|watchlist|all&q=search&sort=threats|name|recent&limit=50&offset=0
+//
+// `limit` is clamped to 500 max (was 100). The brands catalog is
+// ~78K rows; bumping to 500 lets the BrandsGrid surface a
+// meaningful slice of the catalog per request while keeping the
+// payload under ~500 KB. The response already carries the catalog-
+// wide `total` + `tabs.{under_attack,watchlist,all}` counts so the
+// UI can render an honest "Showing X of N" header without a
+// separate request. For true catalog-scale browsing, the right
+// answer is server-side paginated infinite scroll — bigger refactor
+// not in this PR's scope.
 export async function handleListBrands(request: Request, env: Env, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
     const url = new URL(request.url);
-    const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "50", 10));
+    const limit = Math.min(500, parseInt(url.searchParams.get("limit") ?? "50", 10));
     const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
     const search = url.searchParams.get("q");
     const sector = url.searchParams.get("sector");

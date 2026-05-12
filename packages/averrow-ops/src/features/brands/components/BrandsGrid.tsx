@@ -685,6 +685,11 @@ function BrandCard({
 export function BrandsGrid() {
   const navigate = useNavigate();
   const { data: brands = [], isLoading } = useBrands({ view: 'all', timeRange: '7d' });
+  // useBrandStats hits `/api/brands/stats` (KV-cached 5 min on the
+  // backend) so the catalog-wide total renders "for free" — it
+  // gives users the honest "Showing X of Y in catalog" framing
+  // even though the list itself is capped at 500 per request.
+  const { data: brandStats } = useBrandStats();
   const toggleMonitor = useToggleMonitor();
 
   /* ─── Shared filter state ─── */
@@ -837,7 +842,10 @@ export function BrandsGrid() {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-3">
                 <span className="font-mono text-[11px] text-white/40">
-                  Showing {showFrom}&ndash;{showTo} of {filteredBrands.length} brands
+                  Showing {showFrom}&ndash;{showTo} of {filteredBrands.length.toLocaleString()}
+                  {brandStats?.total_tracked && brandStats.total_tracked > filteredBrands.length ? (
+                    <> &middot; <span className="text-white/30">{brandStats.total_tracked.toLocaleString()} in catalog</span></>
+                  ) : null}
                 </span>
                 <div className="flex items-center gap-1">
                   <button

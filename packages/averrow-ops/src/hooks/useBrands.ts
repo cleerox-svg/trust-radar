@@ -79,7 +79,13 @@ interface SocialProfile {
 export type { Brand, BrandDetail, BrandStats, SocialProfile, BrandSocialProfile };
 
 export function useBrands(options?: { view?: string; limit?: number; offset?: number; timeRange?: string }) {
-  const { view = 'top', limit = 100, offset = 0, timeRange = '7d' } = options || {};
+  // Default to 500 — the backend caps at 500 anyway, and 100 was
+  // leaving the All Brands tab paginating across "Showing 51-100 of
+  // 100" while the actual catalog is ~78K rows. Callers that want a
+  // smaller slice (Home tiles, Observatory sidebar) pass an explicit
+  // limit; this default only affects the brand-list surfaces that
+  // previously got 100 by accident.
+  const { view = 'top', limit = 500, offset = 0, timeRange = '7d' } = options || {};
   return useQuery({
     queryKey: ['brands', view, limit, offset, timeRange],
     queryFn: async () => {
