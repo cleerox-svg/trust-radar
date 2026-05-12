@@ -1,0 +1,39 @@
+-- Trust Radar — Index the notification dedup query.
+--
+-- Two hot dedup paths in our notification stack:
+--
+--   lib/notifications.ts:120
+--     SELECT COUNT(*) FROM notifications
+--      WHERE type = ? AND group_key = ?
+--        AND created_at > datetime('now', ?)
+--
+--   lib/platform-templates.ts:391
+--     SELECT id FROM notifications
+--      WHERE type = ? AND group_key = ?
+--      ORDER BY created_at DESC LIMIT 1
+--
+-- Both fired on every `createNotification` call. None of the six
+-- existing indexes (idx_notifications_inbox / brand / audience /
+-- group / unread / snoozed — see migration 0127) leads with
+-- (type, group_key) without `user_id` as the first column, so a
+-- platform-wide dedup query (group_key set, user_id NULL) couldn't
+-- use any of them and fell back to a full-table scan.
+--
+-- Live diagnostic at 03:10 UTC after the day's brand-scoring
+-- batch + alert cascade landed:
+--   SELECT COUNT(*) FROM notifications WHERE type=? AND group_key=?
+--   3,383 calls / 51.7M rows read / 24h
+--   = ~15K rows scanned per call (a full sequential scan).
+--
+-- New index covers both sites cleanly:
+--   - (type, group_key) is the seek prefix
+--   - created_at DESC matches the ORDER BY and supports the time-
+--     window range comparison in the dedup path
+--
+-- Disk impact: notifications table is bounded (we rotate / archive
+-- via TTL-aware queries). One additional index per row is fine.
+-- Estimated reduction: ~50M D1 rows reclaimed per 24 h once the
+-- planner picks it up.
+
+CREATE INDEX IF NOT EXISTS idx_notifications_dedup
+  ON notifications(type, group_key, created_at DESC);
