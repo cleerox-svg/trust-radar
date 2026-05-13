@@ -579,7 +579,7 @@ export const nexusAgent: AgentModule = {
     { kind: "d1_table", name: "app_store_listings" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "dark_web_mentions" },
-    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "threat_cube_provider" },
     { kind: "d1_table", name: "threats" },
   ],
   writes: [
