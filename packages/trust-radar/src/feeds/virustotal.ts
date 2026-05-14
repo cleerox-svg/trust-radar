@@ -124,7 +124,28 @@ export const virustotal: FeedModule = {
     let itemsDuplicate = 0;
     let itemsError = 0;
 
+    // Elapsed-time cap so a slow VT run can't push the parent
+    // orchestrator's hourly tick past the 15-min navigator reaper
+    // threshold. 10 domains × (3-30s fetch + 16s rate-limit sleep) ≈
+    // ~3 min in the common path, but a few timeouts can blow it past
+    // 5 min easily. 4 min cap keeps the worker headroom for the rest
+    // of the orchestrator's work and aligns with the per-feed retry
+    // budget (PR-K). Whichever batch gets cut short here is picked up
+    // by the next tick — the vt_checked flag makes the iteration
+    // resumable across runs.
+    const PULL_BUDGET_MS = 4 * 60_000;
+    const startTime = Date.now();
+
     for (const row of domains) {
+      if (Date.now() - startTime > PULL_BUDGET_MS) {
+        logger.info("virustotal_pull_budget_reached", {
+          processed: itemsFetched,
+          remaining: domains.length - itemsFetched,
+          elapsedMs: Date.now() - startTime,
+        });
+        break;
+      }
+
       // Re-check daily limit before each call
       const currentCalls = await getDailyCallCount(env);
       if (currentCalls >= DAILY_LIMIT) {
