@@ -292,9 +292,17 @@ export async function postureAggregate(env: Env): Promise<PostureAggregate> {
         `).first<{ n: number }>(),
       ]);
 
-      // Improving / declining: compare latest snapshot to the
-      // snapshot from 7 days ago. brand_score_snapshots is keyed
-      // by (brand_id, snapshot_day) so the windowed CTE is cheap.
+      // Improving / declining: compare latest snapshot to the OLDEST
+      // snapshot within the last 1-8 days. PR-T loosened this from a
+      // strict 6-8 day window because brand_score_snapshots was empty
+      // for months (orchestrator hour===0 starvation; see cron handler
+      // for `16 0 * * *`) and even after the dedicated cron started
+      // populating it, customers wouldn't see Improving/Declining
+      // cards for a full week. Loosened window lights them up as soon
+      // as ≥1 day of history exists, then naturally extends to the
+      // full 7-day diff as history accumulates. brand_score_snapshots
+      // is keyed by (brand_id, snapshot_day) so the windowed CTE is
+      // cheap (index seek per brand).
       const movers = await env.DB.prepare(`
         WITH paired AS (
           SELECT
@@ -303,8 +311,9 @@ export async function postureAggregate(env: Env): Promise<PostureAggregate> {
             (SELECT brand_health_score
              FROM brand_score_snapshots s2
              WHERE s2.brand_id = s.brand_id
-               AND julianday('now') - julianday(s2.snapshot_day) BETWEEN 6 AND 8
-             ORDER BY s2.snapshot_day DESC LIMIT 1) AS prev
+               AND julianday('now') - julianday(s2.snapshot_day) BETWEEN 1 AND 8
+               AND s2.snapshot_day <> s.snapshot_day
+             ORDER BY s2.snapshot_day ASC LIMIT 1) AS prev
           FROM brand_score_snapshots s
           WHERE s.snapshot_day = (
             SELECT MAX(snapshot_day) FROM brand_score_snapshots
