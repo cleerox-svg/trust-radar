@@ -85,7 +85,7 @@ export class HttpZipReader {
   async open(): Promise<void> {
     // HEAD to determine file size. MaxMind redirects to a CDN URL
     // that returns the size on HEAD.
-    const headRes = await fetch(this.url, { method: 'HEAD' });
+    const headRes = await fetch(this.url, { method: 'HEAD', signal: AbortSignal.timeout(30_000) });
     if (!headRes.ok) {
       throw new Error(`HEAD ${this.url} → ${headRes.status}`);
     }
@@ -100,6 +100,7 @@ export class HttpZipReader {
     const tailStart = Math.max(0, this.totalSize - 64 * 1024);
     const tailRes = await fetch(this.url, {
       headers: { Range: `bytes=${tailStart}-${this.totalSize - 1}` },
+      signal: AbortSignal.timeout(60_000),
     });
     if (!tailRes.ok) {
       throw new Error(
@@ -123,6 +124,7 @@ export class HttpZipReader {
     // Range-read the central directory itself.
     const cdirRes = await fetch(this.url, {
       headers: { Range: `bytes=${cdirOffset}-${cdirOffset + cdirSize - 1}` },
+      signal: AbortSignal.timeout(60_000),
     });
     if (!cdirRes.ok) {
       throw new Error(`Range cdir ${this.url} → ${cdirRes.status}`);
@@ -189,6 +191,7 @@ export class HttpZipReader {
       headers: {
         Range: `bytes=${entry.localHeaderOffset}-${lfhEnd}`,
       },
+      signal: AbortSignal.timeout(30_000),
     });
     if (!lfhRes.ok) {
       throw new Error(`Range lfh ${entry.name} → ${lfhRes.status}`);
@@ -202,6 +205,7 @@ export class HttpZipReader {
     // we never buffer it whole.
     const dataRes = await fetch(this.url, {
       headers: { Range: `bytes=${dataOffset}-${dataEnd}` },
+      signal: AbortSignal.timeout(120_000),
     });
     if (!dataRes.ok || !dataRes.body) {
       throw new Error(`Range entry ${entry.name} → ${dataRes.status}`);

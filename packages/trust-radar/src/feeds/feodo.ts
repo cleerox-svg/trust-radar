@@ -20,7 +20,7 @@ const IP_REGEX = /^\d+\.\d+\.\d+\.\d+$/;
 export const feodo: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     if (!ctx.feedUrl) throw new Error("Feodo: feed_configs.source_url is empty");
-    const res = await fetch(ctx.feedUrl);
+    const res = await fetch(ctx.feedUrl, { signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`Feodo HTTP ${res.status}`);
 
     const text = await res.text();

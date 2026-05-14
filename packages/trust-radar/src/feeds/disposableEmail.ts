@@ -19,7 +19,7 @@ export const disposable_email: FeedModule = {
     const url = ctx.feedUrl || DISPOSABLE_URL;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "TrustRadar/2.0" },
+      signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TrustRadar/2.0" },
     });
     if (!res.ok) throw new Error(`Disposable Email Domains HTTP ${res.status}`);
 

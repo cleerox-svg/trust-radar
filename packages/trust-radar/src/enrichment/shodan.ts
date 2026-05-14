@@ -49,7 +49,7 @@ export async function enrichShodan(db: D1Database, env: Env): Promise<Enrichment
         data = JSON.parse(cached) as ShodanResult;
       } else {
         liveFetch = true;
-        const res = await fetch(`https://internetdb.shodan.io/${row.ip_address}`);
+        const res = await fetch(`https://internetdb.shodan.io/${row.ip_address}`, { signal: AbortSignal.timeout(30_000) });
         if (res.status === 404) {
           // IP not indexed — mark as checked so we don't retry
           await markChecked(db, row.id, row.metadata, { shodan_checked: true, shodan_indexed: false });

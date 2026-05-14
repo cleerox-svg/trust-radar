@@ -89,6 +89,7 @@ export class CartographerBackfillWorkflow extends WorkflowEntrypoint<BackfillEnv
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(chunk.map((ip: string) => ({ query: ip }))),
+                  signal: AbortSignal.timeout(15_000),
                 }
               );
               if (res.ok) {

@@ -22,7 +22,7 @@ export const blocklist_de: FeedModule = {
     const url = ctx.feedUrl || BLOCKLIST_URL;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "TrustRadar/2.0" },
+      signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TrustRadar/2.0" },
     });
     if (!res.ok) throw new Error(`Blocklist.de HTTP ${res.status}`);
 

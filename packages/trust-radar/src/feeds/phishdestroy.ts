@@ -44,7 +44,7 @@ const MAX_INPUT_DOMAINS = 50_000;
 
 export const phishdestroy: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    const res = await fetch(ctx.feedUrl);
+    const res = await fetch(ctx.feedUrl, { signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`PhishDestroy HTTP ${res.status}`);
 
     const raw = (await res.json()) as unknown;

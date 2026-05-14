@@ -26,7 +26,7 @@ export interface VTResult {
  */
 export async function enrichWithVirusTotal(domain: string, env: Env): Promise<VTResult> {
   const res = await fetch(`https://www.virustotal.com/api/v3/domains/${encodeURIComponent(domain)}`, {
-    headers: {
+    signal: AbortSignal.timeout(30_000), headers: {
       "x-apikey": env.VIRUSTOTAL_API_KEY,
       Accept: "application/json",
     },

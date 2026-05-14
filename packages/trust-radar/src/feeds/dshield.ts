@@ -13,7 +13,7 @@ export const dshield: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
     const url = ctx.feedUrl || DSHIELD_URL;
     const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "TrustRadar/1.0" },
+      signal: AbortSignal.timeout(30_000), headers: { Accept: "application/json", "User-Agent": "TrustRadar/1.0" },
     });
     if (!res.ok) throw new Error(`DShield HTTP ${res.status}`);
 

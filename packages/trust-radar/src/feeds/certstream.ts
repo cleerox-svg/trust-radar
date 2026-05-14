@@ -53,7 +53,7 @@ export const certstream: FeedModule = {
     const keyword = allSearchKeywords[Math.floor(Date.now() / 900_000) % allSearchKeywords.length]!;
 
     const url = `${ctx.feedUrl}?q=%25${keyword}%25&output=json&limit=100`;
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { Accept: "application/json" } });
 
     // crt.sh has had recurring upstream HTTP 502s (observed 2026-04-27,
     // tripped this feed's auto-pause threshold of 5 consecutive failures)

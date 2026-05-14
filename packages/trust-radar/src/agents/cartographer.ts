@@ -75,12 +75,28 @@ async function enrichIpBatch(ips: string[]): Promise<Map<string, IpGeoResult>> {
   const chunks = chunkArray(ips.filter(Boolean), 100);
   const results = new Map<string, IpGeoResult>();
 
+  // Total-elapsed cap across all chunks. ip-api.com going partially slow
+  // would otherwise let multiple chunks compound into a multi-minute hang.
+  // We've seen the upstream get unresponsive in bursts (cf taxii_otx
+  // 12-min timeout 2026-05-13). 60s is generous for the common path
+  // (45 req/min rate-limit gate + 5 chunks ≈ 7s) and a hard ceiling
+  // for the pathological one. Cart's normal AI/email/stats work doesn't
+  // depend on these results landing — empty map is the right fallback.
+  const LOOP_CEILING_MS = 60_000;
+  const PER_CHUNK_TIMEOUT_MS = 15_000;
+  const loopStart = Date.now();
+
   for (const chunk of chunks) {
+    if (Date.now() - loopStart > LOOP_CEILING_MS) {
+      console.warn(`[cartographer] enrichIpBatch loop ceiling reached after ${results.size} IPs across ${chunks.length} chunks — bailing.`);
+      break;
+    }
     try {
       const res = await fetch('http://ip-api.com/batch?fields=status,lat,lon,as,country,countryCode,isp,org', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chunk.map(ip => ({ query: ip }))),
+        signal: AbortSignal.timeout(PER_CHUNK_TIMEOUT_MS),
       });
       if (!res.ok) continue;
       const data = await res.json() as IpGeoResult[];

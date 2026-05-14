@@ -40,7 +40,7 @@ export async function checkGreyNoise(ip: string, env: Env): Promise<GreyNoiseRes
   }
 
   const res = await fetch(`https://api.greynoise.io/v3/community/${encodeURIComponent(ip)}`, {
-    headers: {
+    signal: AbortSignal.timeout(30_000), headers: {
       key: env.GREYNOISE_API_KEY,
       Accept: "application/json",
     },

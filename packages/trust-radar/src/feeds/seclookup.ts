@@ -41,7 +41,7 @@ export async function checkSecLookup(
     : `https://api.seclookup.com/v1/ip/${encodeURIComponent(indicator)}`;
 
   const res = await fetch(endpoint, {
-    headers: {
+    signal: AbortSignal.timeout(30_000), headers: {
       Authorization: `Bearer ${env.SECLOOKUP_API_KEY}`,
       Accept: "application/json",
     },

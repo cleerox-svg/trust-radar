@@ -37,7 +37,7 @@ export async function checkHIBPStealerLogs(domain: string, env: Env): Promise<HI
   const res = await fetch(
     `https://haveibeenpwned.com/api/v3/stealerlogsearchresult/${encodeURIComponent(domain)}`,
     {
-      headers: {
+      signal: AbortSignal.timeout(30_000), headers: {
         "hibp-api-key": env.HIBP_API_KEY,
         "user-agent": "Averrow-ThreatIntel/1.0",
       },

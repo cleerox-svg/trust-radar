@@ -91,7 +91,7 @@ export async function checkGoogleSafeBrowsing(
   };
 
   const res = await fetch(endpoint, {
-    method: "POST",
+    signal: AbortSignal.timeout(30_000), method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });

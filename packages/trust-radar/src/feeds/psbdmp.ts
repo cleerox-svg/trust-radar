@@ -108,6 +108,7 @@ export async function searchPastes(
   try {
     const init: RequestInit = {
       headers: { Accept: "application/json", "User-Agent": "Averrow/1.0 (+https://averrow.com)" },
+      signal: AbortSignal.timeout(30_000),
     };
     if (cacheTtl > 0) {
       (init as RequestInit & { cf?: unknown }).cf = { cacheTtl, cacheEverything: true };
@@ -159,7 +160,7 @@ export async function searchPastes(
 export async function fetchPasteContent(pasteId: string): Promise<string> {
   const url = `${PSBDMP_BASE}/dump/get/${encodeURIComponent(pasteId)}`;
   const res = await fetch(url, {
-    headers: { Accept: "text/plain, application/json", "User-Agent": "Averrow/1.0 (+https://averrow.com)" },
+    signal: AbortSignal.timeout(30_000), headers: { Accept: "text/plain, application/json", "User-Agent": "Averrow/1.0 (+https://averrow.com)" },
     cf: { cacheTtl: 3600, cacheEverything: true },
   });
   if (!res.ok) {

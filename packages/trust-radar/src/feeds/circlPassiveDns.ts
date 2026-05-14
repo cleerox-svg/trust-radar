@@ -34,7 +34,7 @@ export async function queryPassiveDNS(domain: string, env: Env): Promise<PDNSRes
   const credentials = btoa(`${env.CIRCL_PDNS_USER}:${env.CIRCL_PDNS_PASS}`);
 
   const res = await fetch(`https://www.circl.lu/pdns/query/${encodeURIComponent(domain)}`, {
-    headers: {
+    signal: AbortSignal.timeout(30_000), headers: {
       Authorization: `Basic ${credentials}`,
       Accept: "application/json",
     },

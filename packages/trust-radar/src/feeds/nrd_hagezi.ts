@@ -89,7 +89,7 @@ export const nrd_hagezi: FeedModule = {
     logger.info("nrd_whoisds_fetch", { url, date: yesterday });
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "Averrow-TrustRadar/2.0 (threat-intel-platform)" },
+      signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "Averrow-TrustRadar/2.0 (threat-intel-platform)" },
     });
 
     if (!res.ok) {
@@ -101,7 +101,7 @@ export const nrd_hagezi: FeedModule = {
       logger.info("nrd_whoisds_fallback", { fallbackUrl, originalStatus: res.status });
 
       const fallbackRes = await fetch(fallbackUrl, {
-        headers: { "User-Agent": "Averrow-TrustRadar/2.0 (threat-intel-platform)" },
+        signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "Averrow-TrustRadar/2.0 (threat-intel-platform)" },
       });
       if (!fallbackRes.ok) {
         throw new Error(`NRD WhoisDS HTTP ${res.status} (yesterday) / ${fallbackRes.status} (day-before)`);

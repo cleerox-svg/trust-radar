@@ -5,7 +5,7 @@ import { isDuplicate, markSeen, insertThreat } from "../lib/feedRunner";
 /** OpenPhish Community — Active phishing URLs (plaintext feed, no auth) */
 export const openphish: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
-    const res = await fetch(ctx.feedUrl);
+    const res = await fetch(ctx.feedUrl, { signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`OpenPhish HTTP ${res.status}`);
 
     const text = await res.text();
