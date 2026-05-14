@@ -19,7 +19,7 @@ export const tor_exit_nodes: FeedModule = {
     const url = ctx.feedUrl || TOR_EXIT_URL;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "TrustRadar/2.0" },
+      signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TrustRadar/2.0" },
     });
     if (!res.ok) throw new Error(`Tor Exit Nodes HTTP ${res.status}`);
 

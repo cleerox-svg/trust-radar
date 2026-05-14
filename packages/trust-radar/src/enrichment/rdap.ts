@@ -94,7 +94,7 @@ export async function enrichRdap(db: D1Database, _env: Env): Promise<EnrichmentR
 async function fetchRdap(domain: string): Promise<RdapResponse | null> {
   try {
     const res = await fetch(`https://rdap.org/domain/${domain}`, {
-      headers: { Accept: "application/rdap+json" },
+      signal: AbortSignal.timeout(30_000), headers: { Accept: "application/rdap+json" },
     });
     if (res.status === 404 || res.status === 400) return null;
     if (!res.ok) return null;

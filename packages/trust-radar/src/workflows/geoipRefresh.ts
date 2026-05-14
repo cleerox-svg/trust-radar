@@ -173,7 +173,7 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
           'probe',
           { retries: { limit: 3, delay: '15 seconds', backoff: 'exponential' }, timeout: '30 seconds' },
           async (): Promise<{ sha256First12: string; full: string }> => {
-            const res = await fetch(`${baseUrl}&suffix=zip.sha256`);
+            const res = await fetch(`${baseUrl}&suffix=zip.sha256`, { signal: AbortSignal.timeout(20_000) });
             if (!res.ok) {
               throw new Error(`MaxMind probe ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
             }

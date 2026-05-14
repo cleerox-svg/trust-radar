@@ -87,7 +87,7 @@ function safeParseStringArray(s: string | null | undefined): string[] {
 async function fetchAndParse(feed: FeedConfig): Promise<RssItem[]> {
   try {
     const res = await fetch(feed.url, {
-      headers: {
+      signal: AbortSignal.timeout(30_000), headers: {
         "User-Agent": "Averrow-NewsWatcher/1.0",
         Accept: "application/rss+xml, application/atom+xml, text/xml, */*",
       },

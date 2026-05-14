@@ -115,7 +115,7 @@ export async function searchITunesApps(
   url.searchParams.set("limit", String(limit));
 
   const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000), headers: { Accept: "application/json" },
     // iTunes CDN is cacheable; Cloudflare will dedupe concurrent scans for hot terms.
     cf: { cacheTtl: 300, cacheEverything: true },
   });
@@ -140,7 +140,7 @@ export async function lookupITunesByBundle(
   url.searchParams.set("country", country);
 
   const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000), headers: { Accept: "application/json" },
     cf: { cacheTtl: 300, cacheEverything: true },
   });
   if (!res.ok) {

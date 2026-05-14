@@ -20,7 +20,7 @@ export const emerging_threats: FeedModule = {
     const url = ctx.feedUrl || ET_URL;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "TrustRadar/2.0" },
+      signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TrustRadar/2.0" },
     });
     if (!res.ok) throw new Error(`Emerging Threats HTTP ${res.status}`);
 

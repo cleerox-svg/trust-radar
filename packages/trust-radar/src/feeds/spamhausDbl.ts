@@ -74,7 +74,7 @@ async function dnsLookupDBL(domain: string): Promise<DBLResult> {
   const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(queryDomain)}&type=A`;
 
   const res = await fetch(dohUrl, {
-    headers: { Accept: "application/dns-json" },
+    signal: AbortSignal.timeout(30_000), headers: { Accept: "application/dns-json" },
   });
 
   if (!res.ok) {

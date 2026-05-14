@@ -16,7 +16,7 @@ export const sslbl: FeedModule = {
 
     // 1. Fetch SSL certificate blacklist
     const certUrl = ctx.feedUrl || SSLBL_CSV_URL;
-    const certRes = await fetch(certUrl);
+    const certRes = await fetch(certUrl, { signal: AbortSignal.timeout(30_000) });
     if (!certRes.ok) throw new Error(`SSLBL cert HTTP ${certRes.status}`);
 
     const certText = await certRes.text();
@@ -57,7 +57,7 @@ export const sslbl: FeedModule = {
 
     // 2. Fetch IP blacklist for enrichment
     try {
-      const ipRes = await fetch(SSLBL_IP_URL);
+      const ipRes = await fetch(SSLBL_IP_URL, { signal: AbortSignal.timeout(30_000) });
       if (ipRes.ok) {
         const ipText = await ipRes.text();
         const ipLines = ipText.split("\n").filter((l) => l.trim() && !l.startsWith("#"));

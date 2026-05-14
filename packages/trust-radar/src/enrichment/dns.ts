@@ -121,7 +121,7 @@ async function dohQuery(name: string, type: string): Promise<DoHResponse | null>
   try {
     const url = `${DOH_BASE}?name=${encodeURIComponent(name)}&type=${type}`;
     const res = await fetch(url, {
-      headers: { Accept: "application/dns-json" },
+      signal: AbortSignal.timeout(30_000), headers: { Accept: "application/dns-json" },
     });
     if (!res.ok) return null;
     return await res.json() as DoHResponse;

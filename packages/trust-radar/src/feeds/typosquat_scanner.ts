@@ -92,7 +92,7 @@ async function checkDomainRegistered(domain: string): Promise<boolean> {
   try {
     const resp = await fetch(
       `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`,
-      { headers: { Accept: "application/dns-json" } },
+      { signal: AbortSignal.timeout(30_000), headers: { Accept: "application/dns-json" } },
     );
     if (!resp.ok) return false;
     const data = (await resp.json()) as DohResponse;
