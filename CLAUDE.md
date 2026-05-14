@@ -312,6 +312,14 @@ sub-hourly latency matters).
 - **Sonnet:** threat actor narratives, cluster briefs — sparingly
 - **NEVER** use AI for what SQL `GROUP BY` can do in 50ms
 - All AI calls go through Cloudflare AI Gateway
+- **Idempotency**: every call through `callAnthropic` (lib/anthropic.ts)
+  carries a deterministic `anthropic-idempotency-key` header computed
+  from (agentId + runId + model + system + messages + maxTokens). When
+  a Workflow step retries (cart workflow's per-step retry policy, FC
+  recovery, etc.), the second attempt sends the same key and Anthropic
+  returns the cached response — no double-charge. Suppress per-call
+  by passing `idempotencyKey: ''` when the prompt legitimately includes
+  a timestamp or other non-stable input. See PR-N (#1309).
 
 ### Cron schedule (wrangler.toml):
 ```

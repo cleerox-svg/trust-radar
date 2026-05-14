@@ -106,6 +106,53 @@ export interface AnthropicCallOptions {
    * Default: true. Set false to force direct api.anthropic.com.
    */
   useGateway?: boolean;
+  /**
+   * Override the deterministic idempotency key for this call. By default
+   * `callAnthropic` computes a stable key from
+   * (agentId + runId + model + system + messages + maxTokens) — see
+   * computeIdempotencyKey() below. Callers can pass a custom value when
+   * the natural derivation isn't stable (e.g. inputs that include
+   * timestamps), or set this to an empty string to suppress the header
+   * entirely.
+   */
+  idempotencyKey?: string;
+}
+
+/**
+ * Compute a deterministic idempotency key from the call options.
+ *
+ * Same logical request (same agent + run + model + prompt) always
+ * yields the same key, so a retry of a transient failure (Workflows
+ * platform error, worker death, etc.) can land on Anthropic with the
+ * same key as the original attempt. When Anthropic honors the
+ * `anthropic-idempotency-key` header (it does for the `/v1/messages`
+ * endpoint, returning the cached response for repeats within a 24h
+ * window), this avoids paying twice for the same logical work.
+ *
+ * The hash is truncated to 16 hex chars for compactness — collision
+ * probability over a year of trust-radar's ~50K-call volume is well
+ * below the dedup window's 24h tolerance.
+ *
+ * Defense-in-depth on top of cart's existing higher-level idempotency
+ * (provider_threat_stats has ON CONFLICT, email_security_scans has its
+ * own staleness check). Both layers prevent double work — but the
+ * Anthropic-side dedup also saves AI tokens, which our layer doesn't.
+ */
+export async function computeIdempotencyKey(opts: AnthropicCallOptions): Promise<string> {
+  const payload = JSON.stringify({
+    agentId: opts.agentId,
+    runId: opts.runId ?? null,
+    model: opts.model,
+    system: opts.system ?? null,
+    messages: opts.messages,
+    maxTokens: opts.maxTokens,
+  });
+  const encoder = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', encoder.encode(payload));
+  return Array.from(new Uint8Array(buf))
+    .slice(0, 8)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 export class AnthropicError extends Error {
@@ -203,21 +250,33 @@ export async function callAnthropic(
   if (tools !== undefined) body.tools = tools;
   if (toolChoice !== undefined) body.tool_choice = toolChoice;
 
+  // Compute or honor the per-call idempotency key. Empty string from
+  // the caller suppresses the header entirely (e.g. when the prompt
+  // legitimately includes timestamps and dedup would be wrong).
+  const idempotencyKey = opts.idempotencyKey !== undefined
+    ? opts.idempotencyKey
+    : await computeIdempotencyKey(opts);
+
+  const requestHeaders: Record<string, string> = {
+    "x-api-key": apiKey,
+    "anthropic-version": ANTHROPIC_API_VERSION,
+    "content-type": "application/json",
+  };
+  if (idempotencyKey.length > 0) {
+    requestHeaders["anthropic-idempotency-key"] = idempotencyKey;
+  }
+
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/v1/messages`, {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_API_VERSION,
-        "content-type": "application/json",
-      },
+      headers: requestHeaders,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[anthropic] fetch failed — agentId=${agentId} model=${model}: ${msg}`);
+    console.error(`[anthropic] fetch failed — agentId=${agentId} model=${model} idempotencyKey=${idempotencyKey || 'none'}: ${msg}`);
     throw new AnthropicError(`Anthropic fetch failed: ${msg}`, agentId);
   }
 
@@ -225,7 +284,7 @@ export async function callAnthropic(
 
   if (!res.ok) {
     console.error(
-      `[anthropic] HTTP ${res.status} — agentId=${agentId} model=${model}: ${responseText.slice(0, 300)}`,
+      `[anthropic] HTTP ${res.status} — agentId=${agentId} model=${model} idempotencyKey=${idempotencyKey || 'none'}: ${responseText.slice(0, 300)}`,
     );
     throw new AnthropicError(
       `Anthropic HTTP ${res.status}: ${responseText.slice(0, 300)}`,
