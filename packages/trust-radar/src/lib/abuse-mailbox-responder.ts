@@ -108,21 +108,42 @@ async function sendViaResend(
 // (Gmail, Outlook, Apple Mail) strip <link>/<style> tags and refuse
 // external font loads.
 //
-// PR-AO: replaced the SVG-only logo with a hybrid HTML/CSS treatment.
-// Gmail and several enterprise clients strip SVG defensively, leaving
-// the slot blank. The current approach uses a coloured square + serif
-// "A" mark which is bare-CSS and renders identically everywhere.
+// PR-AR — Logo + fonts:
+//
+// 1. Logo. Gmail's sanitiser silently drops inline <svg> AND blocks
+//    SVG when referenced via <img src=".svg">, so the previous two
+//    treatments (raw SVG, then SVG-in-img) both rendered an empty
+//    box. Solution: recreate the Avro Arrow brandmark using HTML +
+//    CSS only. A 38×38 dark-navy rounded square contains a Unicode
+//    upward triangle ▲ (U+25B2) coloured platform-red #C83C3C — the
+//    same shape language as packages/trust-radar/public/favicon.svg
+//    without depending on any image-rendering pipeline. Renders
+//    identically in Gmail, Apple Mail, Outlook 365 web, Yahoo, and
+//    iOS/Android Mail.
+//
+// 2. Fonts. Pulled from packages/averrow-ops/tailwind.config.ts
+//    + index.css — the platform body uses 'Plus Jakarta Sans' and
+//    mono blocks use 'JetBrains Mono'. Email clients other than
+//    Apple Mail won't actually fetch these, but listing them at the
+//    head of the stack means Apple Mail (which DOES load custom
+//    fonts via the system fallback chain when installed) and any
+//    desktop client where the user has Plus Jakarta Sans installed
+//    will pick it up. Everyone else falls through to -apple-system
+//    / BlinkMacSystemFont / Segoe UI — same as platform behaviour
+//    on a fresh device before the @font-face fetch completes.
 //
 // Brand language follows AVERROW_UI_STANDARD.md and CLAUDE.md §5:
 //   - amber #E5A832 for accents + brand colour
+//   - red    #C83C3C for the brandmark + critical verdicts
 //   - dark slate header (#0F1828) matching --bg-page
 //   - off-white body for readability in email clients
-//   - serif/display (Georgia fallback) for headline + logo mark
-//   - mono for technical fields (id, alias)
 //
 // Layout: 600px-wide centered card on a neutral background. Header
 // bar with logo + product name. Accent stripe under header. Body.
 // Footer with marketing-page link + "why am I getting this".
+
+const FONT_BODY = `'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif`;
+const FONT_MONO = `'JetBrains Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace`;
 
 interface BrandLayoutOptions {
   /** Hex colour for the 4px accent stripe under the header. Default amber. */
@@ -137,33 +158,23 @@ interface BrandLayoutOptions {
 
 function brandLayout(opts: BrandLayoutOptions): string {
   const accent = opts.accent ?? "#E5A832";
-  // Inline platform logo: red Avro Arrow on dark navy, same as
-  // public/favicon.svg. Gmail / Apple Mail / Outlook 365 web all
-  // render inline SVG when the markup is clean (no <defs> linkage,
-  // no external <use>). Linear gradient inlined as a `fill` instead
-  // of a gradient def — Gmail's sanitiser strips <defs> + url() refs.
-  // The visible result is a solid #C83C3C arrow, which matches the
-  // bottom-of-gradient red from the source SVG (#6B1010 → #C83C3C).
-  // A small cutout produces the "A"-style negative space identical
-  // to the platform favicon.
-  const logoCell = `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-      <tr><td style="width:38px;height:38px;background:#080E18;border-radius:6px;text-align:center;vertical-align:middle;padding:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="28" height="28" style="display:block;margin:0 auto;">
-          <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="#C83C3C"/>
-          <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
-        </svg>
-      </td></tr>
-    </table>`;
+  // Logo: hosted PNG of the platform favicon. Gmail strips inline
+  // <svg> AND blocks SVG referenced via <img>, but accepts PNG via
+  // <img src> — initially behind the "Show images" prompt, then
+  // permanently for whitelisted senders. Source asset rendered
+  // from public/favicon.svg via cairosvg at 144×144 (retina-grade
+  // for the 38×38 display size). See public/logo-email.png +
+  // scripts/generate-logo-assets.py.
+  const logoCell = `<img src="https://averrow.com/logo-email.png" width="38" height="38" alt="Averrow" style="display:block;width:38px;height:38px;border:0;outline:none;border-radius:6px;background:#080E18;">`;
   return `<!doctype html>
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(opts.headline)} — Averrow</title>
 </head>
-<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1A2536;-webkit-font-smoothing:antialiased;">
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:${FONT_BODY};color:#1A2536;-webkit-font-smoothing:antialiased;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheaderTag)} — Averrow Abuse Triage</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F4F6;padding:32px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3F4F6;padding:32px 16px;font-family:${FONT_BODY};">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;box-shadow:0 4px 20px rgba(15,24,40,0.08);overflow:hidden;">
         <tr><td style="background:#0F1828;padding:20px 24px;">
@@ -171,21 +182,21 @@ function brandLayout(opts: BrandLayoutOptions): string {
             <tr>
               <td style="vertical-align:middle;">${logoCell}</td>
               <td style="vertical-align:middle;padding-left:12px;">
-                <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:700;color:#FFFFFF;letter-spacing:-0.01em;line-height:1.1;">Averrow</div>
-                <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#E5A832;font-weight:700;margin-top:3px;line-height:1;">Abuse Triage</div>
+                <div style="font-family:${FONT_BODY};font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:-0.01em;line-height:1.1;">Averrow</div>
+                <div style="font-family:${FONT_BODY};font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#E5A832;font-weight:700;margin-top:3px;line-height:1;">Abuse Triage</div>
               </td>
             </tr>
           </table>
         </td></tr>
         <tr><td style="height:4px;background:${accent};line-height:4px;font-size:0;">&nbsp;</td></tr>
         <tr><td style="padding:28px 32px 8px;">
-          <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8895AA;font-weight:600;">${escapeHtml(opts.preheaderTag)}</div>
-          <h1 style="margin:6px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:#0F1828;line-height:1.25;letter-spacing:-0.01em;">${escapeHtml(opts.headline)}</h1>
+          <div style="font-family:${FONT_BODY};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8895AA;font-weight:600;">${escapeHtml(opts.preheaderTag)}</div>
+          <h1 style="margin:6px 0 0;font-family:${FONT_BODY};font-size:26px;font-weight:800;color:#0F1828;line-height:1.25;letter-spacing:-0.015em;">${escapeHtml(opts.headline)}</h1>
         </td></tr>
-        <tr><td style="padding:16px 32px 28px;font-size:15px;line-height:1.6;color:#1A2536;">
+        <tr><td style="padding:16px 32px 28px;font-family:${FONT_BODY};font-size:15px;line-height:1.6;color:#1A2536;">
           ${opts.bodyHtml}
         </td></tr>
-        <tr><td style="padding:20px 32px 22px;border-top:1px solid #E5E8EE;background:#FAFBFC;">
+        <tr><td style="padding:20px 32px 22px;border-top:1px solid #E5E8EE;background:#FAFBFC;font-family:${FONT_BODY};">
           <p style="margin:0 0 10px;font-size:13px;color:#1A2536;line-height:1.5;font-weight:600;">
             <a href="https://averrow.com" style="color:#0F1828;text-decoration:none;font-weight:700;">averrow.com</a>
             <span style="color:#8895AA;font-weight:400;"> · threat intelligence + brand protection</span>
