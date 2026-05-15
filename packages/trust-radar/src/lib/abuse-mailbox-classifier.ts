@@ -216,6 +216,12 @@ interface MessageRow {
   original_body_snippet: string | null;
   url_count:             number;
   attachment_count:      number;
+  // Wave-3 PR-AD: pulled into the classifier row so the determination
+  // email can be sent immediately after the AI verdict lands, without
+  // a second SELECT per row.
+  forwarded_by_email:    string | null;
+  inbound_alias:         string | null;
+  determination_sent_at: string | null;
 }
 
 interface BrandRow {
@@ -247,7 +253,8 @@ export async function runAbuseClassifierBackfill(
 
   const rows = await env.DB.prepare(`
     SELECT id, brand_id, original_from, original_subject,
-           original_body_snippet, url_count, attachment_count
+           original_body_snippet, url_count, attachment_count,
+           forwarded_by_email, inbound_alias, determination_sent_at
     FROM abuse_inbox_messages
     WHERE classification = 'pending'
     ORDER BY received_at ASC
@@ -323,6 +330,34 @@ export async function runAbuseClassifierBackfill(
       severity,
       m.id,
     ).run();
+
+    // ─── Wave-3 PR-AD: 24h determination email ─────────────────
+    //
+    // Fires immediately after the AI verdict lands. Skips rows that
+    // already have determination_sent_at set (defensive — the
+    // backfill is idempotent and could be replayed). Suppression for
+    // empty/own-domain submitters is handled inside sendDetermination.
+    if (!m.determination_sent_at && m.forwarded_by_email) {
+      try {
+        const { sendDetermination } = await import("./abuse-mailbox-responder");
+        const detResult = await sendDetermination(env, m.forwarded_by_email, {
+          messageId:       m.id,
+          originalSubject: m.original_subject,
+          classification:  verdict.classification,
+          confidence:      verdict.confidence,
+          reasoning:       verdict.reasoning,
+          action:          verdict.action,
+        });
+        if (detResult.ok) {
+          await env.DB.prepare(
+            `UPDATE abuse_inbox_messages SET determination_sent_at = datetime('now') WHERE id = ?`,
+          ).bind(m.id).run();
+        }
+        // Failures / suppressions logged inside sendDetermination.
+      } catch (err) {
+        console.warn(`[abuse-mailbox-classifier] determination send threw for ${m.id}:`, err);
+      }
+    }
   }
 
   return result;
