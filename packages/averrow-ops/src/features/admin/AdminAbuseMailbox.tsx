@@ -14,8 +14,8 @@
 // Auth: super_admin only. /admin/abuse-mailbox route.
 // Design tokens per CLAUDE.md §5 + AVERROW_UI_STANDARD.md.
 
-import { useState } from 'react';
-import { Mail, Inbox, AlertTriangle, ShieldCheck, Copy, Check } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { Mail, Inbox, AlertTriangle, ShieldCheck, Copy, Check, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
 import { PageLoader } from '@/components/ui/PageLoader';
@@ -31,6 +31,9 @@ import { relativeTime } from '@/lib/time';
 export function AdminAbuseMailbox() {
   const { isSuperAdmin, loading: authLoading } = useAuth();
   const [activeBrand, setActiveBrand] = useState<string | null>(null);
+  // PR-AO: selected message id for inline drill-down. Toggling shows
+  // the full detail panel below the matching row.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const summaryQ = useAdminAbuseMailboxSummary();
   const messagesQ = useAdminAbuseMailboxMessages(activeBrand);
 
@@ -64,8 +67,8 @@ export function AdminAbuseMailbox() {
           boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 var(--border-base)',
         }}
       >
-        <p className="text-sm text-white/70 leading-relaxed">
-          The marketing site at <a className="text-[var(--amber)] hover:underline" href="https://averrow.com/report-abuse" target="_blank" rel="noreferrer">averrow.com/report-abuse</a> advertises public mailboxes for the same service we sell to customers. Every submission — phishing reports, impersonation tips, vulnerability disclosures, attacker probes — lands here, gets classified by Haiku, and feeds platform threat intelligence. We dogfood the abuse-mailbox module on ourselves.
+        <p className="text-sm text-white/85 leading-relaxed">
+          The marketing site at <a className="text-[var(--amber)] hover:underline font-medium" href="https://averrow.com/report-abuse" target="_blank" rel="noreferrer">averrow.com/report-abuse</a> advertises public mailboxes for the same service we sell to customers. Every submission — phishing reports, impersonation tips, vulnerability disclosures, attacker probes — lands here, gets classified by Haiku, and feeds platform threat intelligence. We dogfood the abuse-mailbox module on ourselves.
         </p>
       </div>
 
@@ -102,9 +105,9 @@ export function AdminAbuseMailbox() {
           {/* Recent inbox */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/45">
+              <h2 className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/65">
                 Recent messages
-                <span className="text-white/30 ml-2">
+                <span className="text-white/40 ml-2">
                   ({messagesQ.data?.messages.length ?? 0})
                 </span>
               </h2>
@@ -127,7 +130,16 @@ export function AdminAbuseMailbox() {
                 ? <EmptyMessages />
                 : (
                   <div className="space-y-2">
-                    {messagesQ.data.messages.map((m) => <MessageRow key={m.id} message={m} />)}
+                    {messagesQ.data.messages.map((m) => (
+                      <Fragment key={m.id}>
+                        <MessageRow
+                          message={m}
+                          expanded={selectedId === m.id}
+                          onToggle={() => setSelectedId(prev => prev === m.id ? null : m.id)}
+                        />
+                        {selectedId === m.id && <MessageDetail message={m} />}
+                      </Fragment>
+                    ))}
                   </div>
                 )
             )}
@@ -177,7 +189,7 @@ function AliasCard({ alias }: { alias: AdminAbuseAlias | null }) {
         boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 var(--border-base)',
       }}
     >
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono text-white/45 mb-3">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono text-white/65 mb-3">
         <Mail size={11} /> Public-facing aliases
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -191,7 +203,7 @@ function AliasCard({ alias }: { alias: AdminAbuseAlias | null }) {
             }}
           >
             <div className="min-w-0">
-              <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+              <div className="text-[10px] font-mono text-white/65 uppercase tracking-wider">
                 {m.label}
               </div>
               <code className="text-[12px] font-mono text-[var(--amber)]">{m.addr}</code>
@@ -209,7 +221,7 @@ function AliasCard({ alias }: { alias: AdminAbuseAlias | null }) {
         ))}
       </div>
       {alias?.forwarding_instructions && (
-        <p className="text-[11px] text-white/45 mt-3 leading-relaxed">
+        <p className="text-[11px] text-white/70 mt-3 leading-relaxed">
           {alias.forwarding_instructions}
         </p>
       )}
@@ -245,7 +257,7 @@ function HeadlineMetrics({
             boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 var(--border-base)',
           }}
         >
-          <div className="text-[9px] font-mono uppercase tracking-widest text-white/40">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/65">
             {t.label}
           </div>
           <div className="mt-1 text-2xl font-bold tabular-nums" style={{ color: t.accent }}>
@@ -273,17 +285,23 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   pending:   'var(--text-muted)',
 };
 
-function MessageRow({ message }: { message: AdminAbuseInboxMessage }) {
+function MessageRow({ message, expanded, onToggle }: {
+  message: AdminAbuseInboxMessage;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const sev = (message.severity ?? 'LOW').toUpperCase();
   const sevColor = SEVERITY_COLORS[sev] ?? '#78A0C8';
   const cls = (message.classification ?? 'pending').toLowerCase();
   const clsColor = CLASSIFICATION_COLORS[cls] ?? 'var(--text-muted)';
 
   return (
-    <div
-      className="rounded-xl px-4 py-3 transition-colors hover:bg-white/[0.02]"
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full text-left rounded-xl px-4 py-3 transition-all hover:bg-white/[0.04] ${expanded ? 'ring-1 ring-[var(--amber)]/30' : ''}`}
       style={{
-        background: 'rgba(15,23,42,0.50)',
+        background: expanded ? 'rgba(229,168,50,0.04)' : 'rgba(15,23,42,0.50)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         border: '1px solid var(--border-base)',
@@ -292,52 +310,185 @@ function MessageRow({ message }: { message: AdminAbuseInboxMessage }) {
           : {}),
       }}
     >
+      {/* PR-AO: bumped text contrast across the row.
+          - Headline text white/80 → white/95
+          - Meta row white/45 → white/70
+          - Tags white/55 → white/75
+          - Mono code text colour added for from/via (less grey, more readable)
+          - Falls back original_from → forwarded_by_email when null so
+            direct submissions (no forward) actually show a sender. */}
       <div className="flex items-center justify-between gap-3 mb-1.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: sevColor, boxShadow: `0 0 6px ${sevColor}` }} />
           <span className="text-[10px] font-mono font-semibold uppercase" style={{ color: clsColor }}>
             {cls}
           </span>
-          <span className="text-white/30 text-[10px]">·</span>
-          <span className="text-[10px] font-mono uppercase" style={{ color: sevColor }}>
+          <span className="text-white/40 text-[10px]">·</span>
+          <span className="text-[10px] font-mono uppercase font-semibold" style={{ color: sevColor }}>
             {sev}
           </span>
           {message.ai_action && (
             <>
-              <span className="text-white/30 text-[10px]">·</span>
-              <span className="text-[10px] font-mono uppercase text-white/55">
-                action: {message.ai_action}
+              <span className="text-white/40 text-[10px]">·</span>
+              <span className="text-[10px] font-mono uppercase text-white/75">
+                action: <span className="text-white/95">{message.ai_action}</span>
               </span>
             </>
           )}
         </div>
-        <span className="text-[10px] font-mono text-white/40">
+        <span className="text-[10px] font-mono text-white/60 shrink-0">
           {relativeTime(message.received_at)}
         </span>
       </div>
-      <div className="text-[12px] text-white/80 truncate">
-        {message.original_subject || <span className="italic text-white/40">(no subject)</span>}
+      <div className="text-[13px] text-white/95 truncate font-medium">
+        {message.original_subject || <span className="italic text-white/45">(no subject)</span>}
       </div>
-      <div className="flex items-center gap-3 mt-1 text-[10px] font-mono text-white/45">
-        <span>from {message.original_from ?? '—'}</span>
-        <span>·</span>
-        <span>via {message.inbound_alias ?? '—'}</span>
+      <div className="flex items-center gap-3 mt-1 text-[10px] font-mono text-white/70 flex-wrap">
+        <span>
+          from <span className="text-[var(--amber)]">{message.original_from ?? message.forwarded_by_email ?? '—'}</span>
+        </span>
+        {message.original_from && message.forwarded_by_email && message.original_from !== message.forwarded_by_email && (
+          <>
+            <span className="text-white/35">·</span>
+            <span>fwd by <span className="text-white/85">{message.forwarded_by_email}</span></span>
+          </>
+        )}
+        <span className="text-white/35">·</span>
+        <span>via <span className="text-white/85">{message.inbound_alias ?? '—'}</span></span>
         {message.url_count > 0 && (
           <>
-            <span>·</span>
+            <span className="text-white/35">·</span>
             <span>{message.url_count} URL{message.url_count === 1 ? '' : 's'}</span>
           </>
         )}
         {message.attachment_count > 0 && (
           <>
-            <span>·</span>
+            <span className="text-white/35">·</span>
             <span>{message.attachment_count} attachment{message.attachment_count === 1 ? '' : 's'}</span>
           </>
         )}
       </div>
       {message.ai_assessment && (
-        <p className="text-[11px] text-white/55 mt-2 leading-snug">{message.ai_assessment}</p>
+        <p className="text-[11px] text-white/75 mt-2 leading-snug">{message.ai_assessment}</p>
       )}
+      <div className="mt-1.5 flex items-center justify-end">
+        <ChevronDown
+          size={12}
+          className="text-white/45"
+          style={{ transition: 'transform 0.18s ease', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </div>
+    </button>
+  );
+}
+
+// ─── MessageDetail (PR-AO drill-down) ────────────────────────────
+// Inline-expanding panel that surfaces every field stored on the
+// abuse_inbox_messages row + the classification rationale + send
+// timestamps + raw body snippet. Renders below the clicked row.
+function MessageDetail({ message }: { message: AdminAbuseInboxMessage }) {
+  const sev = (message.severity ?? 'LOW').toUpperCase();
+  const sevColor = SEVERITY_COLORS[sev] ?? '#78A0C8';
+  return (
+    <div
+      className="rounded-xl px-5 py-4 -mt-1 animate-fade-in"
+      style={{
+        background: 'rgba(15,23,42,0.65)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid var(--border-base)',
+        borderTop: `1px solid ${sevColor}40`,
+      }}
+    >
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">Subject</div>
+        <div className="text-[14px] text-white font-medium">
+          {message.original_subject || <span className="italic text-white/45">(no subject)</span>}
+        </div>
+      </div>
+
+      {/* Two-column metadata grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mb-4">
+        <DetailField label="From"             value={message.original_from} mono accent />
+        <DetailField label="Forwarded by"     value={message.forwarded_by_email} mono />
+        <DetailField label="Inbound alias"    value={message.inbound_alias} mono />
+        <DetailField label="Received"         value={message.received_at} />
+        <DetailField label="Classification"   value={message.classification} mono uppercase color={CLASSIFICATION_COLORS[(message.classification ?? '').toLowerCase()] ?? 'var(--text-secondary)'} />
+        <DetailField label="Severity"         value={sev} mono color={sevColor} />
+        <DetailField label="Status"           value={message.status} mono uppercase />
+        <DetailField label="AI action"        value={message.ai_action} mono uppercase />
+        <DetailField label="Classified by"    value={message.classified_by} mono />
+        <DetailField label="Confidence"       value={message.classification_confidence != null ? `${message.classification_confidence}%` : null} />
+        <DetailField label="URLs in body"     value={String(message.url_count)} />
+        <DetailField label="Attachments"      value={String(message.attachment_count)} />
+        <DetailField label="Ack sent"         value={message.ack_sent_at} />
+        <DetailField label="Determination sent" value={message.determination_sent_at} />
+      </div>
+
+      {/* AI reasoning */}
+      {(message.classification_reason || message.ai_assessment) && (
+        <div className="mb-4">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">AI analyst notes</div>
+          <p className="text-[12px] text-white/90 leading-relaxed">
+            {message.classification_reason || message.ai_assessment}
+          </p>
+          {message.classification_reason && message.ai_assessment && message.ai_assessment !== message.classification_reason && (
+            <p className="text-[11px] text-white/65 mt-1 leading-relaxed italic">
+              {message.ai_assessment}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Body snippet */}
+      {message.original_body_snippet && (
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">Body snippet (first 500 chars)</div>
+          <pre
+            className="text-[11px] text-white/85 leading-relaxed whitespace-pre-wrap break-words rounded-lg p-3 font-mono"
+            style={{
+              background: 'rgba(0,0,0,0.30)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              maxHeight: 240,
+              overflow: 'auto',
+            }}
+          >
+            {message.original_body_snippet}
+          </pre>
+        </div>
+      )}
+
+      {/* Reference id */}
+      <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2 text-[10px] font-mono text-white/55">
+          <span>ref:</span>
+          <code className="text-white/85">{message.id}</code>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailField({
+  label, value, mono, accent, uppercase, color,
+}: {
+  label:     string;
+  value:     string | null | undefined;
+  mono?:     boolean;
+  accent?:   boolean;
+  uppercase?: boolean;
+  color?:    string;
+}) {
+  return (
+    <div>
+      <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-0.5">{label}</div>
+      <div
+        className={`text-[12px] ${mono ? 'font-mono' : ''} ${uppercase ? 'uppercase' : ''} break-all`}
+        style={{ color: color ?? (accent ? 'var(--amber)' : 'rgba(255,255,255,0.92)') }}
+      >
+        {value ?? <span className="text-white/35">—</span>}
+      </div>
     </div>
   );
 }
@@ -358,8 +509,8 @@ function EmptyMessages() {
            style={{ background: 'rgba(229,168,50,0.10)' }}>
         <Inbox size={18} style={{ color: 'var(--amber)' }} />
       </div>
-      <div className="text-sm text-white/70 font-mono">No captures yet</div>
-      <p className="text-[11px] text-white/45 mt-1 max-w-md mx-auto">
+      <div className="text-sm text-white/85 font-mono">No captures yet</div>
+      <p className="text-[11px] text-white/65 mt-1 max-w-md mx-auto">
         Mailboxes are listening. Submissions arrive when someone forwards to abuse@ / phishing@ / report@ / security@averrow.ca, or when an attacker probes those endpoints.
       </p>
     </div>

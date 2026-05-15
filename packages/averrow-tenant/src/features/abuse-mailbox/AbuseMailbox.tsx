@@ -6,9 +6,9 @@
 //
 // Phase B sprint 6.
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, ShieldCheck, Mail, Inbox, Copy, Check, ExternalLink, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, ShieldCheck, Mail, Inbox, Copy, Check, ChevronDown, ExternalLink, type LucideIcon } from 'lucide-react';
 import {
   useAbuseMailboxSummary,
   useAbuseInboxMessages,
@@ -20,6 +20,8 @@ import {
 
 export function AbuseMailbox() {
   const [activeBrand, setActiveBrand] = useState<string | null>(null);
+  // PR-AO: per-message drill-down state. Parity with the ops surface.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const summaryQ = useAbuseMailboxSummary();
   const messagesQ = useAbuseInboxMessages(activeBrand);
 
@@ -101,7 +103,16 @@ export function AbuseMailbox() {
                 <EmptyMessages />
               ) : (
                 <div className="space-y-2">
-                  {messagesQ.data.messages.map((m) => <MessageRow key={m.id} message={m} />)}
+                  {messagesQ.data.messages.map((m) => (
+                    <Fragment key={m.id}>
+                      <MessageRow
+                        message={m}
+                        expanded={selectedId === m.id}
+                        onToggle={() => setSelectedId(prev => prev === m.id ? null : m.id)}
+                      />
+                      {selectedId === m.id && <TenantMessageDetail message={m} />}
+                    </Fragment>
+                  ))}
                 </div>
               )
             )}
@@ -287,35 +298,48 @@ function ClassChip({
   );
 }
 
-function MessageRow({ message: m }: { message: AbuseInboxMessageRow }) {
+function MessageRow({ message: m, expanded, onToggle }: {
+  message: AbuseInboxMessageRow;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const tone =
     m.classification === 'phishing' || m.classification === 'malware' ? 'border-sev-critical/[0.30]' :
     m.classification === 'ambiguous' || m.classification === 'spam'   ? 'border-amber/[0.30]'        :
                                                                         'border-white/[0.06]';
   return (
-    <article className={`rounded-xl border bg-bg-card p-4 ${tone}`}>
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-full text-left rounded-xl border bg-bg-card p-4 transition-all hover:bg-white/[0.02] ${tone} ${expanded ? 'ring-1 ring-amber/40' : ''}`}
+    >
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <SeverityPill level={m.severity} />
         <ClassificationPill classification={m.classification} />
         <StatusPill status={m.status} />
         {m.url_count > 0 && (
-          <span className="text-[10px] uppercase tracking-widest font-mono text-white/45">
+          <span className="text-[10px] uppercase tracking-widest font-mono text-white/70">
             {m.url_count} URL{m.url_count === 1 ? '' : 's'}
           </span>
         )}
         {m.attachment_count > 0 && (
-          <span className="text-[10px] uppercase tracking-widest font-mono text-white/45">
+          <span className="text-[10px] uppercase tracking-widest font-mono text-white/70">
             {m.attachment_count} attachment{m.attachment_count === 1 ? '' : 's'}
           </span>
         )}
       </div>
 
-      <div className="text-sm font-semibold text-white/90 truncate">{m.original_subject ?? '(no subject)'}</div>
-      <div className="text-[12px] text-white/55 mt-0.5">
-        from <span className="font-mono">{m.original_from ?? 'unknown'}</span>
-        {m.forwarded_by_email && (
+      {/* PR-AO: text contrast bumped (90→95, 55→75). Sender fallback to
+          forwarded_by_email when original_from is null so direct
+          submissions (no forwarded chunk) show a sender anyway. */}
+      <div className="text-sm font-semibold text-white/95 truncate">
+        {m.original_subject ?? <span className="italic text-white/55">(no subject)</span>}
+      </div>
+      <div className="text-[12px] text-white/75 mt-0.5">
+        from <span className="font-mono text-[var(--amber)]">{m.original_from ?? m.forwarded_by_email ?? 'unknown'}</span>
+        {m.original_from && m.forwarded_by_email && m.original_from !== m.forwarded_by_email && (
           <>
-            {' '}· forwarded by <span className="font-mono">{m.forwarded_by_email}</span>
+            {' '}· forwarded by <span className="font-mono text-white/90">{m.forwarded_by_email}</span>
           </>
         )}
       </div>
@@ -348,9 +372,101 @@ function MessageRow({ message: m }: { message: AbuseInboxMessageRow }) {
           ) : (
             <span className="text-white/30">determination pending</span>
           )}
+          <ChevronDown
+            size={12}
+            className="text-white/45"
+            style={{ transition: 'transform 0.18s ease', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
         </span>
       </div>
+    </button>
+  );
+}
+
+// PR-AO drill-down: tenant version of MessageDetail. Same fields as
+// the ops surface (AdminAbuseMailbox.tsx) so the two stay structurally
+// uniform. Tenant tokens differ from ops slightly (bg-bg-card,
+// border-amber/30, tenant uses Tailwind tokens rather than CSS vars
+// directly), but the data shape and field order are identical.
+function TenantMessageDetail({ message: m }: { message: AbuseInboxMessageRow }) {
+  return (
+    <article className="rounded-xl border bg-bg-card p-5 -mt-1 border-amber/30">
+      <div className="mb-4">
+        <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">Subject</div>
+        <div className="text-[14px] text-white font-medium">
+          {m.original_subject ?? <span className="italic text-white/45">(no subject)</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mb-4">
+        <TenantDetailField label="From"              value={m.original_from} mono accent />
+        <TenantDetailField label="Forwarded by"      value={m.forwarded_by_email} mono />
+        <TenantDetailField label="Inbound alias"     value={m.inbound_alias} mono />
+        <TenantDetailField label="Received"          value={m.received_at} />
+        <TenantDetailField label="Classification"    value={m.classification} mono uppercase />
+        <TenantDetailField label="Severity"          value={(m.severity ?? '').toUpperCase()} mono />
+        <TenantDetailField label="Status"            value={m.status} mono uppercase />
+        <TenantDetailField label="AI action"         value={m.ai_action} mono uppercase />
+        <TenantDetailField label="Classified by"     value={m.classified_by} mono />
+        <TenantDetailField label="Confidence"        value={m.classification_confidence != null ? `${m.classification_confidence}%` : null} />
+        <TenantDetailField label="URLs in body"      value={String(m.url_count)} />
+        <TenantDetailField label="Attachments"       value={String(m.attachment_count)} />
+        <TenantDetailField label="Ack sent"          value={m.ack_sent_at} />
+        <TenantDetailField label="Determination sent" value={m.determination_sent_at} />
+      </div>
+
+      {(m.classification_reason || m.ai_assessment) && (
+        <div className="mb-4">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">AI analyst notes</div>
+          <p className="text-[12px] text-white/90 leading-relaxed">
+            {m.classification_reason || m.ai_assessment}
+          </p>
+          {m.classification_reason && m.ai_assessment && m.ai_assessment !== m.classification_reason && (
+            <p className="text-[11px] text-white/65 mt-1 leading-relaxed italic">
+              {m.ai_assessment}
+            </p>
+          )}
+        </div>
+      )}
+
+      {m.original_body_snippet && (
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">Body snippet (first 500 chars)</div>
+          <pre
+            className="text-[11px] text-white/85 leading-relaxed whitespace-pre-wrap break-words rounded-lg p-3 font-mono bg-black/30 border border-white/[0.05]"
+            style={{ maxHeight: 240, overflow: 'auto' }}
+          >
+            {m.original_body_snippet}
+          </pre>
+        </div>
+      )}
+
+      <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2 text-[10px] font-mono text-white/55">
+          <span>ref:</span>
+          <code className="text-white/85">{m.id}</code>
+        </div>
+      </div>
     </article>
+  );
+}
+
+function TenantDetailField({ label, value, mono, accent, uppercase }: {
+  label:     string;
+  value:     string | null | undefined;
+  mono?:     boolean;
+  accent?:   boolean;
+  uppercase?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-0.5">{label}</div>
+      <div
+        className={`text-[12px] break-all ${mono ? 'font-mono' : ''} ${uppercase ? 'uppercase' : ''} ${accent ? 'text-amber' : 'text-white/92'}`}
+      >
+        {value ?? <span className="text-white/35">—</span>}
+      </div>
+    </div>
   );
 }
 
