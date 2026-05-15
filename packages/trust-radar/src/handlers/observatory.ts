@@ -306,6 +306,14 @@ export async function handleObservatoryNodes(request: Request, env: Env): Promis
 // query produced after its GROUP BY (country, brand, type), so there's no
 // visual fidelity loss. source_lat/source_lng are the country-bucket
 // centroid (better than the previous arbitrary-pick).
+//
+// PR-Z follow-up: if the cube SELECT returns 0 rows for the requested
+// window, fall back to the legacy raw-threats query so the globe is
+// never blank during cube bootstrap (Navigator's first 1-2 ticks after
+// deploy, or any transient cube unavailability). The fallback is the
+// expensive code path so cache its result for a shorter window (5 min)
+// — we want to recover quickly once the cube fills, not hold the
+// fallback response in cache for 30 min.
 export async function handleObservatoryArcs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const ctx = getDbContext(request);
@@ -313,12 +321,9 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "7d";
   const windowStart = snappedWindowStart(period);
-  const sourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "c");
+  const cubeSourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "c");
 
   try {
-    // KV cache: 30 min TTL (was 15). Globe doesn't visibly change in
-    // 15 min and the cube refresh cadence is also 5 min, so a longer
-    // TTL halves the re-compute frequency with no observable lag.
     const cacheKey = `observatory_arcs:${period}:${url.searchParams.get("source_feed") ?? "all"}`;
     const cached = await env.CACHE.get(cacheKey);
     if (cached) {
@@ -327,8 +332,6 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     }
 
     const tally = newTally();
-    // LIMIT 2500 (was 10K). The globe can't legibly render more than ~2K
-    // arcs anyway — overdraw collapses individual arcs into a blob.
     const rows = await session.prepare(`
       SELECT
         ROUND(AVG(c.source_lat), 1) AS source_lat,
@@ -344,11 +347,11 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
         MAX(c.last_seen)            AS last_seen
       FROM threat_cube_arcs c
       JOIN brands b ON b.id = c.target_brand_id
-      WHERE c.hour_bucket >= ?${sourceFilter.sql}
+      WHERE c.hour_bucket >= ?${cubeSourceFilter.sql}
       GROUP BY c.country_code, c.target_brand_id, c.threat_type, b.name, b.canonical_domain, b.sector
       ORDER BY volume DESC
       LIMIT 2500
-    `).bind(windowStart, ...sourceFilter.params).all<{
+    `).bind(windowStart, ...cubeSourceFilter.params).all<{
       source_lat: number | null; source_lng: number | null; threat_type: string;
       severity: string | null; source_country: string | null;
       target_brand: string | null; target_domain: string | null;
@@ -357,7 +360,51 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
     }>();
     addToTally(tally, rows.meta);
 
-    const resultRows = rows.results ?? [];
+    let resultRows = rows.results ?? [];
+    let cacheTtlSeconds = 1800;
+    let usedFallback = false;
+
+    // Fallback: cube empty for the requested window — defensive path back
+    // to the legacy raw-threats query so the globe is never blank during
+    // cube bootstrap. Caches for 5 min so we recover quickly the moment
+    // the cube fills (and don't keep paying the expensive scan).
+    if (resultRows.length === 0) {
+      usedFallback = true;
+      cacheTtlSeconds = 300;
+      const interval = periodToInterval(period);
+      const fallbackSourceFilter = buildSourceFilter(url.searchParams.get("source_feed"), "t");
+      const fallback = await session.prepare(`
+        SELECT
+          ROUND(t.lat, 1) AS source_lat,
+          ROUND(t.lng, 1) AS source_lng,
+          t.threat_type,
+          t.severity,
+          t.country_code AS source_country,
+          b.name AS target_brand,
+          b.canonical_domain AS target_domain,
+          b.sector AS target_sector,
+          COUNT(*) AS volume,
+          MIN(t.created_at) AS first_seen,
+          MAX(t.created_at) AS last_seen
+        FROM threats t
+        JOIN brands b ON b.id = t.target_brand_id
+        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+          AND t.target_brand_id IS NOT NULL
+          AND t.status = 'active'
+          AND t.created_at > datetime('now', ?)${fallbackSourceFilter.sql}
+        GROUP BY t.country_code, t.target_brand_id, t.threat_type
+        ORDER BY volume DESC
+        LIMIT 2500
+      `).bind(interval, ...fallbackSourceFilter.params).all<{
+        source_lat: number | null; source_lng: number | null; threat_type: string;
+        severity: string | null; source_country: string | null;
+        target_brand: string | null; target_domain: string | null;
+        target_sector: string | null; volume: number;
+        first_seen: string; last_seen: string;
+      }>();
+      addToTally(tally, fallback.meta);
+      resultRows = fallback.results ?? [];
+    }
 
     const arcs = resultRows
       .map(row => {
@@ -381,8 +428,8 @@ export async function handleObservatoryArcs(request: Request, env: Env): Promise
       })
       .filter((a): a is NonNullable<typeof a> => a !== null);
 
-    const data = { success: true, data: arcs };
-    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 1800 });
+    const data = { success: true, data: arcs, _fallback: usedFallback || undefined };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: cacheTtlSeconds });
     recordD1Reads(env, "observatory_arcs", tally);
     return attachBookmark(json(data, 200, origin), session);
   } catch (err) {
@@ -460,6 +507,9 @@ export async function handleObservatoryLive(request: Request, env: Env): Promise
 // countries, well below the 40-row cap. The 0.1° bucketing of the
 // previous query was effectively the same since attacking IPs cluster
 // inside national geographies.
+//
+// PR-Z follow-up: cube-empty fallback to the legacy raw-threats query,
+// same defensive pattern as handleObservatoryArcs.
 export async function handleObservatoryBrandArcs(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   const ctx = getDbContext(request);
@@ -500,7 +550,38 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       severity: string | null; source_country: string | null; volume: number;
     }>();
 
-    const arcs = (rows.results ?? []).map(row => ({
+    let resultRows = rows.results ?? [];
+    let usedFallback = false;
+
+    // Cube-empty fallback — same defensive pattern as handleObservatoryArcs.
+    // Restores the legacy 0.1° lat/lng resolution during cube bootstrap.
+    if (resultRows.length === 0) {
+      usedFallback = true;
+      const interval = periodToInterval(period);
+      const fallback = await session.prepare(`
+        SELECT
+          ROUND(t.lat, 1) AS source_lat,
+          ROUND(t.lng, 1) AS source_lng,
+          t.threat_type,
+          t.severity,
+          t.country_code AS source_country,
+          COUNT(*) AS volume
+        FROM threats t
+        WHERE t.lat IS NOT NULL AND t.lng IS NOT NULL
+          AND t.target_brand_id = ?
+          AND t.status = 'active'
+          AND t.created_at > datetime('now', ?)
+        GROUP BY ROUND(t.lat, 1), ROUND(t.lng, 1), t.threat_type
+        ORDER BY volume DESC
+        LIMIT 40
+      `).bind(brandId, interval).all<{
+        source_lat: number | null; source_lng: number | null; threat_type: string;
+        severity: string | null; source_country: string | null; volume: number;
+      }>();
+      resultRows = fallback.results ?? [];
+    }
+
+    const arcs = resultRows.map(row => ({
       sourcePosition: [row.source_lng ?? 0, row.source_lat ?? 0] as [number, number],
       targetPosition: [
         targetCoords[0] + (Math.random() - 0.5) * 1,
@@ -517,6 +598,7 @@ export async function handleObservatoryBrandArcs(request: Request, env: Env): Pr
       success: true,
       data: arcs,
       brand: brand ? { id: brand.id, name: brand.name } : null,
+      _fallback: usedFallback || undefined,
     }, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
