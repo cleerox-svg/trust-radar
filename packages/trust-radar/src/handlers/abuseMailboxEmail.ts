@@ -93,6 +93,7 @@ export async function handleAbuseMailboxEmail(
   const attachmentCount = countAttachments(rawText);
 
   // 6. Insert the row.
+  const messageId = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO abuse_inbox_messages (
        id, org_id, brand_id, received_at, forwarded_by_email, inbound_alias,
@@ -102,7 +103,7 @@ export async function handleAbuseMailboxEmail(
        created_at, updated_at
      ) VALUES (?, ?, NULL, datetime('now'), ?, ?, ?, ?, ?, ?, ?, 'pending', 'LOW', 'new', datetime('now'), datetime('now'))`,
   ).bind(
-    crypto.randomUUID(),
+    messageId,
     aliasRow.org_id,
     forwardedBy,
     aliasRow.alias,
@@ -112,6 +113,33 @@ export async function handleAbuseMailboxEmail(
     attachmentCount,
     urlCount,
   ).run();
+
+  // ─── Wave-3 PR-AD: ack-on-receipt ──────────────────────────────
+  //
+  // Sends within ~1 minute of receipt per the marketing report-abuse
+  // page SLA. Suppressed for empty/own-domain/malformed submitter
+  // addresses (no harvester loop-back). Stamps ack_sent_at on success
+  // so the operator UI can show ack state per message and so the
+  // determination path knows the ack already fired.
+  //
+  // We DON'T retry on failure — the determination email arrives
+  // within 24h regardless, and Resend transient failures are rare.
+  try {
+    const { sendAck } = await import("../lib/abuse-mailbox-responder");
+    const ackResult = await sendAck(env, forwardedBy, {
+      messageId,
+      originalSubject: original.subject,
+      inboundAlias: aliasRow.alias,
+    });
+    if (ackResult.ok) {
+      await env.DB.prepare(
+        `UPDATE abuse_inbox_messages SET ack_sent_at = datetime('now') WHERE id = ?`,
+      ).bind(messageId).run();
+    }
+    // Suppression / failure logged inside sendAck; no extra noise here.
+  } catch (err) {
+    console.warn("[abuse-mailbox] ack send threw:", err);
+  }
 
   // ─── Wave-2 PR-AC: cross-link to spam_trap_captures ────────────
   //
