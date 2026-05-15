@@ -113,6 +113,21 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     if (!isAuthContext(ctx)) return ctx;
     return handleAdminHealth(request, env);
   });
+  // PR-AA — Averrow self abuse-mailbox (super_admin only). Bound to
+  // the `_averrow_platform` synthetic org seeded by migration 0180.
+  router.get("/api/admin/abuse-mailbox", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleAdminAbuseMailboxSummary } = await import("../handlers/adminAbuseMailbox");
+    return handleAdminAbuseMailboxSummary(request, env, ctx);
+  });
+  router.get("/api/admin/abuse-mailbox/messages", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleAdminAbuseMailboxMessages } = await import("../handlers/adminAbuseMailbox");
+    return handleAdminAbuseMailboxMessages(request, env, ctx);
+  });
+
   router.get("/api/admin/system-health", async (request: Request, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;

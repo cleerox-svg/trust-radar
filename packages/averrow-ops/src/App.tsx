@@ -26,6 +26,7 @@ const SpamTrap = React.lazy(() => import('@/features/spam-trap/SpamTrap').then(m
 const Alerts = React.lazy(() => import('@/features/alerts/Alerts').then(m => ({ default: m.Alerts })));
 const Feeds = React.lazy(() => import('@/features/feeds/Feeds').then(m => ({ default: m.Feeds })));
 const AdminDashboard = React.lazy(() => import('@/features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminAbuseMailbox = React.lazy(() => import('@/features/admin/AdminAbuseMailbox').then(m => ({ default: m.AdminAbuseMailbox })));
 const Organization = React.lazy(() => import('@/features/settings/Organization').then(m => ({ default: m.Organization })));
 const SuperAdminOrgs = React.lazy(() => import('@/features/admin/SuperAdminOrgs').then(m => ({ default: m.SuperAdminOrgs })));
 const PricingConfig = React.lazy(() => import('@/features/admin/PricingConfig').then(m => ({ default: m.PricingConfig })));
@@ -167,6 +168,7 @@ export default function App() {
         <Route path="admin/scan-leads" element={<Navigate to="/leads?view=scan" replace />} />
         <Route path="admin/takedowns" element={lazyRoute(<Takedowns />)} />
         <Route path="admin/spam-trap" element={lazyRoute(<SpamTrap />)} />
+        <Route path="admin/abuse-mailbox" element={lazyRoute(<AdminAbuseMailbox />)} />
         <Route path="admin/users" element={lazyRoute(<Organization />)} />
         {/* Customers page (renamed from Organizations in v3 D Stripe sprint 1).
             Keep /admin/organizations as an alias so saved bookmarks resolve. */}

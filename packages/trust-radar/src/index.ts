@@ -119,12 +119,24 @@ export default {
       return;
     }
 
-    // Abuse Mailbox: customer-tenant aliases like
-    // verify-acme@averrow.com or report-acme@averrow.com.
-    // Resolved per-org via org_abuse_aliases.
+    // Abuse Mailbox routing. Two surface flavours land here:
+    //
+    //   Tenant aliases — dashed local-parts like `verify-acme@`,
+    //     `report-acme@`, or `abuse-acme@`. Resolved per-org via
+    //     org_abuse_aliases.
+    //
+    //   Averrow self-mailboxes (PR-AA) — bare `abuse@`, `phishing@`,
+    //     `report@`, `security@` on any of our production domains.
+    //     These are advertised on averrow.com/report-abuse and bound
+    //     to the synthetic `_averrow_platform` org in migration 0180.
+    //     The handler's alias lookup is exact-string against
+    //     org_abuse_aliases, so no special-case code is needed beyond
+    //     getting the message into the handler.
     const localPart = (to.split("@")[0] ?? "").toLowerCase();
+    const PLATFORM_ALIASES = new Set(["abuse", "phishing", "report", "security"]);
     if (localPart.startsWith("verify-") || localPart.startsWith("verify_") ||
-        localPart.startsWith("report-") || localPart.startsWith("abuse-")) {
+        localPart.startsWith("report-") || localPart.startsWith("abuse-") ||
+        PLATFORM_ALIASES.has(localPart)) {
       const { handleAbuseMailboxEmail } = await import("./handlers/abuseMailboxEmail");
       ctx.waitUntil(handleAbuseMailboxEmail(message, env));
       return;
