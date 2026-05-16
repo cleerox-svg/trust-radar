@@ -513,6 +513,11 @@ async function saveDmarcReport(
           // user-toggleable event in PR-B so operators can disable
           // DMARC-specific noise without losing brand_threat alerts
           // for actual phishing/impersonation campaigns.
+          //
+          // N1: explicit tenant audience — DMARC failure is brand
+          // business. Routed to brand subscribers.
+          audience: 'tenant',
+          brandId: String(brandId),
           type: "email_security_change",
           severity: failRate > 0.5 ? "critical" : "high",
           title: `DMARC failures detected for ${report.domain}`,

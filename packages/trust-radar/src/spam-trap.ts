@@ -12,6 +12,7 @@
 import type { Env } from "./types";
 import type { EmailMessage } from "./dmarc-receiver";
 import { extractDomain } from "./lib/domain-utils";
+import { createNotification } from "./lib/notifications";
 
 // ─── Interfaces ────────────────────────────────────────────────────
 
@@ -139,21 +140,45 @@ export async function handleSpamTrapEmail(message: EmailMessage, env: Env): Prom
     }
   }
 
-  // Fire notification if a monitored brand was spoofed
+  // Fire notification if a monitored brand was spoofed.
+  //
+  // N1: was a raw INSERT bypassing createNotification — no user_id, no
+  // audience routing, no dedup, no push dispatch. Now goes through the
+  // canonical helper with explicit tenant audience + brandId so brand
+  // subscribers receive it and operators don't get spam-trap pings unless
+  // they opted into the tenant firehose.
+  //
+  // Type uses 'brand_threat' (the closest existing registry key) so this
+  // rides the same user-toggleable + dedup machinery as phishing/
+  // impersonation alerts. A dedicated `spam_trap_capture` event key can
+  // be added to @averrow/shared in a follow-up if operators want to mute
+  // it independently.
+  const severityForNotification: 'critical' | 'high' | 'medium' | 'low' | 'info' =
+    severity === 'critical' || severity === 'high' || severity === 'medium' || severity === 'low' || severity === 'info'
+      ? severity
+      : 'medium';
   if (brandMatch?.brandId) {
     try {
-      await env.DB.prepare(`
-        INSERT INTO notifications (type, title, message, severity, brand_id, created_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
-      `).bind(
-        "spam_trap_capture",
-        `Spam trap: ${brandMatch.spoofedDomain} spoofed`,
-        `Caught email from ${from} impersonating ${brandMatch.spoofedDomain}. Subject: "${subject.substring(0, 100)}". Auth: SPF=${authResults.spf}, DKIM=${authResults.dkim}, DMARC=${authResults.dmarc}`,
-        severity,
-        brandMatch.brandId
-      ).run();
-    } catch {
-      // notifications table schema may differ — don't fail the capture
+      await createNotification(env, {
+        audience: 'tenant',
+        brandId: brandMatch.brandId,
+        type: 'brand_threat',
+        severity: severityForNotification,
+        title: `Spam trap: ${brandMatch.spoofedDomain} spoofed`,
+        message: `Caught email from ${from} impersonating ${brandMatch.spoofedDomain}. Subject: "${subject.substring(0, 100)}". Auth: SPF=${authResults.spf}, DKIM=${authResults.dkim}, DMARC=${authResults.dmarc}`,
+        link: `/brands/${brandMatch.brandId}`,
+        metadata: {
+          brand_id: brandMatch.brandId,
+          source: 'spam_trap',
+          spoofed_domain: brandMatch.spoofedDomain,
+          sending_ip: sendingIp,
+          spf: authResults.spf,
+          dkim: authResults.dkim,
+          dmarc: authResults.dmarc,
+        },
+      });
+    } catch (err) {
+      console.error('[spam-trap] notification error:', err);
     }
   }
 

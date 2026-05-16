@@ -641,7 +641,13 @@ Subsequent R8 page migrations (Alerts → Threats → Takedowns → Brands → C
 
 ---
 
-## NOTIFICATIONS RESTRUCTURE — Sessions N1–N6
+## NOTIFICATIONS RESTRUCTURE — Sessions NX1–NX6
+
+> Sessions numbered NX (Notifications eXtension) to avoid collision with
+> the prior N0–N6c in `docs/NOTIFICATIONS_AUDIT.md` (signed off; that work
+> shipped the schema + state-machine + audience column infrastructure).
+> The NX series picks up where N6c left off — last-mile audience hygiene
+> + the alerts/signals split + new wire-ups.
 
 The 2026-05-16 audit (`docs/NOTIFICATIONS_AUDIT.md` — written in N1's first commit) confirmed three concepts were conflated in the platform:
 
@@ -649,23 +655,23 @@ The 2026-05-16 audit (`docs/NOTIFICATIONS_AUDIT.md` — written in N1's first co
 2. **Notifications** were doing double duty: tenant brand-state changes (`email_security_change`), intel digests (`intel_campaign_emerging`, `intel_threat_actor_surface`), abuse-mailbox verdicts, AND super-admin platform health (`platform_*` types enumerated but mostly unwired). Audience scoping (`tenant` | `super_admin` | `team` | `all`) exists in the schema since migration 0186 but is set inconsistently at call sites — super admins end up receiving brand-level events meant for tenants.
 3. **Super-admin attention** should be reserved for things only a super admin can act on: feed health, agent stalls, D1 budget, Cloudflare Worker issues, NEW campaigns / threat actors above a significance threshold, abuse-mailbox flooding, spam-trap surges, news_watcher-flagged critical incidents.
 
-The N-series rewires this without breaking existing callers. Backend table names stay `alerts` and `notifications`; the rename is a follow-up session (NF1, post-N6) so we don't churn migrations while shipping the model. User-facing copy says "Signals" everywhere in tenant SPAs.
+The N-series rewires this without breaking existing callers. Backend table names stay `alerts` and `notifications`; the rename is a follow-up session (NF1, post-NX6) so we don't churn migrations while shipping the model. User-facing copy says "Signals" everywhere in tenant SPAs.
 
 ### Session completion tracker
 
 | Session | Status | Evidence / notes |
 |---------|--------|------------------|
-| N1 — Audience hygiene + ops bell filter | ⏳ Not started | Audit + audience-correct every `createNotification` call; ops bell filters to `audience IN ('super_admin','team','all')`; spam-trap migrates off direct INSERT |
-| N2 — Tier gate + claim-time backfill | ⏳ Not started | `createAlert` skips when `brands.tier='tracked'`; `backfillAlertsForBrand()` helper fires on `org_brands` insert |
-| N3 — Rename "Alerts" → "Signals" + brand-detail signals feed | ⏳ Not started | Tenant SPA labels only; sidebar nav update; `/v2/brands/:id` adds a Signals tab for SOC oversight |
-| N4 — Campaign / actor significance + tenant fanout | ⏳ Not started | `lib/campaign-significance.ts` (≥20 threats OR spike rule); on pass, super-admin notification + per-brand tenant alerts |
-| N5 — Preferences UI + Notification Center admin page | ⏳ Not started | Three-section preferences grouping; super-admin `/v2/notifications/admin` page |
-| N6 — Platform health wire-up | ⏳ Not started | Hook `platform_*` types into Flight Control / Navigator / feed circuit breaker / news_watcher |
-| NF1 — Table rename `alerts` → `brand_signals` | ⏳ Future, post-N6 | Rename migration + code refactor. Held back until N1–N6 prove the model in production |
+| NX1 — Audience hygiene + ops bell filter | 🟡 In progress | Audit + audience-correct every `createNotification` call; ops bell filters to `audience IN ('super_admin','team','all')`; spam-trap migrates off direct INSERT |
+| NX2 — Tier gate + claim-time backfill | ⏳ Not started | `createAlert` skips when `brands.tier='tracked'`; `backfillAlertsForBrand()` helper fires on `org_brands` insert |
+| NX3 — Rename "Alerts" → "Signals" + brand-detail signals feed | ⏳ Not started | Tenant SPA labels only; sidebar nav update; `/v2/brands/:id` adds a Signals tab for SOC oversight |
+| NX4 — Campaign / actor significance + tenant fanout | ⏳ Not started | `lib/campaign-significance.ts` (≥20 threats OR spike rule); on pass, super-admin notification + per-brand tenant alerts |
+| NX5 — Preferences UI + Notification Center admin page | ⏳ Not started | Three-section preferences grouping; super-admin `/v2/notifications/admin` page |
+| NX6 — Platform health wire-up | ⏳ Not started | Hook `platform_*` types into Flight Control / Navigator / feed circuit breaker / news_watcher |
+| NXF1 — Table rename `alerts` → `brand_signals` | ⏳ Future, post-NX6 | Rename migration + code refactor. Held back until NX1–NX6 prove the model in production |
 
 When a session lands, update this table in the same PR.
 
-### Session N1 — Audience hygiene + ops bell filter
+### Session NX1 — Audience hygiene + ops bell filter
 **What:** Stop the noise. Every `createNotification()` call site gets an explicit `audience` value matching the conceptual model (brand events → `tenant`; platform health + intel → `super_admin`; cross-cutting agent telemetry → `team`; never default to `all`). Ops bell query filters to the super-admin audience set. Spam-trap migrates off the deprecated direct INSERT into notifications and uses `createNotification` like every other producer.
 **Files audited / changed (backend):**
 - `src/agents/strategist.ts` — `campaign_escalation`, `agent_milestone` → confirm `super_admin` (intel discoveries belong to ops)
@@ -683,7 +689,7 @@ When a session lands, update this table in the same PR.
 **Result:** Super admin stops receiving "DMARC drift on chase.com" pings. Tenant inbox starts showing the brand events that were previously fanned out to all. Spam-trap notifications stop bypassing the routing helper.
 **Time:** ~1 day
 
-### Session N2 — Tier gate + claim-time backfill
+### Session NX2 — Tier gate + claim-time backfill
 **What:** Skip alert creation for `brands.tier='tracked'` (unclaimed brands). Underlying threats / lookalikes / impersonations stay in their source tables; we just don't materialize alert rows for them. When an org claims a brand (insert into `org_brands`), backfill 90 days of alerts retroactively from the source tables so the tenant sees their "history."
 **Files changed (backend):**
 - `src/lib/alerts.ts` (or wherever `createAlert` lives) — read `brands.tier` and short-circuit when `tier='tracked'`. Log a `skipped_alert` metric so we can monitor the savings.
@@ -694,7 +700,7 @@ When a session lands, update this table in the same PR.
 **Result:** Alert table growth becomes proportional to claimed brands, not tracked-brand count. Tenants get instant historical alerts on claim.
 **Time:** ~0.5 day
 
-### Session N3 — Rename "Alerts" → "Signals" + brand-detail signals feed
+### Session NX3 — Rename "Alerts" → "Signals" + brand-detail signals feed
 **What:** User-facing labels only — backend table stays `alerts`. Two visible changes: (1) tenant SPA renames its "Alerts" sidebar nav + page header + filter copy to "Signals"; (2) `/v2/brands/:id` gains a Signals tab that lists every alert against that brand. The brand detail tab is the SOC-analyst workflow for acting on tenant business from inside the brand record.
 **Files changed (averrow-tenant):**
 - `src/layout/Sidebar.tsx` — `Alerts` → `Signals`
@@ -708,7 +714,7 @@ When a session lands, update this table in the same PR.
 **Result:** Tenant model is coherent ("here are your brand's signals"). SOC analysts can triage signals from inside the brand record. No backend churn.
 **Time:** ~0.5 day
 
-### Session N4 — Campaign / actor significance + tenant fanout
+### Session NX4 — Campaign / actor significance + tenant fanout
 **What:** Two changes. (1) Promote the rule "what counts as a new campaign worth notifying about" into a pure function `lib/campaign-significance.ts` so the threshold is one place to tune. (2) When the rule passes, super admin gets the `intel_campaign_emerging` notification AND each affected brand's tenant gets an `alert_type='campaign_impacts_brand'` alert. Same pattern for new threat actors that target known brands.
 **The significance rule:**
 ```
@@ -729,7 +735,7 @@ isCampaignSignificant(campaign) ⇒
 **Result:** Super admin sees campaigns above threshold; tenants see "your brand is in campaign X" signals. Below-threshold campaigns continue to land in Observatory silently. Threshold is one constant + a unit-tested function for future tuning.
 **Time:** ~1 day
 
-### Session N5 — Preferences UI + Notification Center admin page
+### Session NX5 — Preferences UI + Notification Center admin page
 **What:** Two surfaces aligned with the new model.
 
 **Surface 1 — `/v2/notifications/preferences` rebuild.** Group event types into three sections:
@@ -751,7 +757,7 @@ isCampaignSignificant(campaign) ⇒
 **Result:** Users control which intel they care about; mandatory platform alerts can't be silenced; super admin gets a single operator surface for the notification system.
 **Time:** ~1-1.5 days
 
-### Session N6 — Platform health wire-up
+### Session NX6 — Platform health wire-up
 **What:** Hook the enumerated `platform_*` notification types into the agents that detect the conditions. Today these types exist in the schema but are unwired — their definitions in migration 0186 were aspirational.
 **Wire-up map:**
 - `platform_d1_budget_warn` / `platform_d1_budget_breach` — Flight Control hourly D1 read-count check; threshold from a config table
@@ -769,7 +775,7 @@ isCampaignSignificant(campaign) ⇒
 **Result:** Super-admin bell finally rings for the things only the super admin can act on. No-op when the platform is healthy; loud when it isn't.
 **Time:** ~1 day
 
-### Session NF1 — Table rename `alerts` → `brand_signals` (future, post-N6)
+### Session NXF1 — Table rename `alerts` → `brand_signals` (future, post-NX6)
 **What:** Backend table rename to match the user-facing language. Held back until N1–N6 have proven the model in production for at least a week without surprises.
 **Migration approach (zero-downtime):**
 1. New migration creates `brand_signals` table identical to `alerts` (including indexes + constraints).

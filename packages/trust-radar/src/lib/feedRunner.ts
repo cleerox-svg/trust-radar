@@ -282,6 +282,9 @@ export async function runFeed(
     if (prevStatus?.health_status === 'healthy') {
       try {
         await createNotification(env, {
+          // N1: explicit super_admin audience — only the platform operator
+          // can act on feed health. Tenants don't run feeds.
+          audience: 'super_admin',
           type: 'feed_health',
           severity: 'high',
           title: `Feed degraded: ${config.display_name}`,
@@ -442,6 +445,9 @@ async function autoPauseFeed(
 
   try {
     await createNotification(env, {
+      // N1: explicit super_admin audience for the same reason as the
+      // degraded notification above — feed auto-pause is operator territory.
+      audience: 'super_admin',
       type: 'feed_health',
       severity: 'critical',
       title: isAuthError

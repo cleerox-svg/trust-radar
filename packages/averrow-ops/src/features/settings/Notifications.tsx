@@ -22,7 +22,7 @@ import { Card, Badge, SectionLabel, Button } from '@/design-system/components';
 import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
-  useNotificationsArchive, useMarkRead, useMarkAllRead,
+  useNotificationsArchive, useMarkRead, useMarkAllRead, OPS_AUDIENCE_FILTER,
   useSnoozeNotification, useMarkDone,
   type Notification, type NotificationStateFilter,
 } from '@/hooks/useNotifications';
@@ -90,6 +90,10 @@ export function Notifications() {
     ...(severityFilter !== 'all' ? { severity: severityFilter } : {}),
     ...(appliedSearch ? { q: appliedSearch } : {}),
     ...(currentCursor ? { cursor: currentCursor } : {}),
+    // N1: archive page scopes to the same audience set as the bell so
+    // navigating from bell -> full inbox doesn't suddenly reveal tenant
+    // brand events the operator opted not to see.
+    audience: OPS_AUDIENCE_FILTER,
   };
 
   const { data, isLoading, isFetching } = useNotificationsArchive(filters);

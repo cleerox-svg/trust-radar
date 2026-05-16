@@ -65,6 +65,15 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
     const severity = url.searchParams.get("severity");
     const q = url.searchParams.get("q")?.trim();
     const cursor = url.searchParams.get("cursor");
+    // N1: audience filter — comma-separated list of valid audience values.
+    // The ops bell passes `audience=super_admin,team,all` to hide tenant
+    // brand events from operators; the tenant inbox passes `audience=tenant`.
+    // Unspecified = no filter (returns everything for backwards compatibility).
+    const audienceParam = url.searchParams.get("audience");
+    const VALID_AUDIENCES = new Set(['tenant', 'super_admin', 'team', 'all']);
+    const audienceFilter = audienceParam
+      ? audienceParam.split(',').map(s => s.trim()).filter(s => VALID_AUDIENCES.has(s))
+      : null;
 
     // N3: surface state machine + tenant-scoping fields. The state
     // column is canonical; read_at stays for backwards compatibility
@@ -103,6 +112,10 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
       sql += ` AND severity = ?`;
       params.push(severity);
     }
+    if (audienceFilter && audienceFilter.length > 0) {
+      sql += ` AND audience IN (${audienceFilter.map(() => '?').join(',')})`;
+      params.push(...audienceFilter);
+    }
     if (q) {
       sql += ` AND (LOWER(title) LIKE ? OR LOWER(message) LIKE ?)`;
       const needle = `%${q.toLowerCase()}%`;
@@ -139,12 +152,17 @@ export async function handleListNotificationsV2(request: Request, env: Env, user
       ? results[results.length - 1]!.created_at
       : null;
 
-    // Get unread count (always reflects the unfiltered total — the
-    // bell badge cares about all unread, not just ones matching the
-    // current page's filters). Uses the canonical state column.
-    const countRow = await env.DB.prepare(
-      `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND state = 'unread'`
-    ).bind(userId).first<{ c: number }>();
+    // Get unread count. The badge reflects the audience-scoped total so
+    // the ops bell badge doesn't blink on tenant-only events when the ops
+    // view filters them out. Unfiltered query keeps the legacy contract
+    // when no audience filter is supplied.
+    let countSql = `SELECT COUNT(*) as c FROM notifications WHERE user_id = ? AND state = 'unread'`;
+    const countParams: unknown[] = [userId];
+    if (audienceFilter && audienceFilter.length > 0) {
+      countSql += ` AND audience IN (${audienceFilter.map(() => '?').join(',')})`;
+      countParams.push(...audienceFilter);
+    }
+    const countRow = await env.DB.prepare(countSql).bind(...countParams).first<{ c: number }>();
     tally.queries += 1;
 
     recordD1Reads(env, "notifications_feed", tally);
@@ -193,12 +211,27 @@ export async function handleMarkAllNotificationsReadV2(request: Request, env: En
 }
 
 // GET /api/notifications/unread-count
+//
+// N1: accepts the same `audience=comma,separated` filter as the list
+// endpoint so the bell badge reflects only operator-relevant unread when
+// the ops UI scopes itself. Unspecified = unfiltered (legacy contract).
 export async function handleUnreadCount(request: Request, env: Env, userId: string): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
-    const row = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND state = 'unread'`
-    ).bind(userId).first<{ count: number }>();
+    const url = new URL(request.url);
+    const audienceParam = url.searchParams.get("audience");
+    const VALID_AUDIENCES = new Set(['tenant', 'super_admin', 'team', 'all']);
+    const audienceFilter = audienceParam
+      ? audienceParam.split(',').map(s => s.trim()).filter(s => VALID_AUDIENCES.has(s))
+      : null;
+
+    let sql = `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND state = 'unread'`;
+    const params: unknown[] = [userId];
+    if (audienceFilter && audienceFilter.length > 0) {
+      sql += ` AND audience IN (${audienceFilter.map(() => '?').join(',')})`;
+      params.push(...audienceFilter);
+    }
+    const row = await env.DB.prepare(sql).bind(...params).first<{ count: number }>();
     return json({ success: true, count: row?.count ?? 0 }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
