@@ -56,6 +56,7 @@ export function LatestIntel() {
 
   return (
     <section className="home-latest-intel">
+      <div className="home-latest-intel-card">
       <header className="home-latest-intel-header">
         <span className="home-latest-intel-label">Latest Intel</span>
         <button
@@ -103,11 +104,17 @@ export function LatestIntel() {
           })}
         </ul>
       )}
+      </div>
 
       <style>{`
         .home-latest-intel {
-          margin: 12px 24px 0;
-          padding: 12px 16px;
+          padding: 22px 24px 0;
+        }
+        @container home (min-width: 480px) {
+          .home-latest-intel { padding: 22px 32px 0; }
+        }
+        .home-latest-intel-card {
+          padding: 16px;
           border-radius: 12px;
           background: linear-gradient(160deg, var(--bg-card), var(--bg-card-deep));
           border: 1px solid var(--border-base);
@@ -120,8 +127,9 @@ export function LatestIntel() {
         }
         .home-latest-intel-label {
           font-family: var(--font-mono);
-          font-size: 10px;
-          letter-spacing: 0.18em;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.20em;
           text-transform: uppercase;
           color: var(--text-tertiary);
         }
