@@ -49,24 +49,45 @@ export interface NotificationFeedFilters {
    * 'done' shows only done. 'all' shows everything regardless of state.
    */
   state?: NotificationStateFilter;
+  /**
+   * N1: audience filter. When set, the API only returns notifications
+   * whose `audience` column is in this list. The ops archive page passes
+   * OPS_AUDIENCE_FILTER to mirror the bell's scoping.
+   */
+  audience?: NotificationAudience[];
 }
 
-export function useUnreadCount() {
+// N1: ops-only audience set — the operator bell ignores tenant brand
+// events (DMARC drift, lookalike registered, etc.). Tenant-scoped callers
+// (averrow-tenant SPA) pass `['tenant']` instead. Defaults to no filter
+// to preserve the legacy contract for any caller that doesn't opt in yet.
+export const OPS_AUDIENCE_FILTER: NotificationAudience[] = ['super_admin', 'team', 'all'];
+
+function audienceQueryString(audience?: NotificationAudience[]): string {
+  if (!audience || audience.length === 0) return '';
+  return `audience=${audience.join(',')}`;
+}
+
+export function useUnreadCount(audience?: NotificationAudience[]) {
+  const q = audienceQueryString(audience);
   return useQuery({
-    queryKey: ['notifications', 'unread-count'],
+    queryKey: ['notifications', 'unread-count', audience ?? null],
     queryFn: async () => {
-      const res = await api.get('/api/notifications/unread-count') as unknown as { count: number };
+      const url = q ? `/api/notifications/unread-count?${q}` : '/api/notifications/unread-count';
+      const res = await api.get(url) as unknown as { count: number };
       return res.count ?? 0;
     },
     refetchInterval: 60_000,
   });
 }
 
-export function useNotifications(enabled: boolean) {
+export function useNotifications(enabled: boolean, audience?: NotificationAudience[]) {
+  const audQs = audienceQueryString(audience);
   return useQuery({
-    queryKey: ['notifications', 'list'],
+    queryKey: ['notifications', 'list', audience ?? null],
     queryFn: async () => {
-      const res = await api.get('/api/notifications?limit=20') as unknown as {
+      const url = audQs ? `/api/notifications?limit=20&${audQs}` : '/api/notifications?limit=20';
+      const res = await api.get(url) as unknown as {
         data: Notification[];
         unread_count: number;
       };
@@ -252,6 +273,9 @@ export function useNotificationsArchive(filters: NotificationFeedFilters = {}) {
       if (filters.q) params.set('q', filters.q);
       if (filters.cursor) params.set('cursor', filters.cursor);
       if (filters.state) params.set('state', filters.state);
+      if (filters.audience && filters.audience.length > 0) {
+        params.set('audience', filters.audience.join(','));
+      }
       const res = await api.get(`/api/notifications?${params.toString()}`) as unknown as {
         data: Notification[];
         unread_count: number;

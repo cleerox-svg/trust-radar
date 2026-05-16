@@ -103,12 +103,23 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
   const metadataJson = opts.metadata ? JSON.stringify(opts.metadata) : null;
 
   // ─── Resolve audience + scope ────────────────────────────────────────
-  // Tenant routing is the new default (NOTIFICATIONS_AUDIT.md §3, Q3).
-  // When a brand is identifiable, recipients are restricted to users
-  // who actually subscribe to that brand. The legacy "all active users"
-  // path stays as a fallback for system events with no tenant scope.
-  const audience = opts.audience ?? 'tenant';
+  // N1: audience is now effectively required. The legacy default was
+  // 'tenant', which silently fell through to "all active users" when no
+  // brandId was derivable — that's the bug that caused super-admins to
+  // receive every campaign_escalation / agent_milestone / feed_health
+  // ping. The new resolution path:
+  //
+  //   - opts.audience present  → use as-is.
+  //   - opts.audience missing  → infer from brandId presence:
+  //                              brandId set    → 'tenant'  (brand event)
+  //                              brandId absent → 'team'    (staff-wide,
+  //                                                          excludes clients)
+  //
+  // To explicitly broadcast to every active user including tenants, set
+  // `audience: 'all'`. Don't omit the field hoping for that behavior.
   const brandId = (opts.brandId ?? (opts.metadata?.brand_id as string | undefined)) ?? null;
+  const audience: NonNullable<CreateNotificationOpts['audience']> =
+    opts.audience ?? (brandId ? 'tenant' : 'team');
   const groupKey = opts.groupKey ?? (brandId ? `${opts.type}:${brandId}` : null);
 
   // ─── Dedup ────────────────────────────────────────────────────────────
@@ -167,10 +178,34 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
           AND p.show_tenant_notifications = 1`
     ).bind(brandId).all<{ id: string }>();
     userIds = users.results.map(u => u.id);
-  } else {
-    // Legacy 'all' fallback — system events with no brand or audience.
-    const users = await db.prepare("SELECT id FROM users WHERE status = 'active'").all<{ id: string }>();
+  } else if (audience === 'team') {
+    // Staff-wide: every non-client role. Used for cross-cutting agent
+    // telemetry (feed health, agent stalls) where ops, SOC analysts,
+    // sales, and support all want visibility, but tenant customers
+    // (role='client') don't.
+    const users = await db.prepare(
+      "SELECT id FROM users WHERE status = 'active' AND role != 'client'"
+    ).all<{ id: string }>();
     userIds = users.results.map(u => u.id);
+  } else {
+    // Explicit 'all' — every active user, tenants included. Reserved
+    // for genuine cross-cutting events (platform maintenance, ToS
+    // updates). Reaching this branch with audience='tenant' + no brandId
+    // means the caller forgot to pass a brand; we log to console for
+    // observability and broadcast staff-wide (NOT all users) to limit
+    // the blast radius until the call site is fixed.
+    if (audience === 'tenant' && !brandId) {
+      console.warn(
+        `[createNotification] type=${opts.type} requested audience=tenant but no brandId resolvable; downgrading to team broadcast`,
+      );
+      const users = await db.prepare(
+        "SELECT id FROM users WHERE status = 'active' AND role != 'client'"
+      ).all<{ id: string }>();
+      userIds = users.results.map(u => u.id);
+    } else {
+      const users = await db.prepare("SELECT id FROM users WHERE status = 'active'").all<{ id: string }>();
+      userIds = users.results.map(u => u.id);
+    }
   }
 
   let created = 0;

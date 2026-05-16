@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, AlertTriangle, Clock, Check } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowWidth';
 import {
-  useUnreadCount, useNotifications, useMarkRead, useMarkAllRead,
+  useUnreadCount, useNotifications, useMarkRead, useMarkAllRead, OPS_AUDIENCE_FILTER,
   useSnoozeNotification, useMarkDone,
 } from '@/hooks/useNotifications';
 import { useAlertTriageSummary } from '@/hooks/useAlerts';
@@ -142,7 +142,10 @@ function NotificationList({
   setFilter: (f: FilterType) => void;
 }) {
   const navigate = useNavigate();
-  const { data } = useNotifications(true);
+  // N1: ops bell is scoped to operator-relevant audiences only. Tenant
+  // brand events (DMARC drift, lookalike registered) ring the tenant
+  // SPA's bell, not this one.
+  const { data } = useNotifications(true, OPS_AUDIENCE_FILTER);
   const { data: triage } = useAlertTriageSummary();
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
@@ -339,7 +342,10 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const isMobile = useIsMobile();
-  const { data: unreadCount = 0 } = useUnreadCount();
+  // N1: unread badge counts only operator-relevant unread, mirroring the
+  // bell's scoped fetch so the badge can't blink on tenant-only events
+  // that don't show up in the dropdown.
+  const { data: unreadCount = 0 } = useUnreadCount(OPS_AUDIENCE_FILTER);
 
   const handleClose = useCallback(() => {
     setOpen(false);

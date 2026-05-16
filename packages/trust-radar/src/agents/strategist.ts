@@ -150,6 +150,9 @@ export const strategistAgent: AgentModule = {
         if (addedThreats > 0 && newCount) {
           try {
             await createNotification(env, {
+              // N1: explicit super_admin audience — campaign escalation is
+              // intelligence the operator acts on, not tenant brand business.
+              audience: 'super_admin',
               type: 'campaign_escalation',
               severity: 'medium',
               title: `Campaign growing: ${newCount.name}`,
@@ -214,6 +217,10 @@ export const strategistAgent: AgentModule = {
         // Notify: new campaign identified
         try {
           await createNotification(env, {
+            // N1: explicit super_admin audience — "new campaign identified"
+            // is intel for the operator. N4 will fan out per-brand tenant
+            // alerts when the campaign passes the significance threshold.
+            audience: 'super_admin',
             type: 'agent_milestone',
             severity: 'medium',
             title: 'New campaign identified',

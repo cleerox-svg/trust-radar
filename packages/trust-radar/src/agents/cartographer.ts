@@ -770,6 +770,12 @@ export const cartographerAgent: AgentModule = {
                 .bind(brand.id).first<{ name: string }>();
               try {
                 await createNotification(env, {
+                  // N1: explicit tenant audience — email security grade
+                  // change is a brand event. brandId in metadata routes
+                  // to the brand's subscribers; default super-admins are
+                  // excluded unless they opted-in via show_tenant_notifications.
+                  audience: 'tenant',
+                  brandId: String(brand.id),
                   type: 'email_security_change',
                   title: `${brandName?.name ?? brand.domain} email security ${dropped ? 'degraded' : 'improved'}`,
                   message: `Grade changed from ${brand.existing_grade} to ${result.grade}`,

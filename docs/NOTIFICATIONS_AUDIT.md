@@ -1748,3 +1748,32 @@ complete; follow-ups (more `intel_*` emit sites, more `platform_*`
 emit sites, narrator agent, full email-briefing replumb) tracked in
 §14 backlog.
 
+---
+
+## 17. Phase NX — last-mile audience + alerts/signals split (2026-05-16+)
+
+Six follow-on sessions tracked in `RESTRUCTURE_SPEC.md` under the
+"NOTIFICATIONS RESTRUCTURE" heading. The numbering is `NX1`–`NX6`
+(Notifications eXtension) to avoid collision with the signed-off
+N0–N6 above. These sessions take the infrastructure N0–N6 shipped
+and finish the conceptual split between brand signals (`alerts`) and
+operator notifications, plus the unwired `platform_*` types.
+
+Trigger for this work: 2026-05-16 super-admin observation that the
+ops bell rings on every tenant DMARC drift / lookalike registration,
+and that `Alerts` is the wrong label for what is actually a brand
+signal feed.
+
+| Session | Scope | Status |
+|---|---|---|
+| NX1 — Audience hygiene + ops bell filter | Every `createNotification` call site gets explicit `audience`; spam-trap migrates off raw INSERT; ops bell + archive page filter to `audience IN ('super_admin','team','all')`; unread badge mirrors the scoped fetch. | 🟡 In progress |
+| NX2 — Tier gate + claim-time backfill | `createAlert` skips when `brands.tier='tracked'`; new `backfillAlertsForBrand()` runs on org_brands insert. | ⏳ Not started |
+| NX3 — Rename "Alerts" → "Signals" + brand-detail signals feed | Tenant SPA labels (backend table stays `alerts`); `/v2/brands/:id` gains a Signals tab. | ⏳ Not started |
+| NX4 — Campaign / actor significance + tenant fanout | `lib/campaign-significance.ts` (≥20 threats OR 3× spike); on pass: super_admin notification + per-brand tenant alerts. | ⏳ Not started |
+| NX5 — Preferences UI + Notification Center admin page | Three-section preferences (mandatory platform / opt-in intel / cadence); new `/v2/notifications/admin` page. | ⏳ Not started |
+| NX6 — Platform health wire-up | Hook the 8 enumerated `platform_*` types into Flight Control / Navigator / feed CB / news_watcher. | ⏳ Not started |
+| NXF1 — Backend table rename `alerts` → `brand_signals` | Held back until NX1–NX6 prove the model in production. | ⏳ Future |
+
+See `RESTRUCTURE_SPEC.md` for the per-session file lists + acceptance
+criteria. NX1 is the active session as of this commit.
+

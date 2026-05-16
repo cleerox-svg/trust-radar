@@ -184,8 +184,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 1174,
-      "last_modified": "2026-05-15T17:55:10.291Z"
+      "loc": 1180,
+      "last_modified": "2026-05-16T04:30:35.387Z"
     },
     {
       "name": "cube-healer",
@@ -478,8 +478,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "agent_outputs"
       ],
       "ai_models_referenced": [],
-      "loc": 1040,
-      "last_modified": "2026-05-15T17:55:10.297Z"
+      "loc": 1043,
+      "last_modified": "2026-05-16T04:24:31.231Z"
     },
     {
       "name": "pathfinder",
@@ -685,8 +685,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 569,
-      "last_modified": "2026-05-15T17:55:10.301Z"
+      "loc": 576,
+      "last_modified": "2026-05-16T04:24:27.711Z"
     },
     {
       "name": "trustbot",

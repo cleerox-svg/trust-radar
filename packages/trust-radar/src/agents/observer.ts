@@ -827,6 +827,9 @@ export const observerAgent: AgentModule = {
       const summaryText = firstInsight.summary.replace(/\*\*/g, '').substring(0, 100);
       try {
         await createNotification(env, {
+          // N1: explicit super_admin audience — daily intel briefing is
+          // operator content, not tenant business.
+          audience: 'super_admin',
           type: 'intelligence_digest',
           severity: 'info',
           title: 'New intelligence briefing',
