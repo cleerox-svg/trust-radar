@@ -50,8 +50,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 1113,
-      "last_modified": "2026-05-15T17:55:10.284Z"
+      "loc": 1116,
+      "last_modified": "2026-05-16T20:42:12.774Z"
     },
     {
       "name": "appStoreMonitor",
@@ -184,8 +184,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 1180,
-      "last_modified": "2026-05-16T04:30:35.387Z"
+      "loc": 1216,
+      "last_modified": "2026-05-16T20:43:53.594Z"
     },
     {
       "name": "cube-healer",
@@ -278,7 +278,9 @@ export const REPO_MANIFEST: RepoInventory = {
         "feed_pull_history",
         "feed_status",
         "geo_ip_refresh_log",
+        "hosting_providers",
         "incidents",
+        "provider_threat_stats",
         "push_subscriptions",
         "social_mentions",
         "threat_briefings",
@@ -293,8 +295,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "push_subscriptions"
       ],
       "ai_models_referenced": [],
-      "loc": 2087,
-      "last_modified": "2026-05-16T19:04:10.143Z"
+      "loc": 2156,
+      "last_modified": "2026-05-16T21:23:53.607Z"
     },
     {
       "name": "geo-campaign-assessment",

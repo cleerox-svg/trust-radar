@@ -215,6 +215,13 @@ export const flightControlAgent: AgentModule = {
     { kind: "d1_table", name: "feed_configs" },
     { kind: "d1_table", name: "feed_pull_history" },
     { kind: "d1_table", name: "feed_status" },
+    // PR-B (2026-05-16 audit): provider-escalation watcher joins
+    // hosting_providers against the 7d provider_threat_stats rollup
+    // each tick to surface providers whose active_threat_count
+    // spiked vs baseline (Cloudflare 0→51K with no signal was the
+    // motivating gap).
+    { kind: "d1_table", name: "hosting_providers" },
+    { kind: "d1_table", name: "provider_threat_stats" },
     // N6c briefing-silent self-monitor reads any open
     // auto:platform_briefing_silent incident so it can auto-resolve
     // it on heal. Bundle F (2026-05-07).
