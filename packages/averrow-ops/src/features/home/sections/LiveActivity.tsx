@@ -1,23 +1,26 @@
-// Phase 4 of the unified Home rebuild — Live Activity ticker.
+// Live Activity ticker — raw event pulse below the Daily Briefing.
 //
-// Demoted from co-equal "Latest Intelligence" to a thin notification
-// stream below the Daily Briefing, per the Intelligence consolidation
-// decision. The Briefing is the differentiator (AI synthesis); this
-// is just the raw event pulse so operators can scan recent activity
-// without leaving Home.
+// Visual language follows BrandMovers / ProviderMovers (the home-page
+// polish baseline): outer section with 22px top padding, glass-card
+// container, list rows with leading severity glyph + 2-line title/
+// time block + click drills to the notification's link.
 //
-// Each row is single-line: severity dot, title, relative time. Click
-// drills to the notification's link, falling back to /alerts.
+// Pre-2026-05-16 the rows were single-line with white-space:nowrap,
+// truncating long notification titles mid-word ("Feed AlienVault OTX
+// (TAXII 2.1) at risk of auto-pa…"). Rebuilt to allow titles to
+// wrap to 2 lines so the operator can read what fired without
+// drilling into the bell tray.
 
 import { useNavigate } from 'react-router-dom';
+import { Activity } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 
-const SEV_DOT_COLOR: Record<string, string> = {
-  critical: 'var(--sev-critical)',
-  high:     'var(--sev-high)',
-  medium:   'var(--sev-medium)',
-  low:      'var(--sev-low)',
-  info:     'var(--text-tertiary)',
+const SEV_COLOR: Record<string, { fg: string; dim: string }> = {
+  critical: { fg: 'var(--sev-critical)', dim: 'var(--sev-critical-dim, rgba(239,68,68,0.30))' },
+  high:     { fg: 'var(--sev-high)',     dim: 'var(--sev-high-dim, rgba(245,158,11,0.30))'  },
+  medium:   { fg: 'var(--sev-medium)',   dim: 'var(--sev-medium-dim, rgba(234,179,8,0.30))' },
+  low:      { fg: 'var(--sev-low)',      dim: 'var(--sev-low-dim, rgba(34,197,94,0.30))'    },
+  info:     { fg: 'var(--text-tertiary)', dim: 'var(--border-base)' },
 };
 
 function relTime(iso: string): string {
@@ -30,6 +33,22 @@ function relTime(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function SevGlyph({ severity }: { severity: string }) {
+  const sev = SEV_COLOR[severity] ?? SEV_COLOR.info;
+  return (
+    <span
+      className="home-live-activity-glyph"
+      aria-hidden
+      style={{
+        background: `linear-gradient(160deg, ${sev.fg}28, ${sev.dim}18)`,
+        border: `1px solid ${sev.fg}40`,
+      }}
+    >
+      <Activity size={14} color={sev.fg} strokeWidth={2.2} />
+    </span>
+  );
+}
+
 export function LiveActivity() {
   const navigate = useNavigate();
   const { data } = useNotifications(true);
@@ -38,57 +57,64 @@ export function LiveActivity() {
 
   return (
     <section className="home-live-activity">
-      <header className="home-live-activity-header">
-        <span className="home-live-activity-label">Live Activity</span>
-        <button
-          type="button"
-          onClick={() => navigate('/alerts')}
-          className="home-live-activity-viewall"
-          aria-label="View all alerts"
-        >
-          View all →
-        </button>
-      </header>
-
-      {items.length === 0 ? (
-        <div className="home-live-activity-empty">
-          No recent intelligence events
+      <div className="home-live-activity-card">
+        <div className="home-live-activity-header">
+          <span className="home-live-activity-label">Live Activity</span>
+          <button
+            type="button"
+            onClick={() => navigate('/alerts')}
+            className="home-live-activity-viewall"
+            aria-label="View all alerts"
+          >
+            View all →
+          </button>
         </div>
-      ) : (
-        <ul className="home-live-activity-rows">
-          {items.map((item) => {
-            const sev = (item.severity || 'info').toLowerCase();
-            const dotColor = SEV_DOT_COLOR[sev] ?? SEV_DOT_COLOR.info;
-            return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => item.link ? navigate(item.link) : navigate('/alerts')}
-                  className="home-live-activity-row"
-                >
-                  <span className="home-live-activity-dot" style={{ background: dotColor }} aria-hidden />
-                  <span className="home-live-activity-title">{item.title}</span>
-                  <span className="home-live-activity-time">{relTime(item.created_at)}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+
+        {items.length === 0 ? (
+          <div className="home-live-activity-empty">
+            No recent intelligence events
+          </div>
+        ) : (
+          <ul className="home-live-activity-rows">
+            {items.map((item) => {
+              const sev = (item.severity || 'info').toLowerCase();
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => item.link ? navigate(item.link) : navigate('/alerts')}
+                    className="home-live-activity-row"
+                  >
+                    <SevGlyph severity={sev} />
+                    <div className="home-live-activity-row-text">
+                      <div className="home-live-activity-row-title">{item.title}</div>
+                      <div className="home-live-activity-row-time">{relTime(item.created_at)}</div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       <style>{`
         .home-live-activity {
-          margin: 12px 24px 0;
-          padding: 12px 16px;
+          padding: 22px 24px 0;
+        }
+        .home-live-activity-card {
+          padding: 16px;
           border-radius: 12px;
           background: linear-gradient(160deg, var(--bg-card), var(--bg-card-deep));
           border: 1px solid var(--border-base);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
         .home-live-activity-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 4px;
         }
         .home-live-activity-label {
           font-family: var(--font-mono);
@@ -115,46 +141,58 @@ export function LiveActivity() {
           margin: 0;
           display: flex;
           flex-direction: column;
+          gap: 4px;
         }
         .home-live-activity-row {
           width: 100%;
           display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 7px 6px;
-          border-radius: 6px;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 8px;
+          border-radius: 10px;
           background: transparent;
-          border: none;
+          border: 1px solid transparent;
           cursor: pointer;
           color: inherit;
           font: inherit;
           text-align: left;
-          transition: background-color 0.12s ease;
+          transition: background-color 0.12s ease, border-color 0.12s ease;
         }
         .home-live-activity-row:hover {
           background: var(--border-base);
+          border-color: var(--border-base);
         }
-        .home-live-activity-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
+        .home-live-activity-glyph {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           flex-shrink: 0;
+          margin-top: 1px;
         }
-        .home-live-activity-title {
+        .home-live-activity-row-text {
           flex: 1;
           min-width: 0;
-          font-size: 12px;
-          color: var(--text-primary);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
-        .home-live-activity-time {
+        .home-live-activity-row-title {
+          font-size: 13px;
+          color: var(--text-primary);
+          line-height: 1.35;
+          /* Allow titles to wrap to two lines instead of being
+             truncated mid-word like the pre-2026-05-16 version. */
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .home-live-activity-row-time {
           font-size: 10px;
           font-family: var(--font-mono);
           color: var(--text-muted);
           letter-spacing: 0.04em;
-          flex-shrink: 0;
+          margin-top: 2px;
         }
         .home-live-activity-empty {
           padding: 14px 0;
@@ -165,7 +203,7 @@ export function LiveActivity() {
         }
 
         @container home (min-width: 480px) {
-          .home-live-activity { margin: 12px 32px 0; padding: 14px 20px; }
+          .home-live-activity { padding: 22px 32px 0; }
         }
       `}</style>
     </section>
