@@ -51,8 +51,83 @@ interface ClusterRow {
   threat_count: number;
   confidence_score: number | null;
   agent_notes: string | null;
+  nexus_brief: string | null;
   first_detected: string | null;
   last_seen: string | null;
+}
+
+/**
+ * PR-D (2026-05-16 audit fix): cheap pre-filter before paying for
+ * Haiku. The audit found 1,325 of 1,330 clusters Haiku saw came back
+ * "unknown" (0.4% resolution) — most clusters carry generic ASN/
+ * country profiles that match many actors. Pre-filtering to clusters
+ * whose notes/brief contain a known actor name (or whose
+ * infrastructure footprint is rare/distinctive) cuts AI cost ~80%
+ * while improving resolution rate.
+ *
+ * Returns true when the cluster is worth sending to Haiku.
+ */
+function clusterShouldHitHaiku(
+  cluster: ClusterRow,
+  knownActorNeedles: string[],
+): boolean {
+  // Rule 1 — name presence: any known actor name or alias appears
+  // in the free-text fields. NEXUS occasionally drops actor handles
+  // (e.g. "APT28", "Lazarus") into agent_notes / nexus_brief from
+  // upstream OTX pulses or seed attribution.
+  const haystack = [
+    cluster.cluster_name,
+    cluster.agent_notes,
+    cluster.nexus_brief,
+  ].filter(Boolean).join(" ").toLowerCase();
+  for (const needle of knownActorNeedles) {
+    if (haystack.includes(needle)) return true;
+  }
+
+  // Rule 2 — rare/distinctive footprint: clusters spanning many
+  // ASNs or countries are operator-curated worth investigating
+  // even without a name hint. Tunable thresholds.
+  const asns = safeParseArray(cluster.asns);
+  const countries = safeParseArray(cluster.countries);
+  if (asns.length >= 3) return true;
+  if (countries.length >= 4) return true;
+
+  return false;
+}
+
+/**
+ * Lowercased actor names + aliases, filtered to substrings that won't
+ * false-match common English words. Short or generic tokens (≤3 chars,
+ * or in STOPWORDS) are dropped so a name like "Sand" doesn't match
+ * every cluster talking about a "sandbox".
+ */
+const STOPWORDS = new Set([
+  "the", "and", "team", "group", "actor", "dragon", "spider", "panda", "bear",
+  "kitten", "rat", "snake", "lion", "tiger", "wolf", "fox", "eagle", "hawk",
+]);
+
+function buildActorNeedles(rows: Array<{ name: string; aliases: string | null }>): string[] {
+  const out = new Set<string>();
+  for (const row of rows) {
+    const tokens: string[] = [];
+    if (row.name) tokens.push(row.name);
+    if (row.aliases) {
+      try {
+        const v = JSON.parse(row.aliases);
+        if (Array.isArray(v)) for (const a of v) if (typeof a === "string") tokens.push(a);
+      } catch {
+        // Plain comma-separated string
+        for (const a of row.aliases.split(",")) tokens.push(a);
+      }
+    }
+    for (const raw of tokens) {
+      const n = raw.trim().toLowerCase();
+      if (n.length < 4) continue;
+      if (STOPWORDS.has(n)) continue;
+      out.add(n);
+    }
+  }
+  return [...out];
 }
 
 const SYSTEM_PROMPT = `You are a threat-intelligence analyst classifying infrastructure clusters by responsible actor.
@@ -114,6 +189,11 @@ export const attributorAgent: AgentModule = {
   reads: [
     { kind: "d1_table", name: "infrastructure_clusters" },
     { kind: "d1_table", name: "threats" },
+    // PR-D (2026-05-16 audit): pre-Haiku name-presence gate reads
+    // the known-actors catalog once per run to build a substring
+    // needle list. Skips Haiku for clusters whose notes/brief
+    // don't mention any known name — was 99.6% wasted AI cost.
+    { kind: "d1_table", name: "threat_actors" },
   ],
   writes: [
     { kind: "d1_table", name: "infrastructure_clusters" },
@@ -142,7 +222,8 @@ export const attributorAgent: AgentModule = {
     const cooldownExpr = `datetime('now', '-${RETRY_COOLDOWN_DAYS} days')`;
     const pending = await env.DB.prepare(`
       SELECT id, cluster_name, asns, countries, attack_types, brand_ids,
-             threat_count, confidence_score, agent_notes, first_detected, last_seen
+             threat_count, confidence_score, agent_notes, nexus_brief,
+             first_detected, last_seen
       FROM infrastructure_clusters
       WHERE status = 'active'
         AND actor_id IS NULL
@@ -161,13 +242,42 @@ export const attributorAgent: AgentModule = {
       };
     }
 
+    // PR-D (2026-05-16 audit fix): cheap pre-filter — load the
+    // active threat_actors catalog once and build a substring needle
+    // list. Each cluster is checked against the catalog before we
+    // pay for Haiku. Audit baseline: 99.6% "unknown" responses; the
+    // gate keeps the 0.4% signal path while skipping the wasted
+    // AI calls. Skipped clusters still get attribution_attempted_at
+    // stamped so they cool down for RETRY_COOLDOWN_DAYS and don't
+    // re-enter the queue immediately.
+    const actorRows = await env.DB.prepare(
+      `SELECT name, aliases FROM threat_actors WHERE status = 'active'`
+    ).all<{ name: string; aliases: string | null }>();
+    const actorNeedles = buildActorNeedles(actorRows.results ?? []);
+
     let attributed = 0;
     let unresolved = 0;
     let errors = 0;
     let attributionRowsWritten = 0;
+    let gated = 0;
 
     for (const cluster of clusters) {
       try {
+        // Cheap pre-filter — skip Haiku for clusters without a name
+        // match or distinctive footprint. Still stamps the attempt
+        // timestamp so the cluster cools down — operator can find it
+        // in the Attribution Backlog admin queue (PR-B) if they want
+        // to manually attribute.
+        if (!clusterShouldHitHaiku(cluster, actorNeedles)) {
+          await env.DB.prepare(
+            `UPDATE infrastructure_clusters
+                SET attribution_attempted_at = datetime('now')
+              WHERE id = ?`
+          ).bind(cluster.id).run();
+          gated++;
+          continue;
+        }
+
         const userMessage = buildUserPrompt(cluster);
         const haikuResult = await callHaikuRaw(env, callCtx, SYSTEM_PROMPT, userMessage, 24);
 
@@ -253,8 +363,10 @@ export const attributorAgent: AgentModule = {
       output: {
         attributed_clusters: attributed,
         unresolved_clusters: unresolved,
+        gated_clusters: gated,
         errors,
         attribution_rows_written: attributionRowsWritten,
+        actor_needles: actorNeedles.length,
       },
     };
   },

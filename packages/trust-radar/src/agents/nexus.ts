@@ -505,6 +505,122 @@ export async function runNexus(db: D1Database, env: Env): Promise<{
     console.warn('[nexus] dark-web cluster pass skipped:', err instanceof Error ? err.message : String(err));
   }
 
+  // --- Per-IP fan-out clustering (PR-D from 2026-05-16 audit) ---
+  //
+  // Audit finding: 244,563 active threats (70%) have no campaign,
+  // including IPs like 76.223.54.146 (900 brands hit) that are pure
+  // mass-impersonation infrastructure. Existing Nexus clustering
+  // groups by (asn, threat_type) so these per-IP fan-outs got
+  // absorbed into wide ASN clusters and lost the IP-pivot signal.
+  //
+  // Rule: same active IP across ≥5 active threats AND ≥3 distinct
+  // brands ⇒ stable cluster id `cluster_ip_<ip>`. ON CONFLICT updates
+  // counts so the cluster stays current across runs. Limited to top
+  // 30 by threat_count per cycle (4h cadence) so a sudden surge of
+  // 1000+ qualifying IPs can't blow up the write budget.
+  //
+  // Bounded D1 cost: one GROUP BY scan + N writes (insert-or-merge) per 4h cycle.
+  // No AI. Cluster rows feed Attribution Backlog (PR-B) where
+  // operators can route them for human attribution.
+  try {
+    const ipFanout = await db.prepare(`
+      SELECT ip_address,
+             COUNT(*)                          AS threat_count,
+             COUNT(DISTINCT target_brand_id)   AS brand_count,
+             GROUP_CONCAT(DISTINCT target_brand_id) AS brand_ids,
+             GROUP_CONCAT(DISTINCT asn)        AS asns,
+             GROUP_CONCAT(DISTINCT country_code) AS countries,
+             GROUP_CONCAT(DISTINCT threat_type) AS attack_types,
+             MIN(first_seen)                   AS first_seen,
+             MAX(first_seen)                   AS last_seen
+        FROM threats
+       WHERE status = 'active'
+         AND ip_address IS NOT NULL
+         AND ip_address NOT IN ('', '0.0.0.0')
+         AND target_brand_id IS NOT NULL
+       GROUP BY ip_address
+      HAVING brand_count >= 3 AND threat_count >= 5
+       ORDER BY brand_count DESC, threat_count DESC
+       LIMIT 30
+    `).all<{
+      ip_address: string;
+      threat_count: number;
+      brand_count: number;
+      brand_ids: string | null;
+      asns: string | null;
+      countries: string | null;
+      attack_types: string | null;
+      first_seen: string;
+      last_seen: string;
+    }>();
+
+    for (const row of ipFanout.results) {
+      const ipSafe = row.ip_address.replace(/[^0-9a-f.:]/gi, '');
+      const clusterId = `cluster_ip_${ipSafe}`;
+      const clusterName =
+        `IP ${row.ip_address} mass-impersonation (${row.brand_count} brands, ${row.threat_count} threats)`;
+      const brandIds  = (row.brand_ids  ?? '').split(',').filter(Boolean);
+      const asns      = (row.asns       ?? '').split(',').filter(Boolean);
+      const countries = (row.countries  ?? '').split(',').filter(Boolean);
+      const attackTypes = (row.attack_types ?? '').split(',').filter(Boolean);
+      // Confidence scales with brand fan-out — diversity is the
+      // signal here, not raw threat volume.
+      const confidence = Math.min(100,
+        (row.brand_count >= 100 ? 90 : row.brand_count >= 25 ? 75 : row.brand_count >= 10 ? 60 : 40),
+      );
+
+      try {
+        await db.prepare(`
+          INSERT INTO infrastructure_clusters (
+            id, cluster_name, asns, countries, attack_types, brand_ids,
+            campaign_ids, hosting_provider_ids, threat_count, confidence_score,
+            first_detected, last_seen, status, agent_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+          ON CONFLICT(id) DO UPDATE SET
+            cluster_name = excluded.cluster_name,
+            asns = excluded.asns,
+            countries = excluded.countries,
+            attack_types = excluded.attack_types,
+            brand_ids = excluded.brand_ids,
+            threat_count = excluded.threat_count,
+            confidence_score = excluded.confidence_score,
+            last_seen = excluded.last_seen,
+            agent_notes = excluded.agent_notes
+        `).bind(
+          clusterId,
+          clusterName,
+          JSON.stringify(asns),
+          JSON.stringify(countries),
+          JSON.stringify(attackTypes),
+          JSON.stringify(brandIds),
+          JSON.stringify([]),
+          JSON.stringify([]),
+          row.threat_count,
+          confidence,
+          row.first_seen,
+          row.last_seen,
+          `Per-IP fan-out: ${row.ip_address} hosts threats against ${row.brand_count} brands across ${asns.length} ASNs. Mass-impersonation infrastructure.`,
+        ).run();
+
+        // Link the underlying threats to this cluster so the
+        // Attribution Backlog drill-down + threat-actor pages can
+        // surface them under the IP-pivot cluster instead of
+        // orphan/no-cluster status.
+        await db.prepare(
+          `UPDATE threats SET cluster_id = ?
+            WHERE ip_address = ? AND status = 'active' AND cluster_id IS NULL`,
+        ).bind(clusterId, row.ip_address).run();
+      } catch (err) {
+        console.warn(
+          `[nexus] per-IP cluster upsert failed for ${row.ip_address}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('[nexus] per-IP fan-out pass skipped:', err instanceof Error ? err.message : String(err));
+  }
+
   // --- Emit completion event ---
   try {
     await db.prepare(`

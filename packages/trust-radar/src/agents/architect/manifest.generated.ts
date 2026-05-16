@@ -76,14 +76,15 @@ export const REPO_MANIFEST: RepoInventory = {
       "reads": [
         "DB",
         "infrastructure_clusters",
+        "threat_actors",
         "threats"
       ],
       "writes": [
         "infrastructure_clusters"
       ],
       "ai_models_referenced": [],
-      "loc": 262,
-      "last_modified": "2026-05-15T17:55:10.291Z"
+      "loc": 374,
+      "last_modified": "2026-05-16T21:46:46.250Z"
     },
     {
       "name": "auto-seeder",
@@ -426,8 +427,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "ai_models_referenced": [],
-      "loc": 626,
-      "last_modified": "2026-05-15T17:55:10.297Z"
+      "loc": 742,
+      "last_modified": "2026-05-16T21:51:05.742Z"
     },
     {
       "name": "notification_narrator",

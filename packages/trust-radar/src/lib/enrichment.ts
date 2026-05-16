@@ -26,6 +26,11 @@ export interface EnrichmentResult {
   brandsMatched: number;
   providersUpserted: number;
   providerCountsUpdated: number;
+  /** PR-D (2026-05-16 audit): threats whose confidence_score was
+   *  boosted because their IP is corroborated by ≥4 distinct feeds.
+   *  Was zero coverage pre-fix — confidence stayed flat regardless
+   *  of how many independent feeds flagged an IP. */
+  corroborationBoosted: number;
 }
 
 /**
@@ -40,6 +45,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     brandsMatched: 0,
     providersUpserted: 0,
     providerCountsUpdated: 0,
+    corroborationBoosted: 0,
   };
 
   // Count what needs enrichment
@@ -286,6 +292,60 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     } catch (err) {
       console.error("[enrich] Stage 4b domain ranking failed:", err);
     }
+  }
+
+  // ─── Stage 4c: Cross-feed corroboration boost ─────────────────
+  //
+  // PR-D (2026-05-16 audit): the audit found 15 IPs flagged by ≥6
+  // distinct feeds with 7K total threats — pure multi-source signal.
+  // But `confidence_score` was flat (~78-82) regardless of how many
+  // independent feeds corroborated. Highest-confidence IOCs in the
+  // corpus were invisible in any UI sort.
+  //
+  // Boost rule: for any IP corroborated by ≥4 distinct source_feeds,
+  // raise active threats' confidence_score to at least the floor
+  // computed from feed count. 4 feeds → 85, 6+ feeds → 95. We use
+  // GREATEST(confidence_score, floor) so existing high-confidence
+  // rows don't get downgraded.
+  //
+  // Bounded — limits to IPs that need boosting (current score < the
+  // floor) so re-runs no-op once a corpus stabilizes.
+  try {
+    const boost = await env.DB.prepare(`
+      WITH corroborated AS (
+        SELECT ip_address,
+               COUNT(DISTINCT source_feed) AS feed_count
+          FROM threats
+         WHERE status = 'active'
+           AND ip_address IS NOT NULL
+           AND ip_address NOT IN ('', '0.0.0.0')
+         GROUP BY ip_address
+        HAVING feed_count >= 4
+      )
+      UPDATE threats
+         SET confidence_score = MAX(
+               COALESCE(confidence_score, 0),
+               (SELECT CASE
+                  WHEN c.feed_count >= 6 THEN 95
+                  WHEN c.feed_count >= 5 THEN 90
+                  ELSE 85
+                END
+                FROM corroborated c WHERE c.ip_address = threats.ip_address)
+             )
+       WHERE status = 'active'
+         AND ip_address IN (SELECT ip_address FROM corroborated)
+         AND COALESCE(confidence_score, 0) < (
+           SELECT CASE
+                    WHEN c.feed_count >= 6 THEN 95
+                    WHEN c.feed_count >= 5 THEN 90
+                    ELSE 85
+                  END
+             FROM corroborated c WHERE c.ip_address = threats.ip_address
+         )
+    `).run();
+    result.corroborationBoosted = boost.meta?.changes ?? 0;
+  } catch (err) {
+    console.error("[enrich] Stage 4c corroboration boost failed:", err);
   }
 
   // ─── Stage 5: Sync hosting_providers counts ───────────────────
