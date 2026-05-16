@@ -69,8 +69,16 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
     // those would blow up the KV key space.
     const useGlobalCache = !scope;
 
+    // D1 spend-reduction: bumped TTLs from 300s → 1800s. The dashboard
+    // counters change by ~1000/hour at the platform's current scale; a
+    // 30-min cache is more than fresh enough for a homepage tile and
+    // means Navigator's every-5-min prewarms hit the cache 5 times out
+    // of 6 instead of always missing. Production audit on 2026-05-16
+    // showed `SELECT COUNT(*) FROM threats` running 263×/24h × 338K
+    // rows = 89M rows/day on the 300s TTL. With 1800s the math drops to
+    // ~48 calls/day = 16M rows. Saves ~70M rows/day = ~8.5% of plan.
     const threatCountP = useGlobalCache
-      ? cachedCount(env, 'count.threats.total', 300, async () => {
+      ? cachedCount(env, 'count.threats.total', 1800, async () => {
           const r = await session.prepare(`SELECT COUNT(*) AS n FROM threats`).first<{ n: number }>();
           return r?.n ?? 0;
         }).then((n) => ({ n }))
@@ -79,7 +87,7 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
           .first<{ n: number }>();
 
     const threatActiveP = useGlobalCache
-      ? cachedCount(env, 'count.threats.active', 300, async () => {
+      ? cachedCount(env, 'count.threats.active', 1800, async () => {
           const r = await session.prepare(`SELECT COUNT(*) AS n FROM threats WHERE status = 'active'`).first<{ n: number }>();
           return r?.n ?? 0;
         }).then((n) => ({ n }))
@@ -89,7 +97,7 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
           .catch(() => ({ n: 0 }));
 
     const threat24hP = useGlobalCache
-      ? cachedCount(env, 'count.threats.last_24h', 300, async () => {
+      ? cachedCount(env, 'count.threats.last_24h', 600, async () => {
           const r = await session.prepare(`SELECT COUNT(*) AS n FROM threats WHERE created_at >= datetime('now', '-1 day')`).first<{ n: number }>();
           return r?.n ?? 0;
         }).then((n) => ({ n }))

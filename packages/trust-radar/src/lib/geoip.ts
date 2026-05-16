@@ -273,9 +273,19 @@ export async function enrichThreatsGeo(db: D1Database, kv?: KVNamespace, token?:
   // gate (5 without token, 50 with token); LIMIT 500 just widens
   // the candidate pool so we always have enough fresh rows for
   // ipinfo to pick from.
+  //
+  // D1 spend-reduction: `ip_address != ''` added to match
+  // `idx_threats_stuck_geo`'s partial-index predicate
+  // (`WHERE lat IS NULL AND ip_address IS NOT NULL AND ip_address != ''`).
+  // Without the empty-string clause the query's row-set is a superset of
+  // the index's, so SQLite falls back to a full scan. Production audit on
+  // 2026-05-16 showed 87×/24h × 338K rows = 29M reads on this query. With
+  // the predicate matching the index, partial-index size is ~13K — drops
+  // to ~1M reads/24h. Saves ~28M rows/day = ~3% of plan.
   const rows = await db.prepare(
     `SELECT id, ip_address FROM threats
      WHERE ip_address IS NOT NULL
+       AND ip_address != ''
        AND lat IS NULL
        ${PRIVATE_IP_SQL_FILTER}
      ORDER BY created_at DESC
