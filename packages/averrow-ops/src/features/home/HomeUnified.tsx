@@ -23,6 +23,7 @@ import { ThreatPulse } from './sections/ThreatPulse';
 import { BrandMovers } from './sections/BrandMovers';
 import { DailyBriefing } from './sections/DailyBriefing';
 import { LatestIntel } from './sections/LatestIntel';
+import { IntelHotlist } from './sections/IntelHotlist';
 import { LiveActivity } from './sections/LiveActivity';
 import { ModuleHub } from './sections/ModuleHub';
 import { ProviderMovers } from './sections/ProviderMovers';
@@ -45,6 +46,7 @@ export function HomeUnified() {
       <ThreatPulse />
       <DailyBriefing />
       <LatestIntel />
+      <IntelHotlist />
       <LiveActivity />
       <BrandMovers />
       <ModuleHub />

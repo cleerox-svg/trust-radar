@@ -672,7 +672,11 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
         `SELECT COUNT(DISTINCT country_code) AS n FROM threat_cube_geo WHERE hour_bucket >= ?${sf.sql}`
       ).bind(windowStart, ...sf.params).first<{ n: number }>(),
       session.prepare(
-        `SELECT COUNT(*) AS n FROM campaigns WHERE status = 'active'`
+        // status='active' alone over-reports — 48% of "active" campaigns
+        // had no threat update in 7+ days at audit time (2026-05-16).
+        // Recent last_seen gate keeps the Observatory tile honest.
+        `SELECT COUNT(*) AS n FROM campaigns
+          WHERE status = 'active' AND last_seen >= datetime('now', '-7 days')`
       ).first<{ n: number }>(),
       session.prepare(
         `SELECT COUNT(DISTINCT target_brand_id) AS n FROM threat_cube_brand WHERE hour_bucket >= ?${sf.sql}`

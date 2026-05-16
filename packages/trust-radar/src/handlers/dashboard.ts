@@ -120,7 +120,7 @@ export async function handleDashboardOverview(request: Request, env: Env, scope?
         FROM threats WHERE hosting_provider_id IS NOT NULL ${threatScopeAnd.clause}
       `).bind(...threatScopeAnd.params).first<{ tracked: number }>().catch(() => ({ tracked: 0 })),
       session.prepare(`
-        SELECT COUNT(*) AS active,
+        SELECT SUM(CASE WHEN status = 'active' AND last_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS active,
                SUM(CASE WHEN first_seen >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS new_7d
         FROM campaigns
       `).first<{ active: number; new_7d: number }>().catch(() => ({ active: 0, new_7d: 0 })),
