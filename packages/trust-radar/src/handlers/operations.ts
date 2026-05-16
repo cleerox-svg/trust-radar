@@ -107,7 +107,13 @@ export async function handleOperationsStats(request: Request, env: Env): Promise
                SUM(CASE WHEN status = 'dormant' THEN 1 ELSE 0 END) AS dormant
         FROM infrastructure_clusters
       `).first(),
-      env.DB.prepare(`SELECT COUNT(*) AS total FROM campaigns WHERE status = 'active'`).first<{ total: number }>(),
+      // status='active' alone over-reports — 48% of "active" campaigns
+      // have last_seen older than 7d (audit 2026-05-16). Require a recent
+      // threat update to count as live.
+      env.DB.prepare(
+        `SELECT COUNT(*) AS total FROM campaigns
+          WHERE status = 'active' AND last_seen >= datetime('now', '-7 days')`,
+      ).first<{ total: number }>(),
       env.DB.prepare(`
         SELECT COUNT(DISTINCT target_brand_id) AS brands_targeted FROM threat_cube_brand
       `).first<{ brands_targeted: number }>(),

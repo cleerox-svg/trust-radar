@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
+import { requireAuth, requireAdmin, requireStaff, isAuthContext, getOrgScope } from "../middleware/auth";
 import { rateLimitCustom } from "../middleware/rateLimit";
 import {
   handleListThreats, handleThreatStats, handleThreatsAggregate,
@@ -32,6 +32,7 @@ import {
 import {
   handleListBreaches, handleListATOEvents, handleUpdateATOEvent,
   handleListEmailAuth, handleListCloudIncidents, handleTrustScoreHistory,
+  handleIntelHotlist,
 } from "../handlers/intel";
 import {
   handleProviderStats, handleListProviders, handleWorstProviders, handleImprovingProviders, handleProviderMovers,
@@ -286,6 +287,15 @@ export function registerThreatRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleCampaignTimeline(request, env, request.params["id"] ?? "");
+  });
+
+  // ─── Intel: Hotlist (PR-A from 2026-05-16 audit) ──────────────────
+  // Top mass-impersonation IPs + multi-feed consensus + recent bursts.
+  // Powers Home "Intel Hotlist" section.
+  router.get("/api/intel/hotlist", async (request: Request, env: Env) => {
+    const ctx = await requireStaff(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleIntelHotlist(request, env);
   });
 
   // ─── Intel: Breach Checks ─────────────────────────────────────────
