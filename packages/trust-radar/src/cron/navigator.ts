@@ -110,6 +110,7 @@ async function runNavigatorImpl(
   let reconcileResult: ReconcileResult = {
     skipped: true, reason: 'not_run', enqueued: 0, dequeued: 0,
     candidatesInThreats: 0, queueSize: 0, delta: 0, durationMs: 0,
+    batchesAttempted: 0, batchesFailed: 0,
   };
   let status: 'success' | 'partial' | 'failed' = 'success';
   let errorMessage: string | undefined;
@@ -631,12 +632,17 @@ export const navigatorAgent: AgentModule = {
     // shows up explicitly rather than silently.
     {
       const rr = result.reconcileResult;
+      const errSuffix = rr.batchesFailed > 0
+        ? ` batchFails=${rr.batchesFailed}/${rr.batchesAttempted} err="${(rr.lastError ?? '').slice(0, 120)}"`
+        : '';
       agentOutputs.push({
         type: 'diagnostic',
         summary: rr.skipped
           ? `dns-queue-reconcile: SKIPPED (${rr.reason ?? 'unknown'})`
-          : `dns-queue-reconcile: enqueued=${rr.enqueued} dequeued=${rr.dequeued} candidates=${rr.candidatesInThreats} queue=${rr.queueSize} delta=${rr.delta} ${rr.durationMs}ms`,
-        severity: rr.skipped ? 'info' : Math.abs(rr.delta) > 500 ? 'medium' : 'info',
+          : `dns-queue-reconcile: enqueued=${rr.enqueued} dequeued=${rr.dequeued} candidates=${rr.candidatesInThreats} queue=${rr.queueSize} delta=${rr.delta} ${rr.durationMs}ms${errSuffix}`,
+        severity: rr.skipped || rr.batchesFailed > 0 ? 'medium'
+          : Math.abs(rr.delta) > 500 ? 'medium'
+          : 'info',
         details: {
           skipped: rr.skipped,
           reason: rr.reason,
@@ -646,6 +652,9 @@ export const navigatorAgent: AgentModule = {
           queue_size: rr.queueSize,
           delta: rr.delta,
           duration_ms: rr.durationMs,
+          batches_attempted: rr.batchesAttempted,
+          batches_failed: rr.batchesFailed,
+          last_error: rr.lastError,
         },
       });
     }
