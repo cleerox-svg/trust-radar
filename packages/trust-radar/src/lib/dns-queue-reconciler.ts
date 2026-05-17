@@ -61,6 +61,12 @@ export interface ReconcileResult {
    *  enqueued. Should converge to 0 within a few ticks of empty start. */
   delta: number;
   durationMs: number;
+  /** PR-2b debug: count of INSERT batches attempted / failed and the
+   *  first error message, so silent failures surface in agent_outputs
+   *  without needing wrangler tail. */
+  batchesAttempted: number;
+  batchesFailed: number;
+  lastError?: string;
 }
 
 // Chunk size for IN(?,?,?...) batches. SQLite has a max of ~999
@@ -89,6 +95,9 @@ interface CandidateRow {
 
 export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
   const start = Date.now();
+  let batchesAttempted = 0;
+  let batchesFailed = 0;
+  let lastError: string | undefined;
   const base: ReconcileResult = {
     skipped: false,
     enqueued: 0,
@@ -97,6 +106,8 @@ export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
     queueSize: 0,
     delta: 0,
     durationMs: 0,
+    batchesAttempted: 0,
+    batchesFailed: 0,
   };
 
   if (!env.DNS_QUEUE_DB) {
@@ -161,38 +172,42 @@ export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
       }
     }
 
+    // PR-2b rewrite: use db.batch() of single-row INSERTs instead of
+    // one multi-row VALUES statement. The multi-row form (PR-2a) was
+    // reporting enqueued=0 across 8+ ticks despite 16K+ candidates and
+    // 28s of work — symptoms consistent with either (a) silent error
+    // in the multi-row VALUES parse path on D1 or (b) meta.changes
+    // returning 0 for multi-row INSERT OR IGNORE. db.batch() with
+    // single-row statements bypasses both: each statement has its own
+    // result + changes count, and any per-row failure is isolated.
     let enqueued = 0;
     for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
       const chunk = toInsert.slice(i, i + CHUNK_SIZE);
-      // No duplicate PKs in any chunk — toInsert was built from a Map.
-      const placeholders = chunk
-        .map(() => "(?, ?, ?, ?, datetime('now'))")
-        .join(',');
-      const params: (string | number | null)[] = [];
-      for (const c of chunk) {
-        params.push(
+      const stmts = chunk.map((c) =>
+        env.DNS_QUEUE_DB!.prepare(`
+          INSERT OR IGNORE INTO dns_queue
+            (malicious_domain, enrichment_attempts, attempted_resolve_at, source_feed, enqueued_at)
+          VALUES (?, ?, ?, ?, datetime('now'))
+        `).bind(
           c.malicious_domain,
           c.enrichment_attempts,
           c.attempted_resolve_at,
           c.source_feed,
-        );
-      }
+        )
+      );
+      batchesAttempted++;
       try {
-        // INSERT OR IGNORE — silently no-op on PK conflict. Avoids
-        // both the UPSERT cost AND the SQLite "duplicate keys in
-        // single statement" failure mode that bricked v1. State drift
-        // (attempts/cooldown stale relative to threats) is acceptable
-        // here; PR-3 makes dns-backfill the authoritative writer.
-        const r = await env.DNS_QUEUE_DB.prepare(`
-          INSERT OR IGNORE INTO dns_queue
-            (malicious_domain, enrichment_attempts, attempted_resolve_at, source_feed, enqueued_at)
-          VALUES ${placeholders}
-        `).bind(...params).run();
-        enqueued += r.meta?.changes ?? 0;
+        const results = await env.DNS_QUEUE_DB.batch(stmts);
+        for (const r of results) {
+          enqueued += r.meta?.changes ?? 0;
+        }
       } catch (err) {
-        // Best-effort — log and continue. Next tick will retry the
-        // same domains via the diff. Never let a queue write break
-        // the reconciler loop.
+        batchesFailed++;
+        if (!lastError) {
+          lastError = err instanceof Error
+            ? `${err.name}: ${err.message}`
+            : String(err);
+        }
         console.error('[dns-queue-reconciler] enqueue batch failed:', err);
       }
     }
@@ -216,12 +231,19 @@ export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
     for (let i = 0; i < staleDomains.length; i += CHUNK_SIZE) {
       const chunk = staleDomains.slice(i, i + CHUNK_SIZE);
       const placeholders = chunk.map(() => '?').join(',');
+      batchesAttempted++;
       try {
         const r = await env.DNS_QUEUE_DB.prepare(
           `DELETE FROM dns_queue WHERE malicious_domain IN (${placeholders})`
         ).bind(...chunk).run();
         dequeued += r.meta?.changes ?? 0;
       } catch (err) {
+        batchesFailed++;
+        if (!lastError) {
+          lastError = err instanceof Error
+            ? `${err.name}: ${err.message}`
+            : String(err);
+        }
         console.error('[dns-queue-reconciler] dequeue batch failed:', err);
       }
     }
@@ -234,6 +256,9 @@ export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
       queueSize: queueDomains.length,
       delta: queueDomains.length - candidateDomains.size,
       durationMs: Date.now() - start,
+      batchesAttempted,
+      batchesFailed,
+      lastError,
     };
   } catch (err) {
     console.error('[dns-queue-reconciler] fatal:', err);
@@ -242,6 +267,9 @@ export async function reconcileDnsQueue(env: Env): Promise<ReconcileResult> {
       skipped: true,
       reason: err instanceof Error ? err.message : 'fatal_error',
       durationMs: Date.now() - start,
+      batchesAttempted,
+      batchesFailed,
+      lastError: lastError ?? (err instanceof Error ? `${err.name}: ${err.message}` : String(err)),
     };
   }
 }
