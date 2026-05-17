@@ -237,6 +237,11 @@ export const flightControlAgent: AgentModule = {
     // failing. Lives on GEOIP_DB; the binding is optional so the
     // SELECT is wrapped in try/catch.
     { kind: "d1_table", name: "geo_ip_refresh_log" },
+    // PR-3 of DNS-queue split: FC reads dns_queue size for the
+    // parity-drift and reconciler-stalled health checks. Lives on
+    // DNS_QUEUE_DB; binding is optional so the SELECT is wrapped
+    // in try/catch.
+    { kind: "d1_table", name: "dns_queue" },
   ],
   writes: [
     { kind: "d1_table", name: "agent_activity_log" },
