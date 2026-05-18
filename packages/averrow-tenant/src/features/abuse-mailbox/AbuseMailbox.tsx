@@ -905,6 +905,9 @@ function ClassificationPill({ classification }: { classification: string }) {
     classification === 'phishing'  || classification === 'malware'  ? 'text-sev-critical bg-sev-critical/[0.10] border-sev-critical/[0.20]' :
     classification === 'ambiguous' || classification === 'spam'     ? 'text-amber        bg-amber/[0.10]        border-amber/[0.20]'        :
     classification === 'pending'                                    ? 'text-white/70     bg-white/[0.06]        border-white/[0.10]'        :
+    // PR-BE: follow-up replies from submitters — cool blue to
+    // distinguish from threat-severity colours. Mirrors the admin UI.
+    classification === 'follow_up'                                  ? 'text-sev-low      bg-sev-low/[0.10]      border-sev-low/[0.20]'      :
                                                                       'text-white/55     bg-white/[0.04]        border-white/[0.08]';
   return (
     <span className={`inline-flex items-center text-[10px] uppercase tracking-widest font-mono border rounded px-1.5 py-0.5 ${tone}`}>
@@ -1056,6 +1059,11 @@ const TENANT_CLASSIFICATION_CHIPS: Array<{ key: string; label: string }> = [
   { key: 'benign',    label: 'Benign' },
   { key: 'pending',   label: 'Pending' },
   { key: 'ambiguous', label: 'Ambiguous' },
+  // PR-BE: parity with the admin Follow-up chip (PR-BD).
+  // Reply-to on outbound determinations routes the submitter's reply
+  // back to the tenant's inbound alias (verify-<tenant>@averrow.com),
+  // and handleAbuseMailboxEmail tags it as follow_up on intake.
+  { key: 'follow_up', label: 'Follow-up' },
 ];
 
 function TenantInboxToolbar({
