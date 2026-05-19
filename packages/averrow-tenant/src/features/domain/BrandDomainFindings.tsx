@@ -284,6 +284,20 @@ function Field({ label, value, valueClass = 'text-white/80' }: { label: string; 
 
 function SourceChip({ source }: { source: string }) {
   // Short, recognizable label per source so the row stays compact.
+  // PR-BA: `abuse_mailbox` gets a distinct amber tone — these threats
+  // came from a human-reviewed phishing report (Averrow's public alias
+  // or a tenant abuse mailbox) and the provenance is worth surfacing
+  // alongside the algorithmic feed sources.
+  if (source === 'abuse_mailbox') {
+    return (
+      <span
+        className="inline-flex items-center text-[9px] uppercase tracking-widest font-mono text-amber bg-amber/[0.08] border border-amber/[0.20] rounded px-1.5 py-0.5"
+        title="Reported via abuse mailbox — community-submitted phishing capture"
+      >
+        community report
+      </span>
+    );
+  }
   const label = source === 'typosquat_scanner' ? 'scanner'
               : source === 'ct_logs'           ? 'CT logs'
               : source === 'numbered_variant_scan' ? 'numbered'

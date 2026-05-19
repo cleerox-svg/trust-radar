@@ -33,6 +33,7 @@ import { decideAbuseMailboxThrottle, extractSenderDomain } from "../lib/abuse-ma
 import {
   parseAuthResults, parseSenderIp, correlateUrls,
 } from "../lib/abuse-mailbox-iocs";
+import { loadMonitoredBrands, matchAbuseMailboxBrand } from "../lib/abuse-mailbox-brand-match";
 
 interface EmailMessage {
   from:     string;
@@ -173,6 +174,41 @@ export async function handleAbuseMailboxEmail(
   const authResultsJson     = JSON.stringify(authResults);
   const correlatedIdsJson   = JSON.stringify(correlatedThreatIds);
 
+  // 5c. PR-BA: match against monitored brands so promoted threats
+  // get `target_brand_id` set. Without this, abuse-mailbox-sourced
+  // threats land in the global threats table unlinked — tenants
+  // monitoring an impersonated brand never see them on the brand
+  // page. Pure function over the extracted signals + a single
+  // catalog query. Failures here are non-fatal: row INSERT proceeds
+  // with brand_id=NULL, same as pre-PR-BA.
+  let matchedBrandId: string | null = null;
+  let brandMatchSignal: string | null = null;
+  try {
+    const monitoredBrands = await loadMonitoredBrands(env);
+    const fromDomain = original.from
+      ? (original.from.split("@")[1] ?? "").toLowerCase() || null
+      : null;
+    const match = matchAbuseMailboxBrand(
+      {
+        from_domain:  fromDomain,
+        subject:      original.subject,
+        body_snippet: original.bodySnippet,
+        url_domains:  extractedUrls.map((u) => u.domain),
+      },
+      monitoredBrands,
+    );
+    if (match) {
+      matchedBrandId = match.brand_id;
+      brandMatchSignal = match.signal;
+      console.log(
+        `[abuse-mailbox] brand match: ${match.brand_name} ` +
+        `(${match.signal}, conf=${match.confidence}, on="${match.matched_on.slice(0, 80)}")`,
+      );
+    }
+  } catch (err) {
+    console.warn("[abuse-mailbox] brand match failed:", err);
+  }
+
   // 5b. Throttle decision (PR-AT bad-actor protection).
   //
   // Reads per-sender + per-domain rolling-60-min counts. When fired,
@@ -264,10 +300,11 @@ export async function handleAbuseMailboxEmail(
        auth_results, sender_ip, correlated_threat_ids,
        classification, severity, status,
        created_at, updated_at
-     ) VALUES (?, ?, NULL, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'), datetime('now'))`,
+     ) VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'), datetime('now'))`,
   ).bind(
     messageId,
     aliasRow.org_id,
+    matchedBrandId,
     forwardedBy,
     forwardedByDomain,
     aliasRow.alias,

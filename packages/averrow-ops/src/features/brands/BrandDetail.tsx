@@ -590,9 +590,18 @@ function TyposquatsSection({ threats }: { threats: any[] }) {
                 </TsTd>
                 <TsTd><TsSeverityPill severity={r.severity ?? 'low'} /></TsTd>
                 <TsTd>
-                  <span className="inline-flex items-center text-[9px] uppercase tracking-widest font-mono text-[var(--text-secondary)] bg-white/[0.04] border border-white/[0.08] rounded px-1.5 py-0.5">
-                    {tsShortSource(r.source_feed)}
-                  </span>
+                  {r.source_feed === 'abuse_mailbox' ? (
+                    <span
+                      className="inline-flex items-center text-[9px] uppercase tracking-widest font-mono text-amber bg-amber/[0.08] border border-amber/[0.20] rounded px-1.5 py-0.5"
+                      title="Reported via abuse mailbox — community-submitted phishing capture"
+                    >
+                      community report
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-[9px] uppercase tracking-widest font-mono text-[var(--text-secondary)] bg-white/[0.04] border border-white/[0.08] rounded px-1.5 py-0.5">
+                      {tsShortSource(r.source_feed)}
+                    </span>
+                  )}
                 </TsTd>
                 <TsTd className="text-[var(--text-secondary)] truncate max-w-[180px]">
                   {r.hosting_provider ?? <span className="text-[var(--text-muted)]">unknown</span>}
