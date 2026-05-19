@@ -90,34 +90,39 @@ describe("handleAbuseMailboxEmail", () => {
 
     const insert = captured.find((c) => c.sql.includes("INSERT INTO abuse_inbox_messages"));
     expect(insert).toBeDefined();
-    // bind order (PR-AT, post-forwarded_by_domain insertion):
+    // bind order (PR-BA, post-brand_id insertion):
     //   0  id
     //   1  org_id
-    //   2  forwarded_by_email
-    //   3  forwarded_by_domain
-    //   4  inbound_alias
-    //   5  original_from
-    //   6  original_subject
-    //   7  original_body_snippet
-    //   8  attachment_count
-    //   9  url_count
-    //  10  raw_body
-    //  11  raw_headers (JSON)
-    //  12  extracted_urls (JSON)
-    //  13  attachment_names (JSON)
-    //  14  raw_size_bytes
-    //  15  throttled (0/1)
-    //  16  throttle_reason
+    //   2  brand_id (PR-BA — matched monitored brand or NULL)
+    //   3  forwarded_by_email
+    //   4  forwarded_by_domain
+    //   5  inbound_alias
+    //   6  original_from
+    //   7  original_subject
+    //   8  original_body_snippet
+    //   9  attachment_count
+    //  10  url_count
+    //  11  raw_body
+    //  12  raw_headers (JSON)
+    //  13  extracted_urls (JSON)
+    //  14  attachment_names (JSON)
+    //  15  raw_size_bytes
+    //  16  throttled (0/1)
+    //  17  throttle_reason
+    //  18  auth_results (JSON)
+    //  19  sender_ip
+    //  20  correlated_threat_ids (JSON)
     expect(insert?.binds[1]).toBe(42);                                  // org_id
-    expect(insert?.binds[2]).toBe("alice@acme.com");                    // forwarded_by_email
-    expect(insert?.binds[3]).toBe("acme.com");                          // forwarded_by_domain
-    expect(insert?.binds[4]).toBe("verify-acme@averrow.com");           // inbound_alias
-    expect(insert?.binds[5]).toBe("notify@bad-acme.example");           // original_from
-    expect(insert?.binds[6]).toContain("URGENT");                       // original_subject
-    expect(insert?.binds[7]).toContain("Acme Bank");                    // body snippet
-    expect(insert?.binds[9]).toBe(2);                                   // url_count
-    expect(insert?.binds[15]).toBe(0);                                  // throttled (legit single message)
-    expect(insert?.binds[16]).toBeNull();                               // throttle_reason
+    expect(insert?.binds[2]).toBeNull();                                // brand_id (no monitored brands stub)
+    expect(insert?.binds[3]).toBe("alice@acme.com");                    // forwarded_by_email
+    expect(insert?.binds[4]).toBe("acme.com");                          // forwarded_by_domain
+    expect(insert?.binds[5]).toBe("verify-acme@averrow.com");           // inbound_alias
+    expect(insert?.binds[6]).toBe("notify@bad-acme.example");           // original_from
+    expect(insert?.binds[7]).toContain("URGENT");                       // original_subject
+    expect(insert?.binds[8]).toContain("Acme Bank");                    // body snippet
+    expect(insert?.binds[10]).toBe(2);                                  // url_count
+    expect(insert?.binds[16]).toBe(0);                                  // throttled (legit single message)
+    expect(insert?.binds[17]).toBeNull();                               // throttle_reason
   });
 
   it("treats the alias case-insensitively", async () => {
@@ -143,7 +148,7 @@ describe("handleAbuseMailboxEmail", () => {
     const insert = captured.find((c) => c.sql.includes("INSERT INTO abuse_inbox_messages"));
     expect(insert).toBeDefined();
     // original_from / subject may be null; body snippet still set
-    expect(insert?.binds[9]).toBe(1);  // url_count
+    expect(insert?.binds[10]).toBe(1);  // url_count
   });
 
   it("PR-AZ: extracts inner phishing email when forwarded as a message/rfc822 attachment", async () => {
@@ -189,21 +194,22 @@ describe("handleAbuseMailboxEmail", () => {
 
     const insert = captured.find((c) => c.sql.includes("INSERT INTO abuse_inbox_messages"));
     expect(insert).toBeDefined();
+    // Bind indices below assume PR-BA layout (brand_id at bind[2]):
     // original_from comes from the INNER rfc822 message, not the outer wrapper
-    expect(insert?.binds[5]).toBe("notify@mcafee-secure-update.example");
+    expect(insert?.binds[6]).toBe("notify@mcafee-secure-update.example");
     // original_subject is the phishing subject, not the user's "Suspicious email"
-    expect(insert?.binds[6]).toContain("McAfee payment failed");
+    expect(insert?.binds[7]).toContain("McAfee payment failed");
     // body snippet shows the phishing content, not the user's signature
-    expect(insert?.binds[7]).toContain("McAfee subscription");
-    expect(insert?.binds[7]).not.toMatch(/^-- \nClaude Leroux/);
+    expect(insert?.binds[8]).toContain("McAfee subscription");
+    expect(insert?.binds[8]).not.toMatch(/^-- \nClaude Leroux/);
     // Both URLs from the inner body surface — pre-PR-AZ this would be 0
-    expect(insert?.binds[9]).toBeGreaterThanOrEqual(2);
+    expect(insert?.binds[10]).toBeGreaterThanOrEqual(2);
     // attachment_count surfaces the rfc822 part (was 0 pre-PR-AZ)
-    expect(insert?.binds[8]).toBeGreaterThanOrEqual(1);
+    expect(insert?.binds[9]).toBeGreaterThanOrEqual(1);
 
     // PR-AZ: stored raw_headers includes the inner phisher's headers
     // under `_forwarded_inner` so the forensic UI can show them.
-    const rawHeadersJson = insert?.binds[11] as string;
+    const rawHeadersJson = insert?.binds[12] as string;
     expect(rawHeadersJson).toContain("_forwarded_inner");
     expect(rawHeadersJson).toContain("mcafee-secure-update.example");
 
@@ -211,8 +217,7 @@ describe("handleAbuseMailboxEmail", () => {
     // Authentication-Results header (spf=fail / dmarc=fail), NOT the
     // outer Gmail envelope's (which would pass). This is the signal
     // the Haiku prompt actually sees.
-    // Bind order: ..., 16 throttle_reason, 17 auth_results, ...
-    const authResultsJson = insert?.binds[17] as string;
+    const authResultsJson = insert?.binds[18] as string;
     expect(authResultsJson).toMatch(/"spf":"fail"/);
     expect(authResultsJson).toMatch(/"dmarc":"fail"/);
   });
@@ -240,6 +245,6 @@ describe("handleAbuseMailboxEmail", () => {
     const msg = makeMessage("verify-acme@averrow.com", "alice@acme.com", raw);
     await handleAbuseMailboxEmail(msg, env);
     const insert = captured.find((c) => c.sql.includes("INSERT INTO abuse_inbox_messages"));
-    expect(insert?.binds[8]).toBe(1);  // attachment_count
+    expect(insert?.binds[9]).toBe(1);  // attachment_count
   });
 });
