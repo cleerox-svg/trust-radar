@@ -91,29 +91,36 @@ export async function handleAbuseMailboxEmail(
   const body = extractBody(rawText, RAW_BODY_SCAN_MAX);
 
   // 4. Try to dig the original sender / subject / body from the
-  // forwarded chunk. Forwarded mails typically have:
-  //   ---------- Forwarded message ---------
-  //   From: phisher@bad.example
-  //   Date: ...
-  //   Subject: URGENT
-  //   To: victim@acme.com
+  // forwarded chunk. Two paths, tried in order:
   //
-  //   <original body>
-  // ...with variations across clients.
+  //   (a) PR-AZ: `message/rfc822` attachment — Gmail/Outlook/Apple
+  //       Mail "Forward as attachment". The original email is wrapped
+  //       in a MIME part we can parse cleanly. This is the most
+  //       reliable signal when present.
+  //   (b) Inline forward — "---------- Forwarded message ---------"
+  //       or "-----Original Message-----" header injection that
+  //       Outlook/Gmail/Apple Mail use for inline forwards.
   //
-  // PR-AO: when extractForwardedOriginal() returns nulls (no forwarded
-  // section found — submitter wrote a fresh report instead of forwarding
-  // an existing mail), fall back to the OUTER envelope as the "original".
-  // For a fresh report, the outer From IS the original sender and the
-  // outer Subject IS what the user wrote. Without this fallback the UI
-  // displayed "(no subject) · from —" for every direct submission.
-  const inner = extractForwardedOriginal(body);
+  // PR-AO: when both return nulls (submitter wrote a fresh report
+  // instead of forwarding), fall back to the OUTER envelope as the
+  // "original". For a fresh report, the outer From IS the original
+  // sender and the outer Subject IS what the user wrote.
+  const rfc822Inner = extractInnerRfc822Message(rawText, RAW_BODY_SCAN_MAX);
+  const inlineInner = extractForwardedOriginal(body);
   const outerSubjectRaw = (outerHeaders["subject"] ?? "").trim() || null;
   const outerBodySnippet = body.slice(0, SNIPPET_LIMIT) || null;
+
+  // Precedence: rfc822 inner → inline inner → outer envelope.
+  const innerFrom    = rfc822Inner?.from    ?? inlineInner.from    ?? forwardedBy;
+  const innerSubject = rfc822Inner?.subject ?? inlineInner.subject ?? outerSubjectRaw;
+  const innerBodySnippet =
+    (rfc822Inner?.body ? rfc822Inner.body.slice(0, SNIPPET_LIMIT) : null)
+    ?? inlineInner.bodySnippet
+    ?? outerBodySnippet;
   const original = {
-    from: inner.from ?? forwardedBy,
-    subject: inner.subject ?? outerSubjectRaw,
-    bodySnippet: inner.bodySnippet ?? outerBodySnippet,
+    from: innerFrom,
+    subject: innerSubject,
+    bodySnippet: innerBodySnippet,
   };
 
   // 5. Count + extract URLs and attachments.
@@ -122,12 +129,30 @@ export async function handleAbuseMailboxEmail(
   // view's quick-read columns), capture the dereferenced URL list,
   // attachment filenames + MIME types, full body, and full headers
   // for drill-down + downstream AI analysis.
-  const extractedUrls   = extractUrls(body);
+  //
+  // PR-AZ: union URLs from outer body + inner rfc822 body so URLs
+  // hidden inside a forward-as-attachment surface to extractUrls,
+  // correlateUrls, and the classifier prompt. dedupeUrlLists merges
+  // by URL string and sums counts.
+  const outerUrls       = extractUrls(body);
+  const innerUrls       = rfc822Inner ? extractUrls(rfc822Inner.body) : [];
+  const extractedUrls   = mergeUrlLists(outerUrls, innerUrls);
   const urlCount        = extractedUrls.length;
   const attachmentList  = extractAttachments(rawText);
   const attachmentCount = attachmentList.length;
-  const rawBody         = truncate(body, RAW_BODY_STORE_MAX);
-  const rawHeadersJson  = capJson(outerHeaders, RAW_HEADERS_STORE_MAX);
+  // Store the inner (phishing) body when available — that's the
+  // forensic value. Falls back to outer body for direct submissions
+  // and inline forwards (which already include inner content in body).
+  const storedBody      = rfc822Inner?.body ?? body;
+  const rawBody         = truncate(storedBody, RAW_BODY_STORE_MAX);
+  // PR-AZ: when an rfc822 inner message exists, store BOTH header sets
+  // so the admin UI can show the phisher's full header chain alongside
+  // the user's forward path. Outer remains under top-level keys (keeps
+  // existing readers working); inner goes under `_forwarded_inner`.
+  const headersForStorage: Record<string, unknown> = rfc822Inner
+    ? { ...outerHeaders, _forwarded_inner: rfc822Inner.headers }
+    : outerHeaders;
+  const rawHeadersJson  = capJson(headersForStorage, RAW_HEADERS_STORE_MAX);
   const urlsJson        = capJson(extractedUrls.slice(0, URL_LIST_MAX_ENTRIES), URLS_STORE_MAX);
   const attachmentsJson = capJson(attachmentList.slice(0, ATTACHMENT_MAX_ENTRIES), ATTACHMENTS_STORE_MAX);
 
@@ -136,8 +161,13 @@ export async function handleAbuseMailboxEmail(
   // threat intel. Correlations stamp on the row so the classifier sees
   // them and the UI can render "this URL is already known". Bounded
   // at the first 20 URLs internally.
-  const authResults  = parseAuthResults(outerHeaders);
-  const senderIp     = parseSenderIp(outerHeaders);
+  //
+  // PR-AZ: auth/IP parsed from the INNER rfc822 headers when present.
+  // Outer envelope SPF/DKIM = the user's mail provider (always passes
+  // on a forward); inner = the original sender (the actual signal).
+  const authSource   = rfc822Inner?.headers ?? outerHeaders;
+  const authResults  = parseAuthResults(authSource);
+  const senderIp     = parseSenderIp(authSource);
   const correlations = await correlateUrls(env, extractedUrls);
   const correlatedThreatIds = correlations.map((c) => c.threat_id);
   const authResultsJson     = JSON.stringify(authResults);
@@ -521,6 +551,22 @@ export function extractUrls(body: string): ExtractedUrl[] {
   return Array.from(buckets.values()).sort((a, b) => b.count - a.count);
 }
 
+/**
+ * Merge two ExtractedUrl lists by URL string (case-insensitive), summing
+ * counts. Re-sorted desc by count. Used to combine outer-wrapper URLs +
+ * inner-rfc822 URLs when the user forwards as attachment.
+ */
+export function mergeUrlLists(a: ExtractedUrl[], b: ExtractedUrl[]): ExtractedUrl[] {
+  const buckets = new Map<string, ExtractedUrl>();
+  for (const u of [...a, ...b]) {
+    const key = u.url.toLowerCase();
+    const existing = buckets.get(key);
+    if (existing) existing.count += u.count;
+    else buckets.set(key, { ...u });
+  }
+  return Array.from(buckets.values()).sort((a, b) => b.count - a.count);
+}
+
 // ─── Attachment extraction ─────────────────────────────────────
 //
 // PR-AS: emit a list of {filename, mime_type} per attachment header
@@ -540,6 +586,7 @@ export function extractAttachments(rawText: string): ExtractedAttachment[] {
   // the headers of all reasonable forwards.
   const window = rawText.slice(0, 256 * 1024);
   const out: ExtractedAttachment[] = [];
+  const seen = new Set<string>();
   // Match each "Content-Disposition: attachment; filename=..." occurrence
   // and walk backwards to find the Content-Type for that MIME part.
   const re = /Content-Disposition:\s*attachment[^\n]*?filename\*?=([^;\r\n]+)/gi;
@@ -555,8 +602,118 @@ export function extractAttachments(rawText: string): ExtractedAttachment[] {
     const ctMatch = /Content-Type:\s*([^;\r\n]+)/i.exec(lookback);
     const mimeType = ctMatch?.[1]?.trim().toLowerCase() ?? null;
     out.push({ filename, mime_type: mimeType });
+    seen.add(filename.toLowerCase());
   }
+
+  // PR-AZ: also surface `message/rfc822` parts even when they lack a
+  // filename= parameter on Content-Disposition. Gmail's "Forward as
+  // attachment" emits the nested email as a bare attachment with no
+  // filename, so the regex above missed it — making `attachment_count`
+  // misleading and hiding the fact that the inner message is the only
+  // place real phishing signals live.
+  const rfcRe = /Content-Type:\s*message\/rfc822/gi;
+  let r: RegExpExecArray | null;
+  let rfcIdx = 1;
+  while ((r = rfcRe.exec(window)) !== null) {
+    if (out.length >= ATTACHMENT_MAX_ENTRIES) break;
+    // If a nearby Content-Disposition has a filename, the previous
+    // loop already captured it — don't duplicate.
+    const lookahead = window.slice(r.index, r.index + 1024);
+    const dispMatch = /Content-Disposition:[^\n]*filename\*?=([^;\r\n]+)/i.exec(lookahead);
+    if (dispMatch) {
+      const fn = decodeAttachmentFilename((dispMatch[1] ?? "").trim());
+      if (fn && seen.has(fn.toLowerCase())) continue;
+    }
+    out.push({ filename: `forwarded-message-${rfcIdx}.eml`, mime_type: 'message/rfc822' });
+    rfcIdx++;
+  }
+
   return out;
+}
+
+// ─── Inner message/rfc822 extraction (PR-AZ) ────────────────────
+//
+// When a user forwards a phishing email as an *attachment* (Gmail's
+// "Forward as attachment", Outlook's "Forward as attachment", Apple
+// Mail's "Forward as attachment"), the original email is wrapped in
+// a `message/rfc822` MIME part of the outer multipart envelope. Our
+// existing `extractBody` returns only the first text/plain part —
+// which on a forward-as-attachment is the user's outer wrapper (just
+// their signature), leaving the actual phishing content invisible to
+// extractUrls / extractForwardedOriginal / the classifier prompt.
+//
+// Production audit (2026-05-19): four consecutive forwarded phishing
+// submissions were classified benign because every signal — url_count,
+// attachment_count, original_subject, body_snippet — came from the
+// 32-byte outer wrapper, not the 15+KB inner phishing email.
+//
+// Fix: detect `Content-Type: message/rfc822` MIME parts, walk past
+// the part-level headers to the inner RFC822 message body, then parse
+// THAT as a complete email (headers + body) and surface From/Subject/
+// body/URLs to the caller. The handler prefers these inner values
+// over the existing inline-forward heuristic.
+//
+// Returns null when no rfc822 part is found, or when boundary
+// detection fails. Caller falls back to the previous extraction
+// path (inline forward delimiters → outer envelope).
+
+export interface InnerRfc822Message {
+  from:    string | null;
+  subject: string | null;
+  /** Full plaintext body of the inner email (capped to maxBodyLen). */
+  body:    string;
+  /** Inner email's raw headers, lower-cased keys, same shape as extractHeaders. */
+  headers: Record<string, string>;
+}
+
+export function extractInnerRfc822Message(
+  rawText: string,
+  maxBodyLen = RAW_BODY_SCAN_MAX,
+): InnerRfc822Message | null {
+  // The MIME boundary marker that ends a part is `\r\n--<boundary>`.
+  // We don't need to recover the exact boundary string — a permissive
+  // regex over the bcharsnospace set (RFC 2046 §5.1.1) is enough to
+  // locate the next part separator.
+  //
+  // Scan window is large but bounded; rfc822 parts can be tens of KB.
+  const scanWindow = rawText.slice(0, 512 * 1024);
+
+  // Find the start of a message/rfc822 part header.
+  const ctIdx = scanWindow.search(/Content-Type:\s*message\/rfc822/i);
+  if (ctIdx < 0) return null;
+
+  // Walk forward to the blank line that separates the part headers
+  // from the part body. The part body — for message/rfc822 — IS a
+  // complete RFC822 email with its own headers + body.
+  const partStart = ctIdx;
+  const afterCt = scanWindow.slice(partStart);
+  const blankLine = afterCt.search(/\r?\n\r?\n/);
+  if (blankLine < 0) return null;
+  const innerStart = partStart + blankLine + (afterCt.charAt(blankLine) === '\r' ? 4 : 2);
+
+  // The inner message ends at the next MIME boundary marker. Boundary
+  // chars per RFC 2046: ALPHA DIGIT '()+_,-./:=?
+  const after = scanWindow.slice(innerStart);
+  const boundaryMatch = /\r?\n--[A-Za-z0-9'()+_,./:=?-]+/.exec(after);
+  const innerEnd = boundaryMatch ? innerStart + boundaryMatch.index : scanWindow.length;
+  const innerRaw = scanWindow.slice(innerStart, innerEnd);
+
+  if (innerRaw.trim().length === 0) return null;
+
+  // Parse the inner email's headers + body using the same helpers.
+  // extractBody walks the inner multipart too (covers the common case
+  // of HTML+plaintext alternatives inside the forwarded message).
+  const innerHeaders = extractHeaders(innerRaw);
+  const innerBody = extractBody(innerRaw, maxBodyLen);
+  const innerFrom = parseEmailAddress(innerHeaders["from"] ?? null);
+  const innerSubject = (innerHeaders["subject"] ?? "").trim() || null;
+
+  return {
+    from: innerFrom,
+    subject: innerSubject ? innerSubject.slice(0, 500) : null,
+    body: innerBody,
+    headers: innerHeaders,
+  };
 }
 
 function decodeAttachmentFilename(raw: string): string | null {

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { handleAbuseMailboxEmail } from "../src/handlers/abuseMailboxEmail";
+import {
+  handleAbuseMailboxEmail,
+  extractInnerRfc822Message,
+  extractAttachments,
+  mergeUrlLists,
+} from "../src/handlers/abuseMailboxEmail";
 import type { Env } from "../src/types";
 
 interface CapturedRun { sql: string; binds: unknown[] }
@@ -139,6 +144,77 @@ describe("handleAbuseMailboxEmail", () => {
     expect(insert).toBeDefined();
     // original_from / subject may be null; body snippet still set
     expect(insert?.binds[9]).toBe(1);  // url_count
+  });
+
+  it("PR-AZ: extracts inner phishing email when forwarded as a message/rfc822 attachment", async () => {
+    // Reproduction of the 2026-05-19 production failure: Gmail "Forward
+    // as attachment" wraps the original phishing email in a
+    // message/rfc822 MIME part. Pre-PR-AZ, every classifier signal
+    // (From, Subject, URLs, body) came from the user's outer wrapper —
+    // hiding the actual phishing content from Haiku entirely.
+    const captured: CapturedRun[] = [];
+    const env = makeEnv({ alias: { org_id: 42, alias: "phishing@averrow.com" } }, captured);
+    const raw = [
+      "Received: from mail.google.com",
+      "From: Claude Leroux <claude@acme.com>",
+      "To: phishing@averrow.com",
+      "Subject: Suspicious email",
+      "Content-Type: multipart/mixed; boundary=OUTER",
+      "",
+      "--OUTER",
+      "Content-Type: text/plain; charset=UTF-8",
+      "",
+      "-- ",
+      "Claude Leroux",
+      "519-492-0972",
+      "",
+      "--OUTER",
+      "Content-Type: message/rfc822",
+      "Content-Disposition: attachment",
+      "",
+      "From: McAfee Notifications <notify@mcafee-secure-update.example>",
+      "To: claude@acme.com",
+      "Subject: Your McAfee payment failed and protection is off #67785425",
+      "Date: Tue, 19 May 2026 10:00:00 -0700",
+      "Authentication-Results: mx.google.com; spf=fail; dkim=none; dmarc=fail",
+      "Content-Type: text/plain; charset=UTF-8",
+      "",
+      "Your McAfee subscription has expired. Click https://mcafee-secure-update.example/renew to renew now.",
+      "Backup link: https://payment-update.example/verify",
+      "",
+      "--OUTER--",
+    ].join("\r\n");
+    const msg = makeMessage("phishing@averrow.com", "claude@acme.com", raw);
+    await handleAbuseMailboxEmail(msg, env);
+
+    const insert = captured.find((c) => c.sql.includes("INSERT INTO abuse_inbox_messages"));
+    expect(insert).toBeDefined();
+    // original_from comes from the INNER rfc822 message, not the outer wrapper
+    expect(insert?.binds[5]).toBe("notify@mcafee-secure-update.example");
+    // original_subject is the phishing subject, not the user's "Suspicious email"
+    expect(insert?.binds[6]).toContain("McAfee payment failed");
+    // body snippet shows the phishing content, not the user's signature
+    expect(insert?.binds[7]).toContain("McAfee subscription");
+    expect(insert?.binds[7]).not.toMatch(/^-- \nClaude Leroux/);
+    // Both URLs from the inner body surface — pre-PR-AZ this would be 0
+    expect(insert?.binds[9]).toBeGreaterThanOrEqual(2);
+    // attachment_count surfaces the rfc822 part (was 0 pre-PR-AZ)
+    expect(insert?.binds[8]).toBeGreaterThanOrEqual(1);
+
+    // PR-AZ: stored raw_headers includes the inner phisher's headers
+    // under `_forwarded_inner` so the forensic UI can show them.
+    const rawHeadersJson = insert?.binds[11] as string;
+    expect(rawHeadersJson).toContain("_forwarded_inner");
+    expect(rawHeadersJson).toContain("mcafee-secure-update.example");
+
+    // PR-AZ: auth_results column is parsed from the INNER message's
+    // Authentication-Results header (spf=fail / dmarc=fail), NOT the
+    // outer Gmail envelope's (which would pass). This is the signal
+    // the Haiku prompt actually sees.
+    // Bind order: ..., 16 throttle_reason, 17 auth_results, ...
+    const authResultsJson = insert?.binds[17] as string;
+    expect(authResultsJson).toMatch(/"spf":"fail"/);
+    expect(authResultsJson).toMatch(/"dmarc":"fail"/);
   });
 
   it("counts attachments via Content-Disposition header", async () => {
