@@ -32,7 +32,7 @@ import { reconcileDnsQueue, type ReconcileResult } from '../lib/dns-queue-reconc
 import { reapDnsQueue, type ReaperResult } from '../lib/dns-queue-reaper';
 import { reapOrphanFeedPullHistory } from '../lib/feed-pull-reaper';
 import { reapOrphanAgentRuns } from '../lib/agent-runs-reaper';
-import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour, buildStatusCubeForHour, buildArcsCubeForHour } from '../lib/cube-builder';
+import { buildGeoCubeForHour, buildProviderCubeForHour, buildBrandCubeForHour, buildStatusCubeForHour, buildArcsCubeForHour, getCubeSourceWatermark } from '../lib/cube-builder';
 import type { CubeBuildResult } from '../lib/cube-builder';
 import { handleObservatoryNodes, handleObservatoryArcs, handleObservatoryStats, handleObservatoryLive, handleObservatoryOperations } from '../handlers/observatory';
 import { handleDashboardOverview, handleDashboardTopBrands } from '../handlers/dashboard';
@@ -246,12 +246,14 @@ async function runNavigatorImpl(
     totalRows: number;
     totalMs: number;
     errors: string[];
+    prevHourSkipped: boolean;
   } = {
     currentHour: { geo: null, provider: null, brand: null, status: null, arcs: null },
     prevHour: { geo: null, provider: null, brand: null, status: null, arcs: null },
     totalRows: 0,
     totalMs: 0,
     errors: [],
+    prevHourSkipped: false,
   };
 
   if (status !== 'failed') {
@@ -300,45 +302,98 @@ async function runNavigatorImpl(
           if (r.error) cubeResults.errors.push(`arcs ${currentHourBucket}: ${r.error}`);
           else cubeResults.totalRows += r.rowsWritten;
         }
-        // Previous hour — geo
-        if (!isOverCap()) {
-          const r = await buildGeoCubeForHour(env, prevHourBucket);
-          cubeResults.prevHour.geo = r;
-          cubeResults.totalMs += r.durationMs;
-          if (r.error) cubeResults.errors.push(`geo ${prevHourBucket}: ${r.error}`);
-          else cubeResults.totalRows += r.rowsWritten;
+        // Previous-hour rebuilds — gated by a stale-check watermark.
+        //
+        // Pre-2026-05-20 the prev-hour block fired on every 5-min tick
+        // (12 rebuilds/hour × 5 cubes = the dominant cube-write driver
+        // in the diagnostics top-write attribution). But once an hour
+        // ticks over, the prev hour's threats are mostly stable —
+        // feeds occasionally backfill late within the first few minutes,
+        // but the per-tick rebuild after that produces zero new data.
+        //
+        // Strategy: take a cheap "shape" probe of the prev hour's
+        // threats (MAX created_at + COUNT). Compare against the
+        // watermark stored in KV after the LAST successful rebuild.
+        // If unchanged, skip all 5 prev-hour cubes for this tick.
+        //
+        // Status transitions (active → remediated) on past hours are
+        // NOT detected by this watermark — they're handled by the
+        // 6-hourly cube-healer's full 30-day rebuild, same as before.
+        // The 5-min cadence was never the right place to chase those.
+        const prevHourWatermarkKey = `cube:built:prev_hour:${prevHourBucket}`;
+        let prevHourWatermark: string | null = null;
+        let shouldRebuildPrev = true;
+        try {
+          prevHourWatermark = await getCubeSourceWatermark(env, prevHourBucket);
+          const lastBuilt = await env.CACHE.get(prevHourWatermarkKey);
+          if (lastBuilt === prevHourWatermark) {
+            shouldRebuildPrev = false;
+            cubeResults.prevHourSkipped = true;
+          }
+        } catch (e) {
+          // Watermark probe failed → fall through to rebuild. The
+          // existing behavior is the safe default; we only skip on
+          // confirmed-stable.
+          cubeResults.errors.push(`prev_hour_watermark: ${e instanceof Error ? e.message : String(e)}`);
         }
-        // Previous hour — provider
-        if (!isOverCap()) {
-          const r = await buildProviderCubeForHour(env, prevHourBucket);
-          cubeResults.prevHour.provider = r;
-          cubeResults.totalMs += r.durationMs;
-          if (r.error) cubeResults.errors.push(`provider ${prevHourBucket}: ${r.error}`);
-          else cubeResults.totalRows += r.rowsWritten;
-        }
-        // Previous hour — brand
-        if (!isOverCap()) {
-          const r = await buildBrandCubeForHour(env, prevHourBucket);
-          cubeResults.prevHour.brand = r;
-          cubeResults.totalMs += r.durationMs;
-          if (r.error) cubeResults.errors.push(`brand ${prevHourBucket}: ${r.error}`);
-          else cubeResults.totalRows += r.rowsWritten;
-        }
-        // Previous hour — status
-        if (!isOverCap()) {
-          const r = await buildStatusCubeForHour(env, prevHourBucket);
-          cubeResults.prevHour.status = r;
-          cubeResults.totalMs += r.durationMs;
-          if (r.error) cubeResults.errors.push(`status ${prevHourBucket}: ${r.error}`);
-          else cubeResults.totalRows += r.rowsWritten;
-        }
-        // Previous hour — arcs (PR-Z)
-        if (!isOverCap()) {
-          const r = await buildArcsCubeForHour(env, prevHourBucket);
-          cubeResults.prevHour.arcs = r;
-          cubeResults.totalMs += r.durationMs;
-          if (r.error) cubeResults.errors.push(`arcs ${prevHourBucket}: ${r.error}`);
-          else cubeResults.totalRows += r.rowsWritten;
+
+        if (shouldRebuildPrev) {
+          // Previous hour — geo
+          if (!isOverCap()) {
+            const r = await buildGeoCubeForHour(env, prevHourBucket);
+            cubeResults.prevHour.geo = r;
+            cubeResults.totalMs += r.durationMs;
+            if (r.error) cubeResults.errors.push(`geo ${prevHourBucket}: ${r.error}`);
+            else cubeResults.totalRows += r.rowsWritten;
+          }
+          // Previous hour — provider
+          if (!isOverCap()) {
+            const r = await buildProviderCubeForHour(env, prevHourBucket);
+            cubeResults.prevHour.provider = r;
+            cubeResults.totalMs += r.durationMs;
+            if (r.error) cubeResults.errors.push(`provider ${prevHourBucket}: ${r.error}`);
+            else cubeResults.totalRows += r.rowsWritten;
+          }
+          // Previous hour — brand
+          if (!isOverCap()) {
+            const r = await buildBrandCubeForHour(env, prevHourBucket);
+            cubeResults.prevHour.brand = r;
+            cubeResults.totalMs += r.durationMs;
+            if (r.error) cubeResults.errors.push(`brand ${prevHourBucket}: ${r.error}`);
+            else cubeResults.totalRows += r.rowsWritten;
+          }
+          // Previous hour — status
+          if (!isOverCap()) {
+            const r = await buildStatusCubeForHour(env, prevHourBucket);
+            cubeResults.prevHour.status = r;
+            cubeResults.totalMs += r.durationMs;
+            if (r.error) cubeResults.errors.push(`status ${prevHourBucket}: ${r.error}`);
+            else cubeResults.totalRows += r.rowsWritten;
+          }
+          // Previous hour — arcs (PR-Z)
+          if (!isOverCap()) {
+            const r = await buildArcsCubeForHour(env, prevHourBucket);
+            cubeResults.prevHour.arcs = r;
+            cubeResults.totalMs += r.durationMs;
+            if (r.error) cubeResults.errors.push(`arcs ${prevHourBucket}: ${r.error}`);
+            else cubeResults.totalRows += r.rowsWritten;
+          }
+
+          // Store watermark only AFTER a fully-clean rebuild — any
+          // per-cube error means the next tick should retry rather
+          // than trust the watermark. 2h TTL is plenty: the cube-
+          // healer's 6h pass would rewrite the cube anyway, but a
+          // KV miss before then just causes one extra rebuild,
+          // which is the pre-fix behavior so a safe degradation.
+          const noPrevHourErrors = cubeResults.errors.every(e => !e.includes(prevHourBucket));
+          if (noPrevHourErrors && prevHourWatermark !== null) {
+            try {
+              await env.CACHE.put(prevHourWatermarkKey, prevHourWatermark, { expirationTtl: 7200 });
+            } catch (e) {
+              // Non-fatal — next tick will see the cache miss and rebuild.
+              console.warn('[navigator] prev_hour watermark cache write failed:', e);
+            }
+          }
         }
       } else {
         cubeResults.errors.push('skipped: over soft cap from DNS phase');

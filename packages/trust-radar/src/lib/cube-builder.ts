@@ -49,6 +49,40 @@ function nextHour(hourBucket: string): string {
 }
 
 /**
+ * Probe the threats table for the "shape" of a single hour: the
+ * MAX(created_at) and COUNT(*) within the hour's range. Together
+ * these form a watermark that Navigator can use to detect whether
+ * the hour's source data has changed since the last cube rebuild.
+ *
+ * Index-supported via idx_threats_created_brand /
+ * idx_threats_status_created — the range scan is bounded by the
+ * hour window so this stays well under per-tick budget.
+ *
+ * Used by Navigator to skip prev-hour cube rebuilds when the
+ * source data hasn't moved (D1 write-budget Phase 1 change C —
+ * cubes were the dominant write driver pre-2026-05-20, with 12
+ * rebuilds per hour for each previous hour even when nothing new
+ * landed for that hour).
+ *
+ * Format: `${max_created_at_iso}|${count}`. Both fields together
+ * because COUNT alone can be unchanged if a row was inserted AND
+ * an old row deleted in the same tick (rare but possible during
+ * threat lifecycle transitions).
+ */
+export async function getCubeSourceWatermark(
+  env: Env,
+  hourBucket: string,
+): Promise<string> {
+  const windowEnd = nextHour(hourBucket);
+  const probe = await env.DB.prepare(`
+    SELECT MAX(created_at) AS max_ts, COUNT(*) AS n
+    FROM threats
+    WHERE created_at >= ? AND created_at < ?
+  `).bind(hourBucket, windowEnd).first<{ max_ts: string | null; n: number }>();
+  return `${probe?.max_ts ?? ''}|${probe?.n ?? 0}`;
+}
+
+/**
  * Best-effort extraction of "rows written" from a D1 run() result.
  * Newer D1 meta exposes rows_written directly; older ones only expose
  * changes. For INSERT OR REPLACE both map to the same semantic value

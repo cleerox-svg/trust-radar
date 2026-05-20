@@ -19,6 +19,7 @@ import {
   emitIntelNotification,
   renderIntelPredictive,
 } from "../lib/intel-templates";
+import { updateProviderTrends } from "../lib/provider-trends";
 
 // ─── NEXUS core correlation logic ─────────────────────────────────
 
@@ -233,44 +234,16 @@ export async function runNexus(db: D1Database, env: Env): Promise<{
   // work here was the original bug the cube migration in PR-B (#1278)
   // fixed for the workflow path. Same reasoning here.
   //
-  // Writes are batched 20 at a time so a transient DB hiccup affects
-  // at most one chunk of 20 providers rather than the full set.
+  // Delegates to lib/provider-trends.ts so the manual-fallback
+  // path here and the canonical workflow at workflows/nexusRun.ts
+  // share the same diff-filtered UPDATE pattern. The helper drops
+  // no-op writes (where new trend values match current), which the
+  // 2026-05-20 D1 write audit flagged as the dominant inline
+  // UPDATE pattern on the platform.
   let providersUpdated = 0;
   try {
-    const agg = await db.prepare(`
-      SELECT
-        hosting_provider_id,
-        SUM(CASE WHEN hour_bucket >= datetime('now', '-7 days')
-                 THEN threat_count ELSE 0 END) as count_7d,
-        SUM(CASE WHEN hour_bucket >= datetime('now', '-30 days')
-                 THEN threat_count ELSE 0 END) as count_30d
-      FROM threat_cube_provider
-      WHERE hour_bucket >= datetime('now', '-30 days')
-      GROUP BY hosting_provider_id
-    `).all<{
-      hosting_provider_id: string;
-      count_7d: number;
-      count_30d: number;
-    }>();
-
-    const BATCH = 20;
-    for (let i = 0; i < agg.results.length; i += BATCH) {
-      const chunk = agg.results.slice(i, i + BATCH);
-      const stmts = chunk.map(r =>
-        db.prepare(`
-          UPDATE hosting_providers SET
-            trend_7d = ?,
-            trend_30d = ?
-          WHERE id = ?
-        `).bind(r.count_7d, r.count_30d, r.hosting_provider_id)
-      );
-      try {
-        await db.batch(stmts);
-        providersUpdated += chunk.length;
-      } catch (batchErr) {
-        console.error('[nexus] provider trend batch failed:', batchErr);
-      }
-    }
+    const result = await updateProviderTrends(db);
+    providersUpdated = result.providers_updated;
   } catch (err) {
     console.error('[nexus] provider trend update error:', err);
   }
