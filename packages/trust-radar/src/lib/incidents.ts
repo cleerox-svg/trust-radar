@@ -140,6 +140,13 @@ export function inferAffectedComponents(
     out.push("system:resend");
   }
 
+  // PR-BB: scheduled DMARC ramp reminder. Email-deliverability
+  // hygiene rather than infra alerting — tag the system without a
+  // category bucket so it doesn't dilute the processing/agents views.
+  if (type === "platform_dmarc_ramp_reminder") {
+    out.push("system:email_deliverability");
+  }
+
   return out;
 }
 

@@ -139,6 +139,13 @@ export interface PlatformDnsQueueReaperStalledVars {
   queue_size: number;
 }
 
+export interface PlatformDmarcRampReminderVars {
+  /** Per-domain DMARC policy as discovered via the DoH TXT lookup.
+   *  null means lookup failed; treat as "still p=none, ramp not done". */
+  averrow_com_policy: string | null;
+  averrow_ca_policy:  string | null;
+}
+
 export interface PlatformAbuseClassifierSilentVars {
   /** Hours since the last successful classifier Haiku call. */
   hours_silent: number;
@@ -467,6 +474,30 @@ export function renderPlatformDnsQueueStalled(v: PlatformDnsQueueStalledVars): R
     group_key: `platform_dns_queue_stalled:${todayKey()}`,
     audience: 'super_admin',
     severity: 'high',
+  };
+}
+
+export function renderPlatformDmarcRampReminder(v: PlatformDmarcRampReminderVars): RenderedTemplate {
+  const pendingDomains: string[] = [];
+  if (v.averrow_com_policy === 'none' || v.averrow_com_policy === null) pendingDomains.push('averrow.com');
+  if (v.averrow_ca_policy  === 'none' || v.averrow_ca_policy  === null) pendingDomains.push('averrow.ca');
+  const list = pendingDomains.join(' + ') || 'averrow.com + averrow.ca';
+  return {
+    title: `DMARC ramp window open — flip ${list} to p=quarantine`,
+    message:
+      `The 14-day observation window (started 2026-05-16) is over. ` +
+      `Current policy: averrow.com=p=${v.averrow_com_policy ?? 'unknown'}, averrow.ca=p=${v.averrow_ca_policy ?? 'unknown'}. ` +
+      `Flipping to p=quarantine activates the BIMI logo in Yahoo / Apple Mail / Fastmail inboxes.`,
+    reason_text: `Scheduled platform reminder — see docs/BIMI_SETUP_RUNBOOK.md §"ACTION REQUIRED — 2026-05-30".`,
+    recommended_action:
+      `1) Review DMARC reports for legitimate sender alignment (Cloudflare Dashboard → Email → DMARC Management for .com; ` +
+      `trust-radar's dmarc_rua@trustradar.ca handler for .ca). ` +
+      `2) If clean, edit _dmarc.averrow.com + _dmarc.averrow.ca TXT records: p=none → p=quarantine (keep pct=100). ` +
+      `3) This reminder self-disables within ~24h after the TXT records reflect quarantine or reject.`,
+    link: PLATFORM_ADMIN_LINK,
+    group_key: `platform_dmarc_ramp_reminder:${todayKey()}`,
+    audience: 'super_admin',
+    severity: 'medium',
   };
 }
 
