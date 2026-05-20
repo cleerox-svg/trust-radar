@@ -60,6 +60,7 @@ export type NotificationEventKey =
   | 'platform_ai_spend_burst'
   | 'platform_resend_bounces'
   | 'platform_briefing_silent'
+  | 'platform_dmarc_ramp_reminder'
   // ── PR-AW — abuse mailbox family ──
   | 'abuse_mailbox_verdict'
   | 'abuse_mailbox_flood_detected'
@@ -379,6 +380,14 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     label: 'Daily Briefing Silent',
     description: 'Cron briefing has not delivered in 36+ hours',
     dedupWindow: '-12 hours',
+    defaultEnabled: true,
+    userToggleable: false,
+  },
+  {
+    key: 'platform_dmarc_ramp_reminder',
+    label: 'DMARC Ramp Reminder',
+    description: 'Scheduled reminder to flip _dmarc.averrow.com + .ca from p=none → p=quarantine (activates BIMI logo). Self-disables once the TXT record reads quarantine or reject.',
+    dedupWindow: '-1 day',
     defaultEnabled: true,
     userToggleable: false,
   },

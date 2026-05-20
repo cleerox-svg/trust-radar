@@ -15,6 +15,7 @@ import type { Env } from "../types";
 import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 import type { BudgetStatus, AgentBudgetLimits, ThrottleLevel } from "../lib/budgetManager";
 import { createNotification } from "../lib/notifications";
+import { dohTxtLookup, parseDmarcPolicy } from "../lib/doh";
 import { transitionStatus as transitionIncidentStatus } from "../lib/incidents";
 import {
   emitPlatformNotification,
@@ -22,6 +23,7 @@ import {
   renderPlatformFeedAutoPaused,
   renderPlatformFeedSilent,
   renderPlatformBriefingSilent,
+  renderPlatformDmarcRampReminder,
   renderPlatformAiSpendBurst,
   renderPlatformCronMissed,
   renderPlatformEnrichmentStuck,
@@ -1149,6 +1151,46 @@ export const flightControlAgent: AgentModule = {
         } catch { /* incident resolution failures never break FC */ }
       }
     } catch { /* notification failures never break FC */ }
+
+    // ── PR-BB: 2026-05-30 DMARC ramp reminder ─────────────────────
+    // Fires daily on or after 2026-05-30 reminding the operator to
+    // flip _dmarc.averrow.com + .ca from p=none → p=quarantine,
+    // which activates the BIMI logo in Yahoo / Apple Mail / Fastmail
+    // inboxes. See docs/BIMI_SETUP_RUNBOOK.md.
+    //
+    // Self-disables: each tick performs a DoH TXT lookup (cached
+    // 1h in KV) on both DMARC records. If BOTH already read
+    // p=quarantine or p=reject, we skip the emit — the ramp is
+    // done, no need to keep nudging.
+    //
+    // Date comparison uses UTC YYYY-MM-DD strings, so it doesn't
+    // depend on the FC tick's local clock.
+    const DMARC_RAMP_DATE_UTC = '2026-05-30';
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    if (todayUtc >= DMARC_RAMP_DATE_UTC) {
+      try {
+        const [comRecords, caRecords] = await Promise.all([
+          dohTxtLookup(env, '_dmarc.averrow.com'),
+          dohTxtLookup(env, '_dmarc.averrow.ca'),
+        ]);
+        const comDmarc = comRecords.map(parseDmarcPolicy).find((p) => p !== null) ?? null;
+        const caDmarc  = caRecords.map(parseDmarcPolicy).find((p) => p !== null)  ?? null;
+
+        const isRamped = (p: 'none' | 'quarantine' | 'reject' | null): boolean =>
+          p === 'quarantine' || p === 'reject';
+
+        if (!(isRamped(comDmarc) && isRamped(caDmarc))) {
+          await emitPlatformNotification(env, 'platform_dmarc_ramp_reminder',
+            renderPlatformDmarcRampReminder({
+              averrow_com_policy: comDmarc,
+              averrow_ca_policy:  caDmarc,
+            })
+          );
+        }
+      } catch (err) {
+        console.warn('[flight-control] dmarc ramp reminder failed:', err);
+      }
+    }
 
     // ── Auto-tripped agent surfacing ──────────────────────────────
     // Same pattern as auto-paused feeds: a single roll-up log line
