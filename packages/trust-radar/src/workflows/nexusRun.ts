@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types';
+import { updateProviderTrends } from '../lib/provider-trends';
 
 type NexusWorkflowParams = {
   forceRefresh?: boolean;
@@ -142,42 +143,13 @@ export class NexusWorkflow extends WorkflowEntrypoint<Env, NexusWorkflowParams> 
       // from the cube and leave active/total to cartographer's own
       // path — re-running them here would duplicate work and the
       // pre-computed columns are already fresh.
-      const agg = await this.env.DB.prepare(`
-        SELECT
-          hosting_provider_id,
-          SUM(CASE WHEN hour_bucket >= datetime('now', '-7 days')
-                   THEN threat_count ELSE 0 END) as count_7d,
-          SUM(CASE WHEN hour_bucket >= datetime('now', '-30 days')
-                   THEN threat_count ELSE 0 END) as count_30d
-        FROM threat_cube_provider
-        WHERE hour_bucket >= datetime('now', '-30 days')
-        GROUP BY hosting_provider_id
-      `).all<{
-        hosting_provider_id: string;
-        count_7d: number;
-        count_30d: number;
-      }>();
-
-      // Update providers in batches of 20 to stay well under CPU limit.
-      // active/total updates removed — pre-computed columns are
-      // maintained by cartographer Phase 5 (handlers/admin.ts:1309).
-      let updated = 0;
-      const BATCH = 20;
-      for (let i = 0; i < agg.results.length; i += BATCH) {
-        const chunk = agg.results.slice(i, i + BATCH);
-        const stmts = chunk.map(r =>
-          this.env.DB.prepare(`
-            UPDATE hosting_providers SET
-              trend_7d = ?,
-              trend_30d = ?
-            WHERE id = ?
-          `).bind(r.count_7d, r.count_30d, r.hosting_provider_id)
-        );
-        await this.env.DB.batch(stmts);
-        updated += chunk.length;
-      }
-
-      return { providers_updated: updated };
+      //
+      // Delegates to lib/provider-trends.ts which adds a diff-filter
+      // step: read current trend_7d/trend_30d and skip the UPDATE
+      // when the values match. Halved the per-tick UPDATE count in
+      // the 2026-05-20 write-budget audit.
+      const result = await updateProviderTrends(this.env.DB);
+      return { providers_updated: result.providers_updated };
     });
 
     // Step 4: Log completion

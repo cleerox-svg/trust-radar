@@ -2118,6 +2118,31 @@ export async function handleBackfillSafeDomains(request: Request, env: Env): Pro
 
 const TRANCO_CSV_URL = "https://tranco-list.eu/top-1m.csv.zip";
 
+/**
+ * Coarsen a Tranco rank into the reputation bucket the platform
+ * actually consumes. Returning the SAME bucket on both old and new
+ * rank values means a per-brand UPDATE can be skipped — D1 write
+ * audit (2026-05-20) showed ~76K Tranco rank UPDATEs/day on top-of-list
+ * jitter that doesn't move any brand across a bucket boundary.
+ *
+ * Buckets:
+ *   1   — top-1K       (high-trust, household names)
+ *   2   — top-10K      (mainstream)
+ *   3   — top-100K     (midmarket)
+ *   4   — top-1M       (long-tail)
+ *   5   — unranked     (null / beyond 1M)
+ *
+ * The numeric bucket id is internal; comparing values is sufficient.
+ */
+export function trancoRankBucket(rank: number | null | undefined): number {
+  if (rank == null || rank <= 0) return 5;
+  if (rank <= 1_000) return 1;
+  if (rank <= 10_000) return 2;
+  if (rank <= 100_000) return 3;
+  if (rank <= 1_000_000) return 4;
+  return 5;
+}
+
 export async function handleImportTranco(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
@@ -2173,10 +2198,21 @@ export async function handleImportTranco(request: Request, env: Env): Promise<Re
 
     const toImport: Array<{ rank: number; domain: string }> = [];
     const toUpdate: Array<{ rank: number; domain: string }> = [];
+    // Bucket-based skip filter (PR-BJ — write-budget Phase 1, change A):
+    // we previously wrote whenever the new Tranco rank differed AT ALL
+    // from the stored value. Tranco's daily list has heavy intra-rank
+    // churn (~76K rank-jitter updates/day in production), but the
+    // PLATFORM only consumes rank as a coarse reputation bucket
+    // (top-1K = high-trust, top-10K = mainstream, top-100K = midmarket,
+    // top-1M = long-tail). Intra-bucket drift is noise. Updating only
+    // when the bucket boundary is crossed cuts the write count without
+    // changing any downstream consumer behavior — every caller that
+    // reads tranco_rank uses it for relative ordering or for the same
+    // bucket check.
     for (const c of candidates) {
       const ex = existingMap.get(c.domain);
       if (!ex) toImport.push(c);
-      else if (ex.tranco_rank !== c.rank) toUpdate.push(c);
+      else if (trancoRankBucket(ex.tranco_rank) !== trancoRankBucket(c.rank)) toUpdate.push(c);
     }
     let imported = 0;
     let updated = 0;
