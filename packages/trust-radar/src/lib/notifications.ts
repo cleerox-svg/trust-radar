@@ -171,23 +171,34 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
   // ─── Dedup ────────────────────────────────────────────────────────────
   // Prefer group_key (canonical, indexed). Fall back to legacy metadata
   // LIKE for callers that haven't been updated yet.
+  //
+  // PR-BM (2026-05-21): switched COUNT(*) → SELECT 1 ... LIMIT 1. The
+  // dedup is a binary decision ("does any row exist in the window?"),
+  // so counting every matching row is wasted work. Live diagnostics
+  // showed this query consuming 13M D1 rows / 612 calls / 24h (21K
+  // rows/call), making it the #4 top-reader. LIMIT 1 short-circuits
+  // to ≤1 row per call against idx_notifications_dedup since the
+  // index is (type, group_key, created_at DESC) — the planner seeks
+  // to the most recent row first and immediately returns.
   if (groupKey) {
     const window = NOTIFICATION_EVENT_DEDUP[opts.type];
     const existing = await db.prepare(
-      `SELECT COUNT(*) as c FROM notifications
-       WHERE type = ? AND group_key = ? AND created_at > datetime('now', ?)`
-    ).bind(opts.type, groupKey, window).first<{ c: number }>();
-    if (existing && existing.c > 0) return 0;
+      `SELECT 1 AS hit FROM notifications
+       WHERE type = ? AND group_key = ? AND created_at > datetime('now', ?)
+       LIMIT 1`
+    ).bind(opts.type, groupKey, window).first<{ hit: number }>();
+    if (existing) return 0;
   } else {
     const rateKey = getRateKey(opts);
     if (rateKey) {
       const window = NOTIFICATION_EVENT_DEDUP[opts.type];
       const existing = await db.prepare(
-        `SELECT COUNT(*) as c FROM notifications
+        `SELECT 1 AS hit FROM notifications
          WHERE type = ? AND created_at > datetime('now', ?)
-         AND metadata LIKE ?`
-      ).bind(opts.type, window, `%${rateKey}%`).first<{ c: number }>();
-      if (existing && existing.c > 0) return 0;
+         AND metadata LIKE ?
+         LIMIT 1`
+      ).bind(opts.type, window, `%${rateKey}%`).first<{ hit: number }>();
+      if (existing) return 0;
     }
   }
 
