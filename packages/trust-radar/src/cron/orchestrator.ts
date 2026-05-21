@@ -98,7 +98,16 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     // other agent. Errors caught + recorded; never thrown upstream.
     try {
       const { executeAgent } = await import('../lib/agentRunner');
-      await executeAgent(env, cubeHealerAgent, {}, 'cron', 'scheduled');
+      // PR-BM: thread scheduledTime so cube_healer can pick hot (2d)
+      // vs cold (14d) window based on cron tick. Cold heal lands at
+      // the 00:12 UTC tick once per day; other ticks run hot.
+      await executeAgent(
+        env,
+        cubeHealerAgent,
+        { scheduledTime: new Date(event.scheduledTime).toISOString() },
+        'cron',
+        'scheduled',
+      );
     } catch (err) {
       logger.error('cube_healer_dispatch_error', {
         error: err instanceof Error ? err.message : String(err),

@@ -1,21 +1,31 @@
 /**
  * Cube Healer Agent — Phase 4.2 retroactive drift remediation.
  *
- * Runs 6-hourly via the "12 *\/6 * * *" cron. Performs a 14-day bulk
- * rebuild of threat_cube_geo, threat_cube_provider, threat_cube_brand,
+ * Runs 6-hourly via the "12 *\/6 * * *" cron. Performs a bulk rebuild of
+ * threat_cube_geo, threat_cube_provider, threat_cube_brand,
  * threat_cube_status, and threat_cube_arcs via INSERT OR REPLACE ...
  * SELECT ... GROUP BY, bounding drift from cartographer's retroactive
- * enrichment to ≤6 hours of back-fill within that window.
+ * enrichment within that window.
  *
- * Window: 14 days (PR-BL, 2026-05-20). Was 30d originally; reduced
- * after diagnostics showed cube_healer accounting for ~50% of daily
- * D1 writes (~1.6M/day) and projecting 205% of the 50M write quota.
- * Cartographer's retroactive enrichment is concentrated in the first
- * 7-14 days — buckets older than that almost never receive updated
- * lat/lng or hosting_provider_id. The 30-day safety margin was
- * defensive padding without observed payoff. Window can be widened
- * again if forensic backfills over older threats start producing
- * cube drift.
+ * Two-window strategy (PR-BM, 2026-05-21):
+ *   - **Hot heal** (default, 3 of 4 daily ticks): 2-day window.
+ *     Catches the bulk of cartographer's retroactive enrichment, which
+ *     is concentrated in the most recent 24-48h.
+ *   - **Cold heal** (once per UTC day, at hour===0): full 14-day
+ *     window. Catches any longer-tail backfill the hot heals missed.
+ *
+ * Expected write reduction: 4 × 14d = 56d-equivalent rebuilds per day
+ * pre-PR-BM → 3 × 2d + 1 × 14d = 20d-equivalent (~64% fewer writes).
+ *
+ * Window history:
+ *   - Originally 30 days. Reduced to 14d in PR-BL after diagnostics
+ *     showed cube_healer was the #1 D1 writer (~1.6M/day, projecting
+ *     205% of the 50M write quota).
+ *   - Split into hot/cold in PR-BM after 14d still projected 192% of
+ *     quota. Diagnostics confirmed cartographer's retroactive
+ *     enrichment lives in the first 24-48h; older hour-buckets almost
+ *     never receive updated lat/lng or hosting_provider_id, so
+ *     rebuilding them 4×/day was wasted I/O.
  *
  * Why this exists:
  *   Cartographer's candidate query has no time filter — it enriches threats
@@ -47,127 +57,158 @@
 
 import type { AgentModule, AgentResult, AgentContext, AgentOutputEntry } from '../lib/agentRunner';
 
+// ─── Heal window selection ───────────────────────────────────────
+// Hot vs cold scope (PR-BM): hot covers the most recent 2 days,
+// cold covers the full 14-day safety net. Tick at UTC hour===0
+// (the 00:12 cron) picks cold; all other ticks pick hot.
+
+export const HOT_HEAL_WINDOW_DAYS = 2;
+export const COLD_HEAL_WINDOW_DAYS = 14;
+
+/**
+ * Decide whether the current tick should run a cold (full 14d) or hot (2d) heal.
+ * Exported for unit testing — the cron-time → scope mapping is the core of the
+ * write-budget reduction strategy.
+ */
+export function pickHealScope(scheduledTime: Date): 'hot' | 'cold' {
+  // Cold heal runs once per UTC day at the 00:12 cron tick. All other
+  // ticks (06:12, 12:12, 18:12) run hot. UTC alignment matches the
+  // platform's daily-snapshot + briefing email schedule.
+  return scheduledTime.getUTCHours() === 0 ? 'cold' : 'hot';
+}
+
 // ─── Heal SQL ────────────────────────────────────────────────────
-// Literals only (no bind params). These exact queries were verified in
-// production to produce exact parity against the raw threats table.
+// Window is the only parameter; built once per execute() call and
+// substituted into the literal SQL. SQLite's datetime() can't accept
+// a bind param in the modifier slot ('-N days'), so we build the
+// fragment as a string. Window is selected from a closed set
+// (HOT/COLD constants) — never operator input — so the string
+// concat is safe.
 
-const GEO_HEAL_SQL = `
-  INSERT OR REPLACE INTO threat_cube_geo
-    (hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity,
-     source_feed, threat_count, updated_at)
-  SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at),
-    ROUND(lat * 100) / 100.0,
-    ROUND(lng * 100) / 100.0,
-    COALESCE(country_code, 'XX'),
-    COALESCE(threat_type, 'unknown'),
-    COALESCE(severity, 'unknown'),
-    COALESCE(source_feed, 'unknown'),
-    COUNT(*),
-    datetime('now')
-  FROM threats
-  WHERE created_at >= datetime('now', '-14 days')
-    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
-    AND status = 'active'
-    AND lat IS NOT NULL
-    AND lng IS NOT NULL
-  GROUP BY 1, 2, 3, 4, 5, 6, 7
-`;
+function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', windowDays: number): string {
+  const windowFragment = `'-${windowDays} days'`;
+  switch (table) {
+    case 'geo':
+      return `
+        INSERT OR REPLACE INTO threat_cube_geo
+          (hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity,
+           source_feed, threat_count, updated_at)
+        SELECT
+          strftime('%Y-%m-%d %H:00:00', created_at),
+          ROUND(lat * 100) / 100.0,
+          ROUND(lng * 100) / 100.0,
+          COALESCE(country_code, 'XX'),
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COUNT(*),
+          datetime('now')
+        FROM threats
+        WHERE created_at >= datetime('now', ${windowFragment})
+          AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+          AND status = 'active'
+          AND lat IS NOT NULL
+          AND lng IS NOT NULL
+        GROUP BY 1, 2, 3, 4, 5, 6, 7
+      `;
+    case 'provider':
+      return `
+        INSERT OR REPLACE INTO threat_cube_provider
+          (hour_bucket, hosting_provider_id, threat_type, severity, source_feed,
+           threat_count, updated_at)
+        SELECT
+          strftime('%Y-%m-%d %H:00:00', created_at),
+          hosting_provider_id,
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COUNT(*),
+          datetime('now')
+        FROM threats
+        WHERE created_at >= datetime('now', ${windowFragment})
+          AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+          AND status = 'active'
+          AND hosting_provider_id IS NOT NULL
+        GROUP BY 1, 2, 3, 4, 5
+      `;
+    case 'brand':
+      return `
+        INSERT OR REPLACE INTO threat_cube_brand
+          (hour_bucket, target_brand_id, threat_type, severity, source_feed,
+           threat_count, updated_at)
+        SELECT
+          strftime('%Y-%m-%d %H:00:00', created_at),
+          target_brand_id,
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COUNT(*),
+          datetime('now')
+        FROM threats
+        WHERE created_at >= datetime('now', ${windowFragment})
+          AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+          AND status = 'active'
+          AND target_brand_id IS NOT NULL
+        GROUP BY 1, 2, 3, 4, 5
+      `;
+    case 'status':
+      // No status filter and no dimension NOT NULL filter — this is the
+      // only path that reconciles status mutations (active → down →
+      // remediated) for older hour buckets, so it always reads the
+      // whole window.
+      return `
+        INSERT OR REPLACE INTO threat_cube_status
+          (hour_bucket, threat_type, severity, source_feed, status,
+           threat_count, updated_at)
+        SELECT
+          strftime('%Y-%m-%d %H:00:00', created_at),
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COALESCE(status, 'unknown'),
+          COUNT(*),
+          datetime('now')
+        FROM threats
+        WHERE created_at >= datetime('now', ${windowFragment})
+          AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+        GROUP BY 1, 2, 3, 4, 5
+      `;
+    case 'arcs':
+      return `
+        INSERT OR REPLACE INTO threat_cube_arcs
+          (hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed,
+           threat_count, source_lat, source_lng, first_seen, last_seen, updated_at)
+        SELECT
+          strftime('%Y-%m-%d %H:00:00', created_at),
+          COALESCE(country_code, 'XX'),
+          target_brand_id,
+          COALESCE(threat_type, 'unknown'),
+          COALESCE(severity, 'unknown'),
+          COALESCE(source_feed, 'unknown'),
+          COUNT(*),
+          ROUND(AVG(lat), 1),
+          ROUND(AVG(lng), 1),
+          MIN(created_at),
+          MAX(created_at),
+          datetime('now')
+        FROM threats
+        WHERE created_at >= datetime('now', ${windowFragment})
+          AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
+          AND status = 'active'
+          AND lat IS NOT NULL
+          AND lng IS NOT NULL
+          AND target_brand_id IS NOT NULL
+        GROUP BY 1, 2, 3, 4, 5, 6
+      `;
+  }
+}
 
-const PROVIDER_HEAL_SQL = `
-  INSERT OR REPLACE INTO threat_cube_provider
-    (hour_bucket, hosting_provider_id, threat_type, severity, source_feed,
-     threat_count, updated_at)
-  SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at),
-    hosting_provider_id,
-    COALESCE(threat_type, 'unknown'),
-    COALESCE(severity, 'unknown'),
-    COALESCE(source_feed, 'unknown'),
-    COUNT(*),
-    datetime('now')
-  FROM threats
-  WHERE created_at >= datetime('now', '-14 days')
-    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
-    AND status = 'active'
-    AND hosting_provider_id IS NOT NULL
-  GROUP BY 1, 2, 3, 4, 5
-`;
-
-const BRAND_HEAL_SQL = `
-  INSERT OR REPLACE INTO threat_cube_brand
-    (hour_bucket, target_brand_id, threat_type, severity, source_feed,
-     threat_count, updated_at)
-  SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at),
-    target_brand_id,
-    COALESCE(threat_type, 'unknown'),
-    COALESCE(severity, 'unknown'),
-    COALESCE(source_feed, 'unknown'),
-    COUNT(*),
-    datetime('now')
-  FROM threats
-  WHERE created_at >= datetime('now', '-14 days')
-    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
-    AND status = 'active'
-    AND target_brand_id IS NOT NULL
-  GROUP BY 1, 2, 3, 4, 5
-`;
-
-// Status cube heal — captures every threat (no status filter, no
-// dimension NOT NULL filter). The 6-hourly cadence here is the lag
-// window for status transitions (active → down → remediated): an
-// hour bucket carries stale numbers for at most 6 hours before this
-// SQL replays it from the source of truth.
-const STATUS_HEAL_SQL = `
-  INSERT OR REPLACE INTO threat_cube_status
-    (hour_bucket, threat_type, severity, source_feed, status,
-     threat_count, updated_at)
-  SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at),
-    COALESCE(threat_type, 'unknown'),
-    COALESCE(severity, 'unknown'),
-    COALESCE(source_feed, 'unknown'),
-    COALESCE(status, 'unknown'),
-    COUNT(*),
-    datetime('now')
-  FROM threats
-  WHERE created_at >= datetime('now', '-14 days')
-    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
-  GROUP BY 1, 2, 3, 4, 5
-`;
-
-// Arcs cube heal — PR-Z. Same 14-day window as the other cubes (PR-BL).
-// Source filter mirrors buildArcsCubeForHour: status='active',
-// target_brand_id NOT NULL, lat/lng NOT NULL. Aggregates source_lat/
-// source_lng as the centroid of attacking IPs in each (country, brand,
-// type, severity, source_feed) bucket.
-const ARCS_HEAL_SQL = `
-  INSERT OR REPLACE INTO threat_cube_arcs
-    (hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed,
-     threat_count, source_lat, source_lng, first_seen, last_seen, updated_at)
-  SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at),
-    COALESCE(country_code, 'XX'),
-    target_brand_id,
-    COALESCE(threat_type, 'unknown'),
-    COALESCE(severity, 'unknown'),
-    COALESCE(source_feed, 'unknown'),
-    COUNT(*),
-    ROUND(AVG(lat), 1),
-    ROUND(AVG(lng), 1),
-    MIN(created_at),
-    MAX(created_at),
-    datetime('now')
-  FROM threats
-  WHERE created_at >= datetime('now', '-14 days')
-    AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
-    AND status = 'active'
-    AND lat IS NOT NULL
-    AND lng IS NOT NULL
-    AND target_brand_id IS NOT NULL
-  GROUP BY 1, 2, 3, 4, 5, 6
-`;
+// Exported for unit testing — assert the right window literal lands
+// in the SQL for each scope.
+export function healSQLForTest(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', scope: 'hot' | 'cold'): string {
+  const days = scope === 'cold' ? COLD_HEAL_WINDOW_DAYS : HOT_HEAL_WINDOW_DAYS;
+  return healSQL(table, days);
+}
 
 // ─── Agent module ────────────────────────────────────────────────
 
@@ -204,11 +245,22 @@ export const cubeHealerAgent: AgentModule = {
     let rowsWritten = 0;
     const partialFailures: AgentOutputEntry[] = [];
 
+    // Choose hot (2d) vs cold (14d) window based on cron tick time.
+    // The orchestrator threads `scheduledTime` (ISO string) through
+    // ctx.input — same pattern as Navigator. Fall back to wall-clock
+    // when called outside the cron path (manual/admin trigger).
+    const scheduledTimeRaw = typeof ctx.input?.scheduledTime === 'string'
+      ? ctx.input.scheduledTime
+      : null;
+    const scheduledTime = scheduledTimeRaw ? new Date(scheduledTimeRaw) : new Date();
+    const scope = pickHealScope(scheduledTime);
+    const windowDays = scope === 'cold' ? COLD_HEAL_WINDOW_DAYS : HOT_HEAL_WINDOW_DAYS;
+
     // ── Geo heal ────────────────────────────────────────────────
     // If geo throws here we let it propagate up to executeAgent(),
     // which marks status='failed' — matching the legacy "first query
     // throws → status: 'failed'" contract.
-    const geoResult = await env.DB.prepare(GEO_HEAL_SQL).run();
+    const geoResult = await env.DB.prepare(healSQL('geo', windowDays)).run();
     rowsWritten += geoResult.meta?.changes ?? 0;
 
     // ── Provider heal ───────────────────────────────────────────
@@ -218,7 +270,7 @@ export const cubeHealerAgent: AgentModule = {
     // status='success' but the diagnostic agent_output row carries the
     // error for forensic visibility.)
     try {
-      const providerResult = await env.DB.prepare(PROVIDER_HEAL_SQL).run();
+      const providerResult = await env.DB.prepare(healSQL('provider', windowDays)).run();
       rowsWritten += providerResult.meta?.changes ?? 0;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -232,7 +284,7 @@ export const cubeHealerAgent: AgentModule = {
 
     // ── Brand heal ──────────────────────────────────────────────
     try {
-      const brandResult = await env.DB.prepare(BRAND_HEAL_SQL).run();
+      const brandResult = await env.DB.prepare(healSQL('brand', windowDays)).run();
       rowsWritten += brandResult.meta?.changes ?? 0;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -249,7 +301,7 @@ export const cubeHealerAgent: AgentModule = {
     // this is the only path that reconciles status mutations
     // (active → down → remediated) for older hour buckets.
     try {
-      const statusResult = await env.DB.prepare(STATUS_HEAL_SQL).run();
+      const statusResult = await env.DB.prepare(healSQL('status', windowDays)).run();
       rowsWritten += statusResult.meta?.changes ?? 0;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -266,7 +318,7 @@ export const cubeHealerAgent: AgentModule = {
     // globe arcs. Same partial-failure handling as the others —
     // arcs failure doesn't kill the whole heal cycle.
     try {
-      const arcsResult = await env.DB.prepare(ARCS_HEAL_SQL).run();
+      const arcsResult = await env.DB.prepare(healSQL('arcs', windowDays)).run();
       rowsWritten += arcsResult.meta?.changes ?? 0;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -354,7 +406,7 @@ export const cubeHealerAgent: AgentModule = {
       itemsProcessed: rowsWritten,
       itemsCreated: rowsWritten,
       itemsUpdated: 0,
-      output: { rowsWritten, partialFailureCount: partialFailures.length },
+      output: { rowsWritten, partialFailureCount: partialFailures.length, scope, windowDays },
       agentOutputs: partialFailures,
     };
   },

@@ -208,8 +208,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threat_cube_status"
       ],
       "ai_models_referenced": [],
-      "loc": 362,
-      "last_modified": "2026-05-20T15:22:58.011Z"
+      "loc": 414,
+      "last_modified": "2026-05-21T15:58:16.791Z"
     },
     {
       "name": "curator",
