@@ -99,7 +99,7 @@ function makeEnv(opts: EnvOpts = {}) {
 }
 
 describe("createNotification dedup (PR-BM LIMIT 1)", () => {
-  it("group_key dedup path uses SELECT 1 ... LIMIT 1 (not COUNT)", async () => {
+  it("group_key dedup path uses SELECT 1 ... ORDER BY created_at DESC LIMIT 1 (not COUNT)", async () => {
     const { env, calls } = makeEnv({ dedupHit: true });
 
     // group_key resolves from brandId.
@@ -116,6 +116,10 @@ describe("createNotification dedup (PR-BM LIMIT 1)", () => {
     );
     expect(dedupCalls.length).toBe(1);
     expect(dedupCalls[0].sql).toContain("LIMIT 1");
+    // PR-BN: ORDER BY created_at DESC is required for the planner to
+    // short-circuit on idx_notifications_dedup. Without it, LIMIT 1
+    // alone still scans the (type, group_key) prefix.
+    expect(dedupCalls[0].sql).toContain("ORDER BY created_at DESC");
     expect(dedupCalls[0].sql).not.toMatch(/SELECT COUNT\(\*\)/);
     // Binds: (type, group_key, window)
     expect(dedupCalls[0].bindArgs).toEqual(["brand_threat", "brand_threat:brand-x", "-1 hour"]);
@@ -159,7 +163,7 @@ describe("createNotification dedup (PR-BM LIMIT 1)", () => {
     expect(calls.length).toBeGreaterThan(dedupIdx + 1);
   });
 
-  it("metadata-LIKE fallback (no group_key) also uses LIMIT 1", async () => {
+  it("metadata-LIKE fallback (no group_key) also uses ORDER BY + LIMIT 1", async () => {
     const { env, calls } = makeEnv({ dedupHit: true });
 
     // No brandId, no groupKey, but metadata.feed_name → rateKey path.
@@ -177,6 +181,7 @@ describe("createNotification dedup (PR-BM LIMIT 1)", () => {
     );
     expect(dedupCalls.length).toBe(1);
     expect(dedupCalls[0].sql).toContain("LIMIT 1");
+    expect(dedupCalls[0].sql).toContain("ORDER BY created_at DESC");
     expect(dedupCalls[0].sql).not.toMatch(/SELECT COUNT\(\*\)/);
     // Binds: (type, window, "%"+rateKey+"%")
     expect(dedupCalls[0].bindArgs[0]).toBe("platform_feed_at_risk");

@@ -174,17 +174,24 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
   //
   // PR-BM (2026-05-21): switched COUNT(*) → SELECT 1 ... LIMIT 1. The
   // dedup is a binary decision ("does any row exist in the window?"),
-  // so counting every matching row is wasted work. Live diagnostics
-  // showed this query consuming 13M D1 rows / 612 calls / 24h (21K
-  // rows/call), making it the #4 top-reader. LIMIT 1 short-circuits
-  // to ≤1 row per call against idx_notifications_dedup since the
-  // index is (type, group_key, created_at DESC) — the planner seeks
-  // to the most recent row first and immediately returns.
+  // so counting every matching row is wasted work.
+  //
+  // PR-BN (2026-05-22): added ORDER BY created_at DESC. Post-PR-BM
+  // diagnostics showed LIMIT 1 alone wasn't reducing rows/call (still
+  // 21K rows/call) because the planner was scanning the full (type,
+  // group_key) prefix and picking any row — not short-circuiting at
+  // the newest. The explicit ORDER BY forces the planner to walk
+  // idx_notifications_dedup (type, group_key, created_at DESC) in
+  // sort order and seek the newest row first. With LIMIT 1 that's a
+  // ≤1-row read whether dedup hits (returns the newest matching row)
+  // or misses (newest is older than the window — no rows match).
+  // Together the two clauses unlock the ~12M reads/day savings.
   if (groupKey) {
     const window = NOTIFICATION_EVENT_DEDUP[opts.type];
     const existing = await db.prepare(
       `SELECT 1 AS hit FROM notifications
        WHERE type = ? AND group_key = ? AND created_at > datetime('now', ?)
+       ORDER BY created_at DESC
        LIMIT 1`
     ).bind(opts.type, groupKey, window).first<{ hit: number }>();
     if (existing) return 0;
@@ -196,6 +203,7 @@ export async function createNotification(env: Env, opts: CreateNotificationOpts)
         `SELECT 1 AS hit FROM notifications
          WHERE type = ? AND created_at > datetime('now', ?)
          AND metadata LIKE ?
+         ORDER BY created_at DESC
          LIMIT 1`
       ).bind(opts.type, window, `%${rateKey}%`).first<{ hit: number }>();
       if (existing) return 0;
