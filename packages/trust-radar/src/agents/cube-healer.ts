@@ -87,10 +87,29 @@ export function pickHealScope(scheduledTime: Date): 'hot' | 'cold' {
 
 function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', windowDays: number): string {
   const windowFragment = `'-${windowDays} days'`;
+  // PR-BO (2026-05-22): switched INSERT OR REPLACE → INSERT ... ON
+  // CONFLICT(pk) DO UPDATE SET ... WHERE <existing IS NOT excluded>.
+  //
+  // INSERT OR REPLACE always writes one row per group: it deletes the
+  // existing row and inserts a new one — billed as 2 row mutations per
+  // unchanged bucket. With most hour-buckets stable between heals
+  // (cartographer's retroactive enrichment is concentrated in the most
+  // recent 24-48h, so older buckets in the 14-day cold window are ~95%
+  // stable), the rewrites were wasted I/O.
+  //
+  // UPSERT WITH WHERE: on conflict, evaluates `WHERE <existing IS NOT
+  // excluded>`; if every aggregate column matches, the row mutation
+  // is skipped entirely (0 row mutations). Net savings depend on how
+  // many buckets are stable per heal but should track ~90% reduction
+  // on cold heals, ~70-80% on hot.
+  //
+  // Use `IS NOT` (not `!=`) so NULL on either side compares correctly —
+  // important for cubes where source_lat/source_lng/first_seen/last_seen
+  // can legitimately be NULL.
   switch (table) {
     case 'geo':
       return `
-        INSERT OR REPLACE INTO threat_cube_geo
+        INSERT INTO threat_cube_geo
           (hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity,
            source_feed, threat_count, updated_at)
         SELECT
@@ -110,10 +129,15 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
           AND lat IS NOT NULL
           AND lng IS NOT NULL
         GROUP BY 1, 2, 3, 4, 5, 6, 7
+        ON CONFLICT(hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity, source_feed)
+        DO UPDATE SET
+          threat_count = excluded.threat_count,
+          updated_at = excluded.updated_at
+        WHERE threat_cube_geo.threat_count IS NOT excluded.threat_count
       `;
     case 'provider':
       return `
-        INSERT OR REPLACE INTO threat_cube_provider
+        INSERT INTO threat_cube_provider
           (hour_bucket, hosting_provider_id, threat_type, severity, source_feed,
            threat_count, updated_at)
         SELECT
@@ -130,10 +154,15 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
           AND status = 'active'
           AND hosting_provider_id IS NOT NULL
         GROUP BY 1, 2, 3, 4, 5
+        ON CONFLICT(hour_bucket, hosting_provider_id, threat_type, severity, source_feed)
+        DO UPDATE SET
+          threat_count = excluded.threat_count,
+          updated_at = excluded.updated_at
+        WHERE threat_cube_provider.threat_count IS NOT excluded.threat_count
       `;
     case 'brand':
       return `
-        INSERT OR REPLACE INTO threat_cube_brand
+        INSERT INTO threat_cube_brand
           (hour_bucket, target_brand_id, threat_type, severity, source_feed,
            threat_count, updated_at)
         SELECT
@@ -150,6 +179,11 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
           AND status = 'active'
           AND target_brand_id IS NOT NULL
         GROUP BY 1, 2, 3, 4, 5
+        ON CONFLICT(hour_bucket, target_brand_id, threat_type, severity, source_feed)
+        DO UPDATE SET
+          threat_count = excluded.threat_count,
+          updated_at = excluded.updated_at
+        WHERE threat_cube_brand.threat_count IS NOT excluded.threat_count
       `;
     case 'status':
       // No status filter and no dimension NOT NULL filter — this is the
@@ -157,7 +191,7 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
       // remediated) for older hour buckets, so it always reads the
       // whole window.
       return `
-        INSERT OR REPLACE INTO threat_cube_status
+        INSERT INTO threat_cube_status
           (hour_bucket, threat_type, severity, source_feed, status,
            threat_count, updated_at)
         SELECT
@@ -172,10 +206,15 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
         WHERE created_at >= datetime('now', ${windowFragment})
           AND created_at < strftime('%Y-%m-%d %H:00:00', datetime('now'))
         GROUP BY 1, 2, 3, 4, 5
+        ON CONFLICT(hour_bucket, threat_type, severity, source_feed, status)
+        DO UPDATE SET
+          threat_count = excluded.threat_count,
+          updated_at = excluded.updated_at
+        WHERE threat_cube_status.threat_count IS NOT excluded.threat_count
       `;
     case 'arcs':
       return `
-        INSERT OR REPLACE INTO threat_cube_arcs
+        INSERT INTO threat_cube_arcs
           (hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed,
            threat_count, source_lat, source_lng, first_seen, last_seen, updated_at)
         SELECT
@@ -199,6 +238,18 @@ function healSQL(table: 'geo' | 'provider' | 'brand' | 'status' | 'arcs', window
           AND lng IS NOT NULL
           AND target_brand_id IS NOT NULL
         GROUP BY 1, 2, 3, 4, 5, 6
+        ON CONFLICT(hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed)
+        DO UPDATE SET
+          threat_count = excluded.threat_count,
+          source_lat = excluded.source_lat,
+          source_lng = excluded.source_lng,
+          first_seen = excluded.first_seen,
+          last_seen = excluded.last_seen,
+          updated_at = excluded.updated_at
+        WHERE threat_cube_arcs.threat_count IS NOT excluded.threat_count
+           OR threat_cube_arcs.last_seen IS NOT excluded.last_seen
+           OR threat_cube_arcs.source_lat IS NOT excluded.source_lat
+           OR threat_cube_arcs.source_lng IS NOT excluded.source_lng
       `;
   }
 }

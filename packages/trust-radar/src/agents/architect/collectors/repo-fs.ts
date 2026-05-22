@@ -334,7 +334,16 @@ function extractWriteTables(source: string): string[] {
     const name = m[1];
     if (name) out.add(name);
   }
-  const updateMatches = source.matchAll(/\bUPDATE\s+([A-Za-z_][A-Za-z0-9_]*)/g);
+  // PR-BO: UPSERT-shaped SQL contains `DO UPDATE SET` — the regex
+  // would capture "SET" as a phantom table. Match `UPDATE <ident>`
+  // only when the next token is NOT a SQLite keyword we know about
+  // (SET = UPSERT clause; lowercase `is` was tripping on phrasing
+  // like "the UPDATE is skipped" inside comments — neither is a table
+  // name). The negative lookahead keeps the regex narrow without
+  // needing a real SQL parser.
+  const updateMatches = source.matchAll(
+    /\bUPDATE\s+(?!SET\b|set\b|is\b|IS\b)([A-Za-z_][A-Za-z0-9_]*)/g,
+  );
   for (const m of updateMatches) {
     const name = m[1];
     if (name) out.add(name);
