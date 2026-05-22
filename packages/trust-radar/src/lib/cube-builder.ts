@@ -114,8 +114,13 @@ export async function buildGeoCubeForHour(
   const start = Date.now();
   try {
     const windowEnd = nextHour(hourBucket);
+    // PR-BO: UPSERT WITH WHERE — skip the row mutation when threat_count
+    // is unchanged. INSERT OR REPLACE was billing 1 row written per
+    // existing bucket on every Navigator tick (12×/hour for the
+    // current hour); UPSERT with the IS-NOT guard drops that to 0 rows
+    // written for stable buckets, only mutating when the count moves.
     const result = await env.DB.prepare(`
-      INSERT OR REPLACE INTO threat_cube_geo
+      INSERT INTO threat_cube_geo
         (hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity,
          source_feed, threat_count, updated_at)
       SELECT
@@ -135,6 +140,11 @@ export async function buildGeoCubeForHour(
         AND lat IS NOT NULL
         AND lng IS NOT NULL
       GROUP BY 2, 3, 4, 5, 6, 7
+      ON CONFLICT(hour_bucket, lat_bucket, lng_bucket, country_code, threat_type, severity, source_feed)
+      DO UPDATE SET
+        threat_count = excluded.threat_count,
+        updated_at = excluded.updated_at
+      WHERE threat_cube_geo.threat_count IS NOT excluded.threat_count
     `).bind(hourBucket, hourBucket, windowEnd).run();
 
     return {
@@ -168,8 +178,9 @@ export async function buildProviderCubeForHour(
   const start = Date.now();
   try {
     const windowEnd = nextHour(hourBucket);
+    // PR-BO: UPSERT WITH WHERE — see buildGeoCubeForHour rationale.
     const result = await env.DB.prepare(`
-      INSERT OR REPLACE INTO threat_cube_provider
+      INSERT INTO threat_cube_provider
         (hour_bucket, hosting_provider_id, threat_type, severity, source_feed,
          threat_count, updated_at)
       SELECT
@@ -186,6 +197,11 @@ export async function buildProviderCubeForHour(
         AND status = 'active'
         AND hosting_provider_id IS NOT NULL
       GROUP BY 2, 3, 4, 5
+      ON CONFLICT(hour_bucket, hosting_provider_id, threat_type, severity, source_feed)
+      DO UPDATE SET
+        threat_count = excluded.threat_count,
+        updated_at = excluded.updated_at
+      WHERE threat_cube_provider.threat_count IS NOT excluded.threat_count
     `).bind(hourBucket, hourBucket, windowEnd).run();
 
     return {
@@ -309,8 +325,9 @@ export async function buildBrandCubeForHour(
   const start = Date.now();
   try {
     const windowEnd = nextHour(hourBucket);
+    // PR-BO: UPSERT WITH WHERE — see buildGeoCubeForHour rationale.
     const result = await env.DB.prepare(`
-      INSERT OR REPLACE INTO threat_cube_brand
+      INSERT INTO threat_cube_brand
         (hour_bucket, target_brand_id, threat_type, severity, source_feed,
          threat_count, updated_at)
       SELECT
@@ -327,6 +344,11 @@ export async function buildBrandCubeForHour(
         AND status = 'active'
         AND target_brand_id IS NOT NULL
       GROUP BY 2, 3, 4, 5
+      ON CONFLICT(hour_bucket, target_brand_id, threat_type, severity, source_feed)
+      DO UPDATE SET
+        threat_count = excluded.threat_count,
+        updated_at = excluded.updated_at
+      WHERE threat_cube_brand.threat_count IS NOT excluded.threat_count
     `).bind(hourBucket, hourBucket, windowEnd).run();
 
     return {
@@ -409,8 +431,9 @@ export async function buildStatusCubeForHour(
   const start = Date.now();
   try {
     const windowEnd = nextHour(hourBucket);
+    // PR-BO: UPSERT WITH WHERE — see buildGeoCubeForHour rationale.
     const result = await env.DB.prepare(`
-      INSERT OR REPLACE INTO threat_cube_status
+      INSERT INTO threat_cube_status
         (hour_bucket, threat_type, severity, source_feed, status,
          threat_count, updated_at)
       SELECT
@@ -425,6 +448,11 @@ export async function buildStatusCubeForHour(
       WHERE created_at >= ?2
         AND created_at < ?3
       GROUP BY 2, 3, 4, 5
+      ON CONFLICT(hour_bucket, threat_type, severity, source_feed, status)
+      DO UPDATE SET
+        threat_count = excluded.threat_count,
+        updated_at = excluded.updated_at
+      WHERE threat_cube_status.threat_count IS NOT excluded.threat_count
     `).bind(hourBucket, hourBucket, windowEnd).run();
 
     return {
@@ -589,8 +617,11 @@ export async function buildArcsCubeForHour(
   const start = Date.now();
   try {
     const windowEnd = nextHour(hourBucket);
+    // PR-BO: UPSERT WITH WHERE — arcs is the heaviest cube writer
+    // (134K rows/day pre-PR-BO). Most buckets in the prev-hour window
+    // are stable, so the WHERE-skip drops mutations dramatically.
     const result = await env.DB.prepare(`
-      INSERT OR REPLACE INTO threat_cube_arcs
+      INSERT INTO threat_cube_arcs
         (hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed,
          threat_count, source_lat, source_lng, first_seen, last_seen, updated_at)
       SELECT
@@ -614,6 +645,18 @@ export async function buildArcsCubeForHour(
         AND lng IS NOT NULL
         AND target_brand_id IS NOT NULL
       GROUP BY 2, 3, 4, 5, 6
+      ON CONFLICT(hour_bucket, country_code, target_brand_id, threat_type, severity, source_feed)
+      DO UPDATE SET
+        threat_count = excluded.threat_count,
+        source_lat = excluded.source_lat,
+        source_lng = excluded.source_lng,
+        first_seen = excluded.first_seen,
+        last_seen = excluded.last_seen,
+        updated_at = excluded.updated_at
+      WHERE threat_cube_arcs.threat_count IS NOT excluded.threat_count
+         OR threat_cube_arcs.last_seen IS NOT excluded.last_seen
+         OR threat_cube_arcs.source_lat IS NOT excluded.source_lat
+         OR threat_cube_arcs.source_lng IS NOT excluded.source_lng
     `).bind(hourBucket, hourBucket, windowEnd).run();
 
     return {

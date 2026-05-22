@@ -51,7 +51,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 1116,
-      "last_modified": "2026-05-20T14:22:17.739Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "appStoreMonitor",
@@ -84,7 +84,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 374,
-      "last_modified": "2026-05-20T14:22:17.743Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "auto-seeder",
@@ -174,7 +174,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "writes": [
-        "SET",
         "agent_events",
         "alerts",
         "brands",
@@ -186,7 +185,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 1230,
-      "last_modified": "2026-05-20T15:23:23.651Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "cube-healer",
@@ -208,8 +207,8 @@ export const REPO_MANIFEST: RepoInventory = {
         "threat_cube_status"
       ],
       "ai_models_referenced": [],
-      "loc": 414,
-      "last_modified": "2026-05-21T15:58:16.791Z"
+      "loc": 465,
+      "last_modified": "2026-05-22T18:27:41.120Z"
     },
     {
       "name": "curator",
@@ -224,7 +223,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "social_profiles"
       ],
       "writes": [
-        "SET",
         "brands",
         "social_profiles",
         "threats"
@@ -300,7 +298,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 2465,
-      "last_modified": "2026-05-20T14:22:17.747Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "geo-campaign-assessment",
@@ -382,7 +380,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 505,
-      "last_modified": "2026-05-20T14:22:17.747Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "news-watcher",
@@ -397,7 +395,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "news_articles"
       ],
       "writes": [
-        "SET",
         "geopolitical_campaigns",
         "news_articles"
       ],
@@ -421,7 +418,6 @@ export const REPO_MANIFEST: RepoInventory = {
         "threats"
       ],
       "writes": [
-        "SET",
         "agent_events",
         "agent_runs",
         "infrastructure_clusters",
@@ -429,7 +425,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 719,
-      "last_modified": "2026-05-20T14:22:17.751Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "notification_narrator",
@@ -483,7 +479,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 1043,
-      "last_modified": "2026-05-20T14:22:17.751Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "pathfinder",
@@ -509,7 +505,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "writes": [],
       "ai_models_referenced": [],
       "loc": 831,
-      "last_modified": "2026-05-20T14:22:17.751Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "public-trust-check",
@@ -690,7 +686,7 @@ export const REPO_MANIFEST: RepoInventory = {
       ],
       "ai_models_referenced": [],
       "loc": 683,
-      "last_modified": "2026-05-20T14:22:17.751Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "trustbot",
@@ -783,7 +779,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "stream",
       "schedule": null,
       "loc": 257,
-      "last_modified": "2026-05-20T14:22:17.755Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "cins_army",
@@ -1071,7 +1067,7 @@ export const REPO_MANIFEST: RepoInventory = {
       "source_type": "api",
       "schedule": null,
       "loc": 318,
-      "last_modified": "2026-05-20T14:22:17.755Z"
+      "last_modified": "2026-05-22T18:21:23.598Z"
     },
     {
       "name": "telegram",
