@@ -317,6 +317,26 @@ function base64Decode(b64: string): Uint8Array {
 
 // ─── RFC 7489 XML parsing (regex-based, no DOM) ───────────────────
 
+/**
+ * Strip control characters and cap length for XML fields that flow
+ * into log lines / notification messages. PR-BR.
+ *
+ * DMARC aggregate reports are XML from arbitrary mail recipients;
+ * the org_name and email fields are free-form. An attacker who can
+ * spoof a DMARC report (the email envelope IS authenticated by the
+ * receiving relay, but inner XML isn't) can inject newlines, ANSI
+ * escapes, or other control characters into downstream surfaces.
+ * This sanitizer is the canonical defense.
+ */
+function sanitizeXmlField(s: string, maxLen = 200): string {
+  if (!s) return "";
+  // Strip control chars (0x00-0x1F + 0x7F DEL). Keep printable
+  // ASCII + UTF-8 multibyte sequences. Cap to maxLen to bound the
+  // downstream surface; legitimate org_name values are well under
+  // 200 chars per the RFC.
+  return s.replace(/[\x00-\x1F\x7F]/g, "").slice(0, maxLen).trim();
+}
+
 function xmlTag(xml: string, tag: string): string {
   const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
   return m?.[1]?.trim() ?? "";
@@ -344,8 +364,14 @@ function parseDmarcXml(xml: string): DmarcReport | null {
     const policy = xmlTag(xml, "policy_published");
     const dateRange = xmlTag(metadata, "date_range");
 
-    const reporter_org = xmlTag(metadata, "org_name");
-    const reporter_email = xmlTag(metadata, "email");
+    // PR-BR: sanitize attacker-controlled XML fields before they
+    // flow into notification messages / log lines. The DMARC sender
+    // is verified (DMARC reports come from real domains' aggregate
+    // recipients), but the inner XML org_name/email fields are
+    // free-form and can contain newlines or control characters that
+    // would corrupt log layout or notification rendering downstream.
+    const reporter_org = sanitizeXmlField(xmlTag(metadata, "org_name"));
+    const reporter_email = sanitizeXmlField(xmlTag(metadata, "email"));
     const report_id = xmlTag(metadata, "report_id");
     const date_begin = parseInt(xmlTag(dateRange, "begin"), 10) || 0;
     const date_end = parseInt(xmlTag(dateRange, "end"), 10) || 0;

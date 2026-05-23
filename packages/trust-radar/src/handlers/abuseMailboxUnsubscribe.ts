@@ -79,12 +79,29 @@ export async function handleAbuseMailboxUnsubscribe(
   if (!email || !email.includes("@")) {
     return new Response("Missing or invalid 'email' param", { status: 400 });
   }
+  // PR-BR: cap at RFC 5321 max (320 chars). Bounds HMAC input,
+  // TextEncoder allocation, and downstream DB bind size in one place.
+  if (email.length > 320) {
+    return new Response("Invalid 'email' param", { status: 400 });
+  }
   if (!token) {
     return new Response("Missing token", { status: 400 });
   }
 
-  const secret =
-    env.ABUSE_UNSUBSCRIBE_SECRET ?? env.AVERROW_INTERNAL_SECRET ?? "";
+  // PR-BR: fail-closed when no secret is configured. Previously the
+  // empty-string fallback would still compute a deterministic HMAC,
+  // meaning anyone who knows the email + secret-of-empty-string
+  // could forge a token. Far less of an issue than the path being
+  // unreachable in prod (secrets are always set), but a misconfig
+  // shouldn't open auth bypass.
+  const secret = env.ABUSE_UNSUBSCRIBE_SECRET ?? env.AVERROW_INTERNAL_SECRET;
+  if (!secret) {
+    console.error(
+      "[abuse-mailbox-unsubscribe] no ABUSE_UNSUBSCRIBE_SECRET or " +
+      "AVERROW_INTERNAL_SECRET configured — failing closed",
+    );
+    return new Response("Service not configured", { status: 503 });
+  }
   const expected = await hmacToken(email, secret);
   // PR-BQ: constant-time compare. The 16-hex token has limited
   // entropy and Cloudflare's network jitter dominates a real-world
