@@ -17,6 +17,7 @@ import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { Pipelines }         from './metrics/Pipelines';
 import { D1Budget }          from './metrics/D1Budget';
 import { AiSpend }           from './metrics/AiSpend';
+import { CostOptimization }  from './metrics/CostOptimization';
 import { GeoCoverage }       from './metrics/GeoCoverage';
 import { FeedFailures }      from './metrics/FeedFailures';
 
@@ -25,16 +26,18 @@ type TabId =
   | 'pipelines'
   | 'd1-budget'
   | 'ai-spend'
+  | 'cost-optimization'
   | 'geo-coverage'
   | 'feed-failures';
 
 const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
-  { id: 'summary',       label: 'Summary'       },
-  { id: 'pipelines',     label: 'Pipelines'     },
-  { id: 'd1-budget',     label: 'D1 Budget'     },
-  { id: 'ai-spend',      label: 'AI Spend'      },
-  { id: 'geo-coverage',  label: 'Geo Coverage'  },
-  { id: 'feed-failures', label: 'Feed Failures' },
+  { id: 'summary',           label: 'Summary'          },
+  { id: 'pipelines',         label: 'Pipelines'        },
+  { id: 'd1-budget',         label: 'D1 Budget'        },
+  { id: 'ai-spend',          label: 'AI Spend'         },
+  { id: 'cost-optimization', label: 'Cost Optimization'},
+  { id: 'geo-coverage',      label: 'Geo Coverage'     },
+  { id: 'feed-failures',     label: 'Feed Failures'    },
 ];
 
 const DEFAULT_TAB: TabId = 'summary';
@@ -59,6 +62,9 @@ function SummaryView({ agents }: { agents: ReturnType<typeof useAgents>['data'] 
       </SummaryBlock>
       <SummaryBlock label="AI Spend">
         <AiSpend />
+      </SummaryBlock>
+      <SummaryBlock label="Cost Optimization">
+        <CostOptimization />
       </SummaryBlock>
       <SummaryBlock label="Geo Coverage">
         <GeoCoverage />
@@ -121,12 +127,13 @@ export function Metrics() {
         variant="pills"
       />
 
-      {activeTab === 'summary'       && <SummaryView agents={agents} />}
-      {activeTab === 'pipelines'     && <Pipelines agents={agents} />}
-      {activeTab === 'd1-budget'     && <D1Budget />}
-      {activeTab === 'ai-spend'      && <AiSpend />}
-      {activeTab === 'geo-coverage'  && <GeoCoverage />}
-      {activeTab === 'feed-failures' && <FeedFailures />}
+      {activeTab === 'summary'           && <SummaryView agents={agents} />}
+      {activeTab === 'pipelines'         && <Pipelines agents={agents} />}
+      {activeTab === 'd1-budget'         && <D1Budget />}
+      {activeTab === 'ai-spend'          && <AiSpend />}
+      {activeTab === 'cost-optimization' && <CostOptimization />}
+      {activeTab === 'geo-coverage'      && <GeoCoverage />}
+      {activeTab === 'feed-failures'     && <FeedFailures />}
     </div>
   );
 }

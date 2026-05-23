@@ -16,6 +16,7 @@ import {
   handlePipelineDetail,
   handleD1Budget,
   handleMetricsAiSpend,
+  handleMetricsAiCostOptimization,
   handleMetricsGeoCoverage,
   handleMetricsFeedFailures,
   handleAttributionBacklog,
@@ -98,6 +99,15 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleMetricsAiSpend(request, env);
+  });
+  // Sibling of /ai-spend, focused on the cost-reduction plan tracked in
+  // /root/.claude/plans/can-you-review-the-purring-pearl.md. Returns
+  // per-call efficiency metrics for the three focus agents +
+  // cartographer's 30-day daily series + the static lever roster.
+  router.get("/api/admin/metrics/ai-cost-optimization", async (request: Request, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleMetricsAiCostOptimization(request, env);
   });
   router.get("/api/admin/metrics/geo-coverage", async (request: Request, env: Env) => {
     const ctx = await requireAdmin(request, env);
