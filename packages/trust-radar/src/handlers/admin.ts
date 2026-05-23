@@ -3090,6 +3090,225 @@ export async function handleMetricsAiSpend(
   return json(body, 200, origin);
 }
 
+// ─── AI Cost Optimization (Metrics page section 6) ──────────────
+//
+// GET /api/admin/metrics/ai-cost-optimization
+//
+// Measurement endpoint for the AI cost-reduction plan tracked in
+// /root/.claude/plans/can-you-review-the-purring-pearl.md. The
+// existing AI Spend tab answers "what does the platform cost?";
+// this one answers "are the cost-reduction levers working?".
+//
+// Three things make this view distinct from AI Spend:
+//
+// 1) Per-call efficiency, not totals. Output-token trim and
+//    schema-tightening drop cost-per-call and the output:input
+//    token ratio. Operators see the line move down as levers ship.
+//
+// 2) Focus agents. Cartographer (71% of spend), Analyst (17%),
+//    Sentinel (9%) account for 97% of cost. Each gets a dedicated
+//    card with the metrics that matter for ITS specific lever
+//    (e.g. cartographer's out:in ratio is the key indicator that
+//    Lever #1's schema-tightening landed).
+//
+// 3) Lever roster. Static list of the levers + their current
+//    status. Operators can see at a glance "what's deployed?"
+//    without reading the plan file.
+//
+// Cached at 5 min — same cadence as AI Spend since the source
+// table (budget_ledger) is the same.
+export async function handleMetricsAiCostOptimization(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  const cacheKey = "metrics_ai_cost_optimization:v1";
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  // The plan targets these three agents specifically. Order matters
+  // for the UI — cartographer is the headline lever.
+  const FOCUS_AGENTS = ["cartographer", "analyst", "sentinel"] as const;
+
+  // Per-agent windowed metrics. Each row carries enough to compute
+  // cost-per-call + out:in ratio on the frontend without a second
+  // round-trip.
+  const perAgentQuery = (windowDays: number) => env.DB.prepare(`
+    SELECT agent_id,
+           COUNT(*)                          AS calls,
+           COALESCE(SUM(input_tokens),  0)   AS input_tokens,
+           COALESCE(SUM(output_tokens), 0)   AS output_tokens,
+           COALESCE(SUM(cost_usd),      0)   AS cost_usd
+      FROM budget_ledger
+     WHERE created_at >= datetime('now', ?)
+       AND agent_id IN (?, ?, ?)
+     GROUP BY agent_id
+  `).bind(`-${windowDays} days`, FOCUS_AGENTS[0], FOCUS_AGENTS[1], FOCUS_AGENTS[2]);
+
+  // Cartographer-specific daily series for the trend chart. The key
+  // indicator for Lever #1 (output-schema tightening) is the
+  // output:input ratio dropping over time. Lever #1b (in-prompt
+  // batching) shows up as call-count dropping while record volume
+  // stays constant. Lever #6 (Message Batches API) would land as a
+  // cost-per-call drop (~50%) on the cartographer line.
+  const cartDailyQuery = env.DB.prepare(`
+    SELECT date(created_at)              AS day,
+           COUNT(*)                      AS calls,
+           COALESCE(SUM(input_tokens),  0) AS input_tokens,
+           COALESCE(SUM(output_tokens), 0) AS output_tokens,
+           COALESCE(SUM(cost_usd),      0) AS cost_usd
+      FROM budget_ledger
+     WHERE created_at >= datetime('now', '-30 days')
+       AND agent_id = 'cartographer'
+     GROUP BY day
+     ORDER BY day ASC
+  `);
+
+  const [w24h, w7d, w30d, cartDaily] = await Promise.all([
+    perAgentQuery(1).all<PerAgentRow>(),
+    perAgentQuery(7).all<PerAgentRow>(),
+    perAgentQuery(30).all<PerAgentRow>(),
+    cartDailyQuery.all<{
+      day: string;
+      calls: number;
+      input_tokens: number;
+      output_tokens: number;
+      cost_usd: number;
+    }>(),
+  ]);
+
+  // Reshape windowed rows into a per-agent map keyed by agent_id, so
+  // the frontend can pluck cartographer/analyst/sentinel in any order
+  // without dealing with absent rows (an agent with zero calls in
+  // window N comes back as missing — we fill with zeros).
+  const empty: PerAgentMetrics = {
+    calls: 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    cost_usd: 0,
+  };
+  const pivot = (rows: PerAgentRow[]): Record<string, PerAgentMetrics> => {
+    const out: Record<string, PerAgentMetrics> = {};
+    for (const a of FOCUS_AGENTS) out[a] = { ...empty };
+    for (const row of rows) {
+      out[row.agent_id] = {
+        calls: row.calls,
+        input_tokens: row.input_tokens,
+        output_tokens: row.output_tokens,
+        cost_usd: row.cost_usd,
+      };
+    }
+    return out;
+  };
+
+  // The static lever roster. Mirrors the plan file's "Recommended
+  // priority order" section. The `status` field is hand-edited as
+  // each lever lands — there's no auto-detection because the plan
+  // doesn't yet have any commits enabling it.
+  //
+  // When a lever ships, flip its status to 'deployed' AND set
+  // deployed_at to the deploy date (UTC) — operators can then
+  // measure the before/after on the chart by eye.
+  const levers: LeverStatus[] = [
+    {
+      id: "lever_1",
+      title: "Cartographer scoreProvider output-schema tightening",
+      target_agent: "cartographer",
+      status: "planned",
+      estimated_savings_usd_per_year: 850,
+      deployed_at: null,
+      indicator: "out:in ratio drops below 0.5 on cartographer",
+    },
+    {
+      id: "lever_1b",
+      title: "Cartographer in-prompt batching (N providers/call)",
+      target_agent: "cartographer",
+      status: "planned",
+      estimated_savings_usd_per_year: 200,
+      deployed_at: null,
+      indicator: "calls/day on cartographer drop without record volume changing",
+    },
+    {
+      id: "lever_2",
+      title: "Analyst keyword pre-match expansion",
+      target_agent: "analyst",
+      status: "planned",
+      estimated_savings_usd_per_year: 250,
+      deployed_at: null,
+      indicator: "calls/day on analyst drop",
+    },
+    {
+      id: "lever_3",
+      title: "Sentinel sibling-domain deduplication + tighter response JSON",
+      target_agent: "sentinel",
+      status: "planned",
+      estimated_savings_usd_per_year: 125,
+      deployed_at: null,
+      indicator: "calls/day on sentinel drop; out:in ratio drops",
+    },
+    {
+      id: "lever_4",
+      title: "Add cache_control plumbing to lib/anthropic.ts",
+      target_agent: "(infra)",
+      status: "planned",
+      estimated_savings_usd_per_year: 0,
+      deployed_at: null,
+      indicator: "infra-only — no immediate cost change",
+    },
+    {
+      id: "lever_6",
+      title: "Cartographer Message Batches API (50% async discount)",
+      target_agent: "cartographer",
+      status: "planned",
+      estimated_savings_usd_per_year: 675,
+      deployed_at: null,
+      indicator: "cost/call on cartographer drops ~50% post-cutover",
+    },
+  ];
+
+  const data = {
+    focus_agents: FOCUS_AGENTS,
+    windows: {
+      "24h": pivot(w24h.results),
+      "7d": pivot(w7d.results),
+      "30d": pivot(w30d.results),
+    },
+    cartographer_daily_30d: cartDaily.results,
+    levers,
+    generated_at: new Date().toISOString(),
+  };
+
+  const body = { success: true, data };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 300 });
+  return json(body, 200, origin);
+}
+
+interface PerAgentRow {
+  agent_id: string;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
+interface PerAgentMetrics {
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
+interface LeverStatus {
+  id: string;
+  title: string;
+  target_agent: string;
+  status: "planned" | "in_progress" | "deployed";
+  estimated_savings_usd_per_year: number;
+  deployed_at: string | null;
+  indicator: string;
+}
+
 // ─── Geo Coverage Trend (Metrics page section 4) ────────────────
 //
 // GET /api/admin/metrics/geo-coverage

@@ -166,6 +166,60 @@ export function useAiSpend() {
   });
 }
 
+// ─── AI Cost Optimization Tracker ────────────────────────────────
+
+export interface AiCostOptAgentMetrics {
+  calls:         number;
+  input_tokens:  number;
+  output_tokens: number;
+  cost_usd:      number;
+}
+
+export interface AiCostOptCartographerDaily {
+  day:           string;
+  calls:         number;
+  input_tokens:  number;
+  output_tokens: number;
+  cost_usd:      number;
+}
+
+export type LeverStatus = 'planned' | 'in_progress' | 'deployed';
+
+export interface AiCostOptLever {
+  id:                              string;
+  title:                           string;
+  target_agent:                    string;
+  status:                          LeverStatus;
+  estimated_savings_usd_per_year:  number;
+  deployed_at:                     string | null;
+  indicator:                       string;
+}
+
+export interface AiCostOptPayload {
+  focus_agents: string[];
+  windows: {
+    '24h': Record<string, AiCostOptAgentMetrics>;
+    '7d':  Record<string, AiCostOptAgentMetrics>;
+    '30d': Record<string, AiCostOptAgentMetrics>;
+  };
+  cartographer_daily_30d: AiCostOptCartographerDaily[];
+  levers:                 AiCostOptLever[];
+  generated_at:           string;
+}
+
+export function useAiCostOptimization() {
+  return useQuery({
+    queryKey: ['metrics-ai-cost-optimization'],
+    queryFn: async () => {
+      const res = await api.get<AiCostOptPayload>('/api/admin/metrics/ai-cost-optimization');
+      return res.data ?? null;
+    },
+    placeholderData: keepPreviousData,
+    // Backend caches at 5 min — match cadence.
+    refetchInterval: 300_000,
+  });
+}
+
 // ─── Geo Coverage Trend ─────────────────────────────────────────
 
 export interface GeoCoverageWindow {

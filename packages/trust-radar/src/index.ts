@@ -557,6 +557,14 @@ export default {
           const { handleBudgetLedgerHealth } = await import('./handlers/admin');
           return handleBudgetLedgerHealth(request, env);
         }
+        // Sibling of /api/admin/metrics/ai-cost-optimization for
+        // programmatic / CLI access. Powers the cost-optimization
+        // diagnostics path so claude-from-CLI can measure the
+        // effectiveness of the plan without a JWT.
+        if (url.pathname === '/api/internal/metrics/ai-cost-optimization') {
+          const { handleMetricsAiCostOptimization } = await import('./handlers/admin');
+          return handleMetricsAiCostOptimization(request, env);
+        }
         if (url.pathname.startsWith('/api/internal/agents/') && url.pathname.endsWith('/health')) {
           const agentName = url.pathname.replace('/api/internal/agents/', '').replace('/health', '');
           const { handleAgentHealth } = await import('./handlers/agents');
