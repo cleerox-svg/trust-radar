@@ -69,8 +69,21 @@ export function parseAuthResults(headers: Record<string, string>): AuthResults {
   };
 }
 
-function matchVerdict(flat: string, method: string): AuthVerdict | null {
-  const re = new RegExp(`${method}=([a-z]+)`, "i");
+// PR-BR: static lookup of compiled patterns. Pre-fix, matchVerdict
+// built a fresh RegExp from a `method` parameter via string concat —
+// only called with hardcoded literals today, but a future caller
+// passing untrusted input would create a regex-injection surface.
+// Compiled-once table eliminates that footgun and is marginally
+// faster.
+const VERDICT_PATTERNS: Record<string, RegExp> = {
+  spf: /spf=([a-z]+)/i,
+  dkim: /dkim=([a-z]+)/i,
+  dmarc: /dmarc=([a-z]+)/i,
+};
+
+function matchVerdict(flat: string, method: "spf" | "dkim" | "dmarc"): AuthVerdict | null {
+  const re = VERDICT_PATTERNS[method];
+  if (!re) return null;
   const m = re.exec(flat);
   if (!m?.[1]) return null;
   const v = m[1].toLowerCase() as AuthVerdict;

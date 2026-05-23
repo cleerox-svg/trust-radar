@@ -200,9 +200,16 @@ export async function handleAbuseMailboxEmail(
     if (match) {
       matchedBrandId = match.brand_id;
       brandMatchSignal = match.signal;
+      // PR-BR: strip CR/LF before logging — matched_on is taken from
+      // attacker-controlled email subject / from-domain / body
+      // snippet. Newline injection in logs can corrupt log-parsing
+      // pipelines. Cloudflare's logs are JSON-encoded so impact is
+      // bounded, but the canonical strip is cheap.
+      const safeMatchedOn = match.matched_on.replace(/[\r\n\t]/g, " ").slice(0, 80);
+      const safeBrandName = match.brand_name.replace(/[\r\n\t]/g, " ");
       console.log(
-        `[abuse-mailbox] brand match: ${match.brand_name} ` +
-        `(${match.signal}, conf=${match.confidence}, on="${match.matched_on.slice(0, 80)}")`,
+        `[abuse-mailbox] brand match: ${safeBrandName} ` +
+        `(${match.signal}, conf=${match.confidence}, on="${safeMatchedOn}")`,
       );
     }
   } catch (err) {
