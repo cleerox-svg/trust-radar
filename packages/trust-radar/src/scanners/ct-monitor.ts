@@ -38,9 +38,12 @@ const FREE_CA_PATTERNS = [
   /ssl\.com.*free/i,
 ];
 
-const CRTSH_TIMEOUT_MS = 10_000;
+const CRTSH_TIMEOUT_MS = 20_000; // crt.sh is slow; 10s aborted nearly every query
 const BRAND_BATCH_SIZE = 10;
 const KV_CACHE_TTL = 3600; // 1 hour
+// crt.sh (behind its CDN) rejects requests with no User-Agent — a UA-less
+// fetch returns 403, which the catch below swallows as []. Send an explicit one.
+const CRTSH_USER_AGENT = "Averrow-CT-Monitor/1.0 (+https://averrow.com)";
 
 // ─── Main Poller ────────────────────────────────────────────────
 
@@ -174,7 +177,7 @@ async function fetchCrtSh(
 
   try {
     const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', 'User-Agent': CRTSH_USER_AGENT },
       signal: controller.signal,
     });
 
@@ -192,12 +195,18 @@ async function fetchCrtSh(
       return [];
     }
 
+    // crt.sh JSON isn't reliably newest-first. processCertEntries keeps only
+    // certs issued in the last 24h, so cap to the 200 MOST RECENT — otherwise
+    // an arbitrary 200-row sample can contain zero recent certs and store nothing.
+    entries.sort((a, b) => (b.not_before ?? '').localeCompare(a.not_before ?? ''));
+    const top = entries.slice(0, 200);
+
     // Cache results for 1 hour
-    await env.CACHE.put(cacheKey, JSON.stringify(entries.slice(0, 200)), {
+    await env.CACHE.put(cacheKey, JSON.stringify(top), {
       expirationTtl: KV_CACHE_TTL,
     });
 
-    return entries.slice(0, 200);
+    return top;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       logger.error('ct_monitor_crtsh_timeout', { query });
