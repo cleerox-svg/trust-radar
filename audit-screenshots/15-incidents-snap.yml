@@ -1,0 +1,287 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e199]:
+            - heading "Incidents" [level=1] [ref=e201]
+            - paragraph [ref=e202]: 14 open
+          - generic [ref=e204]:
+            - button "Open" [ref=e205] [cursor=pointer]
+            - button "All" [ref=e206] [cursor=pointer]
+          - generic [ref=e207]:
+            - 'link "Critical Provider surge: Weebly, Inc. 4,078 active threats 2d ago auto investigating" [ref=e208] [cursor=pointer]':
+              - /url: /v2/admin/incidents/0738c921-7d21-40d0-9b6a-0e0aa6cfd18d
+              - generic [ref=e209]: Critical
+              - generic [ref=e210]:
+                - generic [ref=e211]: "Provider surge: Weebly, Inc. 4,078 active threats"
+                - generic [ref=e212]:
+                  - generic [ref=e213]: 2d ago
+                  - generic [ref=e214]: auto
+              - generic [ref=e215]: investigating
+            - 'link "Critical Provider surge: Google LLC 4,160 active threats 2d ago auto investigating" [ref=e216] [cursor=pointer]':
+              - /url: /v2/admin/incidents/48e597b1-9be1-4097-92d8-28a5ed830543
+              - generic [ref=e217]: Critical
+              - generic [ref=e218]:
+                - generic [ref=e219]: "Provider surge: Google LLC 4,160 active threats"
+                - generic [ref=e220]:
+                  - generic [ref=e221]: 2d ago
+                  - generic [ref=e222]: auto
+              - generic [ref=e223]: investigating
+            - 'link "Critical Provider surge: Fastly, Inc. 12,757 active threats 2d ago auto investigating" [ref=e224] [cursor=pointer]':
+              - /url: /v2/admin/incidents/0932bbd5-7293-4da7-81cf-f822d13b1030
+              - generic [ref=e225]: Critical
+              - generic [ref=e226]:
+                - generic [ref=e227]: "Provider surge: Fastly, Inc. 12,757 active threats"
+                - generic [ref=e228]:
+                  - generic [ref=e229]: 2d ago
+                  - generic [ref=e230]: auto
+              - generic [ref=e231]: investigating
+            - 'link "Critical Provider surge: Amazon.com, Inc. 17,611 active threats 2d ago auto investigating" [ref=e232] [cursor=pointer]':
+              - /url: /v2/admin/incidents/6f073913-a417-440c-a163-f591ff17e2e5
+              - generic [ref=e233]: Critical
+              - generic [ref=e234]:
+                - generic [ref=e235]: "Provider surge: Amazon.com, Inc. 17,611 active threats"
+                - generic [ref=e236]:
+                  - generic [ref=e237]: 2d ago
+                  - generic [ref=e238]: auto
+              - generic [ref=e239]: investigating
+            - link "Critical Feed c2_tracker auto-paused after 5 failures 3d ago category:feeds auto monitoring" [ref=e240] [cursor=pointer]:
+              - /url: /v2/admin/incidents/c81cfd5b-3c26-450f-9436-5877eae6170f
+              - generic [ref=e241]: Critical
+              - generic [ref=e242]:
+                - generic [ref=e243]: Feed c2_tracker auto-paused after 5 failures
+                - generic [ref=e244]:
+                  - generic [ref=e245]: 3d ago
+                  - generic [ref=e246]: category:feeds
+                  - generic [ref=e247]: auto
+              - generic [ref=e248]: monitoring
+            - link "Critical Feed phishtank auto-paused after 5 failures 3d ago category:feeds auto monitoring" [ref=e249] [cursor=pointer]:
+              - /url: /v2/admin/incidents/5a6a644a-2fe8-4777-b71f-8e980565f0c2
+              - generic [ref=e250]: Critical
+              - generic [ref=e251]:
+                - generic [ref=e252]: Feed phishtank auto-paused after 5 failures
+                - generic [ref=e253]:
+                  - generic [ref=e254]: 3d ago
+                  - generic [ref=e255]: category:feeds
+                  - generic [ref=e256]: auto
+              - generic [ref=e257]: monitoring
+            - link "Critical Feed threatfox auto-paused after 5 failures 5d ago category:feeds auto monitoring" [ref=e258] [cursor=pointer]:
+              - /url: /v2/admin/incidents/13f38d58-bd38-41d1-a5bb-560db9e08212
+              - generic [ref=e259]: Critical
+              - generic [ref=e260]:
+                - generic [ref=e261]: Feed threatfox auto-paused after 5 failures
+                - generic [ref=e262]:
+                  - generic [ref=e263]: 5d ago
+                  - generic [ref=e264]: category:feeds
+                  - generic [ref=e265]: auto
+              - generic [ref=e266]: monitoring
+            - link "Critical D1 daily reads exceeded plan (105%) 10d ago category:processing auto monitoring" [ref=e267] [cursor=pointer]:
+              - /url: /v2/admin/incidents/91c69cbb-61c5-4a48-b1ee-fa134f5b409a
+              - generic [ref=e268]: Critical
+              - generic [ref=e269]:
+                - generic [ref=e270]: D1 daily reads exceeded plan (105%)
+                - generic [ref=e271]:
+                  - generic [ref=e272]: 10d ago
+                  - generic [ref=e273]: category:processing
+                  - generic [ref=e274]: auto
+              - generic [ref=e275]: monitoring
+            - link "Critical D1 daily reads exceeded plan (185%) 11d ago category:processing auto monitoring" [ref=e276] [cursor=pointer]:
+              - /url: /v2/admin/incidents/68ea7359-b589-4655-9143-18f84a34b613
+              - generic [ref=e277]: Critical
+              - generic [ref=e278]:
+                - generic [ref=e279]: D1 daily reads exceeded plan (185%)
+                - generic [ref=e280]:
+                  - generic [ref=e281]: 11d ago
+                  - generic [ref=e282]: category:processing
+                  - generic [ref=e283]: auto
+              - generic [ref=e284]: monitoring
+            - link "Critical D1 daily reads exceeded plan (119%) 11d ago category:processing auto monitoring" [ref=e285] [cursor=pointer]:
+              - /url: /v2/admin/incidents/4126cec3-7cd2-44f9-bb29-1e0f38229495
+              - generic [ref=e286]: Critical
+              - generic [ref=e287]:
+                - generic [ref=e288]: D1 daily reads exceeded plan (119%)
+                - generic [ref=e289]:
+                  - generic [ref=e290]: 11d ago
+                  - generic [ref=e291]: category:processing
+                  - generic [ref=e292]: auto
+              - generic [ref=e293]: monitoring
+            - link "Critical Feed taxii_otx auto-paused after 5 failures 15d ago category:feeds auto monitoring" [ref=e294] [cursor=pointer]:
+              - /url: /v2/admin/incidents/0a26bbfe-c809-4bff-a2fd-85ea0144f8e9
+              - generic [ref=e295]: Critical
+              - generic [ref=e296]:
+                - generic [ref=e297]: Feed taxii_otx auto-paused after 5 failures
+                - generic [ref=e298]:
+                  - generic [ref=e299]: 15d ago
+                  - generic [ref=e300]: category:feeds
+                  - generic [ref=e301]: auto
+              - generic [ref=e302]: monitoring
+            - link "Critical Feed taxii_otx auto-paused after 5 failures 15d ago category:feeds auto monitoring" [ref=e303] [cursor=pointer]:
+              - /url: /v2/admin/incidents/30497495-6637-4eaa-a0c6-1e9d738d5bf6
+              - generic [ref=e304]: Critical
+              - generic [ref=e305]:
+                - generic [ref=e306]: Feed taxii_otx auto-paused after 5 failures
+                - generic [ref=e307]:
+                  - generic [ref=e308]: 15d ago
+                  - generic [ref=e309]: category:feeds
+                  - generic [ref=e310]: auto
+              - generic [ref=e311]: monitoring
+            - link "Critical Feed otx_alienvault auto-paused after 5 failures 18d ago category:feeds auto monitoring" [ref=e312] [cursor=pointer]:
+              - /url: /v2/admin/incidents/ab63481b-228c-4856-b2c9-d799b476fb1a
+              - generic [ref=e313]: Critical
+              - generic [ref=e314]:
+                - generic [ref=e315]: Feed otx_alienvault auto-paused after 5 failures
+                - generic [ref=e316]:
+                  - generic [ref=e317]: 18d ago
+                  - generic [ref=e318]: category:feeds
+                  - generic [ref=e319]: auto
+              - generic [ref=e320]: monitoring
+            - link "Medium Cartographer reaped repeatedly — agents category degraded 15d ago agent:cartographer · category:agents PUBLIC monitoring" [ref=e321] [cursor=pointer]:
+              - /url: /v2/admin/incidents/inc_2026_05_12_carto_degradation
+              - generic [ref=e322]: Medium
+              - generic [ref=e323]:
+                - generic [ref=e324]: Cartographer reaped repeatedly — agents category degraded
+                - generic [ref=e325]:
+                  - generic [ref=e326]: 15d ago
+                  - generic [ref=e327]: agent:cartographer · category:agents
+                  - generic [ref=e328]: PUBLIC
+              - generic [ref=e329]: monitoring
+  - dialog "Sign in faster next time?" [ref=e330]:
+    - generic [ref=e331]:
+      - img [ref=e333]
+      - heading "Sign in faster next time?" [level=2] [ref=e336]
+      - paragraph [ref=e337]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e338]:
+        - button "Set up biometric" [ref=e339] [cursor=pointer]
+        - button "Maybe later" [ref=e340] [cursor=pointer]
+      - paragraph [ref=e341]: You can add or remove passkeys anytime from your Profile.

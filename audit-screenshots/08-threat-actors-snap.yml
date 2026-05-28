@@ -1,0 +1,1054 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e199]:
+            - heading "Threat Actors" [level=1] [ref=e201]
+            - paragraph [ref=e202]: State-sponsored and organized threat actor profiles — infrastructure, TTPs, and targeted brands
+          - generic [ref=e203]:
+            - generic [ref=e204]:
+              - generic [ref=e205]: Tracked Actors
+              - generic [ref=e206]:
+                - generic [ref=e208]:
+                  - generic [ref=e210]: Active
+                  - generic [ref=e211]: "60"
+                - generic [ref=e213]:
+                  - generic [ref=e214]: "60"
+                  - generic [ref=e215]: Total
+            - generic [ref=e216]:
+              - generic [ref=e217]: Infrastructure
+              - generic [ref=e218]:
+                - generic [ref=e222]: ASNs / IPs / Domains
+                - generic [ref=e224]:
+                  - generic [ref=e225]: "7"
+                  - generic [ref=e226]: Tracked
+            - generic [ref=e227]:
+              - generic [ref=e228]: Targeted Brands
+              - generic [ref=e229]:
+                - generic [ref=e233]: In crosshairs
+                - generic [ref=e235]:
+                  - generic [ref=e236]: "0"
+                  - generic [ref=e237]: Brands
+            - generic [ref=e238]:
+              - generic [ref=e239]: By Attribution
+              - generic [ref=e240]:
+                - generic [ref=e242]:
+                  - generic [ref=e243]:
+                    - generic [ref=e245]: MOIS
+                    - generic [ref=e246]: "4"
+                  - generic [ref=e247]:
+                    - generic [ref=e249]: IRGC
+                    - generic [ref=e250]: "3"
+                - generic [ref=e252]:
+                  - generic [ref=e253]: "2"
+                  - generic [ref=e254]: Groups
+          - generic [ref=e256]:
+            - button "All" [ref=e257] [cursor=pointer]
+            - button "🇮🇷 IR" [ref=e258] [cursor=pointer]
+            - button "🇷🇺 RU" [ref=e259] [cursor=pointer]
+            - button "🇨🇳 CN" [ref=e260] [cursor=pointer]
+            - button "🇰🇵 KP" [ref=e261] [cursor=pointer]
+          - generic [ref=e262]:
+            - generic [ref=e263] [cursor=pointer]:
+              - generic [ref=e264]:
+                - generic [ref=e267]: "?"
+                - generic [ref=e270]:
+                  - generic [ref=e271]: JINX-0164
+                  - generic [ref=e272]: Active
+              - generic [ref=e277]:
+                - generic [ref=e278]:
+                  - generic [ref=e279]: ATTRIBUTIONS
+                  - generic [ref=e280]: "25"
+                - generic [ref=e281]:
+                  - generic [ref=e282]: RECENT 7D
+                  - generic [ref=e283]: "25"
+                - generic [ref=e284]:
+                  - generic [ref=e285]: INFRASTRUCTURE
+                  - generic [ref=e286]: "0"
+              - generic [ref=e288]: Last seen 2h ago
+            - generic [ref=e289] [cursor=pointer]:
+              - generic [ref=e290]:
+                - generic [ref=e293]: "?"
+                - generic [ref=e296]:
+                  - generic [ref=e297]: Storm-2697
+                  - generic [ref=e298]: Active
+              - generic [ref=e303]:
+                - generic [ref=e304]:
+                  - generic [ref=e305]: ATTRIBUTIONS
+                  - generic [ref=e306]: "0"
+                - generic [ref=e307]:
+                  - generic [ref=e308]: RECENT 7D
+                  - generic [ref=e309]: "0"
+                - generic [ref=e310]:
+                  - generic [ref=e311]: INFRASTRUCTURE
+                  - generic [ref=e312]: "0"
+              - generic [ref=e314]: Last seen 26m ago
+            - generic [ref=e315] [cursor=pointer]:
+              - generic [ref=e316]:
+                - generic [ref=e319]: "?"
+                - generic [ref=e322]:
+                  - generic [ref=e323]: CL-CRI-1116
+                  - generic [ref=e324]: Active
+              - generic [ref=e329]:
+                - generic [ref=e330]:
+                  - generic [ref=e331]: ATTRIBUTIONS
+                  - generic [ref=e332]: "0"
+                - generic [ref=e333]:
+                  - generic [ref=e334]: RECENT 7D
+                  - generic [ref=e335]: "0"
+                - generic [ref=e336]:
+                  - generic [ref=e337]: INFRASTRUCTURE
+                  - generic [ref=e338]: "0"
+              - generic [ref=e340]: Last seen 2h ago
+            - generic [ref=e341] [cursor=pointer]:
+              - generic [ref=e342]:
+                - generic [ref=e345]: United States of America
+                - generic [ref=e348]:
+                  - generic [ref=e349]: GHOST STADIUM
+                  - generic [ref=e350]: Active
+              - generic [ref=e355]:
+                - generic [ref=e356]:
+                  - generic [ref=e357]: ATTRIBUTIONS
+                  - generic [ref=e358]: "54"
+                - generic [ref=e359]:
+                  - generic [ref=e360]: RECENT 7D
+                  - generic [ref=e361]: "54"
+                - generic [ref=e362]:
+                  - generic [ref=e363]: INFRASTRUCTURE
+                  - generic [ref=e364]: "0"
+              - generic [ref=e366]: Last seen 1d ago
+            - generic [ref=e367] [cursor=pointer]:
+              - generic [ref=e368]:
+                - generic [ref=e370]: 🇰🇷
+                - generic [ref=e373]:
+                  - generic [ref=e374]: Lazarus Group
+                  - generic [ref=e375]: Active
+              - generic [ref=e380]:
+                - generic [ref=e381]:
+                  - generic [ref=e382]: ATTRIBUTIONS
+                  - generic [ref=e383]: "115"
+                - generic [ref=e384]:
+                  - generic [ref=e385]: RECENT 7D
+                  - generic [ref=e386]: "15"
+                - generic [ref=e387]:
+                  - generic [ref=e388]: INFRASTRUCTURE
+                  - generic [ref=e389]: "0"
+              - generic [ref=e391]: Last seen 3d ago
+            - generic [ref=e392] [cursor=pointer]:
+              - generic [ref=e393]:
+                - generic [ref=e396]: United States of America
+                - generic [ref=e399]:
+                  - generic [ref=e400]: Nimbus Manticore
+                  - generic [ref=e401]: Active
+              - generic [ref=e406]:
+                - generic [ref=e407]:
+                  - generic [ref=e408]: ATTRIBUTIONS
+                  - generic [ref=e409]: "3"
+                - generic [ref=e410]:
+                  - generic [ref=e411]: RECENT 7D
+                  - generic [ref=e412]: "3"
+                - generic [ref=e413]:
+                  - generic [ref=e414]: INFRASTRUCTURE
+                  - generic [ref=e415]: "0"
+              - generic [ref=e417]: Last seen 3d ago
+            - generic [ref=e418] [cursor=pointer]:
+              - generic [ref=e419]:
+                - generic [ref=e422]: Belarus
+                - generic [ref=e425]:
+                  - generic [ref=e426]: Inception Framework
+                  - generic [ref=e427]: Active
+              - generic [ref=e432]:
+                - generic [ref=e433]:
+                  - generic [ref=e434]: ATTRIBUTIONS
+                  - generic [ref=e435]: "38"
+                - generic [ref=e436]:
+                  - generic [ref=e437]: RECENT 7D
+                  - generic [ref=e438]: "38"
+                - generic [ref=e439]:
+                  - generic [ref=e440]: INFRASTRUCTURE
+                  - generic [ref=e441]: "0"
+              - generic [ref=e443]: Last seen 3d ago
+            - generic [ref=e444] [cursor=pointer]:
+              - generic [ref=e445]:
+                - generic [ref=e448]: United States of America
+                - generic [ref=e451]:
+                  - generic [ref=e452]: Screening Serpens
+                  - generic [ref=e453]: Active
+              - generic [ref=e458]:
+                - generic [ref=e459]:
+                  - generic [ref=e460]: ATTRIBUTIONS
+                  - generic [ref=e461]: "1"
+                - generic [ref=e462]:
+                  - generic [ref=e463]: RECENT 7D
+                  - generic [ref=e464]: "1"
+                - generic [ref=e465]:
+                  - generic [ref=e466]: INFRASTRUCTURE
+                  - generic [ref=e467]: "0"
+              - generic [ref=e469]: Last seen 3d ago
+            - generic [ref=e470] [cursor=pointer]:
+              - generic [ref=e471]:
+                - generic [ref=e474]: Mongolia
+                - generic [ref=e477]:
+                  - generic [ref=e478]: GopherWhisper
+                  - generic [ref=e479]: Active
+              - generic [ref=e484]:
+                - generic [ref=e485]:
+                  - generic [ref=e486]: ATTRIBUTIONS
+                  - generic [ref=e487]: "0"
+                - generic [ref=e488]:
+                  - generic [ref=e489]: RECENT 7D
+                  - generic [ref=e490]: "0"
+                - generic [ref=e491]:
+                  - generic [ref=e492]: INFRASTRUCTURE
+                  - generic [ref=e493]: "0"
+              - generic [ref=e495]: Last seen 4d ago
+            - generic [ref=e496] [cursor=pointer]:
+              - generic [ref=e497]:
+                - generic [ref=e499]: 🇮🇷
+                - generic [ref=e501]:
+                  - generic [ref=e502]:
+                    - generic [ref=e503]: MuddyWater
+                    - generic [ref=e504]: Active
+                  - generic [ref=e508]: MOIS · aka Mercury, Mango Sandstorm +2
+              - generic [ref=e509]:
+                - generic [ref=e510]:
+                  - generic [ref=e511]:
+                    - generic [ref=e512]: ATTRIBUTIONS
+                    - generic [ref=e513]: "15"
+                  - generic [ref=e514]:
+                    - generic [ref=e515]: RECENT 7D
+                    - generic [ref=e516]: "12"
+                  - generic [ref=e517]:
+                    - generic [ref=e518]: INFRASTRUCTURE
+                    - generic [ref=e519]: "1"
+                - generic [ref=e520]:
+                  - img [ref=e523]
+                  - generic [ref=e528]: 14d shape
+              - generic [ref=e529]:
+                - generic [ref=e530]: spear_phishing
+                - generic [ref=e531]: tunneling_tools
+                - generic [ref=e532]: powershell_backdoors
+                - generic [ref=e533]: lateral_movement
+              - generic [ref=e534]:
+                - generic [ref=e535]: espionage
+                - generic [ref=e536]: Last seen 5d ago
+            - generic [ref=e537] [cursor=pointer]:
+              - generic [ref=e538]:
+                - generic [ref=e541]: "?"
+                - generic [ref=e544]:
+                  - generic [ref=e545]: Tropic Trooper
+                  - generic [ref=e546]: Active
+              - generic [ref=e551]:
+                - generic [ref=e552]:
+                  - generic [ref=e553]: ATTRIBUTIONS
+                  - generic [ref=e554]: "4"
+                - generic [ref=e555]:
+                  - generic [ref=e556]: RECENT 7D
+                  - generic [ref=e557]: "4"
+                - generic [ref=e558]:
+                  - generic [ref=e559]: INFRASTRUCTURE
+                  - generic [ref=e560]: "0"
+              - generic [ref=e562]: Last seen 5d ago
+            - generic [ref=e563] [cursor=pointer]:
+              - generic [ref=e564]:
+                - generic [ref=e567]: United States of America
+                - generic [ref=e570]:
+                  - generic [ref=e571]: DPRK
+                  - generic [ref=e572]: Active
+              - generic [ref=e577]:
+                - generic [ref=e578]:
+                  - generic [ref=e579]: ATTRIBUTIONS
+                  - generic [ref=e580]: "2"
+                - generic [ref=e581]:
+                  - generic [ref=e582]: RECENT 7D
+                  - generic [ref=e583]: "2"
+                - generic [ref=e584]:
+                  - generic [ref=e585]: INFRASTRUCTURE
+                  - generic [ref=e586]: "0"
+              - generic [ref=e588]: Last seen 5d ago
+            - generic [ref=e589] [cursor=pointer]:
+              - generic [ref=e590]:
+                - generic [ref=e593]: "?"
+                - generic [ref=e596]:
+                  - generic [ref=e597]: TeamPCP
+                  - generic [ref=e598]: Active
+              - generic [ref=e603]:
+                - generic [ref=e604]:
+                  - generic [ref=e605]: ATTRIBUTIONS
+                  - generic [ref=e606]: "8"
+                - generic [ref=e607]:
+                  - generic [ref=e608]: RECENT 7D
+                  - generic [ref=e609]: "1"
+                - generic [ref=e610]:
+                  - generic [ref=e611]: INFRASTRUCTURE
+                  - generic [ref=e612]: "0"
+              - generic [ref=e614]: Last seen 5d ago
+            - generic [ref=e615] [cursor=pointer]:
+              - generic [ref=e616]:
+                - generic [ref=e619]: "?"
+                - generic [ref=e622]:
+                  - generic [ref=e623]: DataBreachPlus
+                  - generic [ref=e624]: Active
+              - generic [ref=e629]:
+                - generic [ref=e630]:
+                  - generic [ref=e631]: ATTRIBUTIONS
+                  - generic [ref=e632]: "14"
+                - generic [ref=e633]:
+                  - generic [ref=e634]: RECENT 7D
+                  - generic [ref=e635]: "14"
+                - generic [ref=e636]:
+                  - generic [ref=e637]: INFRASTRUCTURE
+                  - generic [ref=e638]: "0"
+              - generic [ref=e640]: Last seen 6d ago
+            - generic [ref=e641] [cursor=pointer]:
+              - generic [ref=e642]:
+                - generic [ref=e645]: "?"
+                - generic [ref=e648]:
+                  - generic [ref=e649]: The Gentlemen
+                  - generic [ref=e650]: Active
+              - generic [ref=e655]:
+                - generic [ref=e656]:
+                  - generic [ref=e657]: ATTRIBUTIONS
+                  - generic [ref=e658]: "4"
+                - generic [ref=e659]:
+                  - generic [ref=e660]: RECENT 7D
+                  - generic [ref=e661]: "2"
+                - generic [ref=e662]:
+                  - generic [ref=e663]: INFRASTRUCTURE
+                  - generic [ref=e664]: "0"
+              - generic [ref=e666]: Last seen 6d ago
+            - generic [ref=e667] [cursor=pointer]:
+              - generic [ref=e668]:
+                - generic [ref=e671]: "?"
+                - generic [ref=e674]:
+                  - generic [ref=e675]: Eagle Werewolf, ENERGETIC BEAR, Velvet Tempest, APT28, GrayCharlie
+                  - generic [ref=e676]: Active
+              - generic [ref=e681]:
+                - generic [ref=e682]:
+                  - generic [ref=e683]: ATTRIBUTIONS
+                  - generic [ref=e684]: "5"
+                - generic [ref=e685]:
+                  - generic [ref=e686]: RECENT 7D
+                  - generic [ref=e687]: "5"
+                - generic [ref=e688]:
+                  - generic [ref=e689]: INFRASTRUCTURE
+                  - generic [ref=e690]: "0"
+              - generic [ref=e692]: Last seen 6d ago
+            - generic [ref=e693] [cursor=pointer]:
+              - generic [ref=e694]:
+                - generic [ref=e697]: "?"
+                - generic [ref=e700]:
+                  - generic [ref=e701]: Mustang Panda
+                  - generic [ref=e702]: Active
+              - generic [ref=e707]:
+                - generic [ref=e708]:
+                  - generic [ref=e709]: ATTRIBUTIONS
+                  - generic [ref=e710]: "3"
+                - generic [ref=e711]:
+                  - generic [ref=e712]: RECENT 7D
+                  - generic [ref=e713]: "1"
+                - generic [ref=e714]:
+                  - generic [ref=e715]: INFRASTRUCTURE
+                  - generic [ref=e716]: "0"
+              - generic [ref=e718]: Last seen 6d ago
+            - generic [ref=e719] [cursor=pointer]:
+              - generic [ref=e720]:
+                - generic [ref=e723]: United States of America
+                - generic [ref=e726]:
+                  - generic [ref=e727]: bandcampro
+                  - generic [ref=e728]: Active
+              - generic [ref=e733]:
+                - generic [ref=e734]:
+                  - generic [ref=e735]: ATTRIBUTIONS
+                  - generic [ref=e736]: "8"
+                - generic [ref=e737]:
+                  - generic [ref=e738]: RECENT 7D
+                  - generic [ref=e739]: "8"
+                - generic [ref=e740]:
+                  - generic [ref=e741]: INFRASTRUCTURE
+                  - generic [ref=e742]: "0"
+              - generic [ref=e744]: Last seen 6d ago
+            - generic [ref=e745] [cursor=pointer]:
+              - generic [ref=e746]:
+                - generic [ref=e749]: Belgium
+                - generic [ref=e752]:
+                  - generic [ref=e753]: Webworm
+                  - generic [ref=e754]: Active
+              - generic [ref=e759]:
+                - generic [ref=e760]:
+                  - generic [ref=e761]: ATTRIBUTIONS
+                  - generic [ref=e762]: "0"
+                - generic [ref=e763]:
+                  - generic [ref=e764]: RECENT 7D
+                  - generic [ref=e765]: "0"
+                - generic [ref=e766]:
+                  - generic [ref=e767]: INFRASTRUCTURE
+                  - generic [ref=e768]: "0"
+              - generic [ref=e770]: Last seen 6d ago
+            - generic [ref=e771] [cursor=pointer]:
+              - generic [ref=e772]:
+                - generic [ref=e775]: Lithuania
+                - generic [ref=e778]:
+                  - generic [ref=e779]: FrostyNeighbor
+                  - generic [ref=e780]: Active
+              - generic [ref=e785]:
+                - generic [ref=e786]:
+                  - generic [ref=e787]: ATTRIBUTIONS
+                  - generic [ref=e788]: "5"
+                - generic [ref=e789]:
+                  - generic [ref=e790]: RECENT 7D
+                  - generic [ref=e791]: "0"
+                - generic [ref=e792]:
+                  - generic [ref=e793]: INFRASTRUCTURE
+                  - generic [ref=e794]: "0"
+              - generic [ref=e796]: Last seen 7d ago
+            - generic [ref=e797] [cursor=pointer]:
+              - generic [ref=e798]:
+                - generic [ref=e801]: Azerbaijan
+                - generic [ref=e804]:
+                  - generic [ref=e805]: GhostEmperor
+                  - generic [ref=e806]: Active
+              - generic [ref=e811]:
+                - generic [ref=e812]:
+                  - generic [ref=e813]: ATTRIBUTIONS
+                  - generic [ref=e814]: "3"
+                - generic [ref=e815]:
+                  - generic [ref=e816]: RECENT 7D
+                  - generic [ref=e817]: "0"
+                - generic [ref=e818]:
+                  - generic [ref=e819]: INFRASTRUCTURE
+                  - generic [ref=e820]: "0"
+              - generic [ref=e822]: Last seen 7d ago
+            - generic [ref=e823] [cursor=pointer]:
+              - generic [ref=e824]:
+                - generic [ref=e827]: "?"
+                - generic [ref=e830]:
+                  - generic [ref=e831]: Kimsuky
+                  - generic [ref=e832]: Active
+              - generic [ref=e837]:
+                - generic [ref=e838]:
+                  - generic [ref=e839]: ATTRIBUTIONS
+                  - generic [ref=e840]: "27"
+                - generic [ref=e841]:
+                  - generic [ref=e842]: RECENT 7D
+                  - generic [ref=e843]: "0"
+                - generic [ref=e844]:
+                  - generic [ref=e845]: INFRASTRUCTURE
+                  - generic [ref=e846]: "0"
+              - generic [ref=e848]: Last seen 7d ago
+            - generic [ref=e849] [cursor=pointer]:
+              - generic [ref=e850]:
+                - generic [ref=e853]: Brazil
+                - generic [ref=e856]:
+                  - generic [ref=e857]: SHADOW-WATER-063
+                  - generic [ref=e858]: Active
+              - generic [ref=e863]:
+                - generic [ref=e864]:
+                  - generic [ref=e865]: ATTRIBUTIONS
+                  - generic [ref=e866]: "6"
+                - generic [ref=e867]:
+                  - generic [ref=e868]: RECENT 7D
+                  - generic [ref=e869]: "0"
+                - generic [ref=e870]:
+                  - generic [ref=e871]: INFRASTRUCTURE
+                  - generic [ref=e872]: "0"
+              - generic [ref=e874]: Last seen 7d ago
+            - generic [ref=e875] [cursor=pointer]:
+              - generic [ref=e876]:
+                - generic [ref=e879]: "?"
+                - generic [ref=e882]:
+                  - generic [ref=e883]: WageMole
+                  - generic [ref=e884]: Active
+              - generic [ref=e889]:
+                - generic [ref=e890]:
+                  - generic [ref=e891]: ATTRIBUTIONS
+                  - generic [ref=e892]: "0"
+                - generic [ref=e893]:
+                  - generic [ref=e894]: RECENT 7D
+                  - generic [ref=e895]: "0"
+                - generic [ref=e896]:
+                  - generic [ref=e897]: INFRASTRUCTURE
+                  - generic [ref=e898]: "0"
+              - generic [ref=e900]: Last seen 7d ago
+            - generic [ref=e901] [cursor=pointer]:
+              - generic [ref=e902]:
+                - generic [ref=e905]: "?"
+                - generic [ref=e908]:
+                  - generic [ref=e909]: Fox Tempest
+                  - generic [ref=e910]: Active
+              - generic [ref=e915]:
+                - generic [ref=e916]:
+                  - generic [ref=e917]: ATTRIBUTIONS
+                  - generic [ref=e918]: "1"
+                - generic [ref=e919]:
+                  - generic [ref=e920]: RECENT 7D
+                  - generic [ref=e921]: "0"
+                - generic [ref=e922]:
+                  - generic [ref=e923]: INFRASTRUCTURE
+                  - generic [ref=e924]: "0"
+              - generic [ref=e926]: Last seen 7d ago
+            - generic [ref=e927] [cursor=pointer]:
+              - generic [ref=e928]:
+                - generic [ref=e931]: "?"
+                - generic [ref=e934]:
+                  - generic [ref=e935]: Twill Typhoon
+                  - generic [ref=e936]: Active
+              - generic [ref=e941]:
+                - generic [ref=e942]:
+                  - generic [ref=e943]: ATTRIBUTIONS
+                  - generic [ref=e944]: "0"
+                - generic [ref=e945]:
+                  - generic [ref=e946]: RECENT 7D
+                  - generic [ref=e947]: "0"
+                - generic [ref=e948]:
+                  - generic [ref=e949]: INFRASTRUCTURE
+                  - generic [ref=e950]: "0"
+              - generic [ref=e952]: Last seen 8d ago
+            - generic [ref=e953] [cursor=pointer]:
+              - generic [ref=e954]:
+                - generic [ref=e957]: "?"
+                - generic [ref=e960]:
+                  - generic [ref=e961]: Storm
+                  - generic [ref=e962]: Active
+              - generic [ref=e967]:
+                - generic [ref=e968]:
+                  - generic [ref=e969]: ATTRIBUTIONS
+                  - generic [ref=e970]: "0"
+                - generic [ref=e971]:
+                  - generic [ref=e972]: RECENT 7D
+                  - generic [ref=e973]: "0"
+                - generic [ref=e974]:
+                  - generic [ref=e975]: INFRASTRUCTURE
+                  - generic [ref=e976]: "0"
+              - generic [ref=e978]: Last seen 9d ago
+            - generic [ref=e979] [cursor=pointer]:
+              - generic [ref=e980]:
+                - generic [ref=e983]: "?"
+                - generic [ref=e986]:
+                  - generic [ref=e987]: Vanilla Tempest
+                  - generic [ref=e988]: Active
+              - generic [ref=e993]:
+                - generic [ref=e994]:
+                  - generic [ref=e995]: ATTRIBUTIONS
+                  - generic [ref=e996]: "0"
+                - generic [ref=e997]:
+                  - generic [ref=e998]: RECENT 7D
+                  - generic [ref=e999]: "0"
+                - generic [ref=e1000]:
+                  - generic [ref=e1001]: INFRASTRUCTURE
+                  - generic [ref=e1002]: "0"
+              - generic [ref=e1004]: Last seen 9d ago
+            - generic [ref=e1005] [cursor=pointer]:
+              - generic [ref=e1006]:
+                - generic [ref=e1009]: "?"
+                - generic [ref=e1012]:
+                  - generic [ref=e1013]: LightBasin
+                  - generic [ref=e1014]: Active
+              - generic [ref=e1019]:
+                - generic [ref=e1020]:
+                  - generic [ref=e1021]: ATTRIBUTIONS
+                  - generic [ref=e1022]: "0"
+                - generic [ref=e1023]:
+                  - generic [ref=e1024]: RECENT 7D
+                  - generic [ref=e1025]: "0"
+                - generic [ref=e1026]:
+                  - generic [ref=e1027]: INFRASTRUCTURE
+                  - generic [ref=e1028]: "0"
+              - generic [ref=e1030]: Last seen 10d ago
+            - generic [ref=e1031] [cursor=pointer]:
+              - generic [ref=e1032]:
+                - generic [ref=e1035]: "?"
+                - generic [ref=e1038]:
+                  - generic [ref=e1039]: Nexus Team
+                  - generic [ref=e1040]: Active
+              - generic [ref=e1045]:
+                - generic [ref=e1046]:
+                  - generic [ref=e1047]: ATTRIBUTIONS
+                  - generic [ref=e1048]: "0"
+                - generic [ref=e1049]:
+                  - generic [ref=e1050]: RECENT 7D
+                  - generic [ref=e1051]: "0"
+                - generic [ref=e1052]:
+                  - generic [ref=e1053]: INFRASTRUCTURE
+                  - generic [ref=e1054]: "0"
+              - generic [ref=e1056]: Last seen 10d ago
+            - generic [ref=e1057] [cursor=pointer]:
+              - generic [ref=e1058]:
+                - generic [ref=e1061]: "?"
+                - generic [ref=e1064]:
+                  - generic [ref=e1065]: STARDUST CHOLLIMA
+                  - generic [ref=e1066]: Active
+              - generic [ref=e1071]:
+                - generic [ref=e1072]:
+                  - generic [ref=e1073]: ATTRIBUTIONS
+                  - generic [ref=e1074]: "9"
+                - generic [ref=e1075]:
+                  - generic [ref=e1076]: RECENT 7D
+                  - generic [ref=e1077]: "0"
+                - generic [ref=e1078]:
+                  - generic [ref=e1079]: INFRASTRUCTURE
+                  - generic [ref=e1080]: "0"
+              - generic [ref=e1082]: Last seen 11d ago
+            - generic [ref=e1083] [cursor=pointer]:
+              - generic [ref=e1084]:
+                - generic [ref=e1087]: Ukraine
+                - generic [ref=e1090]:
+                  - generic [ref=e1091]: Turla
+                  - generic [ref=e1092]: Active
+              - generic [ref=e1097]:
+                - generic [ref=e1098]:
+                  - generic [ref=e1099]: ATTRIBUTIONS
+                  - generic [ref=e1100]: "0"
+                - generic [ref=e1101]:
+                  - generic [ref=e1102]: RECENT 7D
+                  - generic [ref=e1103]: "0"
+                - generic [ref=e1104]:
+                  - generic [ref=e1105]: INFRASTRUCTURE
+                  - generic [ref=e1106]: "0"
+              - generic [ref=e1108]: Last seen 12d ago
+            - generic [ref=e1109] [cursor=pointer]:
+              - generic [ref=e1110]:
+                - generic [ref=e1113]: "?"
+                - generic [ref=e1116]:
+                  - generic [ref=e1117]: UAT-8616
+                  - generic [ref=e1118]: Active
+              - generic [ref=e1123]:
+                - generic [ref=e1124]:
+                  - generic [ref=e1125]: ATTRIBUTIONS
+                  - generic [ref=e1126]: "12"
+                - generic [ref=e1127]:
+                  - generic [ref=e1128]: RECENT 7D
+                  - generic [ref=e1129]: "0"
+                - generic [ref=e1130]:
+                  - generic [ref=e1131]: INFRASTRUCTURE
+                  - generic [ref=e1132]: "0"
+              - generic [ref=e1134]: Last seen 12d ago
+            - generic [ref=e1135] [cursor=pointer]:
+              - generic [ref=e1136]:
+                - generic [ref=e1139]: Spain
+                - generic [ref=e1142]:
+                  - generic [ref=e1143]: alh1mik
+                  - generic [ref=e1144]: Active
+              - generic [ref=e1149]:
+                - generic [ref=e1150]:
+                  - generic [ref=e1151]: ATTRIBUTIONS
+                  - generic [ref=e1152]: "4"
+                - generic [ref=e1153]:
+                  - generic [ref=e1154]: RECENT 7D
+                  - generic [ref=e1155]: "0"
+                - generic [ref=e1156]:
+                  - generic [ref=e1157]: INFRASTRUCTURE
+                  - generic [ref=e1158]: "0"
+              - generic [ref=e1160]: Last seen 13d ago
+            - generic [ref=e1161] [cursor=pointer]:
+              - generic [ref=e1162]:
+                - generic [ref=e1165]: "?"
+                - generic [ref=e1168]:
+                  - generic [ref=e1169]: TA4903
+                  - generic [ref=e1170]: Active
+              - generic [ref=e1175]:
+                - generic [ref=e1176]:
+                  - generic [ref=e1177]: ATTRIBUTIONS
+                  - generic [ref=e1178]: "33"
+                - generic [ref=e1179]:
+                  - generic [ref=e1180]: RECENT 7D
+                  - generic [ref=e1181]: "0"
+                - generic [ref=e1182]:
+                  - generic [ref=e1183]: INFRASTRUCTURE
+                  - generic [ref=e1184]: "0"
+              - generic [ref=e1186]: Last seen 13d ago
+            - generic [ref=e1187] [cursor=pointer]:
+              - generic [ref=e1188]:
+                - generic [ref=e1191]: Brazil
+                - generic [ref=e1194]:
+                  - generic [ref=e1195]: ANTONIO EDUARDO FREDERICO
+                  - generic [ref=e1196]: Active
+              - generic [ref=e1201]:
+                - generic [ref=e1202]:
+                  - generic [ref=e1203]: ATTRIBUTIONS
+                  - generic [ref=e1204]: "13"
+                - generic [ref=e1205]:
+                  - generic [ref=e1206]: RECENT 7D
+                  - generic [ref=e1207]: "0"
+                - generic [ref=e1208]:
+                  - generic [ref=e1209]: INFRASTRUCTURE
+                  - generic [ref=e1210]: "0"
+              - generic [ref=e1212]: Last seen 14d ago
+            - generic [ref=e1213] [cursor=pointer]:
+              - generic [ref=e1214]:
+                - generic [ref=e1217]: "?"
+                - generic [ref=e1220]:
+                  - generic [ref=e1221]: APT37
+                  - generic [ref=e1222]: Active
+              - generic [ref=e1227]:
+                - generic [ref=e1228]:
+                  - generic [ref=e1229]: ATTRIBUTIONS
+                  - generic [ref=e1230]: "26"
+                - generic [ref=e1231]:
+                  - generic [ref=e1232]: RECENT 7D
+                  - generic [ref=e1233]: "0"
+                - generic [ref=e1234]:
+                  - generic [ref=e1235]: INFRASTRUCTURE
+                  - generic [ref=e1236]: "0"
+              - generic [ref=e1238]: Last seen 14d ago
+            - generic [ref=e1239] [cursor=pointer]:
+              - generic [ref=e1240]:
+                - generic [ref=e1243]: "?"
+                - generic [ref=e1246]:
+                  - generic [ref=e1247]: Secret Blizzard
+                  - generic [ref=e1248]: Active
+              - generic [ref=e1253]:
+                - generic [ref=e1254]:
+                  - generic [ref=e1255]: ATTRIBUTIONS
+                  - generic [ref=e1256]: "0"
+                - generic [ref=e1257]:
+                  - generic [ref=e1258]: RECENT 7D
+                  - generic [ref=e1259]: "0"
+                - generic [ref=e1260]:
+                  - generic [ref=e1261]: INFRASTRUCTURE
+                  - generic [ref=e1262]: "0"
+              - generic [ref=e1264]: Last seen 14d ago
+            - generic [ref=e1265] [cursor=pointer]:
+              - generic [ref=e1266]:
+                - generic [ref=e1269]: "?"
+                - generic [ref=e1272]:
+                  - generic [ref=e1273]: Interlock Ransomware Group
+                  - generic [ref=e1274]: Active
+              - generic [ref=e1279]:
+                - generic [ref=e1280]:
+                  - generic [ref=e1281]: ATTRIBUTIONS
+                  - generic [ref=e1282]: "0"
+                - generic [ref=e1283]:
+                  - generic [ref=e1284]: RECENT 7D
+                  - generic [ref=e1285]: "0"
+                - generic [ref=e1286]:
+                  - generic [ref=e1287]: INFRASTRUCTURE
+                  - generic [ref=e1288]: "0"
+              - generic [ref=e1290]: Last seen 14d ago
+            - generic [ref=e1291] [cursor=pointer]:
+              - generic [ref=e1292]:
+                - generic [ref=e1295]: "?"
+                - generic [ref=e1298]:
+                  - generic [ref=e1299]: Larva-26002
+                  - generic [ref=e1300]: Active
+              - generic [ref=e1305]:
+                - generic [ref=e1306]:
+                  - generic [ref=e1307]: ATTRIBUTIONS
+                  - generic [ref=e1308]: "1"
+                - generic [ref=e1309]:
+                  - generic [ref=e1310]: RECENT 7D
+                  - generic [ref=e1311]: "0"
+                - generic [ref=e1312]:
+                  - generic [ref=e1313]: INFRASTRUCTURE
+                  - generic [ref=e1314]: "0"
+              - generic [ref=e1316]: Last seen 14d ago
+            - generic [ref=e1317] [cursor=pointer]:
+              - generic [ref=e1318]:
+                - generic [ref=e1321]: Ukraine
+                - generic [ref=e1324]:
+                  - generic [ref=e1325]: UAC-0226
+                  - generic [ref=e1326]: Active
+              - generic [ref=e1331]:
+                - generic [ref=e1332]:
+                  - generic [ref=e1333]: ATTRIBUTIONS
+                  - generic [ref=e1334]: "1"
+                - generic [ref=e1335]:
+                  - generic [ref=e1336]: RECENT 7D
+                  - generic [ref=e1337]: "0"
+                - generic [ref=e1338]:
+                  - generic [ref=e1339]: INFRASTRUCTURE
+                  - generic [ref=e1340]: "0"
+              - generic [ref=e1342]: Last seen 15d ago
+            - generic [ref=e1343] [cursor=pointer]:
+              - generic [ref=e1344]:
+                - generic [ref=e1347]: "?"
+                - generic [ref=e1350]:
+                  - generic [ref=e1351]: CozyDuke
+                  - generic [ref=e1352]: Active
+              - generic [ref=e1357]:
+                - generic [ref=e1358]:
+                  - generic [ref=e1359]: ATTRIBUTIONS
+                  - generic [ref=e1360]: "6"
+                - generic [ref=e1361]:
+                  - generic [ref=e1362]: RECENT 7D
+                  - generic [ref=e1363]: "0"
+                - generic [ref=e1364]:
+                  - generic [ref=e1365]: INFRASTRUCTURE
+                  - generic [ref=e1366]: "0"
+              - generic [ref=e1368]: Last seen 15d ago
+            - generic [ref=e1369] [cursor=pointer]:
+              - generic [ref=e1370]:
+                - generic [ref=e1373]: Brazil
+                - generic [ref=e1376]:
+                  - generic [ref=e1377]: SHADOW-AETHER-040, SHADOW-AETHER-064
+                  - generic [ref=e1378]: Active
+              - generic [ref=e1383]:
+                - generic [ref=e1384]:
+                  - generic [ref=e1385]: ATTRIBUTIONS
+                  - generic [ref=e1386]: "5"
+                - generic [ref=e1387]:
+                  - generic [ref=e1388]: RECENT 7D
+                  - generic [ref=e1389]: "0"
+                - generic [ref=e1390]:
+                  - generic [ref=e1391]: INFRASTRUCTURE
+                  - generic [ref=e1392]: "0"
+              - generic [ref=e1394]: Last seen 16d ago
+            - generic [ref=e1395] [cursor=pointer]:
+              - generic [ref=e1396]:
+                - generic [ref=e1398]: 🇷🇺
+                - generic [ref=e1401]:
+                  - generic [ref=e1402]: APT29
+                  - generic [ref=e1403]: Active
+              - generic [ref=e1408]:
+                - generic [ref=e1409]:
+                  - generic [ref=e1410]: ATTRIBUTIONS
+                  - generic [ref=e1411]: "94"
+                - generic [ref=e1412]:
+                  - generic [ref=e1413]: RECENT 7D
+                  - generic [ref=e1414]: "0"
+                - generic [ref=e1415]:
+                  - generic [ref=e1416]: INFRASTRUCTURE
+                  - generic [ref=e1417]: "0"
+              - generic [ref=e1419]: Last seen 15d ago
+            - generic [ref=e1420] [cursor=pointer]:
+              - generic [ref=e1421]:
+                - generic [ref=e1424]: "?"
+                - generic [ref=e1427]:
+                  - generic [ref=e1428]: TroyDen
+                  - generic [ref=e1429]: Active
+              - generic [ref=e1434]:
+                - generic [ref=e1435]:
+                  - generic [ref=e1436]: ATTRIBUTIONS
+                  - generic [ref=e1437]: "9"
+                - generic [ref=e1438]:
+                  - generic [ref=e1439]: RECENT 7D
+                  - generic [ref=e1440]: "0"
+                - generic [ref=e1441]:
+                  - generic [ref=e1442]: INFRASTRUCTURE
+                  - generic [ref=e1443]: "0"
+              - generic [ref=e1445]: Last seen 16d ago
+            - generic [ref=e1446] [cursor=pointer]:
+              - generic [ref=e1447]:
+                - generic [ref=e1450]: "?"
+                - generic [ref=e1453]:
+                  - generic [ref=e1454]: APT28
+                  - generic [ref=e1455]: Active
+              - generic [ref=e1460]:
+                - generic [ref=e1461]:
+                  - generic [ref=e1462]: ATTRIBUTIONS
+                  - generic [ref=e1463]: "0"
+                - generic [ref=e1464]:
+                  - generic [ref=e1465]: RECENT 7D
+                  - generic [ref=e1466]: "0"
+                - generic [ref=e1467]:
+                  - generic [ref=e1468]: INFRASTRUCTURE
+                  - generic [ref=e1469]: "0"
+              - generic [ref=e1471]: Last seen 21d ago
+            - generic [ref=e1472] [cursor=pointer]:
+              - generic [ref=e1473]:
+                - generic [ref=e1476]: "?"
+                - generic [ref=e1479]:
+                  - generic [ref=e1480]: Coral Sleet
+                  - generic [ref=e1481]: Active
+              - generic [ref=e1486]:
+                - generic [ref=e1487]:
+                  - generic [ref=e1488]: ATTRIBUTIONS
+                  - generic [ref=e1489]: "0"
+                - generic [ref=e1490]:
+                  - generic [ref=e1491]: RECENT 7D
+                  - generic [ref=e1492]: "0"
+                - generic [ref=e1493]:
+                  - generic [ref=e1494]: INFRASTRUCTURE
+                  - generic [ref=e1495]: "0"
+              - generic [ref=e1497]: Last seen 23d ago
+            - generic [ref=e1498] [cursor=pointer]:
+              - generic [ref=e1499]:
+                - generic [ref=e1502]: "?"
+                - generic [ref=e1505]:
+                  - generic [ref=e1506]: Jasper Sleet
+                  - generic [ref=e1507]: Active
+              - generic [ref=e1512]:
+                - generic [ref=e1513]:
+                  - generic [ref=e1514]: ATTRIBUTIONS
+                  - generic [ref=e1515]: "0"
+                - generic [ref=e1516]:
+                  - generic [ref=e1517]: RECENT 7D
+                  - generic [ref=e1518]: "0"
+                - generic [ref=e1519]:
+                  - generic [ref=e1520]: INFRASTRUCTURE
+                  - generic [ref=e1521]: "0"
+              - generic [ref=e1523]: Last seen 23d ago
+            - generic [ref=e1524] [cursor=pointer]:
+              - generic [ref=e1525]:
+                - generic [ref=e1528]: "?"
+                - generic [ref=e1531]:
+                  - generic [ref=e1532]: Storm-2561
+                  - generic [ref=e1533]: Active
+              - generic [ref=e1538]:
+                - generic [ref=e1539]:
+                  - generic [ref=e1540]: ATTRIBUTIONS
+                  - generic [ref=e1541]: "0"
+                - generic [ref=e1542]:
+                  - generic [ref=e1543]: RECENT 7D
+                  - generic [ref=e1544]: "0"
+                - generic [ref=e1545]:
+                  - generic [ref=e1546]: INFRASTRUCTURE
+                  - generic [ref=e1547]: "0"
+              - generic [ref=e1549]: Last seen 23d ago
+            - generic [ref=e1550] [cursor=pointer]:
+              - generic [ref=e1551]:
+                - generic [ref=e1554]: "?"
+                - generic [ref=e1557]:
+                  - generic [ref=e1558]: Sapphire Sleet
+                  - generic [ref=e1559]: Active
+              - generic [ref=e1564]:
+                - generic [ref=e1565]:
+                  - generic [ref=e1566]: ATTRIBUTIONS
+                  - generic [ref=e1567]: "0"
+                - generic [ref=e1568]:
+                  - generic [ref=e1569]: RECENT 7D
+                  - generic [ref=e1570]: "0"
+                - generic [ref=e1571]:
+                  - generic [ref=e1572]: INFRASTRUCTURE
+                  - generic [ref=e1573]: "0"
+              - generic [ref=e1575]: Last seen 23d ago
+  - dialog "Sign in faster next time?" [ref=e1576]:
+    - generic [ref=e1577]:
+      - img [ref=e1579]
+      - heading "Sign in faster next time?" [level=2] [ref=e1582]
+      - paragraph [ref=e1583]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e1584]:
+        - button "Set up biometric" [ref=e1585] [cursor=pointer]
+        - button "Maybe later" [ref=e1586] [cursor=pointer]
+      - paragraph [ref=e1587]: You can add or remove passkeys anytime from your Profile.

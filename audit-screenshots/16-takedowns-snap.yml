@@ -1,0 +1,2400 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e199]:
+            - heading "Takedowns" [level=1] [ref=e201]
+            - paragraph [ref=e202]: 1413 total requests
+            - generic [ref=e204]: Sparrow Queue
+          - generic [ref=e205]:
+            - generic [ref=e208]:
+              - generic [ref=e209]: Total Takedowns
+              - text: 1,413
+            - generic [ref=e212]:
+              - generic [ref=e213]: Pending Review
+              - text: 1,411
+            - generic [ref=e216]:
+              - generic [ref=e217]: Submitted
+              - text: "2"
+            - generic [ref=e220]:
+              - generic [ref=e221]: Resolved
+              - text: "0"
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - textbox "Search by brand, handle, or URL..." [ref=e224]
+              - button "ALL 1413" [ref=e226] [cursor=pointer]:
+                - text: ALL
+                - generic [ref=e227]: "1413"
+              - button "DRAFT 1411" [ref=e228] [cursor=pointer]:
+                - text: DRAFT
+                - generic [ref=e229]: "1411"
+              - button "PENDING 0" [ref=e230] [cursor=pointer]:
+                - text: PENDING
+                - generic [ref=e231]: "0"
+              - button "SUBMITTED 2" [ref=e232] [cursor=pointer]:
+                - text: SUBMITTED
+                - generic [ref=e233]: "2"
+              - button "RESOLVED 0" [ref=e234] [cursor=pointer]:
+                - text: RESOLVED
+                - generic [ref=e235]: "0"
+              - button "DISMISSED 0" [ref=e236] [cursor=pointer]:
+                - text: DISMISSED
+                - generic [ref=e237]: "0"
+              - combobox [ref=e239]:
+                - option "Priority Score" [selected]
+                - option "Newest"
+                - option "Brand"
+            - generic [ref=e241]:
+              - button "ALL" [ref=e242] [cursor=pointer]
+              - button "SOCIAL" [ref=e243] [cursor=pointer]
+              - button "URL" [ref=e244] [cursor=pointer]
+              - button "DOMAIN" [ref=e245] [cursor=pointer]
+          - generic [ref=e246]:
+            - generic [ref=e247]:
+              - generic [ref=e248]:
+                - generic [ref=e250]:
+                  - generic [ref=e251]: 🔗
+                  - generic [ref=e252]: URL
+                - generic [ref=e253]: Submitted
+              - generic [ref=e254]:
+                - generic [ref=e255]: Google
+                - generic [ref=e256]: c.gle
+                - paragraph [ref=e257]: "Malicious URL detected targeting Google. Known active threat: phishing (medium). Domain appeared in 4 threats in last 7 days."
+                - generic [ref=e258]:
+                  - generic [ref=e259]:
+                    - generic [ref=e260]: PRIORITY 70/100
+                    - progressbar [ref=e262]
+                  - generic [ref=e264]:
+                    - generic [ref=e265]: email
+                    - generic [ref=e266]: 3 evidence
+                    - generic [ref=e267]: 1mo ago
+              - generic [ref=e268]:
+                - button "Mark Resolved →" [ref=e269] [cursor=pointer]
+                - button "View Detail" [ref=e270] [cursor=pointer]
+                - button "Dismiss" [ref=e271] [cursor=pointer]
+            - generic [ref=e272]:
+              - generic [ref=e273]:
+                - generic [ref=e275]:
+                  - generic [ref=e276]: 🔗
+                  - generic [ref=e277]: URL
+                - generic [ref=e278]: Submitted
+              - generic [ref=e279]:
+                - generic [ref=e280]: Amazon
+                - generic [ref=e281]: getmontecarlo.com
+                - paragraph [ref=e282]: "Malicious URL detected targeting Amazonses. Known active threat: phishing (medium)."
+                - generic [ref=e283]:
+                  - generic [ref=e284]:
+                    - generic [ref=e285]: PRIORITY 70/100
+                    - progressbar [ref=e287]
+                  - generic [ref=e289]:
+                    - generic [ref=e290]: email
+                    - generic [ref=e291]: 2 evidence
+                    - generic [ref=e292]: 1mo ago
+              - generic [ref=e293]:
+                - button "Mark Resolved →" [ref=e294] [cursor=pointer]
+                - button "View Detail" [ref=e295] [cursor=pointer]
+                - button "Dismiss" [ref=e296] [cursor=pointer]
+            - generic [ref=e297]:
+              - generic [ref=e298]:
+                - generic [ref=e300]:
+                  - generic [ref=e301]: 🔗
+                  - generic [ref=e302]: URL
+                - generic [ref=e303]: Draft
+              - generic [ref=e304]:
+                - generic [ref=e305]: Www
+                - generic [ref=e306]: ransomware://ransomware_live/qilin/www.global-retool-group.com
+                - paragraph [ref=e307]: Confirmed dark-web mention of Www on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e308]:
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: PRIORITY 85/100
+                    - progressbar [ref=e312]
+                  - generic [ref=e314]:
+                    - generic [ref=e315]: email
+                    - generic [ref=e316]: 1 evidence
+                    - generic [ref=e317]: 6h ago
+              - generic [ref=e318]:
+                - button "Submit →" [ref=e319] [cursor=pointer]
+                - button "View Detail" [ref=e320] [cursor=pointer]
+                - button "Dismiss" [ref=e321] [cursor=pointer]
+            - generic [ref=e322]:
+              - generic [ref=e323]:
+                - generic [ref=e325]:
+                  - generic [ref=e326]: 🔗
+                  - generic [ref=e327]: URL
+                - generic [ref=e328]: Draft
+              - generic [ref=e329]:
+                - generic [ref=e330]: Www
+                - generic [ref=e331]: ransomware://ransomware_live/qilin/www.pgtradingco.com
+                - paragraph [ref=e332]: Confirmed dark-web mention of Www on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e333]:
+                  - generic [ref=e334]:
+                    - generic [ref=e335]: PRIORITY 85/100
+                    - progressbar [ref=e337]
+                  - generic [ref=e339]:
+                    - generic [ref=e340]: email
+                    - generic [ref=e341]: 1 evidence
+                    - generic [ref=e342]: 6h ago
+              - generic [ref=e343]:
+                - button "Submit →" [ref=e344] [cursor=pointer]
+                - button "View Detail" [ref=e345] [cursor=pointer]
+                - button "Dismiss" [ref=e346] [cursor=pointer]
+            - generic [ref=e347]:
+              - generic [ref=e348]:
+                - generic [ref=e350]:
+                  - generic [ref=e351]: 🔗
+                  - generic [ref=e352]: URL
+                - generic [ref=e353]: Draft
+              - generic [ref=e354]:
+                - generic [ref=e355]: Www
+                - generic [ref=e356]: ransomware://ransomware_live/qilin/www.expocredit.com
+                - paragraph [ref=e357]: Confirmed dark-web mention of Www on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e358]:
+                  - generic [ref=e359]:
+                    - generic [ref=e360]: PRIORITY 85/100
+                    - progressbar [ref=e362]
+                  - generic [ref=e364]:
+                    - generic [ref=e365]: email
+                    - generic [ref=e366]: 1 evidence
+                    - generic [ref=e367]: 6h ago
+              - generic [ref=e368]:
+                - button "Submit →" [ref=e369] [cursor=pointer]
+                - button "View Detail" [ref=e370] [cursor=pointer]
+                - button "Dismiss" [ref=e371] [cursor=pointer]
+            - generic [ref=e372]:
+              - generic [ref=e373]:
+                - generic [ref=e375]:
+                  - generic [ref=e376]: 🔗
+                  - generic [ref=e377]: URL
+                - generic [ref=e378]: Draft
+              - generic [ref=e379]:
+                - generic [ref=e380]: Siemens
+                - generic [ref=e381]: ransomware://ransomware_live/thegentlemen/acam.at
+                - paragraph [ref=e382]: Confirmed dark-web mention of Siemens on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e383]:
+                  - generic [ref=e384]:
+                    - generic [ref=e385]: PRIORITY 85/100
+                    - progressbar [ref=e387]
+                  - generic [ref=e389]:
+                    - generic [ref=e390]: email
+                    - generic [ref=e391]: 1 evidence
+                    - generic [ref=e392]: 6h ago
+              - generic [ref=e393]:
+                - button "Submit →" [ref=e394] [cursor=pointer]
+                - button "View Detail" [ref=e395] [cursor=pointer]
+                - button "Dismiss" [ref=e396] [cursor=pointer]
+            - generic [ref=e397]:
+              - generic [ref=e398]:
+                - generic [ref=e400]:
+                  - generic [ref=e401]: 🔗
+                  - generic [ref=e402]: URL
+                - generic [ref=e403]: Draft
+              - generic [ref=e404]:
+                - generic [ref=e405]: Tesla
+                - generic [ref=e406]: ransomware://ransomware_live/thegentlemen/transsystem.pl
+                - paragraph [ref=e407]: Confirmed dark-web mention of Tesla on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e408]:
+                  - generic [ref=e409]:
+                    - generic [ref=e410]: PRIORITY 85/100
+                    - progressbar [ref=e412]
+                  - generic [ref=e414]:
+                    - generic [ref=e415]: email
+                    - generic [ref=e416]: 1 evidence
+                    - generic [ref=e417]: 6h ago
+              - generic [ref=e418]:
+                - button "Submit →" [ref=e419] [cursor=pointer]
+                - button "View Detail" [ref=e420] [cursor=pointer]
+                - button "Dismiss" [ref=e421] [cursor=pointer]
+            - generic [ref=e422]:
+              - generic [ref=e423]:
+                - generic [ref=e425]:
+                  - generic [ref=e426]: 🔗
+                  - generic [ref=e427]: URL
+                - generic [ref=e428]: Draft
+              - generic [ref=e429]:
+                - generic [ref=e430]: Ibm
+                - generic [ref=e431]: ransomware://ransomware_live/dragonforce/helix-int.com
+                - paragraph [ref=e432]: Confirmed dark-web mention of Ibm on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e433]:
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: PRIORITY 85/100
+                    - progressbar [ref=e437]
+                  - generic [ref=e439]:
+                    - generic [ref=e440]: email
+                    - generic [ref=e441]: 1 evidence
+                    - generic [ref=e442]: 6h ago
+              - generic [ref=e443]:
+                - button "Submit →" [ref=e444] [cursor=pointer]
+                - button "View Detail" [ref=e445] [cursor=pointer]
+                - button "Dismiss" [ref=e446] [cursor=pointer]
+            - generic [ref=e447]:
+              - generic [ref=e448]:
+                - generic [ref=e450]:
+                  - generic [ref=e451]: 🔗
+                  - generic [ref=e452]: URL
+                - generic [ref=e453]: Draft
+              - generic [ref=e454]:
+                - generic [ref=e455]: Office
+                - generic [ref=e456]: ransomware://ransomware_live/thegentlemen/seeleyoffice.com
+                - paragraph [ref=e457]: Confirmed dark-web mention of Office on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e458]:
+                  - generic [ref=e459]:
+                    - generic [ref=e460]: PRIORITY 85/100
+                    - progressbar [ref=e462]
+                  - generic [ref=e464]:
+                    - generic [ref=e465]: email
+                    - generic [ref=e466]: 1 evidence
+                    - generic [ref=e467]: 6h ago
+              - generic [ref=e468]:
+                - button "Submit →" [ref=e469] [cursor=pointer]
+                - button "View Detail" [ref=e470] [cursor=pointer]
+                - button "Dismiss" [ref=e471] [cursor=pointer]
+            - generic [ref=e472]:
+              - generic [ref=e473]:
+                - generic [ref=e475]:
+                  - generic [ref=e476]: 🔗
+                  - generic [ref=e477]: URL
+                - generic [ref=e478]: Draft
+              - generic [ref=e479]:
+                - generic [ref=e480]: Www
+                - generic [ref=e481]: ransomware://ransomware_live/nightspire/www.lafamiliaadultdaycenter.com
+                - paragraph [ref=e482]: Confirmed dark-web mention of Www on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e483]:
+                  - generic [ref=e484]:
+                    - generic [ref=e485]: PRIORITY 85/100
+                    - progressbar [ref=e487]
+                  - generic [ref=e489]:
+                    - generic [ref=e490]: email
+                    - generic [ref=e491]: 1 evidence
+                    - generic [ref=e492]: 6h ago
+              - generic [ref=e493]:
+                - button "Submit →" [ref=e494] [cursor=pointer]
+                - button "View Detail" [ref=e495] [cursor=pointer]
+                - button "Dismiss" [ref=e496] [cursor=pointer]
+            - generic [ref=e497]:
+              - generic [ref=e498]:
+                - generic [ref=e500]:
+                  - generic [ref=e501]: 🔗
+                  - generic [ref=e502]: URL
+                - generic [ref=e503]: Draft
+              - generic [ref=e504]:
+                - generic [ref=e505]: Current
+                - generic [ref=e506]: ransomware://ransomware_live/bravox/emek.com.tr
+                - paragraph [ref=e507]: Confirmed dark-web mention of Current on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e508]:
+                  - generic [ref=e509]:
+                    - generic [ref=e510]: PRIORITY 85/100
+                    - progressbar [ref=e512]
+                  - generic [ref=e514]:
+                    - generic [ref=e515]: email
+                    - generic [ref=e516]: 1 evidence
+                    - generic [ref=e517]: 6h ago
+              - generic [ref=e518]:
+                - button "Submit →" [ref=e519] [cursor=pointer]
+                - button "View Detail" [ref=e520] [cursor=pointer]
+                - button "Dismiss" [ref=e521] [cursor=pointer]
+            - generic [ref=e522]:
+              - generic [ref=e523]:
+                - generic [ref=e525]:
+                  - generic [ref=e526]: 🔗
+                  - generic [ref=e527]: URL
+                - generic [ref=e528]: Draft
+              - generic [ref=e529]:
+                - generic [ref=e530]: Opera
+                - generic [ref=e531]: ransomware://ransomware_live/thegentlemen/husseyseatway.com
+                - paragraph [ref=e532]: Confirmed dark-web mention of Opera on ransomware_leak (domain match, CRITICAL).
+                - generic [ref=e533]:
+                  - generic [ref=e534]:
+                    - generic [ref=e535]: PRIORITY 85/100
+                    - progressbar [ref=e537]
+                  - generic [ref=e539]:
+                    - generic [ref=e540]: email
+                    - generic [ref=e541]: 1 evidence
+                    - generic [ref=e542]: 6h ago
+              - generic [ref=e543]:
+                - button "Submit →" [ref=e544] [cursor=pointer]
+                - button "View Detail" [ref=e545] [cursor=pointer]
+                - button "Dismiss" [ref=e546] [cursor=pointer]
+            - generic [ref=e547]:
+              - generic [ref=e548]:
+                - generic [ref=e550]:
+                  - generic [ref=e551]: 🔗
+                  - generic [ref=e552]: URL
+                - generic [ref=e553]: Draft
+              - generic [ref=e554]:
+                - generic [ref=e555]: Deutsche Bank
+                - generic [ref=e556]: com.db.pbc.mibanco
+                - paragraph [ref=e557]: "App-store impersonation \"Deutsche Bank España\" on ios by \"Deutsche Bank AG\" targeting Deutsche Bank. Confidence: 93%."
+                - generic [ref=e558]:
+                  - generic [ref=e559]:
+                    - generic [ref=e560]: PRIORITY 85/100
+                    - progressbar [ref=e562]
+                  - generic [ref=e564]:
+                    - generic [ref=e565]: form
+                    - generic [ref=e566]: 1 evidence
+                    - generic [ref=e567]: 6h ago
+              - generic [ref=e568]:
+                - button "Submit →" [ref=e569] [cursor=pointer]
+                - button "View Detail" [ref=e570] [cursor=pointer]
+                - button "Dismiss" [ref=e571] [cursor=pointer]
+            - generic [ref=e572]:
+              - generic [ref=e573]:
+                - generic [ref=e575]:
+                  - generic [ref=e576]: 🔗
+                  - generic [ref=e577]: URL
+                - generic [ref=e578]: Draft
+              - generic [ref=e579]:
+                - generic [ref=e580]: Docker
+                - generic [ref=e581]: ar.com.innaserman.dockertop
+                - paragraph [ref=e582]: "App-store impersonation \"Учебник Docker\" on ios by \"Mikhail Shmarov\" targeting Docker. Confidence: 95%."
+                - generic [ref=e583]:
+                  - generic [ref=e584]:
+                    - generic [ref=e585]: PRIORITY 85/100
+                    - progressbar [ref=e587]
+                  - generic [ref=e589]:
+                    - generic [ref=e590]: form
+                    - generic [ref=e591]: 1 evidence
+                    - generic [ref=e592]: 6h ago
+              - generic [ref=e593]:
+                - button "Submit →" [ref=e594] [cursor=pointer]
+                - button "View Detail" [ref=e595] [cursor=pointer]
+                - button "Dismiss" [ref=e596] [cursor=pointer]
+            - generic [ref=e597]:
+              - generic [ref=e598]:
+                - generic [ref=e600]:
+                  - generic [ref=e601]: 🔗
+                  - generic [ref=e602]: URL
+                - generic [ref=e603]: Draft
+              - generic [ref=e604]:
+                - generic [ref=e605]: Deutsche Bank
+                - generic [ref=e606]: com.db.flow
+                - paragraph [ref=e607]: "App-store impersonation \"flow – Deutsche Bank\" on ios by \"Deutsche Bank AG\" targeting Deutsche Bank. Confidence: 94%."
+                - generic [ref=e608]:
+                  - generic [ref=e609]:
+                    - generic [ref=e610]: PRIORITY 85/100
+                    - progressbar [ref=e612]
+                  - generic [ref=e614]:
+                    - generic [ref=e615]: form
+                    - generic [ref=e616]: 1 evidence
+                    - generic [ref=e617]: 6h ago
+              - generic [ref=e618]:
+                - button "Submit →" [ref=e619] [cursor=pointer]
+                - button "View Detail" [ref=e620] [cursor=pointer]
+                - button "Dismiss" [ref=e621] [cursor=pointer]
+            - generic [ref=e622]:
+              - generic [ref=e623]:
+                - generic [ref=e625]:
+                  - generic [ref=e626]: 🔗
+                  - generic [ref=e627]: URL
+                - generic [ref=e628]: Draft
+              - generic [ref=e629]:
+                - generic [ref=e630]: Deutsche Bank
+                - generic [ref=e631]: com.db.pbc.ng.mobile
+                - paragraph [ref=e632]: "App-store impersonation \"Deutsche Bank\" on ios by \"Deutsche Bank AG\" targeting Deutsche Bank. Confidence: 95%."
+                - generic [ref=e633]:
+                  - generic [ref=e634]:
+                    - generic [ref=e635]: PRIORITY 85/100
+                    - progressbar [ref=e637]
+                  - generic [ref=e639]:
+                    - generic [ref=e640]: form
+                    - generic [ref=e641]: 1 evidence
+                    - generic [ref=e642]: 6h ago
+              - generic [ref=e643]:
+                - button "Submit →" [ref=e644] [cursor=pointer]
+                - button "View Detail" [ref=e645] [cursor=pointer]
+                - button "Dismiss" [ref=e646] [cursor=pointer]
+            - generic [ref=e647]:
+              - generic [ref=e648]:
+                - generic [ref=e650]:
+                  - generic [ref=e651]: 🔗
+                  - generic [ref=e652]: URL
+                - generic [ref=e653]: Draft
+              - generic [ref=e654]:
+                - generic [ref=e655]: Citizens Bank
+                - generic [ref=e656]: net.thecitizensbank.grip
+                - paragraph [ref=e657]: "App-store impersonation \"The Citizens Bank Now\" on ios by \"The Citizens Bank\" targeting Citizens Bank. Confidence: 92%."
+                - generic [ref=e658]:
+                  - generic [ref=e659]:
+                    - generic [ref=e660]: PRIORITY 85/100
+                    - progressbar [ref=e662]
+                  - generic [ref=e664]:
+                    - generic [ref=e665]: form
+                    - generic [ref=e666]: 1 evidence
+                    - generic [ref=e667]: 12h ago
+              - generic [ref=e668]:
+                - button "Submit →" [ref=e669] [cursor=pointer]
+                - button "View Detail" [ref=e670] [cursor=pointer]
+                - button "Dismiss" [ref=e671] [cursor=pointer]
+            - generic [ref=e672]:
+              - generic [ref=e673]:
+                - generic [ref=e675]:
+                  - generic [ref=e676]: 🔗
+                  - generic [ref=e677]: URL
+                - generic [ref=e678]: Draft
+              - generic [ref=e679]:
+                - generic [ref=e680]: Confluent
+                - generic [ref=e681]: com.confluent.events
+                - paragraph [ref=e682]: "App-store impersonation \"Confluent GKO\" on ios by \"Confluent, Inc.\" targeting Confluent. Confidence: 94%."
+                - generic [ref=e683]:
+                  - generic [ref=e684]:
+                    - generic [ref=e685]: PRIORITY 85/100
+                    - progressbar [ref=e687]
+                  - generic [ref=e689]:
+                    - generic [ref=e690]: form
+                    - generic [ref=e691]: 1 evidence
+                    - generic [ref=e692]: 12h ago
+              - generic [ref=e693]:
+                - button "Submit →" [ref=e694] [cursor=pointer]
+                - button "View Detail" [ref=e695] [cursor=pointer]
+                - button "Dismiss" [ref=e696] [cursor=pointer]
+            - generic [ref=e697]:
+              - generic [ref=e698]:
+                - generic [ref=e700]:
+                  - generic [ref=e701]: 🔗
+                  - generic [ref=e702]: URL
+                - generic [ref=e703]: Draft
+              - generic [ref=e704]:
+                - generic [ref=e705]: Cpanel
+                - generic [ref=e706]: com.libyanspider.cpanel
+                - paragraph [ref=e707]: "App-store impersonation \"LS cPanel\" on ios by \"Libyan Spider IT\" targeting Cpanel. Confidence: 94%."
+                - generic [ref=e708]:
+                  - generic [ref=e709]:
+                    - generic [ref=e710]: PRIORITY 85/100
+                    - progressbar [ref=e712]
+                  - generic [ref=e714]:
+                    - generic [ref=e715]: form
+                    - generic [ref=e716]: 1 evidence
+                    - generic [ref=e717]: 12h ago
+              - generic [ref=e718]:
+                - button "Submit →" [ref=e719] [cursor=pointer]
+                - button "View Detail" [ref=e720] [cursor=pointer]
+                - button "Dismiss" [ref=e721] [cursor=pointer]
+            - generic [ref=e722]:
+              - generic [ref=e723]:
+                - generic [ref=e725]:
+                  - generic [ref=e726]: 🔗
+                  - generic [ref=e727]: URL
+                - generic [ref=e728]: Draft
+              - generic [ref=e729]:
+                - generic [ref=e730]: Crédit Agricole
+                - generic [ref=e731]: it.cariparma.cakeys
+                - paragraph [ref=e732]: "App-store impersonation \"Crédit Agricole Keys\" on ios by \"Credit Agricole Italia S.p.A.\" targeting Crédit Agricole. Confidence: 94%."
+                - generic [ref=e733]:
+                  - generic [ref=e734]:
+                    - generic [ref=e735]: PRIORITY 85/100
+                    - progressbar [ref=e737]
+                  - generic [ref=e739]:
+                    - generic [ref=e740]: form
+                    - generic [ref=e741]: 1 evidence
+                    - generic [ref=e742]: 12h ago
+              - generic [ref=e743]:
+                - button "Submit →" [ref=e744] [cursor=pointer]
+                - button "View Detail" [ref=e745] [cursor=pointer]
+                - button "Dismiss" [ref=e746] [cursor=pointer]
+            - generic [ref=e747]:
+              - generic [ref=e748]:
+                - generic [ref=e750]:
+                  - generic [ref=e751]: 🔗
+                  - generic [ref=e752]: URL
+                - generic [ref=e753]: Draft
+              - generic [ref=e754]:
+                - generic [ref=e755]: Cornell
+                - generic [ref=e756]: com.novalsys.cornell
+                - paragraph [ref=e757]: "App-store impersonation \"Cornell CG\" on ios by \"Cornell University\" targeting Cornell. Confidence: 95%."
+                - generic [ref=e758]:
+                  - generic [ref=e759]:
+                    - generic [ref=e760]: PRIORITY 85/100
+                    - progressbar [ref=e762]
+                  - generic [ref=e764]:
+                    - generic [ref=e765]: form
+                    - generic [ref=e766]: 1 evidence
+                    - generic [ref=e767]: 12h ago
+              - generic [ref=e768]:
+                - button "Submit →" [ref=e769] [cursor=pointer]
+                - button "View Detail" [ref=e770] [cursor=pointer]
+                - button "Dismiss" [ref=e771] [cursor=pointer]
+            - generic [ref=e772]:
+              - generic [ref=e773]:
+                - generic [ref=e775]:
+                  - generic [ref=e776]: 🔗
+                  - generic [ref=e777]: URL
+                - generic [ref=e778]: Draft
+              - generic [ref=e779]:
+                - generic [ref=e780]: Cornell
+                - generic [ref=e781]: com.cornellgo.CornellGO
+                - paragraph [ref=e782]: "App-store impersonation \"CornellGO\" on ios by \"Gilly Leshed\" targeting Cornell. Confidence: 95%."
+                - generic [ref=e783]:
+                  - generic [ref=e784]:
+                    - generic [ref=e785]: PRIORITY 85/100
+                    - progressbar [ref=e787]
+                  - generic [ref=e789]:
+                    - generic [ref=e790]: form
+                    - generic [ref=e791]: 1 evidence
+                    - generic [ref=e792]: 12h ago
+              - generic [ref=e793]:
+                - button "Submit →" [ref=e794] [cursor=pointer]
+                - button "View Detail" [ref=e795] [cursor=pointer]
+                - button "Dismiss" [ref=e796] [cursor=pointer]
+            - generic [ref=e797]:
+              - generic [ref=e798]:
+                - generic [ref=e800]:
+                  - generic [ref=e801]: 🔗
+                  - generic [ref=e802]: URL
+                - generic [ref=e803]: Draft
+              - generic [ref=e804]:
+                - generic [ref=e805]: Con Edison
+                - generic [ref=e806]: com.coned.myconedison
+                - paragraph [ref=e807]: "App-store impersonation \"Con Edison\" on ios by \"Con Edison\" targeting Con Edison. Confidence: 95%."
+                - generic [ref=e808]:
+                  - generic [ref=e809]:
+                    - generic [ref=e810]: PRIORITY 85/100
+                    - progressbar [ref=e812]
+                  - generic [ref=e814]:
+                    - generic [ref=e815]: form
+                    - generic [ref=e816]: 1 evidence
+                    - generic [ref=e817]: 12h ago
+              - generic [ref=e818]:
+                - button "Submit →" [ref=e819] [cursor=pointer]
+                - button "View Detail" [ref=e820] [cursor=pointer]
+                - button "Dismiss" [ref=e821] [cursor=pointer]
+            - generic [ref=e822]:
+              - generic [ref=e823]:
+                - generic [ref=e825]:
+                  - generic [ref=e826]: 🔗
+                  - generic [ref=e827]: URL
+                - generic [ref=e828]: Draft
+              - generic [ref=e829]:
+                - generic [ref=e830]: Cpanel
+                - generic [ref=e831]: com.creator1997.CPanel
+                - paragraph [ref=e832]: "App-store impersonation \"CPanel\" on ios by \"日聪 吴\" targeting Cpanel. Confidence: 95%."
+                - generic [ref=e833]:
+                  - generic [ref=e834]:
+                    - generic [ref=e835]: PRIORITY 85/100
+                    - progressbar [ref=e837]
+                  - generic [ref=e839]:
+                    - generic [ref=e840]: form
+                    - generic [ref=e841]: 1 evidence
+                    - generic [ref=e842]: 12h ago
+              - generic [ref=e843]:
+                - button "Submit →" [ref=e844] [cursor=pointer]
+                - button "View Detail" [ref=e845] [cursor=pointer]
+                - button "Dismiss" [ref=e846] [cursor=pointer]
+            - generic [ref=e847]:
+              - generic [ref=e848]:
+                - generic [ref=e850]:
+                  - generic [ref=e851]: 🔗
+                  - generic [ref=e852]: URL
+                - generic [ref=e853]: Draft
+              - generic [ref=e854]:
+                - generic [ref=e855]: Compound
+                - generic [ref=e856]: com.compound.calculator
+                - paragraph [ref=e857]: "App-store impersonation \"Compound.\" on ios by \"Stephen Bae\" targeting Compound. Confidence: 95%."
+                - generic [ref=e858]:
+                  - generic [ref=e859]:
+                    - generic [ref=e860]: PRIORITY 85/100
+                    - progressbar [ref=e862]
+                  - generic [ref=e864]:
+                    - generic [ref=e865]: form
+                    - generic [ref=e866]: 1 evidence
+                    - generic [ref=e867]: 18h ago
+              - generic [ref=e868]:
+                - button "Submit →" [ref=e869] [cursor=pointer]
+                - button "View Detail" [ref=e870] [cursor=pointer]
+                - button "Dismiss" [ref=e871] [cursor=pointer]
+            - generic [ref=e872]:
+              - generic [ref=e873]:
+                - generic [ref=e875]:
+                  - generic [ref=e876]: 🔗
+                  - generic [ref=e877]: URL
+                - generic [ref=e878]: Draft
+              - generic [ref=e879]:
+                - generic [ref=e880]: Compound
+                - generic [ref=e881]: wallstreetvets.WallstreetVets
+                - paragraph [ref=e882]: "App-store impersonation \"MyCompound\" on ios by \"WallstreetVets LLC\" targeting Compound. Confidence: 95%."
+                - generic [ref=e883]:
+                  - generic [ref=e884]:
+                    - generic [ref=e885]: PRIORITY 85/100
+                    - progressbar [ref=e887]
+                  - generic [ref=e889]:
+                    - generic [ref=e890]: form
+                    - generic [ref=e891]: 1 evidence
+                    - generic [ref=e892]: 18h ago
+              - generic [ref=e893]:
+                - button "Submit →" [ref=e894] [cursor=pointer]
+                - button "View Detail" [ref=e895] [cursor=pointer]
+                - button "Dismiss" [ref=e896] [cursor=pointer]
+            - generic [ref=e897]:
+              - generic [ref=e898]:
+                - generic [ref=e900]:
+                  - generic [ref=e901]: 🔗
+                  - generic [ref=e902]: URL
+                - generic [ref=e903]: Draft
+              - generic [ref=e904]:
+                - generic [ref=e905]: Coldwell Banker
+                - generic [ref=e906]: ca.phoenixsoftware.cbagentprod
+                - paragraph [ref=e907]: "App-store impersonation \"Coldwell Banker\" on ios by \"Phoenix Software Inc.\" targeting Coldwell Banker. Confidence: 95%."
+                - generic [ref=e908]:
+                  - generic [ref=e909]:
+                    - generic [ref=e910]: PRIORITY 85/100
+                    - progressbar [ref=e912]
+                  - generic [ref=e914]:
+                    - generic [ref=e915]: form
+                    - generic [ref=e916]: 1 evidence
+                    - generic [ref=e917]: 18h ago
+              - generic [ref=e918]:
+                - button "Submit →" [ref=e919] [cursor=pointer]
+                - button "View Detail" [ref=e920] [cursor=pointer]
+                - button "Dismiss" [ref=e921] [cursor=pointer]
+            - generic [ref=e922]:
+              - generic [ref=e923]:
+                - generic [ref=e925]:
+                  - generic [ref=e926]: 🔗
+                  - generic [ref=e927]: URL
+                - generic [ref=e928]: Draft
+              - generic [ref=e929]:
+                - generic [ref=e930]: Cnbc
+                - generic [ref=e931]: com.cnbce.app
+                - paragraph [ref=e932]: "App-store impersonation \"CNBC-e\" on ios by \"ILBAK TV YAYINCILIK VE ILETISIM ANONIM SIRKETI\" targeting Cnbc. Confidence: 95%."
+                - generic [ref=e933]:
+                  - generic [ref=e934]:
+                    - generic [ref=e935]: PRIORITY 85/100
+                    - progressbar [ref=e937]
+                  - generic [ref=e939]:
+                    - generic [ref=e940]: form
+                    - generic [ref=e941]: 1 evidence
+                    - generic [ref=e942]: 18h ago
+              - generic [ref=e943]:
+                - button "Submit →" [ref=e944] [cursor=pointer]
+                - button "View Detail" [ref=e945] [cursor=pointer]
+                - button "Dismiss" [ref=e946] [cursor=pointer]
+            - generic [ref=e947]:
+              - generic [ref=e948]:
+                - generic [ref=e950]:
+                  - generic [ref=e951]: 🔗
+                  - generic [ref=e952]: URL
+                - generic [ref=e953]: Draft
+              - generic [ref=e954]:
+                - generic [ref=e955]: CMA CGM
+                - generic [ref=e956]: com.cmacgm.csmartphone
+                - paragraph [ref=e957]: "App-store impersonation \"CMA CGM\" on ios by \"CMA CGM\" targeting CMA CGM. Confidence: 95%."
+                - generic [ref=e958]:
+                  - generic [ref=e959]:
+                    - generic [ref=e960]: PRIORITY 85/100
+                    - progressbar [ref=e962]
+                  - generic [ref=e964]:
+                    - generic [ref=e965]: form
+                    - generic [ref=e966]: 1 evidence
+                    - generic [ref=e967]: 18h ago
+              - generic [ref=e968]:
+                - button "Submit →" [ref=e969] [cursor=pointer]
+                - button "View Detail" [ref=e970] [cursor=pointer]
+                - button "Dismiss" [ref=e971] [cursor=pointer]
+            - generic [ref=e972]:
+              - generic [ref=e973]:
+                - generic [ref=e975]:
+                  - generic [ref=e976]: 🔗
+                  - generic [ref=e977]: URL
+                - generic [ref=e978]: Draft
+              - generic [ref=e979]:
+                - generic [ref=e980]: Citizens Bank
+                - generic [ref=e981]: com.citizensbanknewhaven.mobile
+                - paragraph [ref=e982]: "App-store impersonation \"Citizens Bank MO\" on ios by \"Citizens Bank MO\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e983]:
+                  - generic [ref=e984]:
+                    - generic [ref=e985]: PRIORITY 85/100
+                    - progressbar [ref=e987]
+                  - generic [ref=e989]:
+                    - generic [ref=e990]: form
+                    - generic [ref=e991]: 1 evidence
+                    - generic [ref=e992]: 18h ago
+              - generic [ref=e993]:
+                - button "Submit →" [ref=e994] [cursor=pointer]
+                - button "View Detail" [ref=e995] [cursor=pointer]
+                - button "Dismiss" [ref=e996] [cursor=pointer]
+            - generic [ref=e997]:
+              - generic [ref=e998]:
+                - generic [ref=e1000]:
+                  - generic [ref=e1001]: 🔗
+                  - generic [ref=e1002]: URL
+                - generic [ref=e1003]: Draft
+              - generic [ref=e1004]:
+                - generic [ref=e1005]: Citizens Bank
+                - generic [ref=e1006]: com.citizensebank.grip
+                - paragraph [ref=e1007]: "App-store impersonation \"Citizens Bank OR\" on ios by \"Citizens Bank(OR)\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e1008]:
+                  - generic [ref=e1009]:
+                    - generic [ref=e1010]: PRIORITY 85/100
+                    - progressbar [ref=e1012]
+                  - generic [ref=e1014]:
+                    - generic [ref=e1015]: form
+                    - generic [ref=e1016]: 1 evidence
+                    - generic [ref=e1017]: 18h ago
+              - generic [ref=e1018]:
+                - button "Submit →" [ref=e1019] [cursor=pointer]
+                - button "View Detail" [ref=e1020] [cursor=pointer]
+                - button "Dismiss" [ref=e1021] [cursor=pointer]
+            - generic [ref=e1022]:
+              - generic [ref=e1023]:
+                - generic [ref=e1025]:
+                  - generic [ref=e1026]: 🔗
+                  - generic [ref=e1027]: URL
+                - generic [ref=e1028]: Draft
+              - generic [ref=e1029]:
+                - generic [ref=e1030]: Citizens Bank
+                - generic [ref=e1031]: bank.citizenbank.grip
+                - paragraph [ref=e1032]: "App-store impersonation \"Citizens Bank-WI\" on ios by \"Citizens Bank WI\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e1033]:
+                  - generic [ref=e1034]:
+                    - generic [ref=e1035]: PRIORITY 85/100
+                    - progressbar [ref=e1037]
+                  - generic [ref=e1039]:
+                    - generic [ref=e1040]: form
+                    - generic [ref=e1041]: 1 evidence
+                    - generic [ref=e1042]: 18h ago
+              - generic [ref=e1043]:
+                - button "Submit →" [ref=e1044] [cursor=pointer]
+                - button "View Detail" [ref=e1045] [cursor=pointer]
+                - button "Dismiss" [ref=e1046] [cursor=pointer]
+            - generic [ref=e1047]:
+              - generic [ref=e1048]:
+                - generic [ref=e1050]:
+                  - generic [ref=e1051]: 🔗
+                  - generic [ref=e1052]: URL
+                - generic [ref=e1053]: Draft
+              - generic [ref=e1054]:
+                - generic [ref=e1055]: Citizens Bank
+                - generic [ref=e1056]: com.intuit.mobilebanking03654
+                - paragraph [ref=e1057]: "App-store impersonation \"Citizens Bank (IN)\" on ios by \"Citizens Bank (IN)\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e1058]:
+                  - generic [ref=e1059]:
+                    - generic [ref=e1060]: PRIORITY 85/100
+                    - progressbar [ref=e1062]
+                  - generic [ref=e1064]:
+                    - generic [ref=e1065]: form
+                    - generic [ref=e1066]: 2 evidence
+                    - generic [ref=e1067]: 18h ago
+              - generic [ref=e1068]:
+                - button "Submit →" [ref=e1069] [cursor=pointer]
+                - button "View Detail" [ref=e1070] [cursor=pointer]
+                - button "Dismiss" [ref=e1071] [cursor=pointer]
+            - generic [ref=e1072]:
+              - generic [ref=e1073]:
+                - generic [ref=e1075]:
+                  - generic [ref=e1076]: 🔗
+                  - generic [ref=e1077]: URL
+                - generic [ref=e1078]: Draft
+              - generic [ref=e1079]:
+                - generic [ref=e1080]: Citizens Bank
+                - generic [ref=e1081]: com.citizensbk.grip
+                - paragraph [ref=e1082]: "App-store impersonation \"Citizens Bank - MS\" on ios by \"Citizens Bank MS\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e1083]:
+                  - generic [ref=e1084]:
+                    - generic [ref=e1085]: PRIORITY 85/100
+                    - progressbar [ref=e1087]
+                  - generic [ref=e1089]:
+                    - generic [ref=e1090]: form
+                    - generic [ref=e1091]: 2 evidence
+                    - generic [ref=e1092]: 18h ago
+              - generic [ref=e1093]:
+                - button "Submit →" [ref=e1094] [cursor=pointer]
+                - button "View Detail" [ref=e1095] [cursor=pointer]
+                - button "Dismiss" [ref=e1096] [cursor=pointer]
+            - generic [ref=e1097]:
+              - generic [ref=e1098]:
+                - generic [ref=e1100]:
+                  - generic [ref=e1101]: 🔗
+                  - generic [ref=e1102]: URL
+                - generic [ref=e1103]: Draft
+              - generic [ref=e1104]:
+                - generic [ref=e1105]: Checkpoint
+                - generic [ref=e1106]: sg.com.novanet.checkpointSG
+                - paragraph [ref=e1107]: "App-store impersonation \"Checkpoints @ SG\" on ios by \"Novanet Solutions Pte Ltd\" targeting Checkpoint. Confidence: 94%."
+                - generic [ref=e1108]:
+                  - generic [ref=e1109]:
+                    - generic [ref=e1110]: PRIORITY 85/100
+                    - progressbar [ref=e1112]
+                  - generic [ref=e1114]:
+                    - generic [ref=e1115]: form
+                    - generic [ref=e1116]: 2 evidence
+                    - generic [ref=e1117]: 1d ago
+              - generic [ref=e1118]:
+                - button "Submit →" [ref=e1119] [cursor=pointer]
+                - button "View Detail" [ref=e1120] [cursor=pointer]
+                - button "Dismiss" [ref=e1121] [cursor=pointer]
+            - generic [ref=e1122]:
+              - generic [ref=e1123]:
+                - generic [ref=e1125]:
+                  - generic [ref=e1126]: 🔗
+                  - generic [ref=e1127]: URL
+                - generic [ref=e1128]: Draft
+              - generic [ref=e1129]:
+                - generic [ref=e1130]: Chevron
+                - generic [ref=e1131]: mx.com.eft.chevron
+                - paragraph [ref=e1132]: "App-store impersonation \"Chevron GO\" on ios by \"Administradora Profesional de Gasolineras de Mexico S. de R.L. de C.V\" targeting Chevron. Confidence: 95%."
+                - generic [ref=e1133]:
+                  - generic [ref=e1134]:
+                    - generic [ref=e1135]: PRIORITY 85/100
+                    - progressbar [ref=e1137]
+                  - generic [ref=e1139]:
+                    - generic [ref=e1140]: form
+                    - generic [ref=e1141]: 2 evidence
+                    - generic [ref=e1142]: 1d ago
+              - generic [ref=e1143]:
+                - button "Submit →" [ref=e1144] [cursor=pointer]
+                - button "View Detail" [ref=e1145] [cursor=pointer]
+                - button "Dismiss" [ref=e1146] [cursor=pointer]
+            - generic [ref=e1147]:
+              - generic [ref=e1148]:
+                - generic [ref=e1150]:
+                  - generic [ref=e1151]: 🔗
+                  - generic [ref=e1152]: URL
+                - generic [ref=e1153]: Draft
+              - generic [ref=e1154]:
+                - generic [ref=e1155]: Chubb
+                - generic [ref=e1156]: com.como.prod1095820250109
+                - paragraph [ref=e1157]: "App-store impersonation \"Chubbs\" on ios by \"Box Concepts Food Group Ltd\" targeting Chubb. Confidence: 95%."
+                - generic [ref=e1158]:
+                  - generic [ref=e1159]:
+                    - generic [ref=e1160]: PRIORITY 85/100
+                    - progressbar [ref=e1162]
+                  - generic [ref=e1164]:
+                    - generic [ref=e1165]: form
+                    - generic [ref=e1166]: 2 evidence
+                    - generic [ref=e1167]: 1d ago
+              - generic [ref=e1168]:
+                - button "Submit →" [ref=e1169] [cursor=pointer]
+                - button "View Detail" [ref=e1170] [cursor=pointer]
+                - button "Dismiss" [ref=e1171] [cursor=pointer]
+            - generic [ref=e1172]:
+              - generic [ref=e1173]:
+                - generic [ref=e1175]:
+                  - generic [ref=e1176]: 🔗
+                  - generic [ref=e1177]: URL
+                - generic [ref=e1178]: Draft
+              - generic [ref=e1179]:
+                - generic [ref=e1180]: Chubb
+                - generic [ref=e1181]: com.rewardz.chubb
+                - paragraph [ref=e1182]: "App-store impersonation \"Chubb\" on ios by \"Rewardz Private Limited\" targeting Chubb. Confidence: 95%."
+                - generic [ref=e1183]:
+                  - generic [ref=e1184]:
+                    - generic [ref=e1185]: PRIORITY 85/100
+                    - progressbar [ref=e1187]
+                  - generic [ref=e1189]:
+                    - generic [ref=e1190]: form
+                    - generic [ref=e1191]: 2 evidence
+                    - generic [ref=e1192]: 1d ago
+              - generic [ref=e1193]:
+                - button "Submit →" [ref=e1194] [cursor=pointer]
+                - button "View Detail" [ref=e1195] [cursor=pointer]
+                - button "Dismiss" [ref=e1196] [cursor=pointer]
+            - generic [ref=e1197]:
+              - generic [ref=e1198]:
+                - generic [ref=e1200]:
+                  - generic [ref=e1201]: 🔗
+                  - generic [ref=e1202]: URL
+                - generic [ref=e1203]: Draft
+              - generic [ref=e1204]:
+                - generic [ref=e1205]: Celsius
+                - generic [ref=e1206]: com.celsius
+                - paragraph [ref=e1207]: "App-store impersonation \"Celsius\" on ios by \"FEEDY S.A.S\" targeting Celsius. Confidence: 95%."
+                - generic [ref=e1208]:
+                  - generic [ref=e1209]:
+                    - generic [ref=e1210]: PRIORITY 85/100
+                    - progressbar [ref=e1212]
+                  - generic [ref=e1214]:
+                    - generic [ref=e1215]: form
+                    - generic [ref=e1216]: 2 evidence
+                    - generic [ref=e1217]: 1d ago
+              - generic [ref=e1218]:
+                - button "Submit →" [ref=e1219] [cursor=pointer]
+                - button "View Detail" [ref=e1220] [cursor=pointer]
+                - button "Dismiss" [ref=e1221] [cursor=pointer]
+            - generic [ref=e1222]:
+              - generic [ref=e1223]:
+                - generic [ref=e1225]:
+                  - generic [ref=e1226]: 🔗
+                  - generic [ref=e1227]: URL
+                - generic [ref=e1228]: Draft
+              - generic [ref=e1229]:
+                - generic [ref=e1230]: Celsius
+                - generic [ref=e1231]: com.flipwire.celsius2
+                - paragraph [ref=e1232]: "App-store impersonation \"Celsius 2\" on ios by \"Flipwire\" targeting Celsius. Confidence: 95%."
+                - generic [ref=e1233]:
+                  - generic [ref=e1234]:
+                    - generic [ref=e1235]: PRIORITY 85/100
+                    - progressbar [ref=e1237]
+                  - generic [ref=e1239]:
+                    - generic [ref=e1240]: form
+                    - generic [ref=e1241]: 2 evidence
+                    - generic [ref=e1242]: 1d ago
+              - generic [ref=e1243]:
+                - button "Submit →" [ref=e1244] [cursor=pointer]
+                - button "View Detail" [ref=e1245] [cursor=pointer]
+                - button "Dismiss" [ref=e1246] [cursor=pointer]
+            - generic [ref=e1247]:
+              - generic [ref=e1248]:
+                - generic [ref=e1250]:
+                  - generic [ref=e1251]: 🔗
+                  - generic [ref=e1252]: URL
+                - generic [ref=e1253]: Draft
+              - generic [ref=e1254]:
+                - generic [ref=e1255]: CBRE
+                - generic [ref=e1256]: cn.com.cbre.supercommunity
+                - paragraph [ref=e1257]: "App-store impersonation \"CBRE管家\" on ios by \"Beijing CBRE Property Management Services Limited\" targeting CBRE. Confidence: 95%."
+                - generic [ref=e1258]:
+                  - generic [ref=e1259]:
+                    - generic [ref=e1260]: PRIORITY 85/100
+                    - progressbar [ref=e1262]
+                  - generic [ref=e1264]:
+                    - generic [ref=e1265]: form
+                    - generic [ref=e1266]: 2 evidence
+                    - generic [ref=e1267]: 1d ago
+              - generic [ref=e1268]:
+                - button "Submit →" [ref=e1269] [cursor=pointer]
+                - button "View Detail" [ref=e1270] [cursor=pointer]
+                - button "Dismiss" [ref=e1271] [cursor=pointer]
+            - generic [ref=e1272]:
+              - generic [ref=e1273]:
+                - generic [ref=e1275]:
+                  - generic [ref=e1276]: 🔗
+                  - generic [ref=e1277]: URL
+                - generic [ref=e1278]: Draft
+              - generic [ref=e1279]:
+                - generic [ref=e1280]: CBRE
+                - generic [ref=e1281]: cn.com.cbre.manager
+                - paragraph [ref=e1282]: "App-store impersonation \"智慧CBRE\" on ios by \"Beijing CBRE Property Management Services Limited\" targeting CBRE. Confidence: 95%."
+                - generic [ref=e1283]:
+                  - generic [ref=e1284]:
+                    - generic [ref=e1285]: PRIORITY 85/100
+                    - progressbar [ref=e1287]
+                  - generic [ref=e1289]:
+                    - generic [ref=e1290]: form
+                    - generic [ref=e1291]: 2 evidence
+                    - generic [ref=e1292]: 1d ago
+              - generic [ref=e1293]:
+                - button "Submit →" [ref=e1294] [cursor=pointer]
+                - button "View Detail" [ref=e1295] [cursor=pointer]
+                - button "Dismiss" [ref=e1296] [cursor=pointer]
+            - generic [ref=e1297]:
+              - generic [ref=e1298]:
+                - generic [ref=e1300]:
+                  - generic [ref=e1301]: 🔗
+                  - generic [ref=e1302]: URL
+                - generic [ref=e1303]: Draft
+              - generic [ref=e1304]:
+                - generic [ref=e1305]: Brookfield
+                - generic [ref=e1306]: com.vts.activate.brookfieldhq
+                - paragraph [ref=e1307]: "App-store impersonation \"BrookfieldHQ\" on ios by \"Brookfield Asset Management Ltd.\" targeting Brookfield. Confidence: 95%."
+                - generic [ref=e1308]:
+                  - generic [ref=e1309]:
+                    - generic [ref=e1310]: PRIORITY 85/100
+                    - progressbar [ref=e1312]
+                  - generic [ref=e1314]:
+                    - generic [ref=e1315]: form
+                    - generic [ref=e1316]: 2 evidence
+                    - generic [ref=e1317]: 1d ago
+              - generic [ref=e1318]:
+                - button "Submit →" [ref=e1319] [cursor=pointer]
+                - button "View Detail" [ref=e1320] [cursor=pointer]
+                - button "Dismiss" [ref=e1321] [cursor=pointer]
+            - generic [ref=e1322]:
+              - generic [ref=e1323]:
+                - generic [ref=e1325]:
+                  - generic [ref=e1326]: 🔗
+                  - generic [ref=e1327]: URL
+                - generic [ref=e1328]: Draft
+              - generic [ref=e1329]:
+                - generic [ref=e1330]: Caterpillar
+                - generic [ref=e1331]: com.kaixuan.snake-IO
+                - paragraph [ref=e1332]: "App-store impersonation \"Caterpillar.io\" on ios by \"Appulet, Inc\" targeting Caterpillar. Confidence: 95%."
+                - generic [ref=e1333]:
+                  - generic [ref=e1334]:
+                    - generic [ref=e1335]: PRIORITY 85/100
+                    - progressbar [ref=e1337]
+                  - generic [ref=e1339]:
+                    - generic [ref=e1340]: form
+                    - generic [ref=e1341]: 2 evidence
+                    - generic [ref=e1342]: 1d ago
+              - generic [ref=e1343]:
+                - button "Submit →" [ref=e1344] [cursor=pointer]
+                - button "View Detail" [ref=e1345] [cursor=pointer]
+                - button "Dismiss" [ref=e1346] [cursor=pointer]
+            - generic [ref=e1347]:
+              - generic [ref=e1348]:
+                - generic [ref=e1350]:
+                  - generic [ref=e1351]: 🔗
+                  - generic [ref=e1352]: URL
+                - generic [ref=e1353]: Draft
+              - generic [ref=e1354]:
+                - generic [ref=e1355]: Brookfield
+                - generic [ref=e1356]: com.govoutreach.brookfieldtwpoh
+                - paragraph [ref=e1357]: "App-store impersonation \"My Brookfield\" on ios by \"GOGov, Inc.\" targeting Brookfield. Confidence: 95%."
+                - generic [ref=e1358]:
+                  - generic [ref=e1359]:
+                    - generic [ref=e1360]: PRIORITY 85/100
+                    - progressbar [ref=e1362]
+                  - generic [ref=e1364]:
+                    - generic [ref=e1365]: form
+                    - generic [ref=e1366]: 2 evidence
+                    - generic [ref=e1367]: 1d ago
+              - generic [ref=e1368]:
+                - button "Submit →" [ref=e1369] [cursor=pointer]
+                - button "View Detail" [ref=e1370] [cursor=pointer]
+                - button "Dismiss" [ref=e1371] [cursor=pointer]
+            - generic [ref=e1372]:
+              - generic [ref=e1373]:
+                - generic [ref=e1375]:
+                  - generic [ref=e1376]: 🔗
+                  - generic [ref=e1377]: URL
+                - generic [ref=e1378]: Draft
+              - generic [ref=e1379]:
+                - generic [ref=e1380]: Blackrock
+                - generic [ref=e1381]: com.desn.xyBlackrockIot
+                - paragraph [ref=e1382]: "App-store impersonation \"BlackRock Iot\" on ios by \"Shenzhen BlackRock IOT Co., Ltd\" targeting Blackrock. Confidence: 94%."
+                - generic [ref=e1383]:
+                  - generic [ref=e1384]:
+                    - generic [ref=e1385]: PRIORITY 85/100
+                    - progressbar [ref=e1387]
+                  - generic [ref=e1389]:
+                    - generic [ref=e1390]: form
+                    - generic [ref=e1391]: 2 evidence
+                    - generic [ref=e1392]: 1d ago
+              - generic [ref=e1393]:
+                - button "Submit →" [ref=e1394] [cursor=pointer]
+                - button "View Detail" [ref=e1395] [cursor=pointer]
+                - button "Dismiss" [ref=e1396] [cursor=pointer]
+            - generic [ref=e1397]:
+              - generic [ref=e1398]:
+                - generic [ref=e1400]:
+                  - generic [ref=e1401]: 🔗
+                  - generic [ref=e1402]: URL
+                - generic [ref=e1403]: Draft
+              - generic [ref=e1404]:
+                - generic [ref=e1405]: Bloomberg
+                - generic [ref=e1406]: cn.com.modernmedia.businessweek
+                - paragraph [ref=e1407]: "App-store impersonation \"iBloomberg i商周\" on ios by \"Modern Mobile Digital Media Company Limited\" targeting Bloomberg. Confidence: 95%."
+                - generic [ref=e1408]:
+                  - generic [ref=e1409]:
+                    - generic [ref=e1410]: PRIORITY 85/100
+                    - progressbar [ref=e1412]
+                  - generic [ref=e1414]:
+                    - generic [ref=e1415]: form
+                    - generic [ref=e1416]: 2 evidence
+                    - generic [ref=e1417]: 1d ago
+              - generic [ref=e1418]:
+                - button "Submit →" [ref=e1419] [cursor=pointer]
+                - button "View Detail" [ref=e1420] [cursor=pointer]
+                - button "Dismiss" [ref=e1421] [cursor=pointer]
+            - generic [ref=e1422]:
+              - generic [ref=e1423]:
+                - generic [ref=e1425]:
+                  - generic [ref=e1426]: 🔗
+                  - generic [ref=e1427]: URL
+                - generic [ref=e1428]: Draft
+              - generic [ref=e1429]:
+                - generic [ref=e1430]: Bit
+                - generic [ref=e1431]: it.bitmobility.bit
+                - paragraph [ref=e1432]: "App-store impersonation \"BIT\" on ios by \"Bit Mobility Srl\" targeting Bit. Confidence: 95%."
+                - generic [ref=e1433]:
+                  - generic [ref=e1434]:
+                    - generic [ref=e1435]: PRIORITY 85/100
+                    - progressbar [ref=e1437]
+                  - generic [ref=e1439]:
+                    - generic [ref=e1440]: form
+                    - generic [ref=e1441]: 2 evidence
+                    - generic [ref=e1442]: 1d ago
+              - generic [ref=e1443]:
+                - button "Submit →" [ref=e1444] [cursor=pointer]
+                - button "View Detail" [ref=e1445] [cursor=pointer]
+                - button "Dismiss" [ref=e1446] [cursor=pointer]
+            - generic [ref=e1447]:
+              - generic [ref=e1448]:
+                - generic [ref=e1450]:
+                  - generic [ref=e1451]: 🔗
+                  - generic [ref=e1452]: URL
+                - generic [ref=e1453]: Draft
+              - generic [ref=e1454]:
+                - generic [ref=e1455]: BC Hydro
+                - generic [ref=e1456]: com.bchydro.bchydroev
+                - paragraph [ref=e1457]: "App-store impersonation \"BC Hydro EV\" on ios by \"British Columbia Hydro and Power Authority\" targeting BC Hydro. Confidence: 95%."
+                - generic [ref=e1458]:
+                  - generic [ref=e1459]:
+                    - generic [ref=e1460]: PRIORITY 85/100
+                    - progressbar [ref=e1462]
+                  - generic [ref=e1464]:
+                    - generic [ref=e1465]: form
+                    - generic [ref=e1466]: 2 evidence
+                    - generic [ref=e1467]: 1d ago
+              - generic [ref=e1468]:
+                - button "Submit →" [ref=e1469] [cursor=pointer]
+                - button "View Detail" [ref=e1470] [cursor=pointer]
+                - button "Dismiss" [ref=e1471] [cursor=pointer]
+            - generic [ref=e1472]:
+              - generic [ref=e1473]:
+                - generic [ref=e1475]:
+                  - generic [ref=e1476]: 🔗
+                  - generic [ref=e1477]: URL
+                - generic [ref=e1478]: Draft
+              - generic [ref=e1479]:
+                - generic [ref=e1480]: Bath & Body Works
+                - generic [ref=e1481]: com.bathandbodyworks.app
+                - paragraph [ref=e1482]: "App-store impersonation \"Bath & Body Works | B&BW\" on ios by \"Bath & Body Works\" targeting Bath & Body Works. Confidence: 95%."
+                - generic [ref=e1483]:
+                  - generic [ref=e1484]:
+                    - generic [ref=e1485]: PRIORITY 85/100
+                    - progressbar [ref=e1487]
+                  - generic [ref=e1489]:
+                    - generic [ref=e1490]: form
+                    - generic [ref=e1491]: 2 evidence
+                    - generic [ref=e1492]: 1d ago
+              - generic [ref=e1493]:
+                - button "Submit →" [ref=e1494] [cursor=pointer]
+                - button "View Detail" [ref=e1495] [cursor=pointer]
+                - button "Dismiss" [ref=e1496] [cursor=pointer]
+            - generic [ref=e1497]:
+              - generic [ref=e1498]:
+                - generic [ref=e1500]:
+                  - generic [ref=e1501]: 🔗
+                  - generic [ref=e1502]: URL
+                - generic [ref=e1503]: Draft
+              - generic [ref=e1504]:
+                - generic [ref=e1505]: AXA
+                - generic [ref=e1506]: com.mdb.axa
+                - paragraph [ref=e1507]: "App-store impersonation \"다이렉트 자동차보험 (AXA손해보험 제휴)\" on ios by \"MDB Korea Co., Ltd.\" targeting AXA. Confidence: 95%."
+                - generic [ref=e1508]:
+                  - generic [ref=e1509]:
+                    - generic [ref=e1510]: PRIORITY 85/100
+                    - progressbar [ref=e1512]
+                  - generic [ref=e1514]:
+                    - generic [ref=e1515]: form
+                    - generic [ref=e1516]: 2 evidence
+                    - generic [ref=e1517]: 1d ago
+              - generic [ref=e1518]:
+                - button "Submit →" [ref=e1519] [cursor=pointer]
+                - button "View Detail" [ref=e1520] [cursor=pointer]
+                - button "Dismiss" [ref=e1521] [cursor=pointer]
+            - generic [ref=e1522]:
+              - generic [ref=e1523]:
+                - generic [ref=e1525]:
+                  - generic [ref=e1526]: 🔗
+                  - generic [ref=e1527]: URL
+                - generic [ref=e1528]: Draft
+              - generic [ref=e1529]:
+                - generic [ref=e1530]: Aviva
+                - generic [ref=e1531]: at.smorder.aviva
+                - paragraph [ref=e1532]: "App-store impersonation \"AVIVA\" on ios by \"Lints GmbH\" targeting Aviva. Confidence: 95%."
+                - generic [ref=e1533]:
+                  - generic [ref=e1534]:
+                    - generic [ref=e1535]: PRIORITY 85/100
+                    - progressbar [ref=e1537]
+                  - generic [ref=e1539]:
+                    - generic [ref=e1540]: form
+                    - generic [ref=e1541]: 2 evidence
+                    - generic [ref=e1542]: 2d ago
+              - generic [ref=e1543]:
+                - button "Submit →" [ref=e1544] [cursor=pointer]
+                - button "View Detail" [ref=e1545] [cursor=pointer]
+                - button "Dismiss" [ref=e1546] [cursor=pointer]
+            - generic [ref=e1547]:
+              - generic [ref=e1548]:
+                - generic [ref=e1550]:
+                  - generic [ref=e1551]: 🔗
+                  - generic [ref=e1552]: URL
+                - generic [ref=e1553]: Draft
+              - generic [ref=e1554]:
+                - generic [ref=e1555]: Aviva
+                - generic [ref=e1556]: br.com.igrejasmart.AvivaigrejA
+                - paragraph [ref=e1557]: "App-store impersonation \"Aviva\" on ios by \"Teuassuri Cardoso\" targeting Aviva. Confidence: 95%."
+                - generic [ref=e1558]:
+                  - generic [ref=e1559]:
+                    - generic [ref=e1560]: PRIORITY 85/100
+                    - progressbar [ref=e1562]
+                  - generic [ref=e1564]:
+                    - generic [ref=e1565]: form
+                    - generic [ref=e1566]: 2 evidence
+                    - generic [ref=e1567]: 2d ago
+              - generic [ref=e1568]:
+                - button "Submit →" [ref=e1569] [cursor=pointer]
+                - button "View Detail" [ref=e1570] [cursor=pointer]
+                - button "Dismiss" [ref=e1571] [cursor=pointer]
+            - generic [ref=e1572]:
+              - generic [ref=e1573]:
+                - generic [ref=e1575]:
+                  - generic [ref=e1576]: 🔗
+                  - generic [ref=e1577]: URL
+                - generic [ref=e1578]: Draft
+              - generic [ref=e1579]:
+                - generic [ref=e1580]: Aviva
+                - generic [ref=e1581]: com.ouitherapeutics.aviva
+                - paragraph [ref=e1582]: "App-store impersonation \"Aviva\" on ios by \"Oui Therapeutics, Inc\" targeting Aviva. Confidence: 95%."
+                - generic [ref=e1583]:
+                  - generic [ref=e1584]:
+                    - generic [ref=e1585]: PRIORITY 85/100
+                    - progressbar [ref=e1587]
+                  - generic [ref=e1589]:
+                    - generic [ref=e1590]: form
+                    - generic [ref=e1591]: 2 evidence
+                    - generic [ref=e1592]: 2d ago
+              - generic [ref=e1593]:
+                - button "Submit →" [ref=e1594] [cursor=pointer]
+                - button "View Detail" [ref=e1595] [cursor=pointer]
+                - button "Dismiss" [ref=e1596] [cursor=pointer]
+            - generic [ref=e1597]:
+              - generic [ref=e1598]:
+                - generic [ref=e1600]:
+                  - generic [ref=e1601]: 🔗
+                  - generic [ref=e1602]: URL
+                - generic [ref=e1603]: Draft
+              - generic [ref=e1604]:
+                - generic [ref=e1605]: Australia Post
+                - generic [ref=e1606]: com.auspost.mobile
+                - paragraph [ref=e1607]: "App-store impersonation \"Australia Post\" on ios by \"Australia Post\" targeting Australia Post. Confidence: 95%."
+                - generic [ref=e1608]:
+                  - generic [ref=e1609]:
+                    - generic [ref=e1610]: PRIORITY 85/100
+                    - progressbar [ref=e1612]
+                  - generic [ref=e1614]:
+                    - generic [ref=e1615]: form
+                    - generic [ref=e1616]: 2 evidence
+                    - generic [ref=e1617]: 2d ago
+              - generic [ref=e1618]:
+                - button "Submit →" [ref=e1619] [cursor=pointer]
+                - button "View Detail" [ref=e1620] [cursor=pointer]
+                - button "Dismiss" [ref=e1621] [cursor=pointer]
+            - generic [ref=e1622]:
+              - generic [ref=e1623]:
+                - generic [ref=e1625]:
+                  - generic [ref=e1626]: 🔗
+                  - generic [ref=e1627]: URL
+                - generic [ref=e1628]: Draft
+              - generic [ref=e1629]:
+                - generic [ref=e1630]: Appsflyer
+                - generic [ref=e1631]: com.appsflyer.AppsFlyer
+                - paragraph [ref=e1632]: "App-store impersonation \"AppsFlyer\" on ios by \"APPSFLYER LTD\" targeting Appsflyer. Confidence: 95%."
+                - generic [ref=e1633]:
+                  - generic [ref=e1634]:
+                    - generic [ref=e1635]: PRIORITY 85/100
+                    - progressbar [ref=e1637]
+                  - generic [ref=e1639]:
+                    - generic [ref=e1640]: form
+                    - generic [ref=e1641]: 2 evidence
+                    - generic [ref=e1642]: 2d ago
+              - generic [ref=e1643]:
+                - button "Submit →" [ref=e1644] [cursor=pointer]
+                - button "View Detail" [ref=e1645] [cursor=pointer]
+                - button "Dismiss" [ref=e1646] [cursor=pointer]
+            - generic [ref=e1647]:
+              - generic [ref=e1648]:
+                - generic [ref=e1650]:
+                  - generic [ref=e1651]: 🔗
+                  - generic [ref=e1652]: URL
+                - generic [ref=e1653]: Draft
+              - generic [ref=e1654]:
+                - generic [ref=e1655]: Amplitude
+                - generic [ref=e1656]: com.amplitude.app
+                - paragraph [ref=e1657]: "App-store impersonation \"Amplitude Docs\" on ios by \"AMPLITUDE SAS\" targeting Amplitude. Confidence: 93%."
+                - generic [ref=e1658]:
+                  - generic [ref=e1659]:
+                    - generic [ref=e1660]: PRIORITY 85/100
+                    - progressbar [ref=e1662]
+                  - generic [ref=e1664]:
+                    - generic [ref=e1665]: form
+                    - generic [ref=e1666]: 2 evidence
+                    - generic [ref=e1667]: 2d ago
+              - generic [ref=e1668]:
+                - button "Submit →" [ref=e1669] [cursor=pointer]
+                - button "View Detail" [ref=e1670] [cursor=pointer]
+                - button "Dismiss" [ref=e1671] [cursor=pointer]
+            - generic [ref=e1672]:
+              - generic [ref=e1673]:
+                - generic [ref=e1675]:
+                  - generic [ref=e1676]: 🔗
+                  - generic [ref=e1677]: URL
+                - generic [ref=e1678]: Draft
+              - generic [ref=e1679]:
+                - generic [ref=e1680]: Elevance Health
+                - generic [ref=e1681]: com.anthem.ae.pulse
+                - paragraph [ref=e1682]: "App-store impersonation \"Elevance Health Pulse\" on ios by \"Elevance Health, Inc\" targeting Elevance Health. Confidence: 94%."
+                - generic [ref=e1683]:
+                  - generic [ref=e1684]:
+                    - generic [ref=e1685]: PRIORITY 85/100
+                    - progressbar [ref=e1687]
+                  - generic [ref=e1689]:
+                    - generic [ref=e1690]: form
+                    - generic [ref=e1691]: 2 evidence
+                    - generic [ref=e1692]: 2d ago
+              - generic [ref=e1693]:
+                - button "Submit →" [ref=e1694] [cursor=pointer]
+                - button "View Detail" [ref=e1695] [cursor=pointer]
+                - button "Dismiss" [ref=e1696] [cursor=pointer]
+            - generic [ref=e1697]:
+              - generic [ref=e1698]:
+                - generic [ref=e1700]:
+                  - generic [ref=e1701]: 🔗
+                  - generic [ref=e1702]: URL
+                - generic [ref=e1703]: Draft
+              - generic [ref=e1704]:
+                - generic [ref=e1705]: Alibaba
+                - generic [ref=e1706]: com.alibabacharcoalgrillcrewe.restaurant.food
+                - paragraph [ref=e1707]: "App-store impersonation \"Ali Baba\" on ios by \"REDOQ SOFTWARE SERVICES PRIVATE LIMITED\" targeting Alibaba. Confidence: 95%."
+                - generic [ref=e1708]:
+                  - generic [ref=e1709]:
+                    - generic [ref=e1710]: PRIORITY 85/100
+                    - progressbar [ref=e1712]
+                  - generic [ref=e1714]:
+                    - generic [ref=e1715]: form
+                    - generic [ref=e1716]: 2 evidence
+                    - generic [ref=e1717]: 2d ago
+              - generic [ref=e1718]:
+                - button "Submit →" [ref=e1719] [cursor=pointer]
+                - button "View Detail" [ref=e1720] [cursor=pointer]
+                - button "Dismiss" [ref=e1721] [cursor=pointer]
+            - generic [ref=e1722]:
+              - generic [ref=e1723]:
+                - generic [ref=e1725]:
+                  - generic [ref=e1726]: 🔗
+                  - generic [ref=e1727]: URL
+                - generic [ref=e1728]: Draft
+              - generic [ref=e1729]:
+                - generic [ref=e1730]: AIG
+                - generic [ref=e1731]: com.aig.travel
+                - paragraph [ref=e1732]: "App-store impersonation \"AIG ביטוח נסיעות לחו\"ל\" on ios by \"AIG Israel insurance company LTD\" targeting AIG. Confidence: 95%."
+                - generic [ref=e1733]:
+                  - generic [ref=e1734]:
+                    - generic [ref=e1735]: PRIORITY 85/100
+                    - progressbar [ref=e1737]
+                  - generic [ref=e1739]:
+                    - generic [ref=e1740]: form
+                    - generic [ref=e1741]: 2 evidence
+                    - generic [ref=e1742]: 2d ago
+              - generic [ref=e1743]:
+                - button "Submit →" [ref=e1744] [cursor=pointer]
+                - button "View Detail" [ref=e1745] [cursor=pointer]
+                - button "Dismiss" [ref=e1746] [cursor=pointer]
+            - generic [ref=e1747]:
+              - generic [ref=e1748]:
+                - generic [ref=e1750]:
+                  - generic [ref=e1751]: 🔗
+                  - generic [ref=e1752]: URL
+                - generic [ref=e1753]: Draft
+              - generic [ref=e1754]:
+                - generic [ref=e1755]: Absa
+                - generic [ref=e1756]: com.emblem.5absa
+                - paragraph [ref=e1757]: "App-store impersonation \"5absa\" on ios by \"Emblem Technologies Private Limited\" targeting Absa. Confidence: 95%."
+                - generic [ref=e1758]:
+                  - generic [ref=e1759]:
+                    - generic [ref=e1760]: PRIORITY 85/100
+                    - progressbar [ref=e1762]
+                  - generic [ref=e1764]:
+                    - generic [ref=e1765]: form
+                    - generic [ref=e1766]: 2 evidence
+                    - generic [ref=e1767]: 1mo ago
+              - generic [ref=e1768]:
+                - button "Submit →" [ref=e1769] [cursor=pointer]
+                - button "View Detail" [ref=e1770] [cursor=pointer]
+                - button "Dismiss" [ref=e1771] [cursor=pointer]
+            - generic [ref=e1772]:
+              - generic [ref=e1773]:
+                - generic [ref=e1775]:
+                  - generic [ref=e1776]: 🔗
+                  - generic [ref=e1777]: URL
+                - generic [ref=e1778]: Draft
+              - generic [ref=e1779]:
+                - generic [ref=e1780]: A2z
+                - generic [ref=e1781]: com.migh.A2ZHK
+                - paragraph [ref=e1782]: "App-store impersonation \"A2Z\" on ios by \"Makemark Intelligence Global Holdings Limited\" targeting A2z. Confidence: 95%."
+                - generic [ref=e1783]:
+                  - generic [ref=e1784]:
+                    - generic [ref=e1785]: PRIORITY 85/100
+                    - progressbar [ref=e1787]
+                  - generic [ref=e1789]:
+                    - generic [ref=e1790]: form
+                    - generic [ref=e1791]: 2 evidence
+                    - generic [ref=e1792]: 1mo ago
+              - generic [ref=e1793]:
+                - button "Submit →" [ref=e1794] [cursor=pointer]
+                - button "View Detail" [ref=e1795] [cursor=pointer]
+                - button "Dismiss" [ref=e1796] [cursor=pointer]
+            - generic [ref=e1797]:
+              - generic [ref=e1798]:
+                - generic [ref=e1800]:
+                  - generic [ref=e1801]: 🔗
+                  - generic [ref=e1802]: URL
+                - generic [ref=e1803]: Draft
+              - generic [ref=e1804]:
+                - generic [ref=e1805]: American Airlines
+                - generic [ref=e1806]: com.aa.AmericanAirlines
+                - paragraph [ref=e1807]: "App-store impersonation \"American Airlines\" on ios by \"American Airlines, Inc.\" targeting American Airlines. Confidence: 95%."
+                - generic [ref=e1808]:
+                  - generic [ref=e1809]:
+                    - generic [ref=e1810]: PRIORITY 85/100
+                    - progressbar [ref=e1812]
+                  - generic [ref=e1814]:
+                    - generic [ref=e1815]: form
+                    - generic [ref=e1816]: 2 evidence
+                    - generic [ref=e1817]: 1mo ago
+              - generic [ref=e1818]:
+                - button "Submit →" [ref=e1819] [cursor=pointer]
+                - button "View Detail" [ref=e1820] [cursor=pointer]
+                - button "Dismiss" [ref=e1821] [cursor=pointer]
+            - generic [ref=e1822]:
+              - generic [ref=e1823]:
+                - generic [ref=e1825]:
+                  - generic [ref=e1826]: 🔗
+                  - generic [ref=e1827]: URL
+                - generic [ref=e1828]: Draft
+              - generic [ref=e1829]:
+                - generic [ref=e1830]: Absa
+                - generic [ref=e1831]: com.absa.absa
+                - paragraph [ref=e1832]: "App-store impersonation \"ABSA\" on ios by \"Electrica A-B, S.A. de C.V.\" targeting Absa. Confidence: 95%."
+                - generic [ref=e1833]:
+                  - generic [ref=e1834]:
+                    - generic [ref=e1835]: PRIORITY 85/100
+                    - progressbar [ref=e1837]
+                  - generic [ref=e1839]:
+                    - generic [ref=e1840]: form
+                    - generic [ref=e1841]: 2 evidence
+                    - generic [ref=e1842]: 1mo ago
+              - generic [ref=e1843]:
+                - button "Submit →" [ref=e1844] [cursor=pointer]
+                - button "View Detail" [ref=e1845] [cursor=pointer]
+                - button "Dismiss" [ref=e1846] [cursor=pointer]
+            - generic [ref=e1847]:
+              - generic [ref=e1848]:
+                - generic [ref=e1850]:
+                  - generic [ref=e1851]: 🔗
+                  - generic [ref=e1852]: URL
+                - generic [ref=e1853]: Draft
+              - generic [ref=e1854]:
+                - generic [ref=e1855]: Netflix
+                - generic [ref=e1856]: com.netflix.Netflix
+                - paragraph [ref=e1857]: "App-store impersonation \"Netflix\" on ios by \"Netflix, Inc.\" targeting Netflix. Confidence: 95%."
+                - generic [ref=e1858]:
+                  - generic [ref=e1859]:
+                    - generic [ref=e1860]: PRIORITY 85/100
+                    - progressbar [ref=e1862]
+                  - generic [ref=e1864]:
+                    - generic [ref=e1865]: form
+                    - generic [ref=e1866]: 2 evidence
+                    - generic [ref=e1867]: 1mo ago
+              - generic [ref=e1868]:
+                - button "Submit →" [ref=e1869] [cursor=pointer]
+                - button "View Detail" [ref=e1870] [cursor=pointer]
+                - button "Dismiss" [ref=e1871] [cursor=pointer]
+            - generic [ref=e1872]:
+              - generic [ref=e1873]:
+                - generic [ref=e1875]:
+                  - generic [ref=e1876]: 🔗
+                  - generic [ref=e1877]: URL
+                - generic [ref=e1878]: Draft
+              - generic [ref=e1879]:
+                - generic [ref=e1880]: Compound
+                - generic [ref=e1881]: com.pp.compound
+                - paragraph [ref=e1882]: "App-store impersonation \"Compound Pro\" on ios by \"Prethep Paran\" targeting Compound. Confidence: 94%."
+                - generic [ref=e1883]:
+                  - generic [ref=e1884]:
+                    - generic [ref=e1885]: PRIORITY 70/100
+                    - progressbar [ref=e1887]
+                  - generic [ref=e1889]:
+                    - generic [ref=e1890]: form
+                    - generic [ref=e1891]: 1 evidence
+                    - generic [ref=e1892]: 6h ago
+              - generic [ref=e1893]:
+                - button "Submit →" [ref=e1894] [cursor=pointer]
+                - button "View Detail" [ref=e1895] [cursor=pointer]
+                - button "Dismiss" [ref=e1896] [cursor=pointer]
+            - generic [ref=e1897]:
+              - generic [ref=e1898]:
+                - generic [ref=e1900]:
+                  - generic [ref=e1901]: 🔗
+                  - generic [ref=e1902]: URL
+                - generic [ref=e1903]: Draft
+              - generic [ref=e1904]:
+                - generic [ref=e1905]: Crave
+                - generic [ref=e1906]: com.AIAPPS.CraveAI
+                - paragraph [ref=e1907]: "App-store impersonation \"CraveAI\" on ios by \"Daniel Elhadad\" targeting Crave. Confidence: 93%."
+                - generic [ref=e1908]:
+                  - generic [ref=e1909]:
+                    - generic [ref=e1910]: PRIORITY 70/100
+                    - progressbar [ref=e1912]
+                  - generic [ref=e1914]:
+                    - generic [ref=e1915]: form
+                    - generic [ref=e1916]: 1 evidence
+                    - generic [ref=e1917]: 6h ago
+              - generic [ref=e1918]:
+                - button "Submit →" [ref=e1919] [cursor=pointer]
+                - button "View Detail" [ref=e1920] [cursor=pointer]
+                - button "Dismiss" [ref=e1921] [cursor=pointer]
+            - generic [ref=e1922]:
+              - generic [ref=e1923]:
+                - generic [ref=e1925]:
+                  - generic [ref=e1926]: 🔗
+                  - generic [ref=e1927]: URL
+                - generic [ref=e1928]: Draft
+              - generic [ref=e1929]:
+                - generic [ref=e1930]: Disney
+                - generic [ref=e1931]: com.disney.disneyplus
+                - paragraph [ref=e1932]: "App-store impersonation \"Disney+\" on ios by \"Disney Electronic Content, Inc.\" targeting Disney. Confidence: 95%."
+                - generic [ref=e1933]:
+                  - generic [ref=e1934]:
+                    - generic [ref=e1935]: PRIORITY 70/100
+                    - progressbar [ref=e1937]
+                  - generic [ref=e1939]:
+                    - generic [ref=e1940]: form
+                    - generic [ref=e1941]: 1 evidence
+                    - generic [ref=e1942]: 6h ago
+              - generic [ref=e1943]:
+                - button "Submit →" [ref=e1944] [cursor=pointer]
+                - button "View Detail" [ref=e1945] [cursor=pointer]
+                - button "Dismiss" [ref=e1946] [cursor=pointer]
+            - generic [ref=e1947]:
+              - generic [ref=e1948]:
+                - generic [ref=e1950]:
+                  - generic [ref=e1951]: 🔗
+                  - generic [ref=e1952]: URL
+                - generic [ref=e1953]: Draft
+              - generic [ref=e1954]:
+                - generic [ref=e1955]: Coldwell Banker
+                - generic [ref=e1956]: com.coldwell.newhomes
+                - paragraph [ref=e1957]: "App-store impersonation \"Coldwell Banker Egypt\" on ios by \"E-MOTION PROMOTIONAL SOLUTIONS\" targeting Coldwell Banker. Confidence: 94%."
+                - generic [ref=e1958]:
+                  - generic [ref=e1959]:
+                    - generic [ref=e1960]: PRIORITY 70/100
+                    - progressbar [ref=e1962]
+                  - generic [ref=e1964]:
+                    - generic [ref=e1965]: form
+                    - generic [ref=e1966]: 1 evidence
+                    - generic [ref=e1967]: 6h ago
+              - generic [ref=e1968]:
+                - button "Submit →" [ref=e1969] [cursor=pointer]
+                - button "View Detail" [ref=e1970] [cursor=pointer]
+                - button "Dismiss" [ref=e1971] [cursor=pointer]
+            - generic [ref=e1972]:
+              - generic [ref=e1973]:
+                - generic [ref=e1975]:
+                  - generic [ref=e1976]: 🔗
+                  - generic [ref=e1977]: URL
+                - generic [ref=e1978]: Draft
+              - generic [ref=e1979]:
+                - generic [ref=e1980]: Compound
+                - generic [ref=e1981]: Infinite.Compounder
+                - paragraph [ref=e1982]: "App-store impersonation \"Compounder\" on ios by \"James Bevins\" targeting Compound. Confidence: 95%."
+                - generic [ref=e1983]:
+                  - generic [ref=e1984]:
+                    - generic [ref=e1985]: PRIORITY 70/100
+                    - progressbar [ref=e1987]
+                  - generic [ref=e1989]:
+                    - generic [ref=e1990]: form
+                    - generic [ref=e1991]: 1 evidence
+                    - generic [ref=e1992]: 6h ago
+              - generic [ref=e1993]:
+                - button "Submit →" [ref=e1994] [cursor=pointer]
+                - button "View Detail" [ref=e1995] [cursor=pointer]
+                - button "Dismiss" [ref=e1996] [cursor=pointer]
+            - generic [ref=e1997]:
+              - generic [ref=e1998]:
+                - generic [ref=e2000]:
+                  - generic [ref=e2001]: 🔗
+                  - generic [ref=e2002]: URL
+                - generic [ref=e2003]: Draft
+              - generic [ref=e2004]:
+                - generic [ref=e2005]: Citizens Bank
+                - generic [ref=e2006]: com.fi6124.godough
+                - paragraph [ref=e2007]: "App-store impersonation \"CitizensBank24\" on ios by \"Citco Community Bancshares, Inc\" targeting Citizens Bank. Confidence: 95%."
+                - generic [ref=e2008]:
+                  - generic [ref=e2009]:
+                    - generic [ref=e2010]: PRIORITY 70/100
+                    - progressbar [ref=e2012]
+                  - generic [ref=e2014]:
+                    - generic [ref=e2015]: form
+                    - generic [ref=e2016]: 1 evidence
+                    - generic [ref=e2017]: 6h ago
+              - generic [ref=e2018]:
+                - button "Submit →" [ref=e2019] [cursor=pointer]
+                - button "View Detail" [ref=e2020] [cursor=pointer]
+                - button "Dismiss" [ref=e2021] [cursor=pointer]
+            - generic [ref=e2022]:
+              - generic [ref=e2023]:
+                - generic [ref=e2025]:
+                  - generic [ref=e2026]: 🔗
+                  - generic [ref=e2027]: URL
+                - generic [ref=e2028]: Draft
+              - generic [ref=e2029]:
+                - generic [ref=e2030]: Chipotle
+                - generic [ref=e2031]: com.chipotle.Chipotle
+                - paragraph [ref=e2032]: "App-store impersonation \"Chipotle\" on ios by \"Chipotle Mexican Grill\" targeting Chipotle. Confidence: 95%."
+                - generic [ref=e2033]:
+                  - generic [ref=e2034]:
+                    - generic [ref=e2035]: PRIORITY 70/100
+                    - progressbar [ref=e2037]
+                  - generic [ref=e2039]:
+                    - generic [ref=e2040]: form
+                    - generic [ref=e2041]: 1 evidence
+                    - generic [ref=e2042]: 12h ago
+              - generic [ref=e2043]:
+                - button "Submit →" [ref=e2044] [cursor=pointer]
+                - button "View Detail" [ref=e2045] [cursor=pointer]
+                - button "Dismiss" [ref=e2046] [cursor=pointer]
+            - generic [ref=e2047]:
+              - generic [ref=e2048]:
+                - generic [ref=e2050]:
+                  - generic [ref=e2051]: 🔗
+                  - generic [ref=e2052]: URL
+                - generic [ref=e2053]: Draft
+              - generic [ref=e2054]:
+                - generic [ref=e2055]: Chevron
+                - generic [ref=e2056]: com.chevron.cwt
+                - paragraph [ref=e2057]: "App-store impersonation \"Chevron\" on ios by \"Chevron U.S.A. Inc.\" targeting Chevron. Confidence: 95%."
+                - generic [ref=e2058]:
+                  - generic [ref=e2059]:
+                    - generic [ref=e2060]: PRIORITY 70/100
+                    - progressbar [ref=e2062]
+                  - generic [ref=e2064]:
+                    - generic [ref=e2065]: form
+                    - generic [ref=e2066]: 1 evidence
+                    - generic [ref=e2067]: 12h ago
+              - generic [ref=e2068]:
+                - button "Submit →" [ref=e2069] [cursor=pointer]
+                - button "View Detail" [ref=e2070] [cursor=pointer]
+                - button "Dismiss" [ref=e2071] [cursor=pointer]
+            - generic [ref=e2072]:
+              - generic [ref=e2073]:
+                - generic [ref=e2075]:
+                  - generic [ref=e2076]: 🔗
+                  - generic [ref=e2077]: URL
+                - generic [ref=e2078]: Draft
+              - generic [ref=e2079]:
+                - generic [ref=e2080]: Chatgpt
+                - generic [ref=e2081]: com.openai.chat
+                - paragraph [ref=e2082]: "App-store impersonation \"ChatGPT\" on ios by \"OpenAI OpCo, LLC\" targeting Chatgpt. Confidence: 95%."
+                - generic [ref=e2083]:
+                  - generic [ref=e2084]:
+                    - generic [ref=e2085]: PRIORITY 70/100
+                    - progressbar [ref=e2087]
+                  - generic [ref=e2089]:
+                    - generic [ref=e2090]: form
+                    - generic [ref=e2091]: 1 evidence
+                    - generic [ref=e2092]: 1d ago
+              - generic [ref=e2093]:
+                - button "Submit →" [ref=e2094] [cursor=pointer]
+                - button "View Detail" [ref=e2095] [cursor=pointer]
+                - button "Dismiss" [ref=e2096] [cursor=pointer]
+            - generic [ref=e2097]:
+              - generic [ref=e2098]:
+                - generic [ref=e2100]:
+                  - generic [ref=e2101]: 🔗
+                  - generic [ref=e2102]: URL
+                - generic [ref=e2103]: Draft
+              - generic [ref=e2104]:
+                - generic [ref=e2105]: Celsius
+                - generic [ref=e2106]: com.aginova.icelsius
+                - paragraph [ref=e2107]: "App-store impersonation \"iCelsius\" on ios by \"Aginova Sarl\" targeting Celsius. Confidence: 95%."
+                - generic [ref=e2108]:
+                  - generic [ref=e2109]:
+                    - generic [ref=e2110]: PRIORITY 70/100
+                    - progressbar [ref=e2112]
+                  - generic [ref=e2114]:
+                    - generic [ref=e2115]: form
+                    - generic [ref=e2116]: 1 evidence
+                    - generic [ref=e2117]: 1d ago
+              - generic [ref=e2118]:
+                - button "Submit →" [ref=e2119] [cursor=pointer]
+                - button "View Detail" [ref=e2120] [cursor=pointer]
+                - button "Dismiss" [ref=e2121] [cursor=pointer]
+            - generic [ref=e2122]:
+              - generic [ref=e2123]:
+                - generic [ref=e2125]:
+                  - generic [ref=e2126]: 🔗
+                  - generic [ref=e2127]: URL
+                - generic [ref=e2128]: Draft
+              - generic [ref=e2129]:
+                - generic [ref=e2130]: Cedars-Sinai
+                - generic [ref=e2131]: edu.csmc.mycslink
+                - paragraph [ref=e2132]: "App-store impersonation \"Cedars-Sinai\" on ios by \"Cedars-Sinai Medical Center\" targeting Cedars-Sinai. Confidence: 95%."
+                - generic [ref=e2133]:
+                  - generic [ref=e2134]:
+                    - generic [ref=e2135]: PRIORITY 70/100
+                    - progressbar [ref=e2137]
+                  - generic [ref=e2139]:
+                    - generic [ref=e2140]: form
+                    - generic [ref=e2141]: 1 evidence
+                    - generic [ref=e2142]: 1d ago
+              - generic [ref=e2143]:
+                - button "Submit →" [ref=e2144] [cursor=pointer]
+                - button "View Detail" [ref=e2145] [cursor=pointer]
+                - button "Dismiss" [ref=e2146] [cursor=pointer]
+            - generic [ref=e2147]:
+              - generic [ref=e2148]:
+                - generic [ref=e2150]:
+                  - generic [ref=e2151]: 🔗
+                  - generic [ref=e2152]: URL
+                - generic [ref=e2153]: Draft
+              - generic [ref=e2154]:
+                - generic [ref=e2155]: Cdc
+                - generic [ref=e2156]: gov.cdc.CDC
+                - paragraph [ref=e2157]: "App-store impersonation \"CDC\" on ios by \"Centers for Disease Control and Prevention\" targeting Cdc. Confidence: 95%."
+                - generic [ref=e2158]:
+                  - generic [ref=e2159]:
+                    - generic [ref=e2160]: PRIORITY 70/100
+                    - progressbar [ref=e2162]
+                  - generic [ref=e2164]:
+                    - generic [ref=e2165]: form
+                    - generic [ref=e2166]: 1 evidence
+                    - generic [ref=e2167]: 1d ago
+              - generic [ref=e2168]:
+                - button "Submit →" [ref=e2169] [cursor=pointer]
+                - button "View Detail" [ref=e2170] [cursor=pointer]
+                - button "Dismiss" [ref=e2171] [cursor=pointer]
+            - generic [ref=e2172]:
+              - generic [ref=e2173]:
+                - generic [ref=e2175]:
+                  - generic [ref=e2176]: 🔗
+                  - generic [ref=e2177]: URL
+                - generic [ref=e2178]: Draft
+              - generic [ref=e2179]:
+                - generic [ref=e2180]: Caterpillar
+                - generic [ref=e2181]: mobi.itales.snake
+                - paragraph [ref=e2182]: "App-store impersonation \"Caterpillar Track\" on ios by \"AYTEYLZ EOOD\" targeting Caterpillar. Confidence: 93%."
+                - generic [ref=e2183]:
+                  - generic [ref=e2184]:
+                    - generic [ref=e2185]: PRIORITY 70/100
+                    - progressbar [ref=e2187]
+                  - generic [ref=e2189]:
+                    - generic [ref=e2190]: form
+                    - generic [ref=e2191]: 1 evidence
+                    - generic [ref=e2192]: 1d ago
+              - generic [ref=e2193]:
+                - button "Submit →" [ref=e2194] [cursor=pointer]
+                - button "View Detail" [ref=e2195] [cursor=pointer]
+                - button "Dismiss" [ref=e2196] [cursor=pointer]
+            - generic [ref=e2197]:
+              - generic [ref=e2198]:
+                - generic [ref=e2200]:
+                  - generic [ref=e2201]: 🔗
+                  - generic [ref=e2202]: URL
+                - generic [ref=e2203]: Draft
+              - generic [ref=e2204]:
+                - generic [ref=e2205]: Cathay Pacific
+                - generic [ref=e2206]: com.mccann.CXMobile
+                - paragraph [ref=e2207]: "App-store impersonation \"Cathay Pacific\" on ios by \"Cathay Pacific Airways Limited\" targeting Cathay Pacific. Confidence: 95%."
+                - generic [ref=e2208]:
+                  - generic [ref=e2209]:
+                    - generic [ref=e2210]: PRIORITY 70/100
+                    - progressbar [ref=e2212]
+                  - generic [ref=e2214]:
+                    - generic [ref=e2215]: form
+                    - generic [ref=e2216]: 1 evidence
+                    - generic [ref=e2217]: 1d ago
+              - generic [ref=e2218]:
+                - button "Submit →" [ref=e2219] [cursor=pointer]
+                - button "View Detail" [ref=e2220] [cursor=pointer]
+                - button "Dismiss" [ref=e2221] [cursor=pointer]
+            - generic [ref=e2222]:
+              - generic [ref=e2223]:
+                - generic [ref=e2225]:
+                  - generic [ref=e2226]: 🔗
+                  - generic [ref=e2227]: URL
+                - generic [ref=e2228]: Draft
+              - generic [ref=e2229]:
+                - generic [ref=e2230]: Cambridge University
+                - generic [ref=e2231]: com.playwaze.uoc
+                - paragraph [ref=e2232]: "App-store impersonation \"Cambridge University Leagues\" on ios by \"Playwaze Ltd\" targeting Cambridge University. Confidence: 94%."
+                - generic [ref=e2233]:
+                  - generic [ref=e2234]:
+                    - generic [ref=e2235]: PRIORITY 70/100
+                    - progressbar [ref=e2237]
+                  - generic [ref=e2239]:
+                    - generic [ref=e2240]: form
+                    - generic [ref=e2241]: 1 evidence
+                    - generic [ref=e2242]: 1d ago
+              - generic [ref=e2243]:
+                - button "Submit →" [ref=e2244] [cursor=pointer]
+                - button "View Detail" [ref=e2245] [cursor=pointer]
+                - button "Dismiss" [ref=e2246] [cursor=pointer]
+            - generic [ref=e2247]:
+              - generic [ref=e2248]:
+                - generic [ref=e2250]:
+                  - generic [ref=e2251]: 🔗
+                  - generic [ref=e2252]: URL
+                - generic [ref=e2253]: Draft
+              - generic [ref=e2254]:
+                - generic [ref=e2255]: Canada Post
+                - generic [ref=e2256]: com.cpc.iphone
+                - paragraph [ref=e2257]: "App-store impersonation \"Canada Post\" on ios by \"Canada Post Corporation\" targeting Canada Post. Confidence: 95%."
+                - generic [ref=e2258]:
+                  - generic [ref=e2259]:
+                    - generic [ref=e2260]: PRIORITY 70/100
+                    - progressbar [ref=e2262]
+                  - generic [ref=e2264]:
+                    - generic [ref=e2265]: form
+                    - generic [ref=e2266]: 1 evidence
+                    - generic [ref=e2267]: 1d ago
+              - generic [ref=e2268]:
+                - button "Submit →" [ref=e2269] [cursor=pointer]
+                - button "View Detail" [ref=e2270] [cursor=pointer]
+                - button "Dismiss" [ref=e2271] [cursor=pointer]
+            - generic [ref=e2272]:
+              - generic [ref=e2273]:
+                - generic [ref=e2275]:
+                  - generic [ref=e2276]: 🔗
+                  - generic [ref=e2277]: URL
+                - generic [ref=e2278]: Draft
+              - generic [ref=e2279]:
+                - generic [ref=e2280]: Caterpillar
+                - generic [ref=e2281]: com.rocketshipstudios.caterpillars
+                - paragraph [ref=e2282]: "App-store impersonation \"Caterpillars!\" on ios by \"Rocketship Studios LLP\" targeting Caterpillar. Confidence: 95%."
+                - generic [ref=e2283]:
+                  - generic [ref=e2284]:
+                    - generic [ref=e2285]: PRIORITY 70/100
+                    - progressbar [ref=e2287]
+                  - generic [ref=e2289]:
+                    - generic [ref=e2290]: form
+                    - generic [ref=e2291]: 1 evidence
+                    - generic [ref=e2292]: 1d ago
+              - generic [ref=e2293]:
+                - button "Submit →" [ref=e2294] [cursor=pointer]
+                - button "View Detail" [ref=e2295] [cursor=pointer]
+                - button "Dismiss" [ref=e2296] [cursor=pointer]
+            - generic [ref=e2297]:
+              - generic [ref=e2298]:
+                - generic [ref=e2300]:
+                  - generic [ref=e2301]: 🔗
+                  - generic [ref=e2302]: URL
+                - generic [ref=e2303]: Draft
+              - generic [ref=e2304]:
+                - generic [ref=e2305]: BMW
+                - generic [ref=e2306]: de.bmw.connected.mobile20.na
+                - paragraph [ref=e2307]: "App-store impersonation \"My BMW\" on ios by \"BMW NORTH AMERICA, LLC\" targeting BMW. Confidence: 91%."
+                - generic [ref=e2308]:
+                  - generic [ref=e2309]:
+                    - generic [ref=e2310]: PRIORITY 70/100
+                    - progressbar [ref=e2312]
+                  - generic [ref=e2314]:
+                    - generic [ref=e2315]: form
+                    - generic [ref=e2316]: 1 evidence
+                    - generic [ref=e2317]: 1d ago
+              - generic [ref=e2318]:
+                - button "Submit →" [ref=e2319] [cursor=pointer]
+                - button "View Detail" [ref=e2320] [cursor=pointer]
+                - button "Dismiss" [ref=e2321] [cursor=pointer]
+            - generic [ref=e2322]:
+              - generic [ref=e2323]:
+                - generic [ref=e2325]:
+                  - generic [ref=e2326]: 🔗
+                  - generic [ref=e2327]: URL
+                - generic [ref=e2328]: Draft
+              - generic [ref=e2329]:
+                - generic [ref=e2330]: Bloomberg
+                - generic [ref=e2331]: com.bloomberg.mobile.b-unit
+                - paragraph [ref=e2332]: "App-store impersonation \"Bloomberg B-Unit\" on ios by \"Bloomberg Finance LP\" targeting Bloomberg. Confidence: 92%."
+                - generic [ref=e2333]:
+                  - generic [ref=e2334]:
+                    - generic [ref=e2335]: PRIORITY 70/100
+                    - progressbar [ref=e2337]
+                  - generic [ref=e2339]:
+                    - generic [ref=e2340]: form
+                    - generic [ref=e2341]: 1 evidence
+                    - generic [ref=e2342]: 1d ago
+              - generic [ref=e2343]:
+                - button "Submit →" [ref=e2344] [cursor=pointer]
+                - button "View Detail" [ref=e2345] [cursor=pointer]
+                - button "Dismiss" [ref=e2346] [cursor=pointer]
+            - generic [ref=e2347]:
+              - generic [ref=e2348]:
+                - generic [ref=e2350]:
+                  - generic [ref=e2351]: 🔗
+                  - generic [ref=e2352]: URL
+                - generic [ref=e2353]: Draft
+              - generic [ref=e2354]:
+                - generic [ref=e2355]: Blackrock
+                - generic [ref=e2356]: com.blackrock.public.events
+                - paragraph [ref=e2357]: "App-store impersonation \"BlackRock Events\" on ios by \"BlackRock Financial Management, Inc.\" targeting Blackrock. Confidence: 91%."
+                - generic [ref=e2358]:
+                  - generic [ref=e2359]:
+                    - generic [ref=e2360]: PRIORITY 70/100
+                    - progressbar [ref=e2362]
+                  - generic [ref=e2364]:
+                    - generic [ref=e2365]: form
+                    - generic [ref=e2366]: 1 evidence
+                    - generic [ref=e2367]: 1d ago
+              - generic [ref=e2368]:
+                - button "Submit →" [ref=e2369] [cursor=pointer]
+                - button "View Detail" [ref=e2370] [cursor=pointer]
+                - button "Dismiss" [ref=e2371] [cursor=pointer]
+            - generic [ref=e2372]:
+              - generic [ref=e2373]:
+                - generic [ref=e2375]:
+                  - generic [ref=e2376]: 🔗
+                  - generic [ref=e2377]: URL
+                - generic [ref=e2378]: Draft
+              - generic [ref=e2379]:
+                - generic [ref=e2380]: Blackrock
+                - generic [ref=e2381]: ie.uniqueschools.blackrocketss
+                - paragraph [ref=e2382]: "App-store impersonation \"Blackrock ETSS\" on ios by \"Blackrock Educate Together Secondary School\" targeting Blackrock. Confidence: 93%."
+                - generic [ref=e2383]:
+                  - generic [ref=e2384]:
+                    - generic [ref=e2385]: PRIORITY 70/100
+                    - progressbar [ref=e2387]
+                  - generic [ref=e2389]:
+                    - generic [ref=e2390]: form
+                    - generic [ref=e2391]: 1 evidence
+                    - generic [ref=e2392]: 1d ago
+              - generic [ref=e2393]:
+                - button "Submit →" [ref=e2394] [cursor=pointer]
+                - button "View Detail" [ref=e2395] [cursor=pointer]
+                - button "Dismiss" [ref=e2396] [cursor=pointer]
+            - generic [ref=e2397]:
+              - generic [ref=e2398]:
+                - generic [ref=e2400]:
+                  - generic [ref=e2401]: 🔗
+                  - generic [ref=e2402]: URL
+                - generic [ref=e2403]: Draft
+              - generic [ref=e2404]:
+                - generic [ref=e2405]: Best Western
+                - generic [ref=e2406]: com.bestwestern.togo
+                - paragraph [ref=e2407]: "App-store impersonation \"Best Western to Go\" on ios by \"Best Western International\" targeting Best Western. Confidence: 94%."
+                - generic [ref=e2408]:
+                  - generic [ref=e2409]:
+                    - generic [ref=e2410]: PRIORITY 70/100
+                    - progressbar [ref=e2412]
+                  - generic [ref=e2414]:
+                    - generic [ref=e2415]: form
+                    - generic [ref=e2416]: 1 evidence
+                    - generic [ref=e2417]: 1d ago
+              - generic [ref=e2418]:
+                - button "Submit →" [ref=e2419] [cursor=pointer]
+                - button "View Detail" [ref=e2420] [cursor=pointer]
+                - button "Dismiss" [ref=e2421] [cursor=pointer]
+            - generic [ref=e2422]:
+              - generic [ref=e2423]:
+                - generic [ref=e2425]:
+                  - generic [ref=e2426]: 🔗
+                  - generic [ref=e2427]: URL
+                - generic [ref=e2428]: Draft
+              - generic [ref=e2429]:
+                - generic [ref=e2430]: Box
+                - generic [ref=e2431]: cn.ubia.ubox
+                - paragraph [ref=e2432]: "App-store impersonation \"Ubox\" on ios by \"洪波 王\" targeting Box. Confidence: 94%."
+                - generic [ref=e2433]:
+                  - generic [ref=e2434]:
+                    - generic [ref=e2435]: PRIORITY 70/100
+                    - progressbar [ref=e2437]
+                  - generic [ref=e2439]:
+                    - generic [ref=e2440]: form
+                    - generic [ref=e2441]: 1 evidence
+                    - generic [ref=e2442]: 1d ago
+              - generic [ref=e2443]:
+                - button "Submit →" [ref=e2444] [cursor=pointer]
+                - button "View Detail" [ref=e2445] [cursor=pointer]
+                - button "Dismiss" [ref=e2446] [cursor=pointer]
+            - generic [ref=e2447]:
+              - generic [ref=e2448]:
+                - generic [ref=e2450]:
+                  - generic [ref=e2451]: 🔗
+                  - generic [ref=e2452]: URL
+                - generic [ref=e2453]: Draft
+              - generic [ref=e2454]:
+                - generic [ref=e2455]: Bit
+                - generic [ref=e2456]: com.payments.paymentBit
+                - paragraph [ref=e2457]: "App-store impersonation \"bit ביט\" on ios by \"Bank Hapoalim\" targeting Bit. Confidence: 95%."
+                - generic [ref=e2458]:
+                  - generic [ref=e2459]:
+                    - generic [ref=e2460]: PRIORITY 70/100
+                    - progressbar [ref=e2462]
+                  - generic [ref=e2464]:
+                    - generic [ref=e2465]: form
+                    - generic [ref=e2466]: 1 evidence
+                    - generic [ref=e2467]: 1d ago
+              - generic [ref=e2468]:
+                - button "Submit →" [ref=e2469] [cursor=pointer]
+                - button "View Detail" [ref=e2470] [cursor=pointer]
+                - button "Dismiss" [ref=e2471] [cursor=pointer]
+            - generic [ref=e2472]:
+              - generic [ref=e2473]:
+                - generic [ref=e2475]:
+                  - generic [ref=e2476]: 🔗
+                  - generic [ref=e2477]: URL
+                - generic [ref=e2478]: Draft
+              - generic [ref=e2479]:
+                - generic [ref=e2480]: Aviva
+                - generic [ref=e2481]: com.radioaviva
+                - paragraph [ref=e2482]: "App-store impersonation \"Radio Aviva\" on ios by \"Radio Aviva\" targeting Aviva. Confidence: 89%."
+                - generic [ref=e2483]:
+                  - generic [ref=e2484]:
+                    - generic [ref=e2485]: PRIORITY 70/100
+                    - progressbar [ref=e2487]
+                  - generic [ref=e2489]:
+                    - generic [ref=e2490]: form
+                    - generic [ref=e2491]: 1 evidence
+                    - generic [ref=e2492]: 1d ago
+              - generic [ref=e2493]:
+                - button "Submit →" [ref=e2494] [cursor=pointer]
+                - button "View Detail" [ref=e2495] [cursor=pointer]
+                - button "Dismiss" [ref=e2496] [cursor=pointer]
+            - generic [ref=e2497]:
+              - generic [ref=e2498]:
+                - generic [ref=e2500]:
+                  - generic [ref=e2501]: 🔗
+                  - generic [ref=e2502]: URL
+                - generic [ref=e2503]: Draft
+              - generic [ref=e2504]:
+                - generic [ref=e2505]: AXA
+                - generic [ref=e2506]: de.axa.epa
+                - paragraph [ref=e2507]: "App-store impersonation \"AXA ePA\" on ios by \"AXA Konzern AG\" targeting AXA. Confidence: 89%."
+                - generic [ref=e2508]:
+                  - generic [ref=e2509]:
+                    - generic [ref=e2510]: PRIORITY 70/100
+                    - progressbar [ref=e2512]
+                  - generic [ref=e2514]:
+                    - generic [ref=e2515]: form
+                    - generic [ref=e2516]: 1 evidence
+                    - generic [ref=e2517]: 1d ago
+              - generic [ref=e2518]:
+                - button "Submit →" [ref=e2519] [cursor=pointer]
+                - button "View Detail" [ref=e2520] [cursor=pointer]
+                - button "Dismiss" [ref=e2521] [cursor=pointer]
+            - generic [ref=e2522]:
+              - generic [ref=e2523]:
+                - generic [ref=e2525]:
+                  - generic [ref=e2526]: 🔗
+                  - generic [ref=e2527]: URL
+                - generic [ref=e2528]: Draft
+              - generic [ref=e2529]:
+                - generic [ref=e2530]: Apple
+                - generic [ref=e2531]: com.apple.iBooks
+                - paragraph [ref=e2532]: "App-store impersonation \"Apple Books\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 89%."
+                - generic [ref=e2533]:
+                  - generic [ref=e2534]:
+                    - generic [ref=e2535]: PRIORITY 70/100
+                    - progressbar [ref=e2537]
+                  - generic [ref=e2539]:
+                    - generic [ref=e2540]: form
+                    - generic [ref=e2541]: 1 evidence
+                    - generic [ref=e2542]: 1d ago
+              - generic [ref=e2543]:
+                - button "Submit →" [ref=e2544] [cursor=pointer]
+                - button "View Detail" [ref=e2545] [cursor=pointer]
+                - button "Dismiss" [ref=e2546] [cursor=pointer]
+            - generic [ref=e2547]:
+              - generic [ref=e2548]:
+                - generic [ref=e2550]:
+                  - generic [ref=e2551]: 🔗
+                  - generic [ref=e2552]: URL
+                - generic [ref=e2553]: Draft
+              - generic [ref=e2554]:
+                - generic [ref=e2555]: Apple
+                - generic [ref=e2556]: com.apple.Music
+                - paragraph [ref=e2557]: "App-store impersonation \"Apple Music\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 89%."
+                - generic [ref=e2558]:
+                  - generic [ref=e2559]:
+                    - generic [ref=e2560]: PRIORITY 70/100
+                    - progressbar [ref=e2562]
+                  - generic [ref=e2564]:
+                    - generic [ref=e2565]: form
+                    - generic [ref=e2566]: 1 evidence
+                    - generic [ref=e2567]: 1d ago
+              - generic [ref=e2568]:
+                - button "Submit →" [ref=e2569] [cursor=pointer]
+                - button "View Detail" [ref=e2570] [cursor=pointer]
+                - button "Dismiss" [ref=e2571] [cursor=pointer]
+            - generic [ref=e2572]:
+              - generic [ref=e2573]:
+                - generic [ref=e2575]:
+                  - generic [ref=e2576]: 🔗
+                  - generic [ref=e2577]: URL
+                - generic [ref=e2578]: Draft
+              - generic [ref=e2579]:
+                - generic [ref=e2580]: Apple
+                - generic [ref=e2581]: com.apple.store.Jolly
+                - paragraph [ref=e2582]: "App-store impersonation \"Apple Store\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 89%."
+                - generic [ref=e2583]:
+                  - generic [ref=e2584]:
+                    - generic [ref=e2585]: PRIORITY 70/100
+                    - progressbar [ref=e2587]
+                  - generic [ref=e2589]:
+                    - generic [ref=e2590]: form
+                    - generic [ref=e2591]: 1 evidence
+                    - generic [ref=e2592]: 1d ago
+              - generic [ref=e2593]:
+                - button "Submit →" [ref=e2594] [cursor=pointer]
+                - button "View Detail" [ref=e2595] [cursor=pointer]
+                - button "Dismiss" [ref=e2596] [cursor=pointer]
+            - generic [ref=e2597]:
+              - generic [ref=e2598]:
+                - generic [ref=e2600]:
+                  - generic [ref=e2601]: 🔗
+                  - generic [ref=e2602]: URL
+                - generic [ref=e2603]: Draft
+              - generic [ref=e2604]:
+                - generic [ref=e2605]: Apple
+                - generic [ref=e2606]: com.apple.Maps
+                - paragraph [ref=e2607]: "App-store impersonation \"Apple Maps\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 90%."
+                - generic [ref=e2608]:
+                  - generic [ref=e2609]:
+                    - generic [ref=e2610]: PRIORITY 70/100
+                    - progressbar [ref=e2612]
+                  - generic [ref=e2614]:
+                    - generic [ref=e2615]: form
+                    - generic [ref=e2616]: 1 evidence
+                    - generic [ref=e2617]: 1d ago
+              - generic [ref=e2618]:
+                - button "Submit →" [ref=e2619] [cursor=pointer]
+                - button "View Detail" [ref=e2620] [cursor=pointer]
+                - button "Dismiss" [ref=e2621] [cursor=pointer]
+            - generic [ref=e2622]:
+              - generic [ref=e2623]:
+                - generic [ref=e2625]:
+                  - generic [ref=e2626]: 🔗
+                  - generic [ref=e2627]: URL
+                - generic [ref=e2628]: Draft
+              - generic [ref=e2629]:
+                - generic [ref=e2630]: Aviva
+                - generic [ref=e2631]: co.uk.aviva.live
+                - paragraph [ref=e2632]: "App-store impersonation \"Aviva Live\" on ios by \"Aviva PLC\" targeting Aviva. Confidence: 90%."
+                - generic [ref=e2633]:
+                  - generic [ref=e2634]:
+                    - generic [ref=e2635]: PRIORITY 70/100
+                    - progressbar [ref=e2637]
+                  - generic [ref=e2639]:
+                    - generic [ref=e2640]: form
+                    - generic [ref=e2641]: 1 evidence
+                    - generic [ref=e2642]: 1d ago
+              - generic [ref=e2643]:
+                - button "Submit →" [ref=e2644] [cursor=pointer]
+                - button "View Detail" [ref=e2645] [cursor=pointer]
+                - button "Dismiss" [ref=e2646] [cursor=pointer]
+            - generic [ref=e2647]:
+              - generic [ref=e2648]:
+                - generic [ref=e2650]:
+                  - generic [ref=e2651]: 🔗
+                  - generic [ref=e2652]: URL
+                - generic [ref=e2653]: Draft
+              - generic [ref=e2654]:
+                - generic [ref=e2655]: Apple
+                - generic [ref=e2656]: com.apple.news
+                - paragraph [ref=e2657]: "App-store impersonation \"Apple News\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 90%."
+                - generic [ref=e2658]:
+                  - generic [ref=e2659]:
+                    - generic [ref=e2660]: PRIORITY 70/100
+                    - progressbar [ref=e2662]
+                  - generic [ref=e2664]:
+                    - generic [ref=e2665]: form
+                    - generic [ref=e2666]: 1 evidence
+                    - generic [ref=e2667]: 2d ago
+              - generic [ref=e2668]:
+                - button "Submit →" [ref=e2669] [cursor=pointer]
+                - button "View Detail" [ref=e2670] [cursor=pointer]
+                - button "Dismiss" [ref=e2671] [cursor=pointer]
+            - generic [ref=e2672]:
+              - generic [ref=e2673]:
+                - generic [ref=e2675]:
+                  - generic [ref=e2676]: 🔗
+                  - generic [ref=e2677]: URL
+                - generic [ref=e2678]: Draft
+              - generic [ref=e2679]:
+                - generic [ref=e2680]: AT&T
+                - generic [ref=e2681]: com.att.miatt
+                - paragraph [ref=e2682]: "App-store impersonation \"Mi AT&T\" on ios by \"AT&T Comercializacion Movil, S. de R.L. de C.V.\" targeting AT&T. Confidence: 91%."
+                - generic [ref=e2683]:
+                  - generic [ref=e2684]:
+                    - generic [ref=e2685]: PRIORITY 70/100
+                    - progressbar [ref=e2687]
+                  - generic [ref=e2689]:
+                    - generic [ref=e2690]: form
+                    - generic [ref=e2691]: 1 evidence
+                    - generic [ref=e2692]: 2d ago
+              - generic [ref=e2693]:
+                - button "Submit →" [ref=e2694] [cursor=pointer]
+                - button "View Detail" [ref=e2695] [cursor=pointer]
+                - button "Dismiss" [ref=e2696] [cursor=pointer]
+            - generic [ref=e2697]:
+              - generic [ref=e2698]:
+                - generic [ref=e2700]:
+                  - generic [ref=e2701]: 🔗
+                  - generic [ref=e2702]: URL
+                - generic [ref=e2703]: Draft
+              - generic [ref=e2704]:
+                - generic [ref=e2705]: Apple
+                - generic [ref=e2706]: com.apple.tv
+                - paragraph [ref=e2707]: "App-store impersonation \"Apple TV\" on ios by \"Apple Inc.\" targeting Apple. Confidence: 93%."
+                - generic [ref=e2708]:
+                  - generic [ref=e2709]:
+                    - generic [ref=e2710]: PRIORITY 70/100
+                    - progressbar [ref=e2712]
+                  - generic [ref=e2714]:
+                    - generic [ref=e2715]: form
+                    - generic [ref=e2716]: 1 evidence
+                    - generic [ref=e2717]: 2d ago
+              - generic [ref=e2718]:
+                - button "Submit →" [ref=e2719] [cursor=pointer]
+                - button "View Detail" [ref=e2720] [cursor=pointer]
+                - button "Dismiss" [ref=e2721] [cursor=pointer]
+            - generic [ref=e2722]:
+              - generic [ref=e2723]:
+                - generic [ref=e2725]:
+                  - generic [ref=e2726]: 🔗
+                  - generic [ref=e2727]: URL
+                - generic [ref=e2728]: Draft
+              - generic [ref=e2729]:
+                - generic [ref=e2730]: Atlassian
+                - generic [ref=e2731]: com.atlassian.rovo.app
+                - paragraph [ref=e2732]: "App-store impersonation \"Atlassian Rovo\" on ios by \"Atlassian Pty Ltd\" targeting Atlassian. Confidence: 93%."
+                - generic [ref=e2733]:
+                  - generic [ref=e2734]:
+                    - generic [ref=e2735]: PRIORITY 70/100
+                    - progressbar [ref=e2737]
+                  - generic [ref=e2739]:
+                    - generic [ref=e2740]: form
+                    - generic [ref=e2741]: 1 evidence
+                    - generic [ref=e2742]: 2d ago
+              - generic [ref=e2743]:
+                - button "Submit →" [ref=e2744] [cursor=pointer]
+                - button "View Detail" [ref=e2745] [cursor=pointer]
+                - button "Dismiss" [ref=e2746] [cursor=pointer]
+          - generic:
+            - generic:
+              - generic:
+                - button "Close report":
+                  - img
+              - heading "Takedown Request" [level=2]
+            - generic:
+              - paragraph: No content available.
+  - dialog "Sign in faster next time?" [ref=e2747]:
+    - generic [ref=e2748]:
+      - img [ref=e2750]
+      - heading "Sign in faster next time?" [level=2] [ref=e2753]
+      - paragraph [ref=e2754]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e2755]:
+        - button "Set up biometric" [ref=e2756] [cursor=pointer]
+        - button "Maybe later" [ref=e2757] [cursor=pointer]
+      - paragraph [ref=e2758]: You can add or remove passkeys anytime from your Profile.

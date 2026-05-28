@@ -1,0 +1,1121 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - heading "Threats" [level=1] [ref=e201]
+          - generic [ref=e202]:
+            - generic [ref=e204]:
+              - generic [ref=e205]:
+                - img [ref=e206]
+                - generic [ref=e208]: Active
+              - generic [ref=e209]: …
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - img [ref=e213]
+                - generic [ref=e216]: Confirmed
+              - generic [ref=e217]: …
+            - generic [ref=e219]:
+              - generic [ref=e220]:
+                - img [ref=e221]
+                - generic [ref=e226]: Correlated
+              - generic [ref=e227]: …
+            - generic [ref=e229]:
+              - generic [ref=e230]:
+                - img [ref=e231]
+                - generic [ref=e236]: Addressed
+              - generic [ref=e237]: …
+          - generic [ref=e238]:
+            - generic [ref=e239]:
+              - generic [ref=e240]:
+                - generic [ref=e241]: Threat Inflow
+                - generic [ref=e242]: 7,048
+                - generic [ref=e243]: new indicators · last 24h
+              - tablist "Time window" [ref=e244]:
+                - tab "24H" [selected] [ref=e245] [cursor=pointer]
+                - tab "7D" [ref=e246] [cursor=pointer]
+            - application [ref=e249]:
+              - generic [ref=e279]:
+                - generic [ref=e280]:
+                  - generic [ref=e282]: 07:00 PM
+                  - generic [ref=e284]: 10:00 PM
+                  - generic [ref=e286]: 01:00 AM
+                  - generic [ref=e288]: 04:00 AM
+                  - generic [ref=e290]: 07:00 AM
+                  - generic [ref=e292]: 10:00 AM
+                  - generic [ref=e294]: 01:00 PM
+                  - generic [ref=e296]: 06:00 PM
+                - generic [ref=e297]:
+                  - generic [ref=e299]: "0"
+                  - generic [ref=e301]: "150"
+                  - generic [ref=e303]: "300"
+                  - generic [ref=e305]: "450"
+                  - generic [ref=e307]: "515"
+            - generic [ref=e308]:
+              - generic [ref=e309]:
+                - generic "Scanning" [ref=e311]
+                - generic [ref=e312]: 2,993
+              - generic [ref=e313]:
+                - generic "Malware Distribution" [ref=e315]
+                - generic [ref=e316]: 1,905
+              - generic [ref=e317]:
+                - generic "Phishing" [ref=e319]
+                - generic [ref=e320]: 1,674
+              - generic [ref=e321]:
+                - generic "Malicious IP" [ref=e323]
+                - generic [ref=e324]: "268"
+              - generic [ref=e325]:
+                - generic "C2" [ref=e327]
+                - generic [ref=e328]: "167"
+              - generic [ref=e329]:
+                - generic "Typosquatting" [ref=e331]
+                - generic [ref=e332]: "29"
+              - generic [ref=e333]:
+                - generic "Credential Harvesting" [ref=e335]
+                - generic [ref=e336]: "12"
+          - generic [ref=e338]:
+            - heading "Coordination" [level=2] [ref=e339]
+            - generic [ref=e340]: Patterns hitting multiple brands at once
+          - generic [ref=e343]: No multi-brand patterns in the current slice — every active threat targets a single brand.
+          - generic [ref=e345]:
+            - heading "Evolving" [level=2] [ref=e346]
+            - generic [ref=e347]: What's growing week-over-week
+          - generic [ref=e350]: No surging signals this week. Catalog activity is steady.
+          - generic [ref=e352]:
+            - heading "Top of pile" [level=2] [ref=e353]
+            - generic [ref=e354]: Where the pressure is concentrated
+          - generic [ref=e357]:
+            - heading "Slice" [level=2] [ref=e358]
+            - generic [ref=e359]: Filter, sort, and inspect — click a row for the evidence behind the verdict
+          - generic [ref=e361]:
+            - generic [ref=e362]:
+              - combobox [ref=e363]:
+                - option "All brands" [selected]
+              - combobox [ref=e364]:
+                - option "All severities" [selected]
+                - option "Critical"
+                - option "High"
+                - option "Medium"
+                - option "Low"
+              - combobox [ref=e365]:
+                - option "All types" [selected]
+                - option "Phishing"
+                - option "Typosquatting"
+                - option "Impersonation"
+                - option "Malware"
+                - option "Credential harvesting"
+                - option "C2"
+                - option "Scanning"
+              - combobox [ref=e366]:
+                - option "All statuses" [selected]
+                - option "Active"
+                - option "Down"
+                - option "Remediated"
+              - combobox [ref=e367]:
+                - option "All countries" [selected]
+              - generic [ref=e368]:
+                - generic [ref=e369]: ⌕
+                - textbox "Search domain / URL / IP…" [ref=e370]
+            - table [ref=e373]:
+              - rowgroup [ref=e374]:
+                - row "expand Type ↕ Domain / URL ↕ Brand ↕ Actor Technique Severity ▼ Status ↕ Evidence Last seen ↕" [ref=e375]:
+                  - columnheader "expand" [ref=e376]
+                  - columnheader "Type ↕" [ref=e377] [cursor=pointer]:
+                    - generic [ref=e378]:
+                      - text: Type
+                      - generic [ref=e379]: ↕
+                  - columnheader "Domain / URL ↕" [ref=e380] [cursor=pointer]:
+                    - generic [ref=e381]:
+                      - text: Domain / URL
+                      - generic [ref=e382]: ↕
+                  - columnheader "Brand ↕" [ref=e383] [cursor=pointer]:
+                    - generic [ref=e384]:
+                      - text: Brand
+                      - generic [ref=e385]: ↕
+                  - columnheader "Actor" [ref=e386]:
+                    - generic [ref=e387]: Actor
+                  - columnheader "Technique" [ref=e388]:
+                    - generic [ref=e389]: Technique
+                  - columnheader "Severity ▼" [ref=e390] [cursor=pointer]:
+                    - generic [ref=e391]:
+                      - text: Severity
+                      - generic [ref=e392]: ▼
+                  - columnheader "Status ↕" [ref=e393] [cursor=pointer]:
+                    - generic [ref=e394]:
+                      - text: Status
+                      - generic [ref=e395]: ↕
+                  - columnheader "Evidence" [ref=e396]:
+                    - generic [ref=e397]: Evidence
+                  - columnheader "Last seen ↕" [ref=e398] [cursor=pointer]:
+                    - generic [ref=e399]:
+                      - text: Last seen
+                      - generic [ref=e400]: ↕
+              - rowgroup [ref=e401]:
+                - row "› Malware ocjly.visszateritok.net Viss Unattributed — critical active VT 1 May 28" [ref=e402] [cursor=pointer]:
+                  - cell "›" [ref=e403]:
+                    - generic [ref=e404]: ›
+                  - cell "Malware" [ref=e405]:
+                    - generic [ref=e406]: Malware
+                  - cell "ocjly.visszateritok.net" [ref=e407]:
+                    - generic "ocjly.visszateritok.net" [ref=e408]
+                  - cell "Viss" [ref=e409]
+                  - cell "Unattributed" [ref=e410]
+                  - cell "—" [ref=e411]
+                  - cell "critical" [ref=e412]:
+                    - generic [ref=e413]: critical
+                  - cell "active" [ref=e414]:
+                    - generic [ref=e415]: active
+                  - cell "VT 1" [ref=e416]:
+                    - generic [ref=e418]: VT 1
+                  - cell "May 28" [ref=e419]
+                - row "› Malware smadg.visszateritok.net Viss Unattributed — critical active VT 1 May 28" [ref=e420] [cursor=pointer]:
+                  - cell "›" [ref=e421]:
+                    - generic [ref=e422]: ›
+                  - cell "Malware" [ref=e423]:
+                    - generic [ref=e424]: Malware
+                  - cell "smadg.visszateritok.net" [ref=e425]:
+                    - generic "smadg.visszateritok.net" [ref=e426]
+                  - cell "Viss" [ref=e427]
+                  - cell "Unattributed" [ref=e428]
+                  - cell "—" [ref=e429]
+                  - cell "critical" [ref=e430]:
+                    - generic [ref=e431]: critical
+                  - cell "active" [ref=e432]:
+                    - generic [ref=e433]: active
+                  - cell "VT 1" [ref=e434]:
+                    - generic [ref=e436]: VT 1
+                  - cell "May 28" [ref=e437]
+                - row "› Malware hppjg1ud.stgsolar.hu Solar Unattributed — critical active VT 1 May 28" [ref=e438] [cursor=pointer]:
+                  - cell "›" [ref=e439]:
+                    - generic [ref=e440]: ›
+                  - cell "Malware" [ref=e441]:
+                    - generic [ref=e442]: Malware
+                  - cell "hppjg1ud.stgsolar.hu" [ref=e443]:
+                    - generic "hppjg1ud.stgsolar.hu" [ref=e444]
+                  - cell "Solar" [ref=e445]
+                  - cell "Unattributed" [ref=e446]
+                  - cell "—" [ref=e447]
+                  - cell "critical" [ref=e448]:
+                    - generic [ref=e449]: critical
+                  - cell "active" [ref=e450]:
+                    - generic [ref=e451]: active
+                  - cell "VT 1" [ref=e452]:
+                    - generic [ref=e454]: VT 1
+                  - cell "May 28" [ref=e455]
+                - row "› Malware 5mk6bgje.stgsolar.hu Solar Unattributed — critical active VT 1 May 28" [ref=e456] [cursor=pointer]:
+                  - cell "›" [ref=e457]:
+                    - generic [ref=e458]: ›
+                  - cell "Malware" [ref=e459]:
+                    - generic [ref=e460]: Malware
+                  - cell "5mk6bgje.stgsolar.hu" [ref=e461]:
+                    - generic "5mk6bgje.stgsolar.hu" [ref=e462]
+                  - cell "Solar" [ref=e463]
+                  - cell "Unattributed" [ref=e464]
+                  - cell "—" [ref=e465]
+                  - cell "critical" [ref=e466]:
+                    - generic [ref=e467]: critical
+                  - cell "active" [ref=e468]:
+                    - generic [ref=e469]: active
+                  - cell "VT 1" [ref=e470]:
+                    - generic [ref=e472]: VT 1
+                  - cell "May 28" [ref=e473]
+                - row "› Malware apxij.zsatom.hu Atom Unattributed — critical active — May 28" [ref=e474] [cursor=pointer]:
+                  - cell "›" [ref=e475]:
+                    - generic [ref=e476]: ›
+                  - cell "Malware" [ref=e477]:
+                    - generic [ref=e478]: Malware
+                  - cell "apxij.zsatom.hu" [ref=e479]:
+                    - generic "apxij.zsatom.hu" [ref=e480]
+                  - cell "Atom" [ref=e481]
+                  - cell "Unattributed" [ref=e482]
+                  - cell "—" [ref=e483]
+                  - cell "critical" [ref=e484]:
+                    - generic [ref=e485]: critical
+                  - cell "active" [ref=e486]:
+                    - generic [ref=e487]: active
+                  - cell "—" [ref=e488]
+                  - cell "May 28" [ref=e489]
+                - row "› Malware vtqem.zsatom.hu Atom Unattributed — critical active — May 28" [ref=e490] [cursor=pointer]:
+                  - cell "›" [ref=e491]:
+                    - generic [ref=e492]: ›
+                  - cell "Malware" [ref=e493]:
+                    - generic [ref=e494]: Malware
+                  - cell "vtqem.zsatom.hu" [ref=e495]:
+                    - generic "vtqem.zsatom.hu" [ref=e496]
+                  - cell "Atom" [ref=e497]
+                  - cell "Unattributed" [ref=e498]
+                  - cell "—" [ref=e499]
+                  - cell "critical" [ref=e500]:
+                    - generic [ref=e501]: critical
+                  - cell "active" [ref=e502]:
+                    - generic [ref=e503]: active
+                  - cell "—" [ref=e504]
+                  - cell "May 28" [ref=e505]
+                - row "› C2 xax.cahayasm188.top Hayas Unattributed — critical active — May 28" [ref=e506] [cursor=pointer]:
+                  - cell "›" [ref=e507]:
+                    - generic [ref=e508]: ›
+                  - cell "C2" [ref=e509]:
+                    - generic [ref=e510]: C2
+                  - cell "xax.cahayasm188.top" [ref=e511]:
+                    - generic "xax.cahayasm188.top" [ref=e512]
+                  - cell "Hayas" [ref=e513]
+                  - cell "Unattributed" [ref=e514]
+                  - cell "—" [ref=e515]
+                  - cell "critical" [ref=e516]:
+                    - generic [ref=e517]: critical
+                  - cell "active" [ref=e518]:
+                    - generic [ref=e519]: active
+                  - cell "—" [ref=e520]
+                  - cell "May 28" [ref=e521]
+                - row "› C2 xax.cahayasm188.top Hayas Unattributed — critical active — May 28" [ref=e522] [cursor=pointer]:
+                  - cell "›" [ref=e523]:
+                    - generic [ref=e524]: ›
+                  - cell "C2" [ref=e525]:
+                    - generic [ref=e526]: C2
+                  - cell "xax.cahayasm188.top" [ref=e527]:
+                    - generic "https://xax.cahayasm188.top/" [ref=e528]: xax.cahayasm188.top
+                  - cell "Hayas" [ref=e529]
+                  - cell "Unattributed" [ref=e530]
+                  - cell "—" [ref=e531]
+                  - cell "critical" [ref=e532]:
+                    - generic [ref=e533]: critical
+                  - cell "active" [ref=e534]:
+                    - generic [ref=e535]: active
+                  - cell "—" [ref=e536]
+                  - cell "May 28" [ref=e537]
+                - row "› Malware lpo128ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e538] [cursor=pointer]:
+                  - cell "›" [ref=e539]:
+                    - generic [ref=e540]: ›
+                  - cell "Malware" [ref=e541]:
+                    - generic [ref=e542]: Malware
+                  - cell "lpo128ruu.seresniki.com" [ref=e543]:
+                    - generic "lpo128ruu.seresniki.com" [ref=e544]
+                  - cell "Sere" [ref=e545]
+                  - cell "Unattributed" [ref=e546]
+                  - cell "—" [ref=e547]
+                  - cell "critical" [ref=e548]:
+                    - generic [ref=e549]: critical
+                  - cell "active" [ref=e550]:
+                    - generic [ref=e551]: active
+                  - cell "—" [ref=e552]
+                  - cell "May 28" [ref=e553]
+                - row "› Malware lpo124ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e554] [cursor=pointer]:
+                  - cell "›" [ref=e555]:
+                    - generic [ref=e556]: ›
+                  - cell "Malware" [ref=e557]:
+                    - generic [ref=e558]: Malware
+                  - cell "lpo124ruu.seresniki.com" [ref=e559]:
+                    - generic "lpo124ruu.seresniki.com" [ref=e560]
+                  - cell "Sere" [ref=e561]
+                  - cell "Unattributed" [ref=e562]
+                  - cell "—" [ref=e563]
+                  - cell "critical" [ref=e564]:
+                    - generic [ref=e565]: critical
+                  - cell "active" [ref=e566]:
+                    - generic [ref=e567]: active
+                  - cell "—" [ref=e568]
+                  - cell "May 28" [ref=e569]
+                - row "› Malware lpo125ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e570] [cursor=pointer]:
+                  - cell "›" [ref=e571]:
+                    - generic [ref=e572]: ›
+                  - cell "Malware" [ref=e573]:
+                    - generic [ref=e574]: Malware
+                  - cell "lpo125ruu.seresniki.com" [ref=e575]:
+                    - generic "lpo125ruu.seresniki.com" [ref=e576]
+                  - cell "Sere" [ref=e577]
+                  - cell "Unattributed" [ref=e578]
+                  - cell "—" [ref=e579]
+                  - cell "critical" [ref=e580]:
+                    - generic [ref=e581]: critical
+                  - cell "active" [ref=e582]:
+                    - generic [ref=e583]: active
+                  - cell "—" [ref=e584]
+                  - cell "May 28" [ref=e585]
+                - row "› Malware lpo126ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e586] [cursor=pointer]:
+                  - cell "›" [ref=e587]:
+                    - generic [ref=e588]: ›
+                  - cell "Malware" [ref=e589]:
+                    - generic [ref=e590]: Malware
+                  - cell "lpo126ruu.seresniki.com" [ref=e591]:
+                    - generic "lpo126ruu.seresniki.com" [ref=e592]
+                  - cell "Sere" [ref=e593]
+                  - cell "Unattributed" [ref=e594]
+                  - cell "—" [ref=e595]
+                  - cell "critical" [ref=e596]:
+                    - generic [ref=e597]: critical
+                  - cell "active" [ref=e598]:
+                    - generic [ref=e599]: active
+                  - cell "—" [ref=e600]
+                  - cell "May 28" [ref=e601]
+                - row "› Malware lpo127ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e602] [cursor=pointer]:
+                  - cell "›" [ref=e603]:
+                    - generic [ref=e604]: ›
+                  - cell "Malware" [ref=e605]:
+                    - generic [ref=e606]: Malware
+                  - cell "lpo127ruu.seresniki.com" [ref=e607]:
+                    - generic "lpo127ruu.seresniki.com" [ref=e608]
+                  - cell "Sere" [ref=e609]
+                  - cell "Unattributed" [ref=e610]
+                  - cell "—" [ref=e611]
+                  - cell "critical" [ref=e612]:
+                    - generic [ref=e613]: critical
+                  - cell "active" [ref=e614]:
+                    - generic [ref=e615]: active
+                  - cell "—" [ref=e616]
+                  - cell "May 28" [ref=e617]
+                - row "› Malware lpo121ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e618] [cursor=pointer]:
+                  - cell "›" [ref=e619]:
+                    - generic [ref=e620]: ›
+                  - cell "Malware" [ref=e621]:
+                    - generic [ref=e622]: Malware
+                  - cell "lpo121ruu.seresniki.com" [ref=e623]:
+                    - generic "lpo121ruu.seresniki.com" [ref=e624]
+                  - cell "Sere" [ref=e625]
+                  - cell "Unattributed" [ref=e626]
+                  - cell "—" [ref=e627]
+                  - cell "critical" [ref=e628]:
+                    - generic [ref=e629]: critical
+                  - cell "active" [ref=e630]:
+                    - generic [ref=e631]: active
+                  - cell "—" [ref=e632]
+                  - cell "May 28" [ref=e633]
+                - row "› Malware lpo122ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e634] [cursor=pointer]:
+                  - cell "›" [ref=e635]:
+                    - generic [ref=e636]: ›
+                  - cell "Malware" [ref=e637]:
+                    - generic [ref=e638]: Malware
+                  - cell "lpo122ruu.seresniki.com" [ref=e639]:
+                    - generic "lpo122ruu.seresniki.com" [ref=e640]
+                  - cell "Sere" [ref=e641]
+                  - cell "Unattributed" [ref=e642]
+                  - cell "—" [ref=e643]
+                  - cell "critical" [ref=e644]:
+                    - generic [ref=e645]: critical
+                  - cell "active" [ref=e646]:
+                    - generic [ref=e647]: active
+                  - cell "—" [ref=e648]
+                  - cell "May 28" [ref=e649]
+                - row "› Malware lpo123ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e650] [cursor=pointer]:
+                  - cell "›" [ref=e651]:
+                    - generic [ref=e652]: ›
+                  - cell "Malware" [ref=e653]:
+                    - generic [ref=e654]: Malware
+                  - cell "lpo123ruu.seresniki.com" [ref=e655]:
+                    - generic "lpo123ruu.seresniki.com" [ref=e656]
+                  - cell "Sere" [ref=e657]
+                  - cell "Unattributed" [ref=e658]
+                  - cell "—" [ref=e659]
+                  - cell "critical" [ref=e660]:
+                    - generic [ref=e661]: critical
+                  - cell "active" [ref=e662]:
+                    - generic [ref=e663]: active
+                  - cell "—" [ref=e664]
+                  - cell "May 28" [ref=e665]
+                - row "› Malware lpo119ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e666] [cursor=pointer]:
+                  - cell "›" [ref=e667]:
+                    - generic [ref=e668]: ›
+                  - cell "Malware" [ref=e669]:
+                    - generic [ref=e670]: Malware
+                  - cell "lpo119ruu.seresniki.com" [ref=e671]:
+                    - generic "lpo119ruu.seresniki.com" [ref=e672]
+                  - cell "Sere" [ref=e673]
+                  - cell "Unattributed" [ref=e674]
+                  - cell "—" [ref=e675]
+                  - cell "critical" [ref=e676]:
+                    - generic [ref=e677]: critical
+                  - cell "active" [ref=e678]:
+                    - generic [ref=e679]: active
+                  - cell "—" [ref=e680]
+                  - cell "May 28" [ref=e681]
+                - row "› Malware lpo120ruu.seresniki.com Sere Unattributed — critical active — May 28" [ref=e682] [cursor=pointer]:
+                  - cell "›" [ref=e683]:
+                    - generic [ref=e684]: ›
+                  - cell "Malware" [ref=e685]:
+                    - generic [ref=e686]: Malware
+                  - cell "lpo120ruu.seresniki.com" [ref=e687]:
+                    - generic "lpo120ruu.seresniki.com" [ref=e688]
+                  - cell "Sere" [ref=e689]
+                  - cell "Unattributed" [ref=e690]
+                  - cell "—" [ref=e691]
+                  - cell "critical" [ref=e692]:
+                    - generic [ref=e693]: critical
+                  - cell "active" [ref=e694]:
+                    - generic [ref=e695]: active
+                  - cell "—" [ref=e696]
+                  - cell "May 28" [ref=e697]
+                - row "› Malware lpo117ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e698] [cursor=pointer]:
+                  - cell "›" [ref=e699]:
+                    - generic [ref=e700]: ›
+                  - cell "Malware" [ref=e701]:
+                    - generic [ref=e702]: Malware
+                  - cell "lpo117ruu.seresniki.com" [ref=e703]:
+                    - generic "lpo117ruu.seresniki.com" [ref=e704]
+                  - cell "Sere" [ref=e705]
+                  - cell "Unattributed" [ref=e706]
+                  - cell "Email Phishing" [ref=e707]:
+                    - generic [ref=e708]: Email Phishing
+                  - cell "critical" [ref=e709]:
+                    - generic [ref=e710]: critical
+                  - cell "active" [ref=e711]:
+                    - generic [ref=e712]: active
+                  - cell "—" [ref=e713]
+                  - cell "May 28" [ref=e714]
+                - row "› Malware lpo118ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e715] [cursor=pointer]:
+                  - cell "›" [ref=e716]:
+                    - generic [ref=e717]: ›
+                  - cell "Malware" [ref=e718]:
+                    - generic [ref=e719]: Malware
+                  - cell "lpo118ruu.seresniki.com" [ref=e720]:
+                    - generic "lpo118ruu.seresniki.com" [ref=e721]
+                  - cell "Sere" [ref=e722]
+                  - cell "Unattributed" [ref=e723]
+                  - cell "Email Phishing" [ref=e724]:
+                    - generic [ref=e725]: Email Phishing
+                  - cell "critical" [ref=e726]:
+                    - generic [ref=e727]: critical
+                  - cell "active" [ref=e728]:
+                    - generic [ref=e729]: active
+                  - cell "—" [ref=e730]
+                  - cell "May 28" [ref=e731]
+                - row "› Malware lpo114ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e732] [cursor=pointer]:
+                  - cell "›" [ref=e733]:
+                    - generic [ref=e734]: ›
+                  - cell "Malware" [ref=e735]:
+                    - generic [ref=e736]: Malware
+                  - cell "lpo114ruu.seresniki.com" [ref=e737]:
+                    - generic "lpo114ruu.seresniki.com" [ref=e738]
+                  - cell "Sere" [ref=e739]
+                  - cell "Unattributed" [ref=e740]
+                  - cell "Email Phishing" [ref=e741]:
+                    - generic [ref=e742]: Email Phishing
+                  - cell "critical" [ref=e743]:
+                    - generic [ref=e744]: critical
+                  - cell "active" [ref=e745]:
+                    - generic [ref=e746]: active
+                  - cell "—" [ref=e747]
+                  - cell "May 28" [ref=e748]
+                - row "› Malware lpo115ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e749] [cursor=pointer]:
+                  - cell "›" [ref=e750]:
+                    - generic [ref=e751]: ›
+                  - cell "Malware" [ref=e752]:
+                    - generic [ref=e753]: Malware
+                  - cell "lpo115ruu.seresniki.com" [ref=e754]:
+                    - generic "lpo115ruu.seresniki.com" [ref=e755]
+                  - cell "Sere" [ref=e756]
+                  - cell "Unattributed" [ref=e757]
+                  - cell "Email Phishing" [ref=e758]:
+                    - generic [ref=e759]: Email Phishing
+                  - cell "critical" [ref=e760]:
+                    - generic [ref=e761]: critical
+                  - cell "active" [ref=e762]:
+                    - generic [ref=e763]: active
+                  - cell "—" [ref=e764]
+                  - cell "May 28" [ref=e765]
+                - row "› Malware lpo116ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e766] [cursor=pointer]:
+                  - cell "›" [ref=e767]:
+                    - generic [ref=e768]: ›
+                  - cell "Malware" [ref=e769]:
+                    - generic [ref=e770]: Malware
+                  - cell "lpo116ruu.seresniki.com" [ref=e771]:
+                    - generic "lpo116ruu.seresniki.com" [ref=e772]
+                  - cell "Sere" [ref=e773]
+                  - cell "Unattributed" [ref=e774]
+                  - cell "Email Phishing" [ref=e775]:
+                    - generic [ref=e776]: Email Phishing
+                  - cell "critical" [ref=e777]:
+                    - generic [ref=e778]: critical
+                  - cell "active" [ref=e779]:
+                    - generic [ref=e780]: active
+                  - cell "—" [ref=e781]
+                  - cell "May 28" [ref=e782]
+                - row "› Malware lpo110ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e783] [cursor=pointer]:
+                  - cell "›" [ref=e784]:
+                    - generic [ref=e785]: ›
+                  - cell "Malware" [ref=e786]:
+                    - generic [ref=e787]: Malware
+                  - cell "lpo110ruu.seresniki.com" [ref=e788]:
+                    - generic "lpo110ruu.seresniki.com" [ref=e789]
+                  - cell "Sere" [ref=e790]
+                  - cell "Unattributed" [ref=e791]
+                  - cell "Email Phishing" [ref=e792]:
+                    - generic [ref=e793]: Email Phishing
+                  - cell "critical" [ref=e794]:
+                    - generic [ref=e795]: critical
+                  - cell "active" [ref=e796]:
+                    - generic [ref=e797]: active
+                  - cell "—" [ref=e798]
+                  - cell "May 28" [ref=e799]
+                - row "› Malware lpo111ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e800] [cursor=pointer]:
+                  - cell "›" [ref=e801]:
+                    - generic [ref=e802]: ›
+                  - cell "Malware" [ref=e803]:
+                    - generic [ref=e804]: Malware
+                  - cell "lpo111ruu.seresniki.com" [ref=e805]:
+                    - generic "lpo111ruu.seresniki.com" [ref=e806]
+                  - cell "Sere" [ref=e807]
+                  - cell "Unattributed" [ref=e808]
+                  - cell "Email Phishing" [ref=e809]:
+                    - generic [ref=e810]: Email Phishing
+                  - cell "critical" [ref=e811]:
+                    - generic [ref=e812]: critical
+                  - cell "active" [ref=e813]:
+                    - generic [ref=e814]: active
+                  - cell "—" [ref=e815]
+                  - cell "May 28" [ref=e816]
+                - row "› Malware lpo112ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e817] [cursor=pointer]:
+                  - cell "›" [ref=e818]:
+                    - generic [ref=e819]: ›
+                  - cell "Malware" [ref=e820]:
+                    - generic [ref=e821]: Malware
+                  - cell "lpo112ruu.seresniki.com" [ref=e822]:
+                    - generic "lpo112ruu.seresniki.com" [ref=e823]
+                  - cell "Sere" [ref=e824]
+                  - cell "Unattributed" [ref=e825]
+                  - cell "Email Phishing" [ref=e826]:
+                    - generic [ref=e827]: Email Phishing
+                  - cell "critical" [ref=e828]:
+                    - generic [ref=e829]: critical
+                  - cell "active" [ref=e830]:
+                    - generic [ref=e831]: active
+                  - cell "—" [ref=e832]
+                  - cell "May 28" [ref=e833]
+                - row "› Malware lpo113ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e834] [cursor=pointer]:
+                  - cell "›" [ref=e835]:
+                    - generic [ref=e836]: ›
+                  - cell "Malware" [ref=e837]:
+                    - generic [ref=e838]: Malware
+                  - cell "lpo113ruu.seresniki.com" [ref=e839]:
+                    - generic "lpo113ruu.seresniki.com" [ref=e840]
+                  - cell "Sere" [ref=e841]
+                  - cell "Unattributed" [ref=e842]
+                  - cell "Email Phishing" [ref=e843]:
+                    - generic [ref=e844]: Email Phishing
+                  - cell "critical" [ref=e845]:
+                    - generic [ref=e846]: critical
+                  - cell "active" [ref=e847]:
+                    - generic [ref=e848]: active
+                  - cell "—" [ref=e849]
+                  - cell "May 28" [ref=e850]
+                - row "› Malware lpo109ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e851] [cursor=pointer]:
+                  - cell "›" [ref=e852]:
+                    - generic [ref=e853]: ›
+                  - cell "Malware" [ref=e854]:
+                    - generic [ref=e855]: Malware
+                  - cell "lpo109ruu.seresniki.com" [ref=e856]:
+                    - generic "lpo109ruu.seresniki.com" [ref=e857]
+                  - cell "Sere" [ref=e858]
+                  - cell "Unattributed" [ref=e859]
+                  - cell "Email Phishing" [ref=e860]:
+                    - generic [ref=e861]: Email Phishing
+                  - cell "critical" [ref=e862]:
+                    - generic [ref=e863]: critical
+                  - cell "active" [ref=e864]:
+                    - generic [ref=e865]: active
+                  - cell "—" [ref=e866]
+                  - cell "May 28" [ref=e867]
+                - row "› Malware syrzz.technologiaiviz.hu Logi Unattributed — critical active — May 28" [ref=e868] [cursor=pointer]:
+                  - cell "›" [ref=e869]:
+                    - generic [ref=e870]: ›
+                  - cell "Malware" [ref=e871]:
+                    - generic [ref=e872]: Malware
+                  - cell "syrzz.technologiaiviz.hu" [ref=e873]:
+                    - generic "syrzz.technologiaiviz.hu" [ref=e874]
+                  - cell "Logi" [ref=e875]
+                  - cell "Unattributed" [ref=e876]
+                  - cell "—" [ref=e877]
+                  - cell "critical" [ref=e878]:
+                    - generic [ref=e879]: critical
+                  - cell "active" [ref=e880]:
+                    - generic [ref=e881]: active
+                  - cell "—" [ref=e882]
+                  - cell "May 28" [ref=e883]
+                - row "› Malware bctqs.technologiaiviz.hu Logi Unattributed — critical active — May 28" [ref=e884] [cursor=pointer]:
+                  - cell "›" [ref=e885]:
+                    - generic [ref=e886]: ›
+                  - cell "Malware" [ref=e887]:
+                    - generic [ref=e888]: Malware
+                  - cell "bctqs.technologiaiviz.hu" [ref=e889]:
+                    - generic "bctqs.technologiaiviz.hu" [ref=e890]
+                  - cell "Logi" [ref=e891]
+                  - cell "Unattributed" [ref=e892]
+                  - cell "—" [ref=e893]
+                  - cell "critical" [ref=e894]:
+                    - generic [ref=e895]: critical
+                  - cell "active" [ref=e896]:
+                    - generic [ref=e897]: active
+                  - cell "—" [ref=e898]
+                  - cell "May 28" [ref=e899]
+                - row "› Malware xjlft.visszateritok.hu Viss Unattributed — critical active — May 28" [ref=e900] [cursor=pointer]:
+                  - cell "›" [ref=e901]:
+                    - generic [ref=e902]: ›
+                  - cell "Malware" [ref=e903]:
+                    - generic [ref=e904]: Malware
+                  - cell "xjlft.visszateritok.hu" [ref=e905]:
+                    - generic "xjlft.visszateritok.hu" [ref=e906]
+                  - cell "Viss" [ref=e907]
+                  - cell "Unattributed" [ref=e908]
+                  - cell "—" [ref=e909]
+                  - cell "critical" [ref=e910]:
+                    - generic [ref=e911]: critical
+                  - cell "active" [ref=e912]:
+                    - generic [ref=e913]: active
+                  - cell "—" [ref=e914]
+                  - cell "May 28" [ref=e915]
+                - row "› Malware bubzw.visszateritok.hu Viss Unattributed — critical active — May 28" [ref=e916] [cursor=pointer]:
+                  - cell "›" [ref=e917]:
+                    - generic [ref=e918]: ›
+                  - cell "Malware" [ref=e919]:
+                    - generic [ref=e920]: Malware
+                  - cell "bubzw.visszateritok.hu" [ref=e921]:
+                    - generic "bubzw.visszateritok.hu" [ref=e922]
+                  - cell "Viss" [ref=e923]
+                  - cell "Unattributed" [ref=e924]
+                  - cell "—" [ref=e925]
+                  - cell "critical" [ref=e926]:
+                    - generic [ref=e927]: critical
+                  - cell "active" [ref=e928]:
+                    - generic [ref=e929]: active
+                  - cell "—" [ref=e930]
+                  - cell "May 28" [ref=e931]
+                - row "› Malware lpo67ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e932] [cursor=pointer]:
+                  - cell "›" [ref=e933]:
+                    - generic [ref=e934]: ›
+                  - cell "Malware" [ref=e935]:
+                    - generic [ref=e936]: Malware
+                  - cell "lpo67ruu.seresniki.com" [ref=e937]:
+                    - generic "lpo67ruu.seresniki.com" [ref=e938]
+                  - cell "Sere" [ref=e939]
+                  - cell "Unattributed" [ref=e940]
+                  - cell "Email Phishing" [ref=e941]:
+                    - generic [ref=e942]: Email Phishing
+                  - cell "critical" [ref=e943]:
+                    - generic [ref=e944]: critical
+                  - cell "active" [ref=e945]:
+                    - generic [ref=e946]: active
+                  - cell "—" [ref=e947]
+                  - cell "May 28" [ref=e948]
+                - row "› Malware lpo65ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e949] [cursor=pointer]:
+                  - cell "›" [ref=e950]:
+                    - generic [ref=e951]: ›
+                  - cell "Malware" [ref=e952]:
+                    - generic [ref=e953]: Malware
+                  - cell "lpo65ruu.seresniki.com" [ref=e954]:
+                    - generic "lpo65ruu.seresniki.com" [ref=e955]
+                  - cell "Sere" [ref=e956]
+                  - cell "Unattributed" [ref=e957]
+                  - cell "Email Phishing" [ref=e958]:
+                    - generic [ref=e959]: Email Phishing
+                  - cell "critical" [ref=e960]:
+                    - generic [ref=e961]: critical
+                  - cell "active" [ref=e962]:
+                    - generic [ref=e963]: active
+                  - cell "—" [ref=e964]
+                  - cell "May 28" [ref=e965]
+                - row "› Malware lpo66ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e966] [cursor=pointer]:
+                  - cell "›" [ref=e967]:
+                    - generic [ref=e968]: ›
+                  - cell "Malware" [ref=e969]:
+                    - generic [ref=e970]: Malware
+                  - cell "lpo66ruu.seresniki.com" [ref=e971]:
+                    - generic "lpo66ruu.seresniki.com" [ref=e972]
+                  - cell "Sere" [ref=e973]
+                  - cell "Unattributed" [ref=e974]
+                  - cell "Email Phishing" [ref=e975]:
+                    - generic [ref=e976]: Email Phishing
+                  - cell "critical" [ref=e977]:
+                    - generic [ref=e978]: critical
+                  - cell "active" [ref=e979]:
+                    - generic [ref=e980]: active
+                  - cell "—" [ref=e981]
+                  - cell "May 28" [ref=e982]
+                - row "› Malware lpo63ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e983] [cursor=pointer]:
+                  - cell "›" [ref=e984]:
+                    - generic [ref=e985]: ›
+                  - cell "Malware" [ref=e986]:
+                    - generic [ref=e987]: Malware
+                  - cell "lpo63ruu.seresniki.com" [ref=e988]:
+                    - generic "lpo63ruu.seresniki.com" [ref=e989]
+                  - cell "Sere" [ref=e990]
+                  - cell "Unattributed" [ref=e991]
+                  - cell "Email Phishing" [ref=e992]:
+                    - generic [ref=e993]: Email Phishing
+                  - cell "critical" [ref=e994]:
+                    - generic [ref=e995]: critical
+                  - cell "active" [ref=e996]:
+                    - generic [ref=e997]: active
+                  - cell "—" [ref=e998]
+                  - cell "May 28" [ref=e999]
+                - row "› Malware lpo64ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1000] [cursor=pointer]:
+                  - cell "›" [ref=e1001]:
+                    - generic [ref=e1002]: ›
+                  - cell "Malware" [ref=e1003]:
+                    - generic [ref=e1004]: Malware
+                  - cell "lpo64ruu.seresniki.com" [ref=e1005]:
+                    - generic "lpo64ruu.seresniki.com" [ref=e1006]
+                  - cell "Sere" [ref=e1007]
+                  - cell "Unattributed" [ref=e1008]
+                  - cell "Email Phishing" [ref=e1009]:
+                    - generic [ref=e1010]: Email Phishing
+                  - cell "critical" [ref=e1011]:
+                    - generic [ref=e1012]: critical
+                  - cell "active" [ref=e1013]:
+                    - generic [ref=e1014]: active
+                  - cell "—" [ref=e1015]
+                  - cell "May 28" [ref=e1016]
+                - row "› Malware lpo60ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1017] [cursor=pointer]:
+                  - cell "›" [ref=e1018]:
+                    - generic [ref=e1019]: ›
+                  - cell "Malware" [ref=e1020]:
+                    - generic [ref=e1021]: Malware
+                  - cell "lpo60ruu.seresniki.com" [ref=e1022]:
+                    - generic "lpo60ruu.seresniki.com" [ref=e1023]
+                  - cell "Sere" [ref=e1024]
+                  - cell "Unattributed" [ref=e1025]
+                  - cell "Email Phishing" [ref=e1026]:
+                    - generic [ref=e1027]: Email Phishing
+                  - cell "critical" [ref=e1028]:
+                    - generic [ref=e1029]: critical
+                  - cell "active" [ref=e1030]:
+                    - generic [ref=e1031]: active
+                  - cell "—" [ref=e1032]
+                  - cell "May 28" [ref=e1033]
+                - row "› Malware lpo61ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1034] [cursor=pointer]:
+                  - cell "›" [ref=e1035]:
+                    - generic [ref=e1036]: ›
+                  - cell "Malware" [ref=e1037]:
+                    - generic [ref=e1038]: Malware
+                  - cell "lpo61ruu.seresniki.com" [ref=e1039]:
+                    - generic "lpo61ruu.seresniki.com" [ref=e1040]
+                  - cell "Sere" [ref=e1041]
+                  - cell "Unattributed" [ref=e1042]
+                  - cell "Email Phishing" [ref=e1043]:
+                    - generic [ref=e1044]: Email Phishing
+                  - cell "critical" [ref=e1045]:
+                    - generic [ref=e1046]: critical
+                  - cell "active" [ref=e1047]:
+                    - generic [ref=e1048]: active
+                  - cell "—" [ref=e1049]
+                  - cell "May 28" [ref=e1050]
+                - row "› Malware lpo62ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1051] [cursor=pointer]:
+                  - cell "›" [ref=e1052]:
+                    - generic [ref=e1053]: ›
+                  - cell "Malware" [ref=e1054]:
+                    - generic [ref=e1055]: Malware
+                  - cell "lpo62ruu.seresniki.com" [ref=e1056]:
+                    - generic "lpo62ruu.seresniki.com" [ref=e1057]
+                  - cell "Sere" [ref=e1058]
+                  - cell "Unattributed" [ref=e1059]
+                  - cell "Email Phishing" [ref=e1060]:
+                    - generic [ref=e1061]: Email Phishing
+                  - cell "critical" [ref=e1062]:
+                    - generic [ref=e1063]: critical
+                  - cell "active" [ref=e1064]:
+                    - generic [ref=e1065]: active
+                  - cell "—" [ref=e1066]
+                  - cell "May 28" [ref=e1067]
+                - row "› Malware lpo58ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1068] [cursor=pointer]:
+                  - cell "›" [ref=e1069]:
+                    - generic [ref=e1070]: ›
+                  - cell "Malware" [ref=e1071]:
+                    - generic [ref=e1072]: Malware
+                  - cell "lpo58ruu.seresniki.com" [ref=e1073]:
+                    - generic "lpo58ruu.seresniki.com" [ref=e1074]
+                  - cell "Sere" [ref=e1075]
+                  - cell "Unattributed" [ref=e1076]
+                  - cell "Email Phishing" [ref=e1077]:
+                    - generic [ref=e1078]: Email Phishing
+                  - cell "critical" [ref=e1079]:
+                    - generic [ref=e1080]: critical
+                  - cell "active" [ref=e1081]:
+                    - generic [ref=e1082]: active
+                  - cell "—" [ref=e1083]
+                  - cell "May 28" [ref=e1084]
+                - row "› Malware lpo59ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1085] [cursor=pointer]:
+                  - cell "›" [ref=e1086]:
+                    - generic [ref=e1087]: ›
+                  - cell "Malware" [ref=e1088]:
+                    - generic [ref=e1089]: Malware
+                  - cell "lpo59ruu.seresniki.com" [ref=e1090]:
+                    - generic "lpo59ruu.seresniki.com" [ref=e1091]
+                  - cell "Sere" [ref=e1092]
+                  - cell "Unattributed" [ref=e1093]
+                  - cell "Email Phishing" [ref=e1094]:
+                    - generic [ref=e1095]: Email Phishing
+                  - cell "critical" [ref=e1096]:
+                    - generic [ref=e1097]: critical
+                  - cell "active" [ref=e1098]:
+                    - generic [ref=e1099]: active
+                  - cell "—" [ref=e1100]
+                  - cell "May 28" [ref=e1101]
+                - row "› Malware lpo68ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1102] [cursor=pointer]:
+                  - cell "›" [ref=e1103]:
+                    - generic [ref=e1104]: ›
+                  - cell "Malware" [ref=e1105]:
+                    - generic [ref=e1106]: Malware
+                  - cell "lpo68ruu.seresniki.com" [ref=e1107]:
+                    - generic "lpo68ruu.seresniki.com" [ref=e1108]
+                  - cell "Sere" [ref=e1109]
+                  - cell "Unattributed" [ref=e1110]
+                  - cell "Email Phishing" [ref=e1111]:
+                    - generic [ref=e1112]: Email Phishing
+                  - cell "critical" [ref=e1113]:
+                    - generic [ref=e1114]: critical
+                  - cell "active" [ref=e1115]:
+                    - generic [ref=e1116]: active
+                  - cell "—" [ref=e1117]
+                  - cell "May 28" [ref=e1118]
+                - row "› Malware lpo69ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1119] [cursor=pointer]:
+                  - cell "›" [ref=e1120]:
+                    - generic [ref=e1121]: ›
+                  - cell "Malware" [ref=e1122]:
+                    - generic [ref=e1123]: Malware
+                  - cell "lpo69ruu.seresniki.com" [ref=e1124]:
+                    - generic "lpo69ruu.seresniki.com" [ref=e1125]
+                  - cell "Sere" [ref=e1126]
+                  - cell "Unattributed" [ref=e1127]
+                  - cell "Email Phishing" [ref=e1128]:
+                    - generic [ref=e1129]: Email Phishing
+                  - cell "critical" [ref=e1130]:
+                    - generic [ref=e1131]: critical
+                  - cell "active" [ref=e1132]:
+                    - generic [ref=e1133]: active
+                  - cell "—" [ref=e1134]
+                  - cell "May 28" [ref=e1135]
+                - row "› Malware lpo70ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1136] [cursor=pointer]:
+                  - cell "›" [ref=e1137]:
+                    - generic [ref=e1138]: ›
+                  - cell "Malware" [ref=e1139]:
+                    - generic [ref=e1140]: Malware
+                  - cell "lpo70ruu.seresniki.com" [ref=e1141]:
+                    - generic "lpo70ruu.seresniki.com" [ref=e1142]
+                  - cell "Sere" [ref=e1143]
+                  - cell "Unattributed" [ref=e1144]
+                  - cell "Email Phishing" [ref=e1145]:
+                    - generic [ref=e1146]: Email Phishing
+                  - cell "critical" [ref=e1147]:
+                    - generic [ref=e1148]: critical
+                  - cell "active" [ref=e1149]:
+                    - generic [ref=e1150]: active
+                  - cell "—" [ref=e1151]
+                  - cell "May 28" [ref=e1152]
+                - row "› Malware lpo71ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1153] [cursor=pointer]:
+                  - cell "›" [ref=e1154]:
+                    - generic [ref=e1155]: ›
+                  - cell "Malware" [ref=e1156]:
+                    - generic [ref=e1157]: Malware
+                  - cell "lpo71ruu.seresniki.com" [ref=e1158]:
+                    - generic "lpo71ruu.seresniki.com" [ref=e1159]
+                  - cell "Sere" [ref=e1160]
+                  - cell "Unattributed" [ref=e1161]
+                  - cell "Email Phishing" [ref=e1162]:
+                    - generic [ref=e1163]: Email Phishing
+                  - cell "critical" [ref=e1164]:
+                    - generic [ref=e1165]: critical
+                  - cell "active" [ref=e1166]:
+                    - generic [ref=e1167]: active
+                  - cell "—" [ref=e1168]
+                  - cell "May 28" [ref=e1169]
+                - row "› Malware lpo72ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1170] [cursor=pointer]:
+                  - cell "›" [ref=e1171]:
+                    - generic [ref=e1172]: ›
+                  - cell "Malware" [ref=e1173]:
+                    - generic [ref=e1174]: Malware
+                  - cell "lpo72ruu.seresniki.com" [ref=e1175]:
+                    - generic "lpo72ruu.seresniki.com" [ref=e1176]
+                  - cell "Sere" [ref=e1177]
+                  - cell "Unattributed" [ref=e1178]
+                  - cell "Email Phishing" [ref=e1179]:
+                    - generic [ref=e1180]: Email Phishing
+                  - cell "critical" [ref=e1181]:
+                    - generic [ref=e1182]: critical
+                  - cell "active" [ref=e1183]:
+                    - generic [ref=e1184]: active
+                  - cell "—" [ref=e1185]
+                  - cell "May 28" [ref=e1186]
+                - row "› Malware lpo73ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1187] [cursor=pointer]:
+                  - cell "›" [ref=e1188]:
+                    - generic [ref=e1189]: ›
+                  - cell "Malware" [ref=e1190]:
+                    - generic [ref=e1191]: Malware
+                  - cell "lpo73ruu.seresniki.com" [ref=e1192]:
+                    - generic "lpo73ruu.seresniki.com" [ref=e1193]
+                  - cell "Sere" [ref=e1194]
+                  - cell "Unattributed" [ref=e1195]
+                  - cell "Email Phishing" [ref=e1196]:
+                    - generic [ref=e1197]: Email Phishing
+                  - cell "critical" [ref=e1198]:
+                    - generic [ref=e1199]: critical
+                  - cell "active" [ref=e1200]:
+                    - generic [ref=e1201]: active
+                  - cell "—" [ref=e1202]
+                  - cell "May 28" [ref=e1203]
+                - row "› Malware lpo74ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1204] [cursor=pointer]:
+                  - cell "›" [ref=e1205]:
+                    - generic [ref=e1206]: ›
+                  - cell "Malware" [ref=e1207]:
+                    - generic [ref=e1208]: Malware
+                  - cell "lpo74ruu.seresniki.com" [ref=e1209]:
+                    - generic "lpo74ruu.seresniki.com" [ref=e1210]
+                  - cell "Sere" [ref=e1211]
+                  - cell "Unattributed" [ref=e1212]
+                  - cell "Email Phishing" [ref=e1213]:
+                    - generic [ref=e1214]: Email Phishing
+                  - cell "critical" [ref=e1215]:
+                    - generic [ref=e1216]: critical
+                  - cell "active" [ref=e1217]:
+                    - generic [ref=e1218]: active
+                  - cell "—" [ref=e1219]
+                  - cell "May 28" [ref=e1220]
+                - row "› Malware lpo75ruu.seresniki.com Sere Unattributed Email Phishing critical active — May 28" [ref=e1221] [cursor=pointer]:
+                  - cell "›" [ref=e1222]:
+                    - generic [ref=e1223]: ›
+                  - cell "Malware" [ref=e1224]:
+                    - generic [ref=e1225]: Malware
+                  - cell "lpo75ruu.seresniki.com" [ref=e1226]:
+                    - generic "lpo75ruu.seresniki.com" [ref=e1227]
+                  - cell "Sere" [ref=e1228]
+                  - cell "Unattributed" [ref=e1229]
+                  - cell "Email Phishing" [ref=e1230]:
+                    - generic [ref=e1231]: Email Phishing
+                  - cell "critical" [ref=e1232]:
+                    - generic [ref=e1233]: critical
+                  - cell "active" [ref=e1234]:
+                    - generic [ref=e1235]: active
+                  - cell "—" [ref=e1236]
+                  - cell "May 28" [ref=e1237]
+            - generic [ref=e1238]:
+              - generic [ref=e1239]: 1–50 of 464,080
+              - generic [ref=e1240]:
+                - button "Prev" [disabled] [ref=e1241]
+                - button "Next" [ref=e1242] [cursor=pointer]
+  - generic [ref=e1243]: "0"
