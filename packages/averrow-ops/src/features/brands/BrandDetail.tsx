@@ -15,6 +15,10 @@
 
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { ThreatsTable, useThreatsTable, type ThreatRow } from '@averrow/shared/threats-table';
+import { SimpleStatCard } from '@/components/ui/StatCard';
+import { api } from '@/lib/api';
 import {
   useBrandFullDetail,
   useBrandTimeline,
@@ -53,6 +57,11 @@ const SEVERITY_COLORS: Record<string, string> = {
 const V3_TABS = [
   { id: 'surface',  label: 'Surface',  hint: "What we know about you" },
   { id: 'risk',     label: 'Risk',     hint: "What's threatening you now" },
+  // Threats tab is the brand-scoped view of the raw threats table —
+  // the evidence behind the Risk tab's counts. Same plumbing as the
+  // global /v2/threats page, scoped to this brand's target_brand_id
+  // and excluding the brand's own safe domains.
+  { id: 'threats',  label: 'Threats',  hint: "Every raw threat targeting this brand (the evidence behind Risk)" },
   // NX3: Signals tab gives SOC analysts a brand-scoped view of every
   // alert (impersonation, typosquat, BIMI/DMARC drift, dark-web, etc.)
   // for this brand — same data the tenant sees on /alerts, scoped here.
@@ -231,6 +240,10 @@ export function BrandDetailV3() {
         />
       )}
 
+      {activeTab === 'threats' && (
+        <ThreatsTab brandId={id} />
+      )}
+
       {activeTab === 'signals' && (
         <SignalsTab signals={allSignals} brandId={id} />
       )}
@@ -241,6 +254,212 @@ export function BrandDetailV3() {
           takedowns={brandTakedowns}
         />
       )}
+    </div>
+  );
+}
+
+// ── THREATS ──────────────────────────────────────────────────────────────
+// Brand-scoped view of the raw threats table — the evidence behind the
+// Risk tab's severity counts. Reuses the shared <ThreatsTable> from the
+// global /threats page; only difference is brand_id is fixed and the
+// brand column / filter is dropped (it would always be the same brand).
+//
+// Hero strip on top runs against the full unfiltered set (a separate
+// 200-row peek) so the totals/breakdowns stay stable as the operator
+// narrows the table below.
+function ThreatsTab({ brandId }: { brandId: string }) {
+  const navigate = useNavigate();
+  const table = useThreatsTable({
+    pageSize: 25,
+    initial: { brandId },
+  });
+  const s = table.state;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['brand-threats', brandId, table.params],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      p.set('limit', String(table.params.limit));
+      p.set('offset', String(table.params.offset));
+      p.set('sort', table.params.sort);
+      p.set('dir', table.params.dir);
+      p.set('brand_id', brandId);
+      if (s.severity) p.set('severity', s.severity);
+      if (s.type)     p.set('type', s.type);
+      if (s.status)   p.set('status', s.status);
+      if (s.country)  p.set('country', s.country);
+      if (s.q)        p.set('q', s.q);
+      const res = await api.get<{ threats: ThreatRow[]; total: number }>(`/api/threats?${p}`);
+      if (!res.success || !res.data) throw new Error(res.error ?? 'Failed');
+      return res.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  // Snapshot the hero strip from an unfiltered 200-row peek so the
+  // totals don't dance every time the table filters change.
+  const { data: peek } = useQuery({
+    queryKey: ['brand-threats-peek', brandId],
+    queryFn: async () => {
+      const p = new URLSearchParams({ brand_id: brandId, limit: '200', offset: '0', sort: 'last_seen', dir: 'desc' });
+      const res = await api.get<{ threats: ThreatRow[]; total: number }>(`/api/threats?${p}`);
+      if (!res.success || !res.data) throw new Error(res.error ?? 'Failed');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const peekRows = peek?.threats ?? [];
+  const peekTotal = peek?.total ?? 0;
+
+  const sevCounts = useMemo(() => {
+    const c: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const r of peekRows) {
+      const k = (r.severity ?? 'low').toLowerCase();
+      c[k] = (c[k] ?? 0) + 1;
+    }
+    return c;
+  }, [peekRows]);
+
+  const topType = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of peekRows) c[r.threat_type] = (c[r.threat_type] ?? 0) + 1;
+    const entries = Object.entries(c).sort((a, b) => b[1] - a[1]);
+    return entries[0] ?? null;
+  }, [peekRows]);
+
+  const topSource = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of peekRows) if (r.source_feed) c[r.source_feed] = (c[r.source_feed] ?? 0) + 1;
+    const entries = Object.entries(c).sort((a, b) => b[1] - a[1]);
+    return entries[0] ?? null;
+  }, [peekRows]);
+
+  const ttpChips = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; severity: string | null }>();
+    for (const r of peekRows) {
+      if (!r.saas_technique_id) continue;
+      const key = String(r.saas_technique_id);
+      const existing = map.get(key);
+      if (existing) existing.count += 1;
+      else map.set(key, {
+        name: String(r.saas_technique_name ?? key),
+        count: 1,
+        severity: (r as { saas_technique_severity?: string | null }).saas_technique_severity ?? null,
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 8);
+  }, [peekRows]);
+
+  const SEVERITY_ACCENT: Record<string, string> = {
+    critical: 'var(--sev-critical)',
+    high:     'var(--sev-high)',
+    medium:   'var(--sev-medium)',
+    low:      'var(--sev-low)',
+  };
+  const highestSev = sevCounts.critical > 0
+    ? 'critical'
+    : sevCounts.high > 0 ? 'high'
+    : sevCounts.medium > 0 ? 'medium' : 'low';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <SimpleStatCard
+          label="Total threats"
+          value={peekTotal.toLocaleString()}
+          sublabel={`${peekRows.length.toLocaleString()} in latest window`}
+          accentColor={SEVERITY_ACCENT[highestSev]}
+        />
+        <SimpleStatCard
+          label="Critical · High"
+          value={(sevCounts.critical + sevCounts.high).toLocaleString()}
+          sublabel={`${sevCounts.critical} critical · ${sevCounts.high} high`}
+          accentColor={sevCounts.critical > 0 ? SEVERITY_ACCENT.critical : SEVERITY_ACCENT.high}
+        />
+        <SimpleStatCard
+          label="Top threat type"
+          value={topType ? topType[0].replace(/_/g, ' ') : '—'}
+          sublabel={topType ? `${topType[1]} indicators` : 'no data'}
+          accentColor={SEVERITY_ACCENT.high}
+        />
+        <SimpleStatCard
+          label="Top source feed"
+          value={topSource ? topSource[0] : '—'}
+          sublabel={topSource ? `${topSource[1]} indicators` : 'no data'}
+          accentColor={SEVERITY_ACCENT.medium}
+        />
+      </div>
+
+      {ttpChips.length > 0 && (
+        <DeepCard padding="md">
+          <SectionLabel>MITRE techniques observed</SectionLabel>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {ttpChips.map((t) => {
+              const accent = t.severity === 'critical' ? 'var(--sev-critical)'
+                : t.severity === 'high' ? 'var(--sev-high)'
+                : t.severity === 'medium' ? 'var(--sev-medium)'
+                : 'var(--text-secondary)';
+              return (
+                <span
+                  key={t.name}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-[10px]"
+                  style={{
+                    background: 'var(--bg-card-deep)',
+                    border: `1px solid ${accent}40`,
+                    color: 'var(--text-primary)',
+                    boxShadow: `inset 0 1px 0 ${accent}25, 0 0 8px ${accent}15`,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: accent, boxShadow: `0 0 6px ${accent}` }} />
+                  {t.name}
+                  <span style={{ color: 'var(--text-tertiary)' }}>{t.count}</span>
+                </span>
+              );
+            })}
+          </div>
+        </DeepCard>
+      )}
+
+      <DeepCard variant="active" padding="lg">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">Threats</div>
+            <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+              {(data?.total ?? 0).toLocaleString()} matching · raw indicators feeding the Risk score · click a row for evidence
+            </div>
+          </div>
+          <a
+            href={`/v2/threats?brand_id=${encodeURIComponent(brandId)}`}
+            className="text-[11px] font-mono text-[var(--amber)] hover:underline"
+          >
+            Open in /threats →
+          </a>
+        </div>
+        <ThreatsTable
+          columns={['type', 'target', 'actor', 'technique', 'severity', 'status', 'evidence', 'last_seen']}
+          rows={data?.threats ?? []}
+          total={data?.total ?? 0}
+          loading={isLoading}
+          state={table.state}
+          pageSize={table.pageSize}
+          onFilter={table.setFilter}
+          onSearch={table.setSearch}
+          onToggleSort={table.toggleSort}
+          onPage={table.setPage}
+          controls={['severity', 'type', 'status', 'country', 'search']}
+          sortKeys={{ type: 'type', target: 'target', severity: 'severity', status: 'status', last_seen: 'last_seen' }}
+          renderExtraDetail={(r) => {
+            const actorId = r.actor_id;
+            return actorId ? (
+              <div style={{ marginTop: 14, display: 'flex', gap: 16 }}>
+                <button className="tt-link" style={{ background: 'none', border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => navigate(`/threat-actors/${actorId}`)}>↗ Threat actor</button>
+              </div>
+            ) : null;
+          }}
+          emptyText="No threats targeting this brand yet."
+        />
+      </DeepCard>
     </div>
   );
 }
