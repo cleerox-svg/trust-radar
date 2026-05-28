@@ -1,0 +1,831 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e199]:
+            - heading "Apps" [level=1] [ref=e201]
+            - paragraph [ref=e202]: iOS App Store impersonation monitoring across every monitored brand.
+          - generic [ref=e203]:
+            - generic [ref=e206]:
+              - generic [ref=e207]: Total Listings
+              - text: 2,131
+            - generic [ref=e210]:
+              - generic [ref=e211]: Impersonation
+              - text: "575"
+            - generic [ref=e214]:
+              - generic [ref=e215]: Suspicious
+              - text: 1,395
+            - generic [ref=e218]:
+              - generic [ref=e219]: Legit / Official
+              - text: "161"
+          - generic [ref=e221]:
+            - generic [ref=e222]:
+              - generic [ref=e223]: Brand
+              - generic [ref=e224]: Findings
+              - generic [ref=e225]: Last Scan
+            - button "0xrpc 0xrpc.ioNo allowlist 1 suspicious 3d ago" [ref=e226] [cursor=pointer]:
+              - generic [ref=e227]:
+                - generic [ref=e228]: 0xrpc
+                - generic [ref=e229]: 0xrpc.ioNo allowlist
+              - generic [ref=e231]: 1 suspicious
+              - generic [ref=e232]: 3d ago
+            - button "163 163.comNo allowlist 1 impersonation 9 suspicious 2 legit 3d ago" [ref=e233] [cursor=pointer]:
+              - generic [ref=e234]:
+                - generic [ref=e235]: "163"
+                - generic [ref=e236]: 163.comNo allowlist
+              - generic [ref=e237]:
+                - generic [ref=e238]: 1 impersonation
+                - generic [ref=e239]: 9 suspicious
+                - generic [ref=e240]: 2 legit
+              - generic [ref=e241]: 3d ago
+            - button "1inch 1inch.ioNo allowlist 1 impersonation 3d ago" [ref=e242] [cursor=pointer]:
+              - generic [ref=e243]:
+                - generic [ref=e244]: 1inch
+                - generic [ref=e245]: 1inch.ioNo allowlist
+              - generic [ref=e247]: 1 impersonation
+              - generic [ref=e248]: 3d ago
+            - button "23andMe 23andme.comNo allowlist 1 suspicious 3d ago" [ref=e249] [cursor=pointer]:
+              - generic [ref=e250]:
+                - generic [ref=e251]: 23andMe
+                - generic [ref=e252]: 23andme.comNo allowlist
+              - generic [ref=e254]: 1 suspicious
+              - generic [ref=e255]: 3d ago
+            - button "2mdn 2mdn.netNo allowlist Clean 3d ago" [ref=e256] [cursor=pointer]:
+              - generic [ref=e257]:
+                - generic [ref=e258]: 2mdn
+                - generic [ref=e259]: 2mdn.netNo allowlist
+              - generic [ref=e261]: Clean
+              - generic [ref=e262]: 3d ago
+            - button "3M 3m.comNo allowlist 1 legit 3d ago" [ref=e263] [cursor=pointer]:
+              - generic [ref=e264]:
+                - generic [ref=e265]: 3M
+                - generic [ref=e266]: 3m.comNo allowlist
+              - generic [ref=e268]: 1 legit
+              - generic [ref=e269]: 3d ago
+            - button "3gppnetwork 3gppnetwork.orgNo allowlist Clean 3d ago" [ref=e270] [cursor=pointer]:
+              - generic [ref=e271]:
+                - generic [ref=e272]: 3gppnetwork
+                - generic [ref=e273]: 3gppnetwork.orgNo allowlist
+              - generic [ref=e275]: Clean
+              - generic [ref=e276]: 3d ago
+            - button "3lift 3lift.comNo allowlist Clean 3d ago" [ref=e277] [cursor=pointer]:
+              - generic [ref=e278]:
+                - generic [ref=e279]: 3lift
+                - generic [ref=e280]: 3lift.comNo allowlist
+              - generic [ref=e282]: Clean
+              - generic [ref=e283]: 3d ago
+            - button "A2z a2z.comNo allowlist 7 impersonation 30 suspicious 1 legit 3d ago" [ref=e284] [cursor=pointer]:
+              - generic [ref=e285]:
+                - generic [ref=e286]: A2z
+                - generic [ref=e287]: a2z.comNo allowlist
+              - generic [ref=e288]:
+                - generic [ref=e289]: 7 impersonation
+                - generic [ref=e290]: 30 suspicious
+                - generic [ref=e291]: 1 legit
+              - generic [ref=e292]: 3d ago
+            - button "ABN AMRO abnamro.comNo allowlist 3 impersonation 5 suspicious 3d ago" [ref=e293] [cursor=pointer]:
+              - generic [ref=e294]:
+                - generic [ref=e295]: ABN AMRO
+                - generic [ref=e296]: abnamro.comNo allowlist
+              - generic [ref=e297]:
+                - generic [ref=e298]: 3 impersonation
+                - generic [ref=e299]: 5 suspicious
+              - generic [ref=e300]: 3d ago
+            - button "ADP adp.comNo allowlist 8 impersonation 4 suspicious 2d ago" [ref=e301] [cursor=pointer]:
+              - generic [ref=e302]:
+                - generic [ref=e303]: ADP
+                - generic [ref=e304]: adp.comNo allowlist
+              - generic [ref=e305]:
+                - generic [ref=e306]: 8 impersonation
+                - generic [ref=e307]: 4 suspicious
+              - generic [ref=e308]: 2d ago
+            - button "AIG aig.comNo allowlist 9 impersonation 9 suspicious 2d ago" [ref=e309] [cursor=pointer]:
+              - generic [ref=e310]:
+                - generic [ref=e311]: AIG
+                - generic [ref=e312]: aig.comNo allowlist
+              - generic [ref=e313]:
+                - generic [ref=e314]: 9 impersonation
+                - generic [ref=e315]: 9 suspicious
+              - generic [ref=e316]: 2d ago
+            - button "ANZ Bank anz.com.auNo allowlist 3 impersonation 2d ago" [ref=e317] [cursor=pointer]:
+              - generic [ref=e318]:
+                - generic [ref=e319]: ANZ Bank
+                - generic [ref=e320]: anz.com.auNo allowlist
+              - generic [ref=e322]: 3 impersonation
+              - generic [ref=e323]: 2d ago
+            - button "AT&T att.comNo allowlist 17 impersonation 4 suspicious 2d ago" [ref=e324] [cursor=pointer]:
+              - generic [ref=e325]:
+                - generic [ref=e326]: AT&T
+                - generic [ref=e327]: att.comNo allowlist
+              - generic [ref=e328]:
+                - generic [ref=e329]: 17 impersonation
+                - generic [ref=e330]: 4 suspicious
+              - generic [ref=e331]: 2d ago
+            - button "AXA axa.comNo allowlist 22 impersonation 10 suspicious 2d ago" [ref=e332] [cursor=pointer]:
+              - generic [ref=e333]:
+                - generic [ref=e334]: AXA
+                - generic [ref=e335]: axa.comNo allowlist
+              - generic [ref=e336]:
+                - generic [ref=e337]: 22 impersonation
+                - generic [ref=e338]: 10 suspicious
+              - generic [ref=e339]: 2d ago
+            - button "Aaplimg aaplimg.comNo allowlist Clean 3d ago" [ref=e340] [cursor=pointer]:
+              - generic [ref=e341]:
+                - generic [ref=e342]: Aaplimg
+                - generic [ref=e343]: aaplimg.comNo allowlist
+              - generic [ref=e345]: Clean
+              - generic [ref=e346]: 3d ago
+            - button "Aave aave.comNo allowlist 1 impersonation 1 suspicious 3d ago" [ref=e347] [cursor=pointer]:
+              - generic [ref=e348]:
+                - generic [ref=e349]: Aave
+                - generic [ref=e350]: aave.comNo allowlist
+              - generic [ref=e351]:
+                - generic [ref=e352]: 1 impersonation
+                - generic [ref=e353]: 1 suspicious
+              - generic [ref=e354]: 3d ago
+            - button "AbbVie abbvie.comNo allowlist 18 suspicious 1 legit 3d ago" [ref=e355] [cursor=pointer]:
+              - generic [ref=e356]:
+                - generic [ref=e357]: AbbVie
+                - generic [ref=e358]: abbvie.comNo allowlist
+              - generic [ref=e359]:
+                - generic [ref=e360]: 18 suspicious
+                - generic [ref=e361]: 1 legit
+              - generic [ref=e362]: 3d ago
+            - button "Absa absa.co.zaNo allowlist 20 impersonation 4 suspicious 3d ago" [ref=e363] [cursor=pointer]:
+              - generic [ref=e364]:
+                - generic [ref=e365]: Absa
+                - generic [ref=e366]: absa.co.zaNo allowlist
+              - generic [ref=e367]:
+                - generic [ref=e368]: 20 impersonation
+                - generic [ref=e369]: 4 suspicious
+              - generic [ref=e370]: 3d ago
+            - button "Addtoany addtoany.comNo allowlist Clean 3d ago" [ref=e371] [cursor=pointer]:
+              - generic [ref=e372]:
+                - generic [ref=e373]: Addtoany
+                - generic [ref=e374]: addtoany.comNo allowlist
+              - generic [ref=e376]: Clean
+              - generic [ref=e377]: 3d ago
+            - button "Adidas adidas.comNo allowlist 2 suspicious 3d ago" [ref=e378] [cursor=pointer]:
+              - generic [ref=e379]:
+                - generic [ref=e380]: Adidas
+                - generic [ref=e381]: adidas.comNo allowlist
+              - generic [ref=e383]: 2 suspicious
+              - generic [ref=e384]: 3d ago
+            - button "Adnxs adnxs.comNo allowlist 1 suspicious 3d ago" [ref=e385] [cursor=pointer]:
+              - generic [ref=e386]:
+                - generic [ref=e387]: Adnxs
+                - generic [ref=e388]: adnxs.comNo allowlist
+              - generic [ref=e390]: 1 suspicious
+              - generic [ref=e391]: 3d ago
+            - button "Adobe adobe.comNo allowlist 20 impersonation 2 suspicious 3d ago" [ref=e392] [cursor=pointer]:
+              - generic [ref=e393]:
+                - generic [ref=e394]: Adobe
+                - generic [ref=e395]: adobe.comNo allowlist
+              - generic [ref=e396]:
+                - generic [ref=e397]: 20 impersonation
+                - generic [ref=e398]: 2 suspicious
+              - generic [ref=e399]: 3d ago
+            - button "Adobe adobe.ioNo allowlist 19 impersonation 3 suspicious 3d ago" [ref=e400] [cursor=pointer]:
+              - generic [ref=e401]:
+                - generic [ref=e402]: Adobe
+                - generic [ref=e403]: adobe.ioNo allowlist
+              - generic [ref=e404]:
+                - generic [ref=e405]: 19 impersonation
+                - generic [ref=e406]: 3 suspicious
+              - generic [ref=e407]: 3d ago
+            - button "Adobe adobe.netNo allowlist 16 impersonation 3 suspicious 2d ago" [ref=e408] [cursor=pointer]:
+              - generic [ref=e409]:
+                - generic [ref=e410]: Adobe
+                - generic [ref=e411]: adobe.netNo allowlist
+              - generic [ref=e412]:
+                - generic [ref=e413]: 16 impersonation
+                - generic [ref=e414]: 3 suspicious
+              - generic [ref=e415]: 2d ago
+            - button "Adriver adriver.ruNo allowlist Clean 2d ago" [ref=e416] [cursor=pointer]:
+              - generic [ref=e417]:
+                - generic [ref=e418]: Adriver
+                - generic [ref=e419]: adriver.ruNo allowlist
+              - generic [ref=e421]: Clean
+              - generic [ref=e422]: 2d ago
+            - button "Adsafeprotected adsafeprotected.comNo allowlist Clean 2d ago" [ref=e423] [cursor=pointer]:
+              - generic [ref=e424]:
+                - generic [ref=e425]: Adsafeprotected
+                - generic [ref=e426]: adsafeprotected.comNo allowlist
+              - generic [ref=e428]: Clean
+              - generic [ref=e429]: 2d ago
+            - button "Adsrvr adsrvr.orgNo allowlist Clean 2d ago" [ref=e430] [cursor=pointer]:
+              - generic [ref=e431]:
+                - generic [ref=e432]: Adsrvr
+                - generic [ref=e433]: adsrvr.orgNo allowlist
+              - generic [ref=e435]: Clean
+              - generic [ref=e436]: 2d ago
+            - button "Adtrafficquality adtrafficquality.googleNo allowlist Clean 2d ago" [ref=e437] [cursor=pointer]:
+              - generic [ref=e438]:
+                - generic [ref=e439]: Adtrafficquality
+                - generic [ref=e440]: adtrafficquality.googleNo allowlist
+              - generic [ref=e442]: Clean
+              - generic [ref=e443]: 2d ago
+            - button "Afternic afternic.comNo allowlist Clean 2d ago" [ref=e444] [cursor=pointer]:
+              - generic [ref=e445]:
+                - generic [ref=e446]: Afternic
+                - generic [ref=e447]: afternic.comNo allowlist
+              - generic [ref=e449]: Clean
+              - generic [ref=e450]: 2d ago
+            - button "Akadns akadns.netNo allowlist Clean 2d ago" [ref=e451] [cursor=pointer]:
+              - generic [ref=e452]:
+                - generic [ref=e453]: Akadns
+                - generic [ref=e454]: akadns.netNo allowlist
+              - generic [ref=e456]: Clean
+              - generic [ref=e457]: 2d ago
+            - button "Akam akam.netNo allowlist 1 impersonation 17 suspicious 2d ago" [ref=e458] [cursor=pointer]:
+              - generic [ref=e459]:
+                - generic [ref=e460]: Akam
+                - generic [ref=e461]: akam.netNo allowlist
+              - generic [ref=e462]:
+                - generic [ref=e463]: 1 impersonation
+                - generic [ref=e464]: 17 suspicious
+              - generic [ref=e465]: 2d ago
+            - button "Akamai akamai.netNo allowlist 5 impersonation 8 suspicious 1 legit 2d ago" [ref=e466] [cursor=pointer]:
+              - generic [ref=e467]:
+                - generic [ref=e468]: Akamai
+                - generic [ref=e469]: akamai.netNo allowlist
+              - generic [ref=e470]:
+                - generic [ref=e471]: 5 impersonation
+                - generic [ref=e472]: 8 suspicious
+                - generic [ref=e473]: 1 legit
+              - generic [ref=e474]: 2d ago
+            - button "Akamaiedge akamaiedge.netNo allowlist Clean 2d ago" [ref=e475] [cursor=pointer]:
+              - generic [ref=e476]:
+                - generic [ref=e477]: Akamaiedge
+                - generic [ref=e478]: akamaiedge.netNo allowlist
+              - generic [ref=e480]: Clean
+              - generic [ref=e481]: 2d ago
+            - button "Akamaihd akamaihd.netNo allowlist Clean 2d ago" [ref=e482] [cursor=pointer]:
+              - generic [ref=e483]:
+                - generic [ref=e484]: Akamaihd
+                - generic [ref=e485]: akamaihd.netNo allowlist
+              - generic [ref=e487]: Clean
+              - generic [ref=e488]: 2d ago
+            - button "Akamaitech akamaitech.netNo allowlist Clean 2d ago" [ref=e489] [cursor=pointer]:
+              - generic [ref=e490]:
+                - generic [ref=e491]: Akamaitech
+                - generic [ref=e492]: akamaitech.netNo allowlist
+              - generic [ref=e494]: Clean
+              - generic [ref=e495]: 2d ago
+            - button "Akamaized akamaized.netNo allowlist Clean 2d ago" [ref=e496] [cursor=pointer]:
+              - generic [ref=e497]:
+                - generic [ref=e498]: Akamaized
+                - generic [ref=e499]: akamaized.netNo allowlist
+              - generic [ref=e501]: Clean
+              - generic [ref=e502]: 2d ago
+            - button "Alibaba alibaba.comNo allowlist 5 impersonation 7 legit 2d ago" [ref=e503] [cursor=pointer]:
+              - generic [ref=e504]:
+                - generic [ref=e505]: Alibaba
+                - generic [ref=e506]: alibaba.comNo allowlist
+              - generic [ref=e507]:
+                - generic [ref=e508]: 5 impersonation
+                - generic [ref=e509]: 7 legit
+              - generic [ref=e510]: 2d ago
+            - button "Alibabadns alibabadns.comNo allowlist 1 legit 2d ago" [ref=e511] [cursor=pointer]:
+              - generic [ref=e512]:
+                - generic [ref=e513]: Alibabadns
+                - generic [ref=e514]: alibabadns.comNo allowlist
+              - generic [ref=e516]: 1 legit
+              - generic [ref=e517]: 2d ago
+            - button "Alidns alidns.comNo allowlist Clean 2d ago" [ref=e518] [cursor=pointer]:
+              - generic [ref=e519]:
+                - generic [ref=e520]: Alidns
+                - generic [ref=e521]: alidns.comNo allowlist
+              - generic [ref=e523]: Clean
+              - generic [ref=e524]: 2d ago
+            - button "Aliexpress aliexpress.comNo allowlist 2 legit 2d ago" [ref=e525] [cursor=pointer]:
+              - generic [ref=e526]:
+                - generic [ref=e527]: Aliexpress
+                - generic [ref=e528]: aliexpress.comNo allowlist
+              - generic [ref=e530]: 2 legit
+              - generic [ref=e531]: 2d ago
+            - button "Aliyun aliyun.comNo allowlist 1 legit 2d ago" [ref=e532] [cursor=pointer]:
+              - generic [ref=e533]:
+                - generic [ref=e534]: Aliyun
+                - generic [ref=e535]: aliyun.comNo allowlist
+              - generic [ref=e537]: 1 legit
+              - generic [ref=e538]: 2d ago
+            - button "Aliyuncs aliyuncs.comNo allowlist Clean 2d ago" [ref=e539] [cursor=pointer]:
+              - generic [ref=e540]:
+                - generic [ref=e541]: Aliyuncs
+                - generic [ref=e542]: aliyuncs.comNo allowlist
+              - generic [ref=e544]: Clean
+              - generic [ref=e545]: 2d ago
+            - button "Aliyuncsslbintl aliyuncsslbintl.comNo allowlist Clean 2d ago" [ref=e546] [cursor=pointer]:
+              - generic [ref=e547]:
+                - generic [ref=e548]: Aliyuncsslbintl
+                - generic [ref=e549]: aliyuncsslbintl.comNo allowlist
+              - generic [ref=e551]: Clean
+              - generic [ref=e552]: 2d ago
+            - button "Allawnos allawnos.comNo allowlist Clean 2d ago" [ref=e553] [cursor=pointer]:
+              - generic [ref=e554]:
+                - generic [ref=e555]: Allawnos
+                - generic [ref=e556]: allawnos.comNo allowlist
+              - generic [ref=e558]: Clean
+              - generic [ref=e559]: 2d ago
+            - button "Allstate allstate.comNo allowlist 3 impersonation 6 suspicious 2d ago" [ref=e560] [cursor=pointer]:
+              - generic [ref=e561]:
+                - generic [ref=e562]: Allstate
+                - generic [ref=e563]: allstate.comNo allowlist
+              - generic [ref=e564]:
+                - generic [ref=e565]: 3 impersonation
+                - generic [ref=e566]: 6 suspicious
+              - generic [ref=e567]: 2d ago
+            - button "Amazon amazon.co.ukNo allowlist 12 suspicious 2d ago" [ref=e568] [cursor=pointer]:
+              - generic [ref=e569]:
+                - generic [ref=e570]: Amazon
+                - generic [ref=e571]: amazon.co.ukNo allowlist
+              - generic [ref=e573]: 12 suspicious
+              - generic [ref=e574]: 2d ago
+            - button "Amazon amazon.comNo allowlist 12 suspicious 2d ago" [ref=e575] [cursor=pointer]:
+              - generic [ref=e576]:
+                - generic [ref=e577]: Amazon
+                - generic [ref=e578]: amazon.comNo allowlist
+              - generic [ref=e580]: 12 suspicious
+              - generic [ref=e581]: 2d ago
+            - button "Amazon amazon.deNo allowlist 12 suspicious 2d ago" [ref=e582] [cursor=pointer]:
+              - generic [ref=e583]:
+                - generic [ref=e584]: Amazon
+                - generic [ref=e585]: amazon.deNo allowlist
+              - generic [ref=e587]: 12 suspicious
+              - generic [ref=e588]: 2d ago
+            - button "Amazon amazon.devNo allowlist 12 suspicious 2d ago" [ref=e589] [cursor=pointer]:
+              - generic [ref=e590]:
+                - generic [ref=e591]: Amazon
+                - generic [ref=e592]: amazon.devNo allowlist
+              - generic [ref=e594]: 12 suspicious
+              - generic [ref=e595]: 2d ago
+            - button "Amazon AWS aws.amazon.comNo allowlist 24 suspicious 2d ago" [ref=e596] [cursor=pointer]:
+              - generic [ref=e597]:
+                - generic [ref=e598]: Amazon AWS
+                - generic [ref=e599]: aws.amazon.comNo allowlist
+              - generic [ref=e601]: 24 suspicious
+              - generic [ref=e602]: 2d ago
+            - button "Amazon Adsystem amazon-adsystem.comNo allowlist Clean 2d ago" [ref=e603] [cursor=pointer]:
+              - generic [ref=e604]:
+                - generic [ref=e605]: Amazon Adsystem
+                - generic [ref=e606]: amazon-adsystem.comNo allowlist
+              - generic [ref=e608]: Clean
+              - generic [ref=e609]: 2d ago
+            - button "Amazonalexa amazonalexa.comNo allowlist 4 suspicious 2d ago" [ref=e610] [cursor=pointer]:
+              - generic [ref=e611]:
+                - generic [ref=e612]: Amazonalexa
+                - generic [ref=e613]: amazonalexa.comNo allowlist
+              - generic [ref=e615]: 4 suspicious
+              - generic [ref=e616]: 2d ago
+            - button "Amazonaws amazonaws.comNo allowlist 4 suspicious 2d ago" [ref=e617] [cursor=pointer]:
+              - generic [ref=e618]:
+                - generic [ref=e619]: Amazonaws
+                - generic [ref=e620]: amazonaws.comNo allowlist
+              - generic [ref=e622]: 4 suspicious
+              - generic [ref=e623]: 2d ago
+            - button "Amazonvideo amazonvideo.comNo allowlist 3 suspicious 2d ago" [ref=e624] [cursor=pointer]:
+              - generic [ref=e625]:
+                - generic [ref=e626]: Amazonvideo
+                - generic [ref=e627]: amazonvideo.comNo allowlist
+              - generic [ref=e629]: 3 suspicious
+              - generic [ref=e630]: 2d ago
+            - button "American Airlines aa.comNo allowlist 2 impersonation 4 suspicious 1 legit 3d ago" [ref=e631] [cursor=pointer]:
+              - generic [ref=e632]:
+                - generic [ref=e633]: American Airlines
+                - generic [ref=e634]: aa.comNo allowlist
+              - generic [ref=e635]:
+                - generic [ref=e636]: 2 impersonation
+                - generic [ref=e637]: 4 suspicious
+                - generic [ref=e638]: 1 legit
+              - generic [ref=e639]: 3d ago
+            - button "Amplitude amplitude.comNo allowlist 1 impersonation 6 suspicious 2d ago" [ref=e640] [cursor=pointer]:
+              - generic [ref=e641]:
+                - generic [ref=e642]: Amplitude
+                - generic [ref=e643]: amplitude.comNo allowlist
+              - generic [ref=e644]:
+                - generic [ref=e645]: 1 impersonation
+                - generic [ref=e646]: 6 suspicious
+              - generic [ref=e647]: 2d ago
+            - button "Ampproject ampproject.orgNo allowlist Clean 2d ago" [ref=e648] [cursor=pointer]:
+              - generic [ref=e649]:
+                - generic [ref=e650]: Ampproject
+                - generic [ref=e651]: ampproject.orgNo allowlist
+              - generic [ref=e653]: Clean
+              - generic [ref=e654]: 2d ago
+            - button "Amzn amzn.toNo allowlist 25 suspicious 2d ago" [ref=e655] [cursor=pointer]:
+              - generic [ref=e656]:
+                - generic [ref=e657]: Amzn
+                - generic [ref=e658]: amzn.toNo allowlist
+              - generic [ref=e660]: 25 suspicious
+              - generic [ref=e661]: 2d ago
+            - button "Android android.comNo allowlist 10 suspicious 2d ago" [ref=e662] [cursor=pointer]:
+              - generic [ref=e663]:
+                - generic [ref=e664]: Android
+                - generic [ref=e665]: android.comNo allowlist
+              - generic [ref=e667]: 10 suspicious
+              - generic [ref=e668]: 2d ago
+            - button "Aol aol.comNo allowlist 1 impersonation 6 suspicious 2d ago" [ref=e669] [cursor=pointer]:
+              - generic [ref=e670]:
+                - generic [ref=e671]: Aol
+                - generic [ref=e672]: aol.comNo allowlist
+              - generic [ref=e673]:
+                - generic [ref=e674]: 1 impersonation
+                - generic [ref=e675]: 6 suspicious
+              - generic [ref=e676]: 2d ago
+            - button "Apache apache.orgNo allowlist 4 impersonation 7 suspicious 15 legit 2d ago" [ref=e677] [cursor=pointer]:
+              - generic [ref=e678]:
+                - generic [ref=e679]: Apache
+                - generic [ref=e680]: apache.orgNo allowlist
+              - generic [ref=e681]:
+                - generic [ref=e682]: 4 impersonation
+                - generic [ref=e683]: 7 suspicious
+                - generic [ref=e684]: 15 legit
+              - generic [ref=e685]: 2d ago
+            - button "Apnews apnews.comNo allowlist 4 suspicious 2d ago" [ref=e686] [cursor=pointer]:
+              - generic [ref=e687]:
+                - generic [ref=e688]: Apnews
+                - generic [ref=e689]: apnews.comNo allowlist
+              - generic [ref=e691]: 4 suspicious
+              - generic [ref=e692]: 2d ago
+            - button "App Analytics Services app-analytics-services.comNo allowlist Clean 2d ago" [ref=e693] [cursor=pointer]:
+              - generic [ref=e694]:
+                - generic [ref=e695]: App Analytics Services
+                - generic [ref=e696]: app-analytics-services.comNo allowlist
+              - generic [ref=e698]: Clean
+              - generic [ref=e699]: 2d ago
+            - button "App Measurement app-measurement.comNo allowlist 2 suspicious 2d ago" [ref=e700] [cursor=pointer]:
+              - generic [ref=e701]:
+                - generic [ref=e702]: App Measurement
+                - generic [ref=e703]: app-measurement.comNo allowlist
+              - generic [ref=e705]: 2 suspicious
+              - generic [ref=e706]: 2d ago
+            - button "Apple apple.comNo allowlist 18 impersonation 12 suspicious 2d ago" [ref=e707] [cursor=pointer]:
+              - generic [ref=e708]:
+                - generic [ref=e709]: Apple
+                - generic [ref=e710]: apple.comNo allowlist
+              - generic [ref=e711]:
+                - generic [ref=e712]: 18 impersonation
+                - generic [ref=e713]: 12 suspicious
+              - generic [ref=e714]: 2d ago
+            - button "Apple Dns apple-dns.netNo allowlist Clean 2d ago" [ref=e715] [cursor=pointer]:
+              - generic [ref=e716]:
+                - generic [ref=e717]: Apple Dns
+                - generic [ref=e718]: apple-dns.netNo allowlist
+              - generic [ref=e720]: Clean
+              - generic [ref=e721]: 2d ago
+            - button "Apple Pay apple.com/apple-payNo allowlist 3 impersonation 2d ago" [ref=e722] [cursor=pointer]:
+              - generic [ref=e723]:
+                - generic [ref=e724]: Apple Pay
+                - generic [ref=e725]: apple.com/apple-payNo allowlist
+              - generic [ref=e727]: 3 impersonation
+              - generic [ref=e728]: 2d ago
+            - button "Apple TV+ tv.apple.comNo allowlist 4 suspicious 2d ago" [ref=e729] [cursor=pointer]:
+              - generic [ref=e730]:
+                - generic [ref=e731]: Apple TV+
+                - generic [ref=e732]: tv.apple.comNo allowlist
+              - generic [ref=e734]: 4 suspicious
+              - generic [ref=e735]: 2d ago
+            - button "Applovin applovin.comNo allowlist 1 impersonation 4 suspicious 2d ago" [ref=e736] [cursor=pointer]:
+              - generic [ref=e737]:
+                - generic [ref=e738]: Applovin
+                - generic [ref=e739]: applovin.comNo allowlist
+              - generic [ref=e740]:
+                - generic [ref=e741]: 1 impersonation
+                - generic [ref=e742]: 4 suspicious
+              - generic [ref=e743]: 2d ago
+            - button "Appsflyer appsflyer.comNo allowlist 1 impersonation 5 suspicious 2d ago" [ref=e744] [cursor=pointer]:
+              - generic [ref=e745]:
+                - generic [ref=e746]: Appsflyer
+                - generic [ref=e747]: appsflyer.comNo allowlist
+              - generic [ref=e748]:
+                - generic [ref=e749]: 1 impersonation
+                - generic [ref=e750]: 5 suspicious
+              - generic [ref=e751]: 2d ago
+            - button "Appsflyersdk appsflyersdk.comNo allowlist Clean 2d ago" [ref=e752] [cursor=pointer]:
+              - generic [ref=e753]:
+                - generic [ref=e754]: Appsflyersdk
+                - generic [ref=e755]: appsflyersdk.comNo allowlist
+              - generic [ref=e757]: Clean
+              - generic [ref=e758]: 2d ago
+            - button "Arbitrum arbitrum.ioNo allowlist 1 suspicious 2d ago" [ref=e759] [cursor=pointer]:
+              - generic [ref=e760]:
+                - generic [ref=e761]: Arbitrum
+                - generic [ref=e762]: arbitrum.ioNo allowlist
+              - generic [ref=e764]: 1 suspicious
+              - generic [ref=e765]: 2d ago
+            - button "Archive archive.orgNo allowlist 2 impersonation 29 suspicious 2d ago" [ref=e766] [cursor=pointer]:
+              - generic [ref=e767]:
+                - generic [ref=e768]: Archive
+                - generic [ref=e769]: archive.orgNo allowlist
+              - generic [ref=e770]:
+                - generic [ref=e771]: 2 impersonation
+                - generic [ref=e772]: 29 suspicious
+              - generic [ref=e773]: 2d ago
+            - button "Arubanetworks arubanetworks.comNo allowlist Clean 2d ago" [ref=e774] [cursor=pointer]:
+              - generic [ref=e775]:
+                - generic [ref=e776]: Arubanetworks
+                - generic [ref=e777]: arubanetworks.comNo allowlist
+              - generic [ref=e779]: Clean
+              - generic [ref=e780]: 2d ago
+            - button "Atlassian atlassian.netNo allowlist 2 impersonation 4 suspicious 2d ago" [ref=e781] [cursor=pointer]:
+              - generic [ref=e782]:
+                - generic [ref=e783]: Atlassian
+                - generic [ref=e784]: atlassian.netNo allowlist
+              - generic [ref=e785]:
+                - generic [ref=e786]: 2 impersonation
+                - generic [ref=e787]: 4 suspicious
+              - generic [ref=e788]: 2d ago
+            - button "Australia Post auspost.com.auNo allowlist 1 impersonation 2 suspicious 2d ago" [ref=e789] [cursor=pointer]:
+              - generic [ref=e790]:
+                - generic [ref=e791]: Australia Post
+                - generic [ref=e792]: auspost.com.auNo allowlist
+              - generic [ref=e793]:
+                - generic [ref=e794]: 1 impersonation
+                - generic [ref=e795]: 2 suspicious
+              - generic [ref=e796]: 2d ago
+            - button "Autodesk autodesk.comNo allowlist 11 suspicious 2d ago" [ref=e797] [cursor=pointer]:
+              - generic [ref=e798]:
+                - generic [ref=e799]: Autodesk
+                - generic [ref=e800]: autodesk.comNo allowlist
+              - generic [ref=e802]: 11 suspicious
+              - generic [ref=e803]: 2d ago
+            - button "Avast avast.comNo allowlist 5 impersonation 2d ago" [ref=e804] [cursor=pointer]:
+              - generic [ref=e805]:
+                - generic [ref=e806]: Avast
+                - generic [ref=e807]: avast.comNo allowlist
+              - generic [ref=e809]: 5 impersonation
+              - generic [ref=e810]: 2d ago
+            - button "Avcdn avcdn.netNo allowlist Clean 2d ago" [ref=e811] [cursor=pointer]:
+              - generic [ref=e812]:
+                - generic [ref=e813]: Avcdn
+                - generic [ref=e814]: avcdn.netNo allowlist
+              - generic [ref=e816]: Clean
+              - generic [ref=e817]: 2d ago
+            - button "Aviva aviva.comNo allowlist 7 impersonation 3 suspicious 13 legit 2d ago" [ref=e818] [cursor=pointer]:
+              - generic [ref=e819]:
+                - generic [ref=e820]: Aviva
+                - generic [ref=e821]: aviva.comNo allowlist
+              - generic [ref=e822]:
+                - generic [ref=e823]: 7 impersonation
+                - generic [ref=e824]: 3 suspicious
+                - generic [ref=e825]: 13 legit
+              - generic [ref=e826]: 2d ago
+            - button "Avsxappcaptiveportal avsxappcaptiveportal.comNo allowlist Clean 2d ago" [ref=e827] [cursor=pointer]:
+              - generic [ref=e828]:
+                - generic [ref=e829]: Avsxappcaptiveportal
+                - generic [ref=e830]: avsxappcaptiveportal.comNo allowlist
+              - generic [ref=e832]: Clean
+              - generic [ref=e833]: 2d ago
+            - button "Aws aws.devNo allowlist 42 suspicious 2d ago" [ref=e834] [cursor=pointer]:
+              - generic [ref=e835]:
+                - generic [ref=e836]: Aws
+                - generic [ref=e837]: aws.devNo allowlist
+              - generic [ref=e839]: 42 suspicious
+              - generic [ref=e840]: 2d ago
+            - button "Awsglobalaccelerator awsglobalaccelerator.comNo allowlist Clean 2d ago" [ref=e841] [cursor=pointer]:
+              - generic [ref=e842]:
+                - generic [ref=e843]: Awsglobalaccelerator
+                - generic [ref=e844]: awsglobalaccelerator.comNo allowlist
+              - generic [ref=e846]: Clean
+              - generic [ref=e847]: 2d ago
+            - button "Ax Msedge ax-msedge.netNo allowlist Clean 2d ago" [ref=e848] [cursor=pointer]:
+              - generic [ref=e849]:
+                - generic [ref=e850]: Ax Msedge
+                - generic [ref=e851]: ax-msedge.netNo allowlist
+              - generic [ref=e853]: Clean
+              - generic [ref=e854]: 2d ago
+            - button "Azure azure.comNo allowlist 27 suspicious 2d ago" [ref=e855] [cursor=pointer]:
+              - generic [ref=e856]:
+                - generic [ref=e857]: Azure
+                - generic [ref=e858]: azure.comNo allowlist
+              - generic [ref=e860]: 27 suspicious
+              - generic [ref=e861]: 2d ago
+            - button "Azureedge azureedge.netNo allowlist Clean 2d ago" [ref=e862] [cursor=pointer]:
+              - generic [ref=e863]:
+                - generic [ref=e864]: Azureedge
+                - generic [ref=e865]: azureedge.netNo allowlist
+              - generic [ref=e867]: Clean
+              - generic [ref=e868]: 2d ago
+            - button "Azurefd azurefd.netNo allowlist 1 suspicious 2d ago" [ref=e869] [cursor=pointer]:
+              - generic [ref=e870]:
+                - generic [ref=e871]: Azurefd
+                - generic [ref=e872]: azurefd.netNo allowlist
+              - generic [ref=e874]: 1 suspicious
+              - generic [ref=e875]: 2d ago
+            - button "Azurewebsites azurewebsites.netNo allowlist Clean 2d ago" [ref=e876] [cursor=pointer]:
+              - generic [ref=e877]:
+                - generic [ref=e878]: Azurewebsites
+                - generic [ref=e879]: azurewebsites.netNo allowlist
+              - generic [ref=e881]: Clean
+              - generic [ref=e882]: 2d ago
+            - button "B Cdn b-cdn.netNo allowlist Clean 2d ago" [ref=e883] [cursor=pointer]:
+              - generic [ref=e884]:
+                - generic [ref=e885]: B Cdn
+                - generic [ref=e886]: b-cdn.netNo allowlist
+              - generic [ref=e888]: Clean
+              - generic [ref=e889]: 2d ago
+            - button "BAE Systems baesystems.comNo allowlist 4 suspicious 2d ago" [ref=e890] [cursor=pointer]:
+              - generic [ref=e891]:
+                - generic [ref=e892]: BAE Systems
+                - generic [ref=e893]: baesystems.comNo allowlist
+              - generic [ref=e895]: 4 suspicious
+              - generic [ref=e896]: 2d ago
+            - button "BC Hydro bchydro.comNo allowlist 1 impersonation 1 suspicious 2d ago" [ref=e897] [cursor=pointer]:
+              - generic [ref=e898]:
+                - generic [ref=e899]: BC Hydro
+                - generic [ref=e900]: bchydro.comNo allowlist
+              - generic [ref=e901]:
+                - generic [ref=e902]: 1 impersonation
+                - generic [ref=e903]: 1 suspicious
+              - generic [ref=e904]: 2d ago
+            - button "BMW bmw.comNo allowlist 3 impersonation 6 suspicious 1d ago" [ref=e905] [cursor=pointer]:
+              - generic [ref=e906]:
+                - generic [ref=e907]: BMW
+                - generic [ref=e908]: bmw.comNo allowlist
+              - generic [ref=e909]:
+                - generic [ref=e910]: 3 impersonation
+                - generic [ref=e911]: 6 suspicious
+              - generic [ref=e912]: 1d ago
+            - button "BNY Mellon bnymellon.comNo allowlist Clean 1d ago" [ref=e913] [cursor=pointer]:
+              - generic [ref=e914]:
+                - generic [ref=e915]: BNY Mellon
+                - generic [ref=e916]: bnymellon.comNo allowlist
+              - generic [ref=e918]: Clean
+              - generic [ref=e919]: 1d ago
+            - button "BP bp.comNo allowlist 1 suspicious 1d ago" [ref=e920] [cursor=pointer]:
+              - generic [ref=e921]:
+                - generic [ref=e922]: BP
+                - generic [ref=e923]: bp.comNo allowlist
+              - generic [ref=e925]: 1 suspicious
+              - generic [ref=e926]: 1d ago
+            - button "BT bt.comNo allowlist 5 suspicious 1d ago" [ref=e927] [cursor=pointer]:
+              - generic [ref=e928]:
+                - generic [ref=e929]: BT
+                - generic [ref=e930]: bt.comNo allowlist
+              - generic [ref=e932]: 5 suspicious
+              - generic [ref=e933]: 1d ago
+            - button "BZSt Germany bzst.deNo allowlist 1 suspicious 1d ago" [ref=e934] [cursor=pointer]:
+              - generic [ref=e935]:
+                - generic [ref=e936]: BZSt Germany
+                - generic [ref=e937]: bzst.deNo allowlist
+              - generic [ref=e939]: 1 suspicious
+              - generic [ref=e940]: 1d ago
+            - button "Baidu baidu.comNo allowlist 16 suspicious 2d ago" [ref=e941] [cursor=pointer]:
+              - generic [ref=e942]:
+                - generic [ref=e943]: Baidu
+                - generic [ref=e944]: baidu.comNo allowlist
+              - generic [ref=e946]: 16 suspicious
+              - generic [ref=e947]: 2d ago
+            - button "Bamgrid bamgrid.comNo allowlist Clean 2d ago" [ref=e948] [cursor=pointer]:
+              - generic [ref=e949]:
+                - generic [ref=e950]: Bamgrid
+                - generic [ref=e951]: bamgrid.comNo allowlist
+              - generic [ref=e953]: Clean
+              - generic [ref=e954]: 2d ago
+            - button "Banggood banggood.comNo allowlist 1 impersonation 2d ago" [ref=e955] [cursor=pointer]:
+              - generic [ref=e956]:
+                - generic [ref=e957]: Banggood
+                - generic [ref=e958]: banggood.comNo allowlist
+              - generic [ref=e960]: 1 impersonation
+              - generic [ref=e961]: 2d ago
+  - dialog "Sign in faster next time?" [ref=e962]:
+    - generic [ref=e963]:
+      - img [ref=e965]
+      - heading "Sign in faster next time?" [level=2] [ref=e968]
+      - paragraph [ref=e969]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e970]:
+        - button "Set up biometric" [ref=e971] [cursor=pointer]
+        - button "Maybe later" [ref=e972] [cursor=pointer]
+      - paragraph [ref=e973]: You can add or remove passkeys anytime from your Profile.

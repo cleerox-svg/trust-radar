@@ -1,0 +1,1332 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e199]:
+            - heading "Threat Campaigns" [level=1] [ref=e201]
+            - paragraph [ref=e202]: Active adversary operations targeting monitored brands
+          - generic [ref=e203]:
+            - generic [ref=e206]:
+              - generic [ref=e207]: Active Operations
+              - text: 8,612
+            - generic [ref=e210]:
+              - generic [ref=e211]: Campaigns Tracked
+              - text: "556"
+            - generic [ref=e214]:
+              - generic [ref=e215]: Brands Targeted
+              - text: 6,491
+            - generic [ref=e218]:
+              - generic [ref=e219]: Threat Types
+              - text: "8"
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]: NEXUS Correlated Operations
+              - generic [ref=e223]: Infrastructure-level operations detected by NEXUS correlation engine
+            - generic [ref=e224]:
+              - generic [ref=e225] [cursor=pointer]:
+                - generic [ref=e226]:
+                  - generic [ref=e227]: AS13335
+                  - generic [ref=e228]:
+                    - generic [ref=e229]:
+                      - generic [ref=e230]: AS13335 malware_distribution cluster
+                      - generic [ref=e231]: Active
+                    - generic [ref=e232]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e233]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e234]
+                - generic [ref=e236]:
+                  - generic [ref=e237]:
+                    - generic [ref=e238]:
+                      - generic [ref=e239]: THREATS
+                      - generic [ref=e240]: 33,676
+                    - generic [ref=e241]:
+                      - generic [ref=e242]: CONFIDENCE
+                      - generic [ref=e243]: 100%
+                    - generic [ref=e244]:
+                      - generic [ref=e245]: COUNTRIES
+                      - generic [ref=e246]: "10"
+                  - generic [ref=e247]:
+                    - img [ref=e250]
+                    - generic [ref=e255]: 14d shape
+              - generic [ref=e256] [cursor=pointer]:
+                - generic [ref=e257]:
+                  - generic [ref=e258]: AS13335
+                  - generic [ref=e259]:
+                    - generic [ref=e260]:
+                      - generic [ref=e261]: AS13335 malware_distribution cluster
+                      - generic [ref=e262]: Active
+                    - generic [ref=e263]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e264]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e265]
+                - generic [ref=e267]:
+                  - generic [ref=e268]:
+                    - generic [ref=e269]:
+                      - generic [ref=e270]: THREATS
+                      - generic [ref=e271]: 33,651
+                    - generic [ref=e272]:
+                      - generic [ref=e273]: CONFIDENCE
+                      - generic [ref=e274]: 100%
+                    - generic [ref=e275]:
+                      - generic [ref=e276]: COUNTRIES
+                      - generic [ref=e277]: "10"
+                  - generic [ref=e278]:
+                    - img [ref=e281]
+                    - generic [ref=e286]: 14d shape
+              - generic [ref=e287] [cursor=pointer]:
+                - generic [ref=e288]:
+                  - generic [ref=e289]: AS13335
+                  - generic [ref=e290]:
+                    - generic [ref=e291]:
+                      - generic [ref=e292]: AS13335 malware_distribution cluster
+                      - generic [ref=e293]: Active
+                    - generic [ref=e294]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e295]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e296]
+                - generic [ref=e298]:
+                  - generic [ref=e299]:
+                    - generic [ref=e300]:
+                      - generic [ref=e301]: THREATS
+                      - generic [ref=e302]: 33,593
+                    - generic [ref=e303]:
+                      - generic [ref=e304]: CONFIDENCE
+                      - generic [ref=e305]: 100%
+                    - generic [ref=e306]:
+                      - generic [ref=e307]: COUNTRIES
+                      - generic [ref=e308]: "10"
+                  - generic [ref=e309]:
+                    - img [ref=e312]
+                    - generic [ref=e317]: 14d shape
+              - generic [ref=e318] [cursor=pointer]:
+                - generic [ref=e319]:
+                  - generic [ref=e320]: AS13335
+                  - generic [ref=e321]:
+                    - generic [ref=e322]:
+                      - generic [ref=e323]: AS13335 malware_distribution cluster
+                      - generic [ref=e324]: Active
+                    - generic [ref=e325]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e326]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e327]
+                - generic [ref=e329]:
+                  - generic [ref=e330]:
+                    - generic [ref=e331]:
+                      - generic [ref=e332]: THREATS
+                      - generic [ref=e333]: 33,546
+                    - generic [ref=e334]:
+                      - generic [ref=e335]: CONFIDENCE
+                      - generic [ref=e336]: 100%
+                    - generic [ref=e337]:
+                      - generic [ref=e338]: COUNTRIES
+                      - generic [ref=e339]: "10"
+                  - generic [ref=e340]:
+                    - img [ref=e343]
+                    - generic [ref=e348]: 14d shape
+              - generic [ref=e349] [cursor=pointer]:
+                - generic [ref=e350]:
+                  - generic [ref=e351]: AS13335
+                  - generic [ref=e352]:
+                    - generic [ref=e353]:
+                      - generic [ref=e354]: AS13335 malware_distribution cluster
+                      - generic [ref=e355]: Active
+                    - generic [ref=e356]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e357]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e358]
+                - generic [ref=e360]:
+                  - generic [ref=e361]:
+                    - generic [ref=e362]:
+                      - generic [ref=e363]: THREATS
+                      - generic [ref=e364]: 33,500
+                    - generic [ref=e365]:
+                      - generic [ref=e366]: CONFIDENCE
+                      - generic [ref=e367]: 100%
+                    - generic [ref=e368]:
+                      - generic [ref=e369]: COUNTRIES
+                      - generic [ref=e370]: "10"
+                  - generic [ref=e371]:
+                    - img [ref=e374]
+                    - generic [ref=e379]: 14d shape
+              - generic [ref=e380] [cursor=pointer]:
+                - generic [ref=e381]:
+                  - generic [ref=e382]: AS13335
+                  - generic [ref=e383]:
+                    - generic [ref=e384]:
+                      - generic [ref=e385]: AS13335 malware_distribution cluster
+                      - generic [ref=e386]: Active
+                    - generic [ref=e387]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e388]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e389]
+                - generic [ref=e391]:
+                  - generic [ref=e392]:
+                    - generic [ref=e393]:
+                      - generic [ref=e394]: THREATS
+                      - generic [ref=e395]: 33,408
+                    - generic [ref=e396]:
+                      - generic [ref=e397]: CONFIDENCE
+                      - generic [ref=e398]: 100%
+                    - generic [ref=e399]:
+                      - generic [ref=e400]: COUNTRIES
+                      - generic [ref=e401]: "10"
+                  - generic [ref=e402]:
+                    - img [ref=e405]
+                    - generic [ref=e410]: 14d shape
+              - generic [ref=e411] [cursor=pointer]:
+                - generic [ref=e412]:
+                  - generic [ref=e413]: AS13335
+                  - generic [ref=e414]:
+                    - generic [ref=e415]:
+                      - generic [ref=e416]: AS13335 malware_distribution cluster
+                      - generic [ref=e417]: Active
+                    - generic [ref=e418]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e419]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e420]
+                - generic [ref=e422]:
+                  - generic [ref=e423]:
+                    - generic [ref=e424]:
+                      - generic [ref=e425]: THREATS
+                      - generic [ref=e426]: 33,338
+                    - generic [ref=e427]:
+                      - generic [ref=e428]: CONFIDENCE
+                      - generic [ref=e429]: 100%
+                    - generic [ref=e430]:
+                      - generic [ref=e431]: COUNTRIES
+                      - generic [ref=e432]: "10"
+                  - generic [ref=e433]:
+                    - img [ref=e436]
+                    - generic [ref=e441]: 14d shape
+              - generic [ref=e442] [cursor=pointer]:
+                - generic [ref=e443]:
+                  - generic [ref=e444]: AS13335
+                  - generic [ref=e445]:
+                    - generic [ref=e446]:
+                      - generic [ref=e447]: AS13335 malware_distribution cluster
+                      - generic [ref=e448]: Active
+                    - generic [ref=e449]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e450]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e451]
+                - generic [ref=e453]:
+                  - generic [ref=e454]:
+                    - generic [ref=e455]:
+                      - generic [ref=e456]: THREATS
+                      - generic [ref=e457]: 33,327
+                    - generic [ref=e458]:
+                      - generic [ref=e459]: CONFIDENCE
+                      - generic [ref=e460]: 100%
+                    - generic [ref=e461]:
+                      - generic [ref=e462]: COUNTRIES
+                      - generic [ref=e463]: "10"
+                  - generic [ref=e464]:
+                    - img [ref=e467]
+                    - generic [ref=e472]: 14d shape
+              - generic [ref=e473] [cursor=pointer]:
+                - generic [ref=e474]:
+                  - generic [ref=e475]: AS13335
+                  - generic [ref=e476]:
+                    - generic [ref=e477]:
+                      - generic [ref=e478]: AS13335 malware_distribution cluster
+                      - generic [ref=e479]: Active
+                    - generic [ref=e480]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e481]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e482]
+                - generic [ref=e484]:
+                  - generic [ref=e485]:
+                    - generic [ref=e486]:
+                      - generic [ref=e487]: THREATS
+                      - generic [ref=e488]: 33,283
+                    - generic [ref=e489]:
+                      - generic [ref=e490]: CONFIDENCE
+                      - generic [ref=e491]: 100%
+                    - generic [ref=e492]:
+                      - generic [ref=e493]: COUNTRIES
+                      - generic [ref=e494]: "10"
+                  - generic [ref=e495]:
+                    - img [ref=e498]
+                    - generic [ref=e503]: 14d shape
+              - generic [ref=e504] [cursor=pointer]:
+                - generic [ref=e505]:
+                  - generic [ref=e506]: AS13335
+                  - generic [ref=e507]:
+                    - generic [ref=e508]:
+                      - generic [ref=e509]: AS13335 malware_distribution cluster
+                      - generic [ref=e510]: Active
+                    - generic [ref=e511]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e512]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e513]
+                - generic [ref=e515]:
+                  - generic [ref=e516]:
+                    - generic [ref=e517]:
+                      - generic [ref=e518]: THREATS
+                      - generic [ref=e519]: 33,247
+                    - generic [ref=e520]:
+                      - generic [ref=e521]: CONFIDENCE
+                      - generic [ref=e522]: 100%
+                    - generic [ref=e523]:
+                      - generic [ref=e524]: COUNTRIES
+                      - generic [ref=e525]: "10"
+                  - generic [ref=e526]:
+                    - img [ref=e529]
+                    - generic [ref=e534]: 14d shape
+              - generic [ref=e535] [cursor=pointer]:
+                - generic [ref=e536]:
+                  - generic [ref=e537]: AS13335
+                  - generic [ref=e538]:
+                    - generic [ref=e539]:
+                      - generic [ref=e540]: AS13335 malware_distribution cluster
+                      - generic [ref=e541]: Active
+                    - generic [ref=e542]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e543]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e544]
+                - generic [ref=e546]:
+                  - generic [ref=e547]:
+                    - generic [ref=e548]:
+                      - generic [ref=e549]: THREATS
+                      - generic [ref=e550]: 33,230
+                    - generic [ref=e551]:
+                      - generic [ref=e552]: CONFIDENCE
+                      - generic [ref=e553]: 100%
+                    - generic [ref=e554]:
+                      - generic [ref=e555]: COUNTRIES
+                      - generic [ref=e556]: "10"
+                  - generic [ref=e557]:
+                    - img [ref=e560]
+                    - generic [ref=e565]: 14d shape
+              - generic [ref=e566] [cursor=pointer]:
+                - generic [ref=e567]:
+                  - generic [ref=e568]: AS13335
+                  - generic [ref=e569]:
+                    - generic [ref=e570]:
+                      - generic [ref=e571]: AS13335 malware_distribution cluster
+                      - generic [ref=e572]: Active
+                    - generic [ref=e573]:
+                      - text: Since Feb 22 \u00B7
+                      - generic [ref=e574]: 🇨🇦 🇺🇸 🇸🇪 🇺🇦 +6
+                  - img [ref=e575]
+                - generic [ref=e577]:
+                  - generic [ref=e578]:
+                    - generic [ref=e579]:
+                      - generic [ref=e580]: THREATS
+                      - generic [ref=e581]: 33,179
+                    - generic [ref=e582]:
+                      - generic [ref=e583]: CONFIDENCE
+                      - generic [ref=e584]: 100%
+                    - generic [ref=e585]:
+                      - generic [ref=e586]: COUNTRIES
+                      - generic [ref=e587]: "10"
+                  - generic [ref=e588]:
+                    - img [ref=e591]
+                    - generic [ref=e596]: 14d shape
+            - generic [ref=e598]: Showing 12 of 9900 operations
+          - generic [ref=e599]:
+            - generic [ref=e600]:
+              - generic [ref=e601]: Active Campaigns
+              - generic [ref=e602]: IP-clustered campaigns tracked by Strategist agent
+            - generic [ref=e604]:
+              - textbox "Search campaigns..." [ref=e605]
+              - button "ALL" [ref=e607] [cursor=pointer]
+              - button "PHISHING" [ref=e608] [cursor=pointer]
+              - button "MALWARE" [ref=e609] [cursor=pointer]
+              - button "C2" [ref=e610] [cursor=pointer]
+              - generic [ref=e612]:
+                - generic [ref=e613]: "Sort:"
+                - button "THREAT COUNT" [ref=e614] [cursor=pointer]
+                - button "BRAND COUNT" [ref=e615] [cursor=pointer]
+                - button "MOST RECENT" [ref=e616] [cursor=pointer]
+            - generic [ref=e617]:
+              - generic [ref=e618] [cursor=pointer]:
+                - generic [ref=e620]:
+                  - generic [ref=e621]:
+                    - generic [ref=e622]: GitHub Pages Phishing Campaign Network
+                    - generic [ref=e623]: Active
+                  - generic [ref=e627]: Since Mar 15 · Last seen May 28
+                - generic [ref=e628]:
+                  - generic [ref=e629]:
+                    - generic [ref=e630]: THREATS
+                    - generic [ref=e631]: 8,968
+                  - generic [ref=e632]:
+                    - generic [ref=e633]: BRANDS
+                    - generic [ref=e634]: "40"
+                  - generic [ref=e635]:
+                    - generic [ref=e636]: PROVIDERS
+                    - generic [ref=e637]: "1"
+                - generic [ref=e639]: shared ip
+              - generic [ref=e640] [cursor=pointer]:
+                - generic [ref=e642]:
+                  - generic [ref=e643]:
+                    - generic [ref=e644]: Apple Typosquatting Phishing Campaign
+                    - generic [ref=e645]: Active
+                  - generic [ref=e649]: Since Apr 12 · Last seen May 28
+                - generic [ref=e650]:
+                  - generic [ref=e651]:
+                    - generic [ref=e652]: THREATS
+                    - generic [ref=e653]: 2,041
+                  - generic [ref=e654]:
+                    - generic [ref=e655]: BRANDS
+                    - generic [ref=e656]: "988"
+                  - generic [ref=e657]:
+                    - generic [ref=e658]: PROVIDERS
+                    - generic [ref=e659]: "2"
+                - generic [ref=e661]: shared ip
+              - generic [ref=e662] [cursor=pointer]:
+                - generic [ref=e664]:
+                  - generic [ref=e665]:
+                    - generic [ref=e666]: Multi-Domain Phishing Infrastructure Network
+                    - generic [ref=e667]: Active
+                  - generic [ref=e671]: Since Apr 13 · Last seen May 28
+                - generic [ref=e672]:
+                  - generic [ref=e673]:
+                    - generic [ref=e674]: THREATS
+                    - generic [ref=e675]: 1,836
+                  - generic [ref=e676]:
+                    - generic [ref=e677]: BRANDS
+                    - generic [ref=e678]: "315"
+                  - generic [ref=e679]:
+                    - generic [ref=e680]: PROVIDERS
+                    - generic [ref=e681]: "1"
+                - generic [ref=e683]: shared ip
+              - generic [ref=e684] [cursor=pointer]:
+                - generic [ref=e686]:
+                  - generic [ref=e687]:
+                    - generic [ref=e688]: JD.com Phishing Domain Network
+                    - generic [ref=e689]: Active
+                  - generic [ref=e693]: Since Apr 13 · Last seen May 28
+                - generic [ref=e694]:
+                  - generic [ref=e695]:
+                    - generic [ref=e696]: THREATS
+                    - generic [ref=e697]: 1,726
+                  - generic [ref=e698]:
+                    - generic [ref=e699]: BRANDS
+                    - generic [ref=e700]: "303"
+                  - generic [ref=e701]:
+                    - generic [ref=e702]: PROVIDERS
+                    - generic [ref=e703]: "1"
+                - generic [ref=e705]: shared ip
+              - generic [ref=e706] [cursor=pointer]:
+                - generic [ref=e708]:
+                  - generic [ref=e709]:
+                    - generic [ref=e710]: Typosquatting Phishing Domain Network
+                    - generic [ref=e711]: Active
+                  - generic [ref=e715]: Since Apr 13 · Last seen May 28
+                - generic [ref=e716]:
+                  - generic [ref=e717]:
+                    - generic [ref=e718]: THREATS
+                    - generic [ref=e719]: 1,119
+                  - generic [ref=e720]:
+                    - generic [ref=e721]: BRANDS
+                    - generic [ref=e722]: "772"
+                  - generic [ref=e723]:
+                    - generic [ref=e724]: PROVIDERS
+                    - generic [ref=e725]: "2"
+                - generic [ref=e727]: shared ip
+              - generic [ref=e728] [cursor=pointer]:
+                - generic [ref=e730]:
+                  - generic [ref=e731]:
+                    - generic [ref=e732]: iCloud Phishing Typosquatting Network
+                    - generic [ref=e733]: Active
+                  - generic [ref=e737]: Since Apr 13 · Last seen May 28
+                - generic [ref=e738]:
+                  - generic [ref=e739]:
+                    - generic [ref=e740]: THREATS
+                    - generic [ref=e741]: "866"
+                  - generic [ref=e742]:
+                    - generic [ref=e743]: BRANDS
+                    - generic [ref=e744]: "531"
+                  - generic [ref=e745]:
+                    - generic [ref=e746]: PROVIDERS
+                    - generic [ref=e747]: "2"
+                - generic [ref=e749]: shared ip
+              - generic [ref=e750] [cursor=pointer]:
+                - generic [ref=e752]:
+                  - generic [ref=e753]:
+                    - generic [ref=e754]: Weebly Phishing Domain Network
+                    - generic [ref=e755]: Active
+                  - generic [ref=e759]: Since Mar 15 · Last seen May 28
+                - generic [ref=e760]:
+                  - generic [ref=e761]:
+                    - generic [ref=e762]: THREATS
+                    - generic [ref=e763]: "852"
+                  - generic [ref=e764]:
+                    - generic [ref=e765]: BRANDS
+                    - generic [ref=e766]: "20"
+                  - generic [ref=e767]:
+                    - generic [ref=e768]: PROVIDERS
+                    - generic [ref=e769]: "1"
+                - generic [ref=e771]: shared ip
+              - generic [ref=e772] [cursor=pointer]:
+                - generic [ref=e774]:
+                  - generic [ref=e775]:
+                    - generic [ref=e776]: Weebly Subdomain Phishing Campaign
+                    - generic [ref=e777]: Active
+                  - generic [ref=e781]: Since Apr 10 · Last seen May 28
+                - generic [ref=e782]:
+                  - generic [ref=e783]:
+                    - generic [ref=e784]: THREATS
+                    - generic [ref=e785]: "826"
+                  - generic [ref=e786]:
+                    - generic [ref=e787]: BRANDS
+                    - generic [ref=e788]: "9"
+                  - generic [ref=e789]:
+                    - generic [ref=e790]: PROVIDERS
+                    - generic [ref=e791]: "1"
+                - generic [ref=e793]: shared ip
+              - generic [ref=e794] [cursor=pointer]:
+                - generic [ref=e796]:
+                  - generic [ref=e797]:
+                    - generic [ref=e798]: Roblox Domain Spoofing Phishing Campaign
+                    - generic [ref=e799]: Active
+                  - generic [ref=e803]: Since Mar 15 · Last seen May 28
+                - generic [ref=e804]:
+                  - generic [ref=e805]:
+                    - generic [ref=e806]: THREATS
+                    - generic [ref=e807]: "811"
+                  - generic [ref=e808]:
+                    - generic [ref=e809]: BRANDS
+                    - generic [ref=e810]: "3"
+                  - generic [ref=e811]:
+                    - generic [ref=e812]: PROVIDERS
+                    - generic [ref=e813]: "1"
+                - generic [ref=e815]: shared ip
+              - generic [ref=e816] [cursor=pointer]:
+                - generic [ref=e818]:
+                  - generic [ref=e819]:
+                    - generic [ref=e820]: Framer Subdomain Phishing Farm
+                    - generic [ref=e821]: Active
+                  - generic [ref=e825]: Since Apr 10 · Last seen May 28
+                - generic [ref=e826]:
+                  - generic [ref=e827]:
+                    - generic [ref=e828]: THREATS
+                    - generic [ref=e829]: "780"
+                  - generic [ref=e830]:
+                    - generic [ref=e831]: BRANDS
+                    - generic [ref=e832]: "37"
+                  - generic [ref=e833]:
+                    - generic [ref=e834]: PROVIDERS
+                    - generic [ref=e835]: "2"
+                - generic [ref=e837]: shared ip
+              - generic [ref=e838] [cursor=pointer]:
+                - generic [ref=e840]:
+                  - generic [ref=e841]:
+                    - generic [ref=e842]: Framer SSO Phishing Kit Campaign
+                    - generic [ref=e843]: Active
+                  - generic [ref=e847]: Since Apr 10 · Last seen May 28
+                - generic [ref=e848]:
+                  - generic [ref=e849]:
+                    - generic [ref=e850]: THREATS
+                    - generic [ref=e851]: "762"
+                  - generic [ref=e852]:
+                    - generic [ref=e853]: BRANDS
+                    - generic [ref=e854]: "43"
+                  - generic [ref=e855]:
+                    - generic [ref=e856]: PROVIDERS
+                    - generic [ref=e857]: "2"
+                - generic [ref=e859]: shared ip
+              - generic [ref=e860] [cursor=pointer]:
+                - generic [ref=e862]:
+                  - generic [ref=e863]:
+                    - generic [ref=e864]: Vercel Hosted Clone Phishing Campaign
+                    - generic [ref=e865]: Active
+                  - generic [ref=e869]: Since Apr 10 · Last seen May 28
+                - generic [ref=e870]:
+                  - generic [ref=e871]:
+                    - generic [ref=e872]: THREATS
+                    - generic [ref=e873]: "748"
+                  - generic [ref=e874]:
+                    - generic [ref=e875]: BRANDS
+                    - generic [ref=e876]: "88"
+                  - generic [ref=e877]:
+                    - generic [ref=e878]: PROVIDERS
+                    - generic [ref=e879]: "2"
+                - generic [ref=e881]: shared ip
+              - generic [ref=e882] [cursor=pointer]:
+                - generic [ref=e884]:
+                  - generic [ref=e885]:
+                    - generic [ref=e886]: Vercel Hosted Phishing Clone Network
+                    - generic [ref=e887]: Active
+                  - generic [ref=e891]: Since Apr 10 · Last seen May 28
+                - generic [ref=e892]:
+                  - generic [ref=e893]:
+                    - generic [ref=e894]: THREATS
+                    - generic [ref=e895]: "686"
+                  - generic [ref=e896]:
+                    - generic [ref=e897]: BRANDS
+                    - generic [ref=e898]: "33"
+                  - generic [ref=e899]:
+                    - generic [ref=e900]: PROVIDERS
+                    - generic [ref=e901]: "2"
+                - generic [ref=e903]: shared ip
+              - generic [ref=e904] [cursor=pointer]:
+                - generic [ref=e906]:
+                  - generic [ref=e907]:
+                    - generic [ref=e908]: Link Phishing IPFS Distribution Network
+                    - generic [ref=e909]: Active
+                  - generic [ref=e913]: Since Apr 10 · Last seen May 28
+                - generic [ref=e914]:
+                  - generic [ref=e915]:
+                    - generic [ref=e916]: THREATS
+                    - generic [ref=e917]: "670"
+                  - generic [ref=e918]:
+                    - generic [ref=e919]: BRANDS
+                    - generic [ref=e920]: "3"
+                  - generic [ref=e921]:
+                    - generic [ref=e922]: PROVIDERS
+                    - generic [ref=e923]: "1"
+                - generic [ref=e925]: shared ip
+              - generic [ref=e926] [cursor=pointer]:
+                - generic [ref=e928]:
+                  - generic [ref=e929]:
+                    - generic [ref=e930]: Vercel Clone Phishing Campaign
+                    - generic [ref=e931]: Active
+                  - generic [ref=e935]: Since Apr 10 · Last seen May 28
+                - generic [ref=e936]:
+                  - generic [ref=e937]:
+                    - generic [ref=e938]: THREATS
+                    - generic [ref=e939]: "631"
+                  - generic [ref=e940]:
+                    - generic [ref=e941]: BRANDS
+                    - generic [ref=e942]: "38"
+                  - generic [ref=e943]:
+                    - generic [ref=e944]: PROVIDERS
+                    - generic [ref=e945]: "2"
+                - generic [ref=e947]: shared ip
+              - generic [ref=e948] [cursor=pointer]:
+                - generic [ref=e950]:
+                  - generic [ref=e951]:
+                    - generic [ref=e952]: Netlify Phishing Farm Network
+                    - generic [ref=e953]: Active
+                  - generic [ref=e957]: Since Apr 10 · Last seen May 28
+                - generic [ref=e958]:
+                  - generic [ref=e959]:
+                    - generic [ref=e960]: THREATS
+                    - generic [ref=e961]: "464"
+                  - generic [ref=e962]:
+                    - generic [ref=e963]: BRANDS
+                    - generic [ref=e964]: "25"
+                  - generic [ref=e965]:
+                    - generic [ref=e966]: PROVIDERS
+                    - generic [ref=e967]: "2"
+                - generic [ref=e969]: shared ip
+              - generic [ref=e970] [cursor=pointer]:
+                - generic [ref=e972]:
+                  - generic [ref=e973]:
+                    - generic [ref=e974]: Netlify Phishing Clone Network
+                    - generic [ref=e975]: Active
+                  - generic [ref=e979]: Since Apr 10 · Last seen May 28
+                - generic [ref=e980]:
+                  - generic [ref=e981]:
+                    - generic [ref=e982]: THREATS
+                    - generic [ref=e983]: "425"
+                  - generic [ref=e984]:
+                    - generic [ref=e985]: BRANDS
+                    - generic [ref=e986]: "23"
+                  - generic [ref=e987]:
+                    - generic [ref=e988]: PROVIDERS
+                    - generic [ref=e989]: "2"
+                - generic [ref=e991]: shared ip
+              - generic [ref=e992] [cursor=pointer]:
+                - generic [ref=e994]:
+                  - generic [ref=e995]:
+                    - generic [ref=e996]: Discord Amazon Typosquatting Domain Network
+                    - generic [ref=e997]: Active
+                  - generic [ref=e1001]: Since Apr 12 · Last seen May 28
+                - generic [ref=e1002]:
+                  - generic [ref=e1003]:
+                    - generic [ref=e1004]: THREATS
+                    - generic [ref=e1005]: "421"
+                  - generic [ref=e1006]:
+                    - generic [ref=e1007]: BRANDS
+                    - generic [ref=e1008]: "325"
+                  - generic [ref=e1009]:
+                    - generic [ref=e1010]: PROVIDERS
+                    - generic [ref=e1011]: "1"
+                - generic [ref=e1013]: shared ip
+              - generic [ref=e1014] [cursor=pointer]:
+                - generic [ref=e1016]:
+                  - generic [ref=e1017]:
+                    - generic [ref=e1018]: Dynamic DNS Phishing Infrastructure Network
+                    - generic [ref=e1019]: Active
+                  - generic [ref=e1023]: Since May 14 · Last seen May 28
+                - generic [ref=e1024]:
+                  - generic [ref=e1025]:
+                    - generic [ref=e1026]: THREATS
+                    - generic [ref=e1027]: "261"
+                  - generic [ref=e1028]:
+                    - generic [ref=e1029]: BRANDS
+                    - generic [ref=e1030]: "4"
+                  - generic [ref=e1031]:
+                    - generic [ref=e1032]: PROVIDERS
+                    - generic [ref=e1033]: "1"
+                - generic [ref=e1035]: shared ip
+              - generic [ref=e1036] [cursor=pointer]:
+                - generic [ref=e1038]:
+                  - generic [ref=e1039]:
+                    - generic [ref=e1040]: Military Remote Access Phishing Infrastructure
+                    - generic [ref=e1041]: Active
+                  - generic [ref=e1045]: Since May 16 · Last seen May 28
+                - generic [ref=e1046]:
+                  - generic [ref=e1047]:
+                    - generic [ref=e1048]: THREATS
+                    - generic [ref=e1049]: "249"
+                  - generic [ref=e1050]:
+                    - generic [ref=e1051]: BRANDS
+                    - generic [ref=e1052]: "36"
+                  - generic [ref=e1053]:
+                    - generic [ref=e1054]: PROVIDERS
+                    - generic [ref=e1055]: "1"
+                - generic [ref=e1057]: shared ip
+              - generic [ref=e1058] [cursor=pointer]:
+                - generic [ref=e1060]:
+                  - generic [ref=e1061]:
+                    - generic [ref=e1062]: GoDaddy Phishing Kit Credential Harvest
+                    - generic [ref=e1063]: Active
+                  - generic [ref=e1067]: Since Apr 10 · Last seen May 28
+                - generic [ref=e1068]:
+                  - generic [ref=e1069]:
+                    - generic [ref=e1070]: THREATS
+                    - generic [ref=e1071]: "224"
+                  - generic [ref=e1072]:
+                    - generic [ref=e1073]: BRANDS
+                    - generic [ref=e1074]: "139"
+                  - generic [ref=e1075]:
+                    - generic [ref=e1076]: PROVIDERS
+                    - generic [ref=e1077]: "2"
+                - generic [ref=e1079]: shared ip
+              - generic [ref=e1080] [cursor=pointer]:
+                - generic [ref=e1082]:
+                  - generic [ref=e1083]:
+                    - generic [ref=e1084]: Typosquatting Phishing and Malware Distribution Network
+                    - generic [ref=e1085]: Active
+                  - generic [ref=e1089]: Since Apr 13 · Last seen May 28
+                - generic [ref=e1090]:
+                  - generic [ref=e1091]:
+                    - generic [ref=e1092]: THREATS
+                    - generic [ref=e1093]: "214"
+                  - generic [ref=e1094]:
+                    - generic [ref=e1095]: BRANDS
+                    - generic [ref=e1096]: "179"
+                  - generic [ref=e1097]:
+                    - generic [ref=e1098]: PROVIDERS
+                    - generic [ref=e1099]: "2"
+                - generic [ref=e1101]: shared ip
+              - generic [ref=e1102] [cursor=pointer]:
+                - generic [ref=e1104]:
+                  - generic [ref=e1105]:
+                    - generic [ref=e1106]: Dynv6 DNS Phishing Campaign Network
+                    - generic [ref=e1107]: Active
+                  - generic [ref=e1111]: Since May 15 · Last seen May 28
+                - generic [ref=e1112]:
+                  - generic [ref=e1113]:
+                    - generic [ref=e1114]: THREATS
+                    - generic [ref=e1115]: "213"
+                  - generic [ref=e1116]:
+                    - generic [ref=e1117]: BRANDS
+                    - generic [ref=e1118]: "21"
+                  - generic [ref=e1119]:
+                    - generic [ref=e1120]: PROVIDERS
+                    - generic [ref=e1121]: "1"
+                - generic [ref=e1123]: shared ip
+              - generic [ref=e1124] [cursor=pointer]:
+                - generic [ref=e1126]:
+                  - generic [ref=e1127]:
+                    - generic [ref=e1128]: Multi-Domain Phishing Infrastructure Network
+                    - generic [ref=e1129]: Active
+                  - generic [ref=e1133]: Since Apr 11 · Last seen May 28
+                - generic [ref=e1134]:
+                  - generic [ref=e1135]:
+                    - generic [ref=e1136]: THREATS
+                    - generic [ref=e1137]: "189"
+                  - generic [ref=e1138]:
+                    - generic [ref=e1139]: BRANDS
+                    - generic [ref=e1140]: "116"
+                  - generic [ref=e1141]:
+                    - generic [ref=e1142]: PROVIDERS
+                    - generic [ref=e1143]: "2"
+                - generic [ref=e1145]: shared ip
+              - generic [ref=e1146] [cursor=pointer]:
+                - generic [ref=e1148]:
+                  - generic [ref=e1149]:
+                    - generic [ref=e1150]: Ledger Phishing Domain Network
+                    - generic [ref=e1151]: Active
+                  - generic [ref=e1155]: Since Apr 11 · Last seen May 28
+                - generic [ref=e1156]:
+                  - generic [ref=e1157]:
+                    - generic [ref=e1158]: THREATS
+                    - generic [ref=e1159]: "143"
+                  - generic [ref=e1160]:
+                    - generic [ref=e1161]: BRANDS
+                    - generic [ref=e1162]: "75"
+                  - generic [ref=e1163]:
+                    - generic [ref=e1164]: PROVIDERS
+                    - generic [ref=e1165]: "0"
+                - generic [ref=e1167]: shared ip
+              - generic [ref=e1168] [cursor=pointer]:
+                - generic [ref=e1170]:
+                  - generic [ref=e1171]:
+                    - generic [ref=e1172]: Multi-Brand Typosquatting Phishing Network
+                    - generic [ref=e1173]: Active
+                  - generic [ref=e1177]: Since Apr 13 · Last seen May 28
+                - generic [ref=e1178]:
+                  - generic [ref=e1179]:
+                    - generic [ref=e1180]: THREATS
+                    - generic [ref=e1181]: "133"
+                  - generic [ref=e1182]:
+                    - generic [ref=e1183]: BRANDS
+                    - generic [ref=e1184]: "128"
+                  - generic [ref=e1185]:
+                    - generic [ref=e1186]: PROVIDERS
+                    - generic [ref=e1187]: "2"
+                - generic [ref=e1189]: shared ip
+              - generic [ref=e1190] [cursor=pointer]:
+                - generic [ref=e1192]:
+                  - generic [ref=e1193]:
+                    - generic [ref=e1194]: GitBook Cryptocurrency Exchange Phishing Kit
+                    - generic [ref=e1195]: Active
+                  - generic [ref=e1199]: Since Mar 15 · Last seen May 28
+                - generic [ref=e1200]:
+                  - generic [ref=e1201]:
+                    - generic [ref=e1202]: THREATS
+                    - generic [ref=e1203]: "132"
+                  - generic [ref=e1204]:
+                    - generic [ref=e1205]: BRANDS
+                    - generic [ref=e1206]: "11"
+                  - generic [ref=e1207]:
+                    - generic [ref=e1208]: PROVIDERS
+                    - generic [ref=e1209]: "1"
+                - generic [ref=e1211]: shared ip
+              - generic [ref=e1212] [cursor=pointer]:
+                - generic [ref=e1214]:
+                  - generic [ref=e1215]:
+                    - generic [ref=e1216]: GitHub Malware Distribution Credential Theft
+                    - generic [ref=e1217]: Active
+                  - generic [ref=e1221]: Since Apr 14 · Last seen May 28
+                - generic [ref=e1222]:
+                  - generic [ref=e1223]:
+                    - generic [ref=e1224]: THREATS
+                    - generic [ref=e1225]: "115"
+                  - generic [ref=e1226]:
+                    - generic [ref=e1227]: BRANDS
+                    - generic [ref=e1228]: "1"
+                  - generic [ref=e1229]:
+                    - generic [ref=e1230]: PROVIDERS
+                    - generic [ref=e1231]: "1"
+                - generic [ref=e1233]: shared ip
+              - generic [ref=e1234] [cursor=pointer]:
+                - generic [ref=e1236]:
+                  - generic [ref=e1237]:
+                    - generic [ref=e1238]: Developer Tools Malware Distribution Network
+                    - generic [ref=e1239]: Active
+                  - generic [ref=e1243]: Since May 28 · Last seen May 28
+                - generic [ref=e1244]:
+                  - generic [ref=e1245]:
+                    - generic [ref=e1246]: THREATS
+                    - generic [ref=e1247]: "71"
+                  - generic [ref=e1248]:
+                    - generic [ref=e1249]: BRANDS
+                    - generic [ref=e1250]: "0"
+                  - generic [ref=e1251]:
+                    - generic [ref=e1252]: PROVIDERS
+                    - generic [ref=e1253]: "0"
+                - generic [ref=e1255]: shared ip
+              - generic [ref=e1256] [cursor=pointer]:
+                - generic [ref=e1258]:
+                  - generic [ref=e1259]:
+                    - generic [ref=e1260]: JD.com C2 Command Infrastructure Network
+                    - generic [ref=e1261]: Active
+                  - generic [ref=e1265]: Since May 22 · Last seen May 28
+                - generic [ref=e1266]:
+                  - generic [ref=e1267]:
+                    - generic [ref=e1268]: THREATS
+                    - generic [ref=e1269]: "68"
+                  - generic [ref=e1270]:
+                    - generic [ref=e1271]: BRANDS
+                    - generic [ref=e1272]: "18"
+                  - generic [ref=e1273]:
+                    - generic [ref=e1274]: PROVIDERS
+                    - generic [ref=e1275]: "1"
+                - generic [ref=e1277]: shared ip
+              - generic [ref=e1278] [cursor=pointer]:
+                - generic [ref=e1280]:
+                  - generic [ref=e1281]:
+                    - generic [ref=e1282]: Blog Phishing DDNS Infrastructure Network
+                    - generic [ref=e1283]: Active
+                  - generic [ref=e1287]: Since May 15 · Last seen May 28
+                - generic [ref=e1288]:
+                  - generic [ref=e1289]:
+                    - generic [ref=e1290]: THREATS
+                    - generic [ref=e1291]: "52"
+                  - generic [ref=e1292]:
+                    - generic [ref=e1293]: BRANDS
+                    - generic [ref=e1294]: "7"
+                  - generic [ref=e1295]:
+                    - generic [ref=e1296]: PROVIDERS
+                    - generic [ref=e1297]: "1"
+                - generic [ref=e1299]: shared ip
+              - generic [ref=e1300] [cursor=pointer]:
+                - generic [ref=e1302]:
+                  - generic [ref=e1303]:
+                    - generic [ref=e1304]: Single IP Malware Distribution Network
+                    - generic [ref=e1305]: Active
+                  - generic [ref=e1309]: Since Apr 22 · Last seen May 28
+                - generic [ref=e1310]:
+                  - generic [ref=e1311]:
+                    - generic [ref=e1312]: THREATS
+                    - generic [ref=e1313]: "44"
+                  - generic [ref=e1314]:
+                    - generic [ref=e1315]: BRANDS
+                    - generic [ref=e1316]: "1"
+                  - generic [ref=e1317]:
+                    - generic [ref=e1318]: PROVIDERS
+                    - generic [ref=e1319]: "2"
+                - generic [ref=e1321]: shared ip
+              - generic [ref=e1322] [cursor=pointer]:
+                - generic [ref=e1324]:
+                  - generic [ref=e1325]:
+                    - generic [ref=e1326]: Windows Update Typosquatting Phishing Network
+                    - generic [ref=e1327]: Active
+                  - generic [ref=e1331]: Since May 15 · Last seen May 28
+                - generic [ref=e1332]:
+                  - generic [ref=e1333]:
+                    - generic [ref=e1334]: THREATS
+                    - generic [ref=e1335]: "37"
+                  - generic [ref=e1336]:
+                    - generic [ref=e1337]: BRANDS
+                    - generic [ref=e1338]: "14"
+                  - generic [ref=e1339]:
+                    - generic [ref=e1340]: PROVIDERS
+                    - generic [ref=e1341]: "1"
+                - generic [ref=e1343]: shared ip
+              - generic [ref=e1344] [cursor=pointer]:
+                - generic [ref=e1346]:
+                  - generic [ref=e1347]:
+                    - generic [ref=e1348]: GitHub Malware Distribution Network
+                    - generic [ref=e1349]: Active
+                  - generic [ref=e1353]: Since Apr 29 · Last seen May 28
+                - generic [ref=e1354]:
+                  - generic [ref=e1355]:
+                    - generic [ref=e1356]: THREATS
+                    - generic [ref=e1357]: "33"
+                  - generic [ref=e1358]:
+                    - generic [ref=e1359]: BRANDS
+                    - generic [ref=e1360]: "1"
+                  - generic [ref=e1361]:
+                    - generic [ref=e1362]: PROVIDERS
+                    - generic [ref=e1363]: "1"
+                - generic [ref=e1365]: shared ip
+              - generic [ref=e1366] [cursor=pointer]:
+                - generic [ref=e1368]:
+                  - generic [ref=e1369]:
+                    - generic [ref=e1370]: 220VK Malware Distribution Network
+                    - generic [ref=e1371]: Active
+                  - generic [ref=e1375]: Since May 28 · Last seen May 28
+                - generic [ref=e1376]:
+                  - generic [ref=e1377]:
+                    - generic [ref=e1378]: THREATS
+                    - generic [ref=e1379]: "26"
+                  - generic [ref=e1380]:
+                    - generic [ref=e1381]: BRANDS
+                    - generic [ref=e1382]: "0"
+                  - generic [ref=e1383]:
+                    - generic [ref=e1384]: PROVIDERS
+                    - generic [ref=e1385]: "0"
+                - generic [ref=e1387]: shared ip
+              - generic [ref=e1388] [cursor=pointer]:
+                - generic [ref=e1390]:
+                  - generic [ref=e1391]:
+                    - generic [ref=e1392]: Single IP Malware Distribution Network
+                    - generic [ref=e1393]: Active
+                  - generic [ref=e1397]: Since May 28 · Last seen May 28
+                - generic [ref=e1398]:
+                  - generic [ref=e1399]:
+                    - generic [ref=e1400]: THREATS
+                    - generic [ref=e1401]: "14"
+                  - generic [ref=e1402]:
+                    - generic [ref=e1403]: BRANDS
+                    - generic [ref=e1404]: "2"
+                  - generic [ref=e1405]:
+                    - generic [ref=e1406]: PROVIDERS
+                    - generic [ref=e1407]: "0"
+                - generic [ref=e1409]: shared ip
+              - generic [ref=e1410] [cursor=pointer]:
+                - generic [ref=e1412]:
+                  - generic [ref=e1413]:
+                    - generic [ref=e1414]: Vietnamese Betting Platform Phishing Network
+                    - generic [ref=e1415]: Active
+                  - generic [ref=e1419]: Since May 28 · Last seen May 28
+                - generic [ref=e1420]:
+                  - generic [ref=e1421]:
+                    - generic [ref=e1422]: THREATS
+                    - generic [ref=e1423]: "12"
+                  - generic [ref=e1424]:
+                    - generic [ref=e1425]: BRANDS
+                    - generic [ref=e1426]: "7"
+                  - generic [ref=e1427]:
+                    - generic [ref=e1428]: PROVIDERS
+                    - generic [ref=e1429]: "1"
+                - generic [ref=e1431]: shared ip
+              - generic [ref=e1432] [cursor=pointer]:
+                - generic [ref=e1434]:
+                  - generic [ref=e1435]:
+                    - generic [ref=e1436]: Wards Amazon Phishing Domain Network
+                    - generic [ref=e1437]: Active
+                  - generic [ref=e1441]: Since May 28 · Last seen May 28
+                - generic [ref=e1442]:
+                  - generic [ref=e1443]:
+                    - generic [ref=e1444]: THREATS
+                    - generic [ref=e1445]: "11"
+                  - generic [ref=e1446]:
+                    - generic [ref=e1447]: BRANDS
+                    - generic [ref=e1448]: "2"
+                  - generic [ref=e1449]:
+                    - generic [ref=e1450]: PROVIDERS
+                    - generic [ref=e1451]: "1"
+                - generic [ref=e1453]: shared ip
+              - generic [ref=e1454] [cursor=pointer]:
+                - generic [ref=e1456]:
+                  - generic [ref=e1457]:
+                    - generic [ref=e1458]: It168 Malware Distribution Network
+                    - generic [ref=e1459]: Active
+                  - generic [ref=e1463]: Since May 25 · Last seen May 28
+                - generic [ref=e1464]:
+                  - generic [ref=e1465]:
+                    - generic [ref=e1466]: THREATS
+                    - generic [ref=e1467]: "11"
+                  - generic [ref=e1468]:
+                    - generic [ref=e1469]: BRANDS
+                    - generic [ref=e1470]: "1"
+                  - generic [ref=e1471]:
+                    - generic [ref=e1472]: PROVIDERS
+                    - generic [ref=e1473]: "1"
+                - generic [ref=e1475]: shared ip
+              - generic [ref=e1476] [cursor=pointer]:
+                - generic [ref=e1478]:
+                  - generic [ref=e1479]:
+                    - generic [ref=e1480]: SonderCloud Phishing Kit Distribution Network
+                    - generic [ref=e1481]: Active
+                  - generic [ref=e1485]: Since May 28 · Last seen May 28
+                - generic [ref=e1486]:
+                  - generic [ref=e1487]:
+                    - generic [ref=e1488]: THREATS
+                    - generic [ref=e1489]: "10"
+                  - generic [ref=e1490]:
+                    - generic [ref=e1491]: BRANDS
+                    - generic [ref=e1492]: "4"
+                  - generic [ref=e1493]:
+                    - generic [ref=e1494]: PROVIDERS
+                    - generic [ref=e1495]: "1"
+                - generic [ref=e1497]: shared ip
+              - generic [ref=e1498] [cursor=pointer]:
+                - generic [ref=e1500]:
+                  - generic [ref=e1501]:
+                    - generic [ref=e1502]: Multi-Brand Phishing Domain Network
+                    - generic [ref=e1503]: Active
+                  - generic [ref=e1507]: Since May 28 · Last seen May 28
+                - generic [ref=e1508]:
+                  - generic [ref=e1509]:
+                    - generic [ref=e1510]: THREATS
+                    - generic [ref=e1511]: "7"
+                  - generic [ref=e1512]:
+                    - generic [ref=e1513]: BRANDS
+                    - generic [ref=e1514]: "5"
+                  - generic [ref=e1515]:
+                    - generic [ref=e1516]: PROVIDERS
+                    - generic [ref=e1517]: "6"
+                - generic [ref=e1519]: shared registrar
+              - generic [ref=e1520] [cursor=pointer]:
+                - generic [ref=e1522]:
+                  - generic [ref=e1523]:
+                    - generic [ref=e1524]: Multi-Brand Phishing Domain Cluster
+                    - generic [ref=e1525]: Active
+                  - generic [ref=e1529]: Since May 28 · Last seen May 28
+                - generic [ref=e1530]:
+                  - generic [ref=e1531]:
+                    - generic [ref=e1532]: THREATS
+                    - generic [ref=e1533]: "6"
+                  - generic [ref=e1534]:
+                    - generic [ref=e1535]: BRANDS
+                    - generic [ref=e1536]: "3"
+                  - generic [ref=e1537]:
+                    - generic [ref=e1538]: PROVIDERS
+                    - generic [ref=e1539]: "2"
+                - generic [ref=e1541]: shared registrar
+              - generic [ref=e1542] [cursor=pointer]:
+                - generic [ref=e1544]:
+                  - generic [ref=e1545]:
+                    - generic [ref=e1546]: Roblox Phishing and Credential Harvesting Network
+                    - generic [ref=e1547]: Active
+                  - generic [ref=e1551]: Since May 28 · Last seen May 28
+                - generic [ref=e1552]:
+                  - generic [ref=e1553]:
+                    - generic [ref=e1554]: THREATS
+                    - generic [ref=e1555]: "5"
+                  - generic [ref=e1556]:
+                    - generic [ref=e1557]: BRANDS
+                    - generic [ref=e1558]: "5"
+                  - generic [ref=e1559]:
+                    - generic [ref=e1560]: PROVIDERS
+                    - generic [ref=e1561]: "3"
+                - generic [ref=e1563]: shared registrar
+              - generic [ref=e1564] [cursor=pointer]:
+                - generic [ref=e1566]:
+                  - generic [ref=e1567]:
+                    - generic [ref=e1568]: Multi-Brand Typosquatting and Impersonation Campaign
+                    - generic [ref=e1569]: Active
+                  - generic [ref=e1573]: Since May 28 · Last seen May 28
+                - generic [ref=e1574]:
+                  - generic [ref=e1575]:
+                    - generic [ref=e1576]: THREATS
+                    - generic [ref=e1577]: "5"
+                  - generic [ref=e1578]:
+                    - generic [ref=e1579]: BRANDS
+                    - generic [ref=e1580]: "3"
+                  - generic [ref=e1581]:
+                    - generic [ref=e1582]: PROVIDERS
+                    - generic [ref=e1583]: "2"
+                - generic [ref=e1585]: shared registrar
+              - generic [ref=e1586] [cursor=pointer]:
+                - generic [ref=e1588]:
+                  - generic [ref=e1589]:
+                    - generic [ref=e1590]: Multi-Brand Phishing Domain Network
+                    - generic [ref=e1591]: Active
+                  - generic [ref=e1595]: Since May 28 · Last seen May 28
+                - generic [ref=e1596]:
+                  - generic [ref=e1597]:
+                    - generic [ref=e1598]: THREATS
+                    - generic [ref=e1599]: "5"
+                  - generic [ref=e1600]:
+                    - generic [ref=e1601]: BRANDS
+                    - generic [ref=e1602]: "4"
+                  - generic [ref=e1603]:
+                    - generic [ref=e1604]: PROVIDERS
+                    - generic [ref=e1605]: "4"
+                - generic [ref=e1607]: shared registrar
+              - generic [ref=e1608] [cursor=pointer]:
+                - generic [ref=e1610]:
+                  - generic [ref=e1611]:
+                    - generic [ref=e1612]: WebNic Hosted Multi-Brand Phishing Network
+                    - generic [ref=e1613]: Active
+                  - generic [ref=e1617]: Since May 28 · Last seen May 28
+                - generic [ref=e1618]:
+                  - generic [ref=e1619]:
+                    - generic [ref=e1620]: THREATS
+                    - generic [ref=e1621]: "5"
+                  - generic [ref=e1622]:
+                    - generic [ref=e1623]: BRANDS
+                    - generic [ref=e1624]: "3"
+                  - generic [ref=e1625]:
+                    - generic [ref=e1626]: PROVIDERS
+                    - generic [ref=e1627]: "4"
+                - generic [ref=e1629]: shared registrar
+              - generic [ref=e1630] [cursor=pointer]:
+                - generic [ref=e1632]:
+                  - generic [ref=e1633]:
+                    - generic [ref=e1634]: Cryptocurrency Exchange Credential Phishing Network
+                    - generic [ref=e1635]: Active
+                  - generic [ref=e1639]: Since May 28 · Last seen May 28
+                - generic [ref=e1640]:
+                  - generic [ref=e1641]:
+                    - generic [ref=e1642]: THREATS
+                    - generic [ref=e1643]: "5"
+                  - generic [ref=e1644]:
+                    - generic [ref=e1645]: BRANDS
+                    - generic [ref=e1646]: "3"
+                  - generic [ref=e1647]:
+                    - generic [ref=e1648]: PROVIDERS
+                    - generic [ref=e1649]: "3"
+                - generic [ref=e1651]: shared registrar
+              - generic [ref=e1652] [cursor=pointer]:
+                - generic [ref=e1654]:
+                  - generic [ref=e1655]:
+                    - generic [ref=e1656]: Multi-Brand Phishing Domain Network
+                    - generic [ref=e1657]: Active
+                  - generic [ref=e1661]: Since May 28 · Last seen May 28
+                - generic [ref=e1662]:
+                  - generic [ref=e1663]:
+                    - generic [ref=e1664]: THREATS
+                    - generic [ref=e1665]: "5"
+                  - generic [ref=e1666]:
+                    - generic [ref=e1667]: BRANDS
+                    - generic [ref=e1668]: "3"
+                  - generic [ref=e1669]:
+                    - generic [ref=e1670]: PROVIDERS
+                    - generic [ref=e1671]: "2"
+                - generic [ref=e1673]: shared registrar
+              - generic [ref=e1674] [cursor=pointer]:
+                - generic [ref=e1676]:
+                  - generic [ref=e1677]:
+                    - generic [ref=e1678]: Multi-Brand Phishing Domain Network
+                    - generic [ref=e1679]: Active
+                  - generic [ref=e1683]: Since May 28 · Last seen May 28
+                - generic [ref=e1684]:
+                  - generic [ref=e1685]:
+                    - generic [ref=e1686]: THREATS
+                    - generic [ref=e1687]: "5"
+                  - generic [ref=e1688]:
+                    - generic [ref=e1689]: BRANDS
+                    - generic [ref=e1690]: "3"
+                  - generic [ref=e1691]:
+                    - generic [ref=e1692]: PROVIDERS
+                    - generic [ref=e1693]: "4"
+                - generic [ref=e1695]: shared registrar
+              - generic [ref=e1696] [cursor=pointer]:
+                - generic [ref=e1698]:
+                  - generic [ref=e1699]:
+                    - generic [ref=e1700]: Multi-Brand Phishing Domain Network
+                    - generic [ref=e1701]: Active
+                  - generic [ref=e1705]: Since May 28 · Last seen May 28
+                - generic [ref=e1706]:
+                  - generic [ref=e1707]:
+                    - generic [ref=e1708]: THREATS
+                    - generic [ref=e1709]: "5"
+                  - generic [ref=e1710]:
+                    - generic [ref=e1711]: BRANDS
+                    - generic [ref=e1712]: "4"
+                  - generic [ref=e1713]:
+                    - generic [ref=e1714]: PROVIDERS
+                    - generic [ref=e1715]: "2"
+                - generic [ref=e1717]: shared registrar
+  - dialog "Sign in faster next time?" [ref=e1718]:
+    - generic [ref=e1719]:
+      - img [ref=e1721]
+      - heading "Sign in faster next time?" [level=2] [ref=e1724]
+      - paragraph [ref=e1725]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e1726]:
+        - button "Set up biometric" [ref=e1727] [cursor=pointer]
+        - button "Maybe later" [ref=e1728] [cursor=pointer]
+      - paragraph [ref=e1729]: You can add or remove passkeys anytime from your Profile.

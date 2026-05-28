@@ -1,0 +1,226 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e7]
+        - generic [ref=e12]:
+          - generic [ref=e13]: AVERROW
+          - generic [ref=e14]: THREAT INTERCEPTOR
+      - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+        - img [ref=e16]
+    - navigation [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e21]: INTELLIGENCE
+        - link "Home" [ref=e23] [cursor=pointer]:
+          - /url: /v2
+          - img [ref=e24]
+          - generic [ref=e29]: Home
+        - link "Observatory" [ref=e30] [cursor=pointer]:
+          - /url: /v2/observatory-v3
+          - img [ref=e31]
+          - generic [ref=e34]: Observatory
+        - link "Brands" [ref=e35] [cursor=pointer]:
+          - /url: /v2/brands
+          - img [ref=e36]
+          - generic [ref=e38]: Brands
+        - link "Threats" [ref=e39] [cursor=pointer]:
+          - /url: /v2/threats
+          - img [ref=e40]
+          - generic [ref=e42]: Threats
+        - link "Apps" [ref=e43] [cursor=pointer]:
+          - /url: /v2/apps
+          - img [ref=e44]
+          - generic [ref=e46]: Apps
+        - link "Dark Web" [ref=e47] [cursor=pointer]:
+          - /url: /v2/dark-web
+          - img [ref=e48]
+          - generic [ref=e53]: Dark Web
+        - link "Trademarks" [ref=e54] [cursor=pointer]:
+          - /url: /v2/trademarks
+          - img [ref=e55]
+          - generic [ref=e58]: Trademarks
+        - link "Providers" [ref=e59] [cursor=pointer]:
+          - /url: /v2/providers
+          - img [ref=e60]
+          - generic [ref=e63]: Providers
+        - link "Campaigns" [ref=e64] [cursor=pointer]:
+          - /url: /v2/campaigns
+          - img [ref=e65]
+          - generic [ref=e67]: Campaigns
+        - link "Threat Actors" [ref=e68] [cursor=pointer]:
+          - /url: /v2/threat-actors
+          - img [ref=e69]
+          - generic [ref=e71]: Threat Actors
+        - link "Intelligence" [ref=e72] [cursor=pointer]:
+          - /url: /v2/trends
+          - img [ref=e73]
+          - generic [ref=e76]: Intelligence
+      - generic [ref=e77]:
+        - generic [ref=e79]: RESPONSE
+        - link "Incidents" [ref=e81] [cursor=pointer]:
+          - /url: /v2/admin/incidents
+          - img [ref=e82]
+          - generic [ref=e87]: Incidents
+        - link "Takedowns" [ref=e88] [cursor=pointer]:
+          - /url: /v2/admin/takedowns
+          - img [ref=e89]
+          - generic [ref=e95]: Takedowns
+        - link "Signals" [ref=e96] [cursor=pointer]:
+          - /url: /v2/alerts
+          - img [ref=e97]
+          - generic [ref=e104]: Signals
+        - link "Spam Trap" [ref=e105] [cursor=pointer]:
+          - /url: /v2/admin/spam-trap
+          - img [ref=e106]
+          - generic [ref=e109]: Spam Trap
+        - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+          - /url: /v2/admin/abuse-mailbox
+          - img [ref=e111]
+          - generic [ref=e114]: Abuse Mailbox
+        - link "Leads" [ref=e115] [cursor=pointer]:
+          - /url: /v2/leads
+          - img [ref=e116]
+          - generic [ref=e120]: Leads
+      - generic [ref=e121]:
+        - generic [ref=e123]: PLATFORM
+        - link "Agents" [ref=e125] [cursor=pointer]:
+          - /url: /v2/agents
+          - img [ref=e126]
+          - generic [ref=e129]: Agents
+        - link "Feeds" [ref=e130] [cursor=pointer]:
+          - /url: /v2/feeds
+          - img [ref=e131]
+          - generic [ref=e135]: Feeds
+        - link "Metrics" [ref=e136] [cursor=pointer]:
+          - /url: /v2/admin/metrics
+          - img [ref=e137]
+          - generic [ref=e139]: Metrics
+        - link "Dashboard" [ref=e140] [cursor=pointer]:
+          - /url: /v2/admin
+          - img [ref=e141]
+          - generic [ref=e146]: Dashboard
+        - link "Team" [ref=e147] [cursor=pointer]:
+          - /url: /v2/admin/users?tab=members
+          - img [ref=e148]
+          - generic [ref=e153]: Team
+        - link "Customers" [ref=e154] [cursor=pointer]:
+          - /url: /v2/admin/customers
+          - img [ref=e155]
+          - generic [ref=e159]: Customers
+        - link "Pricing" [ref=e160] [cursor=pointer]:
+          - /url: /v2/admin/pricing
+          - img [ref=e161]
+          - generic [ref=e163]: Pricing
+        - link "Audit Log" [ref=e164] [cursor=pointer]:
+          - /url: /v2/admin/audit
+          - img [ref=e165]
+          - generic [ref=e168]: Audit Log
+        - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+          - /url: /v2/admin/agents/attribution-backlog
+          - img [ref=e170]
+          - generic [ref=e174]: Attribution Backlog
+    - generic [ref=e175]:
+      - generic [ref=e176]: service-mcp@averrow.local
+      - button "LOGOUT" [ref=e177] [cursor=pointer]
+  - generic [ref=e178]:
+    - banner [ref=e179]:
+      - generic [ref=e181]: Threat Interceptor
+      - generic [ref=e182]:
+        - button "Notifications" [ref=e184] [cursor=pointer]:
+          - img [ref=e185]
+          - generic [ref=e195]: 99+
+        - button "User menu" [ref=e189] [cursor=pointer]: MA
+    - main [ref=e190]:
+      - generic [ref=e196]:
+        - button "← Back to Brands" [ref=e198] [cursor=pointer]
+        - generic [ref=e200]:
+          - generic [ref=e201]: A
+          - generic [ref=e202]:
+            - heading "Amazon" [level=1] [ref=e203]
+            - generic [ref=e204]:
+              - text: amazon.com
+              - generic [ref=e205]: · tracked 2mo ago
+            - generic [ref=e206]:
+              - generic [ref=e207]: ecommerce
+              - generic [ref=e208]: active
+        - generic [ref=e210]:
+          - button "Surface" [ref=e211] [cursor=pointer]
+          - button "Risk" [ref=e212] [cursor=pointer]
+          - button "Signals" [ref=e213] [cursor=pointer]
+          - button "Workflow" [ref=e214] [cursor=pointer]
+        - generic [ref=e215]:
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - generic [ref=e218]: Owned domain footprint
+              - generic [ref=e219]: 1 domain tracked
+            - generic [ref=e221]:
+              - code [ref=e222]: amazon.com
+              - generic [ref=e223]: Apex
+              - generic [ref=e224]: backfill
+            - generic [ref=e225]: + 3 brand-safe domains (excluded from impersonation matching)
+          - generic [ref=e226]:
+            - generic [ref=e227]:
+              - generic [ref=e228]: Who you are
+              - generic [ref=e229]: via sec edgar
+            - generic [ref=e230]:
+              - generic [ref=e231]:
+                - generic [ref=e232]: Revenue
+                - generic [ref=e233]: 1B+
+              - generic [ref=e234]:
+                - generic [ref=e235]: Employees
+                - generic [ref=e236]: —
+              - generic [ref=e237]:
+                - generic [ref=e238]: Industry
+                - generic [ref=e239]: ecommerce
+              - generic [ref=e240]:
+                - generic [ref=e241]: Public
+                - generic [ref=e242]: AMZN
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - generic [ref=e246]:
+                - img [ref=e247]
+                - generic [ref=e249]: Email Security
+              - generic [ref=e250]:
+                - generic [ref=e252]:
+                  - generic [ref=e255]: 3 of 6 protocols passing
+                  - generic [ref=e258]:
+                    - generic [ref=e259]: SPF
+                    - generic [ref=e260]: PASS
+                    - generic [ref=e261]: "-all"
+                  - generic [ref=e262]:
+                    - generic [ref=e263]: DKIM
+                    - generic [ref=e264]: PASS
+                    - generic [ref=e265]: 2 selectors
+                  - generic [ref=e266]:
+                    - generic [ref=e267]: DMARC
+                    - generic [ref=e268]: NONE
+                    - generic [ref=e269]: p=none
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: MX
+                    - generic [ref=e272]: FOUND
+                  - generic [ref=e273]:
+                    - generic [ref=e274]:
+                      - generic [ref=e277]: BIMI
+                      - generic [ref=e279]: MISSING
+                    - generic [ref=e280]:
+                      - generic [ref=e283]: VMC
+                      - generic [ref=e285]: NONE
+                  - generic [ref=e286]:
+                    - generic [ref=e287]: BIMI/VMC sub-grade
+                    - generic [ref=e289]: F
+                  - paragraph [ref=e291]: → Implement DMARC enforcement to protect email
+                  - button "View DNS Details →" [ref=e292] [cursor=pointer]
+                - generic [ref=e294]:
+                  - generic [ref=e295]: B
+                  - generic [ref=e296]: GRADE
+            - generic [ref=e297]:
+              - generic [ref=e298]: Confirmed presence
+              - generic [ref=e299]:
+                - generic [ref=e300] [cursor=pointer]:
+                  - generic [ref=e301]: Official social profiles
+                  - generic [ref=e302]: "0"
+                  - generic [ref=e303]: None classified yet
+                - generic [ref=e304] [cursor=pointer]:
+                  - generic [ref=e305]: Official app listings
+                  - generic [ref=e306]: "0"
+                  - generic [ref=e307]: No store presence detected

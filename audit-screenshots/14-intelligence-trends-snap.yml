@@ -1,0 +1,342 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e7]
+          - generic [ref=e12]:
+            - generic [ref=e13]: AVERROW
+            - generic [ref=e14]: THREAT INTERCEPTOR
+        - 'button "Theme: auto (follows OS) — click for dark" [ref=e15] [cursor=pointer]':
+          - img [ref=e16]
+      - navigation [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e21]: INTELLIGENCE
+          - link "Home" [ref=e23] [cursor=pointer]:
+            - /url: /v2
+            - img [ref=e24]
+            - generic [ref=e29]: Home
+          - link "Observatory" [ref=e30] [cursor=pointer]:
+            - /url: /v2/observatory-v3
+            - img [ref=e31]
+            - generic [ref=e34]: Observatory
+          - link "Brands" [ref=e35] [cursor=pointer]:
+            - /url: /v2/brands
+            - img [ref=e36]
+            - generic [ref=e38]: Brands
+          - link "Threats" [ref=e39] [cursor=pointer]:
+            - /url: /v2/threats
+            - img [ref=e40]
+            - generic [ref=e42]: Threats
+          - link "Apps" [ref=e43] [cursor=pointer]:
+            - /url: /v2/apps
+            - img [ref=e44]
+            - generic [ref=e46]: Apps
+          - link "Dark Web" [ref=e47] [cursor=pointer]:
+            - /url: /v2/dark-web
+            - img [ref=e48]
+            - generic [ref=e53]: Dark Web
+          - link "Trademarks" [ref=e54] [cursor=pointer]:
+            - /url: /v2/trademarks
+            - img [ref=e55]
+            - generic [ref=e58]: Trademarks
+          - link "Providers" [ref=e59] [cursor=pointer]:
+            - /url: /v2/providers
+            - img [ref=e60]
+            - generic [ref=e63]: Providers
+          - link "Campaigns" [ref=e64] [cursor=pointer]:
+            - /url: /v2/campaigns
+            - img [ref=e65]
+            - generic [ref=e67]: Campaigns
+          - link "Threat Actors" [ref=e68] [cursor=pointer]:
+            - /url: /v2/threat-actors
+            - img [ref=e69]
+            - generic [ref=e71]: Threat Actors
+          - link "Intelligence" [ref=e72] [cursor=pointer]:
+            - /url: /v2/trends
+            - img [ref=e73]
+            - generic [ref=e76]: Intelligence
+        - generic [ref=e77]:
+          - generic [ref=e79]: RESPONSE
+          - link "Incidents" [ref=e81] [cursor=pointer]:
+            - /url: /v2/admin/incidents
+            - img [ref=e82]
+            - generic [ref=e87]: Incidents
+          - link "Takedowns" [ref=e88] [cursor=pointer]:
+            - /url: /v2/admin/takedowns
+            - img [ref=e89]
+            - generic [ref=e95]: Takedowns
+          - link "Signals" [ref=e96] [cursor=pointer]:
+            - /url: /v2/alerts
+            - img [ref=e97]
+            - generic [ref=e104]: Signals
+          - link "Spam Trap" [ref=e105] [cursor=pointer]:
+            - /url: /v2/admin/spam-trap
+            - img [ref=e106]
+            - generic [ref=e109]: Spam Trap
+          - link "Abuse Mailbox" [ref=e110] [cursor=pointer]:
+            - /url: /v2/admin/abuse-mailbox
+            - img [ref=e111]
+            - generic [ref=e114]: Abuse Mailbox
+          - link "Leads" [ref=e115] [cursor=pointer]:
+            - /url: /v2/leads
+            - img [ref=e116]
+            - generic [ref=e120]: Leads
+        - generic [ref=e121]:
+          - generic [ref=e123]: PLATFORM
+          - link "Agents" [ref=e125] [cursor=pointer]:
+            - /url: /v2/agents
+            - img [ref=e126]
+            - generic [ref=e129]: Agents
+          - link "Feeds" [ref=e130] [cursor=pointer]:
+            - /url: /v2/feeds
+            - img [ref=e131]
+            - generic [ref=e135]: Feeds
+          - link "Metrics" [ref=e136] [cursor=pointer]:
+            - /url: /v2/admin/metrics
+            - img [ref=e137]
+            - generic [ref=e139]: Metrics
+          - link "Dashboard" [ref=e140] [cursor=pointer]:
+            - /url: /v2/admin
+            - img [ref=e141]
+            - generic [ref=e146]: Dashboard
+          - link "Team" [ref=e147] [cursor=pointer]:
+            - /url: /v2/admin/users?tab=members
+            - img [ref=e148]
+            - generic [ref=e153]: Team
+          - link "Customers" [ref=e154] [cursor=pointer]:
+            - /url: /v2/admin/customers
+            - img [ref=e155]
+            - generic [ref=e159]: Customers
+          - link "Pricing" [ref=e160] [cursor=pointer]:
+            - /url: /v2/admin/pricing
+            - img [ref=e161]
+            - generic [ref=e163]: Pricing
+          - link "Audit Log" [ref=e164] [cursor=pointer]:
+            - /url: /v2/admin/audit
+            - img [ref=e165]
+            - generic [ref=e168]: Audit Log
+          - link "Attribution Backlog" [ref=e169] [cursor=pointer]:
+            - /url: /v2/admin/agents/attribution-backlog
+            - img [ref=e170]
+            - generic [ref=e174]: Attribution Backlog
+      - generic [ref=e175]:
+        - generic [ref=e176]: service-mcp@averrow.local
+        - button "LOGOUT" [ref=e177] [cursor=pointer]
+    - generic [ref=e178]:
+      - banner [ref=e179]:
+        - generic [ref=e181]: Threat Interceptor
+        - generic [ref=e182]:
+          - button "Notifications" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - generic [ref=e195]: 99+
+          - button "User menu" [ref=e189] [cursor=pointer]: MA
+      - main [ref=e190]:
+        - generic [ref=e196]:
+          - generic [ref=e197]:
+            - heading "Intelligence" [level=1] [ref=e198]
+            - generic [ref=e199]:
+              - button "7D" [ref=e200] [cursor=pointer]
+              - button "30D" [ref=e201] [cursor=pointer]
+              - button "90D" [ref=e202] [cursor=pointer]
+          - generic [ref=e203]:
+            - generic [ref=e204]:
+              - generic [ref=e205]:
+                - heading "Intelligence Summary" [level=2] [ref=e206]
+                - paragraph [ref=e207]: 30D period
+              - generic [ref=e210]: Powered by Observer
+            - paragraph [ref=e211]: "Campaign: GitHub Pages Phishing Campaign Network — Active campaign with 8806 associated threats. Infrastructure analysis suggests coordinated targeting activity."
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - paragraph [ref=e214]: 159,729
+                - paragraph [ref=e215]: Total Threats
+              - generic [ref=e216]:
+                - paragraph [ref=e217]: ↑81%
+                - paragraph [ref=e218]: Period Trend
+              - generic [ref=e219]:
+                - paragraph [ref=e220]: Malware
+                - paragraph [ref=e221]: Top Threat Type
+              - generic [ref=e222]:
+                - paragraph [ref=e223]: Data
+                - paragraph [ref=e224]: Most Targeted Brand
+          - generic [ref=e225]:
+            - generic [ref=e226]: Observer Intelligence Briefings
+            - generic [ref=e229]: Powered by Observer
+            - generic [ref=e230]:
+              - 'button "Campaign: GitHub Pages Phishing Campaign Network May 28, 04:07 AM ▸ View context" [ref=e231] [cursor=pointer]':
+                - generic [ref=e234]:
+                  - paragraph [ref=e235]: "Campaign: GitHub Pages Phishing Campaign Network"
+                  - generic [ref=e236]:
+                    - generic [ref=e237]: May 28, 04:07 AM
+                    - generic [ref=e238]: ▸ View context
+              - 'button "Campaign: Apple Typosquatting Phishing Campaign May 28, 04:07 AM ▸ View context" [ref=e239] [cursor=pointer]':
+                - generic [ref=e242]:
+                  - paragraph [ref=e243]: "Campaign: Apple Typosquatting Phishing Campaign"
+                  - generic [ref=e244]:
+                    - generic [ref=e245]: May 28, 04:07 AM
+                    - generic [ref=e246]: ▸ View context
+              - button "Enrichment Validation May 28, 04:07 AM ▸ View context" [ref=e247] [cursor=pointer]:
+                - generic [ref=e250]:
+                  - paragraph [ref=e251]: Enrichment Validation
+                  - generic [ref=e252]:
+                    - generic [ref=e253]: May 28, 04:07 AM
+                    - generic [ref=e254]: ▸ View context
+              - button "Threat Narratives May 28, 04:07 AM ▸ View context" [ref=e255] [cursor=pointer]:
+                - generic [ref=e258]:
+                  - paragraph [ref=e259]: Threat Narratives
+                  - generic [ref=e260]:
+                    - generic [ref=e261]: May 28, 04:07 AM
+                    - generic [ref=e262]: ▸ View context
+              - button "Social Impersonation Activity May 28, 04:07 AM ▸ View context" [ref=e263] [cursor=pointer]:
+                - generic [ref=e266]:
+                  - paragraph [ref=e267]: Social Impersonation Activity
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: May 28, 04:07 AM
+                    - generic [ref=e270]: ▸ View context
+              - button "Email Security Posture May 28, 04:07 AM ▸ View context" [ref=e271] [cursor=pointer]:
+                - generic [ref=e274]:
+                  - paragraph [ref=e275]: Email Security Posture
+                  - generic [ref=e276]:
+                    - generic [ref=e277]: May 28, 04:07 AM
+                    - generic [ref=e278]: ▸ View context
+          - generic [ref=e279]:
+            - generic [ref=e280]: Threat Volume
+            - application [ref=e284]:
+              - generic [ref=e310]:
+                - generic [ref=e311]:
+                  - generic [ref=e313]: 2026-04-29
+                  - generic [ref=e315]: 2026-05-03
+                  - generic [ref=e317]: 2026-05-06
+                  - generic [ref=e319]: 2026-05-09
+                  - generic [ref=e321]: 2026-05-12
+                  - generic [ref=e323]: 2026-05-15
+                  - generic [ref=e325]: 2026-05-18
+                  - generic [ref=e327]: 2026-05-21
+                  - generic [ref=e329]: 2026-05-24
+                  - generic [ref=e331]: 2026-05-28
+                - generic [ref=e332]:
+                  - generic [ref=e334]: "0"
+                  - generic [ref=e336]: "5500"
+                  - generic [ref=e338]: "11000"
+                  - generic [ref=e340]: "16500"
+                  - generic [ref=e342]: "22000"
+          - generic [ref=e343]:
+            - generic [ref=e345]:
+              - generic [ref=e346]: Brand Risk Momentum
+              - table [ref=e348]:
+                - rowgroup [ref=e349]:
+                  - row "Brand This Week Last Week Change%" [ref=e350]:
+                    - columnheader "Brand" [ref=e351]
+                    - columnheader "This Week" [ref=e352]
+                    - columnheader "Last Week" [ref=e353]
+                    - columnheader "Change%" [ref=e354]
+                - rowgroup [ref=e355]:
+                  - row "Data 14,368 18,329 -22%" [ref=e356] [cursor=pointer]:
+                    - cell "Data" [ref=e357]
+                    - cell "14,368" [ref=e358]
+                    - cell "18,329" [ref=e359]
+                    - cell "-22%" [ref=e360]
+                  - row "Login 7,084 8,127 -13%" [ref=e361] [cursor=pointer]:
+                    - cell "Login" [ref=e362]
+                    - cell "7,084" [ref=e363]
+                    - cell "8,127" [ref=e364]
+                    - cell "-13%" [ref=e365]
+                  - row "Word 3,297 5,680 -42%" [ref=e366] [cursor=pointer]:
+                    - cell "Word" [ref=e367]
+                    - cell "3,297" [ref=e368]
+                    - cell "5,680" [ref=e369]
+                    - cell "-42%" [ref=e370]
+                  - row "Httpwg 1,054 1,159 -9%" [ref=e371] [cursor=pointer]:
+                    - cell "Httpwg" [ref=e372]
+                    - cell "1,054" [ref=e373]
+                    - cell "1,159" [ref=e374]
+                    - cell "-9%" [ref=e375]
+                  - row "Ashs 778 3,080 -75%" [ref=e376] [cursor=pointer]:
+                    - cell "Ashs" [ref=e377]
+                    - cell "778" [ref=e378]
+                    - cell "3,080" [ref=e379]
+                    - cell "-75%" [ref=e380]
+                  - row "Github 623 556 +12%" [ref=e381] [cursor=pointer]:
+                    - cell "Github" [ref=e382]
+                    - cell "623" [ref=e383]
+                    - cell "556" [ref=e384]
+                    - cell "+12%" [ref=e385]
+                  - row "Digital 531 1,517 -65%" [ref=e386] [cursor=pointer]:
+                    - cell "Digital" [ref=e387]
+                    - cell "531" [ref=e388]
+                    - cell "1,517" [ref=e389]
+                    - cell "-65%" [ref=e390]
+                  - row "JD.com 457 372 +23%" [ref=e391] [cursor=pointer]:
+                    - cell "JD.com" [ref=e392]
+                    - cell "457" [ref=e393]
+                    - cell "372" [ref=e394]
+                    - cell "+23%" [ref=e395]
+                  - row "Mobile 325 601 -46%" [ref=e396] [cursor=pointer]:
+                    - cell "Mobile" [ref=e397]
+                    - cell "325" [ref=e398]
+                    - cell "601" [ref=e399]
+                    - cell "-46%" [ref=e400]
+                  - row "1e100 323 360 -10%" [ref=e401] [cursor=pointer]:
+                    - cell "1e100" [ref=e402]
+                    - cell "323" [ref=e403]
+                    - cell "360" [ref=e404]
+                    - cell "-10%" [ref=e405]
+            - generic [ref=e407]:
+              - generic [ref=e408]:
+                - generic [ref=e409]: Provider Momentum
+                - generic [ref=e410]:
+                  - generic [ref=e411]:
+                    - generic [ref=e412]: CHINANET-BACKBONE
+                    - generic [ref=e415]: 2,611
+                  - generic [ref=e416]:
+                    - generic [ref=e417]: CHINA UNICOM China169 Backbone
+                    - generic [ref=e420]: 1,889
+                  - generic [ref=e421]:
+                    - generic [ref=e422]: Cloudflare, Inc.
+                    - generic [ref=e425]: 1,769
+                  - generic [ref=e426]:
+                    - generic [ref=e427]: China Education and Research Network Center
+                    - generic [ref=e430]: "736"
+                  - generic [ref=e431]:
+                    - generic [ref=e432]: Amazon.com, Inc.
+                    - generic [ref=e435]: "532"
+                  - generic [ref=e436]:
+                    - generic [ref=e437]: Alibaba (US) Technology Co., Ltd.
+                    - generic [ref=e440]: "469"
+                  - generic [ref=e441]:
+                    - generic [ref=e442]: Offshore LC
+                    - generic [ref=e445]: "466"
+                  - generic [ref=e446]:
+                    - generic [ref=e447]: DigitalOcean
+                    - generic [ref=e450]: "449"
+              - generic [ref=e451]:
+                - generic [ref=e452]: NEXUS Active Clusters
+                - generic [ref=e455]: Powered by Nexus
+                - paragraph [ref=e456]: No active clusters
+          - generic [ref=e457]:
+            - generic [ref=e458]: Threat Type Totals
+            - application [ref=e462]:
+              - generic [ref=e485]:
+                - generic [ref=e486]:
+                  - generic [ref=e488]: "0"
+                  - generic [ref=e490]: "25000"
+                  - generic [ref=e492]: "50000"
+                  - generic [ref=e494]: "75000"
+                  - generic [ref=e496]: "100000"
+                - generic [ref=e497]:
+                  - generic [ref=e499]: MalwareDistribution
+                  - generic [ref=e501]: Phishing
+                  - generic [ref=e503]: Typosquatting
+                  - generic [ref=e505]: C2
+                  - generic [ref=e507]: Malicious IP
+                  - generic [ref=e509]: CredentialHarvesting
+  - generic [ref=e510]: Malware Distribution
+  - dialog "Sign in faster next time?" [ref=e511]:
+    - generic [ref=e512]:
+      - img [ref=e514]
+      - heading "Sign in faster next time?" [level=2] [ref=e517]
+      - paragraph [ref=e518]: Set up biometric sign-in (Touch ID, Face ID, Windows Hello, or your phone's fingerprint) for one-tap access. No password required. Your biometric stays on this device — only a public key is shared with Averrow.
+      - generic [ref=e519]:
+        - button "Set up biometric" [ref=e520] [cursor=pointer]
+        - button "Maybe later" [ref=e521] [cursor=pointer]
+      - paragraph [ref=e522]: You can add or remove passkeys anytime from your Profile.
