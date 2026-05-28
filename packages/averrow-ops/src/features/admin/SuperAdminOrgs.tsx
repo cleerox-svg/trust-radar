@@ -172,13 +172,16 @@ function OrgListRow({ org, onClick }: { org: AdminOrg; onClick: () => void }) {
 // ORG DETAIL VIEW
 // ═══════════════════════════════════════════════════════════════
 
+// WS-B cull: dropped 'integrations' + 'api-keys' tabs. Both were
+// pointer-text placeholders that just said "managed from the org's own
+// dashboard" — the link they offered (/v2/admin/users) was wrong and
+// the tabs gave no actual functionality. Org admins manage both
+// surfaces from their own dashboard already (see features/settings).
 const DETAIL_TABS = [
   { id: 'members', label: 'Members' },
   { id: 'brands', label: 'Brands' },
   { id: 'modules', label: 'Modules' },
   { id: 'pricing', label: 'Pricing' },
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'api-keys', label: 'API Keys' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -231,8 +234,6 @@ function OrgDetailView({ orgId, onBack }: { orgId: string; onBack: () => void })
       {activeTab === 'brands' && <DetailBrandsTab orgId={orgId} brands={org.brands ?? []} maxBrands={org.max_brands} />}
       {activeTab === 'modules' && <DetailModulesTab orgId={orgId} />}
       {activeTab === 'pricing' && <DetailPricingTab orgId={orgId} />}
-      {activeTab === 'integrations' && <DetailIntegrationsTab orgId={orgId} />}
-      {activeTab === 'api-keys' && <DetailApiKeysTab orgId={orgId} />}
       {activeTab === 'settings' && <DetailSettingsTab orgId={orgId} org={org} />}
     </div>
   );
@@ -429,36 +430,6 @@ function DetailBrandsTab({ orgId, brands, maxBrands }: {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Integrations Tab (placeholder - uses existing tenant endpoints) ──
-
-function DetailIntegrationsTab({ orgId }: { orgId: string }) {
-  return (
-    <div className="space-y-4">
-      <SectionLabel>Integrations</SectionLabel>
-      <p className="text-[11px] text-white/55">
-        Integration configuration is managed from the organization's own dashboard.
-        Assigned integrations are created during org setup and can be configured by the org admin.
-      </p>
-      <Button variant="secondary" size="sm" onClick={() => window.open(`/v2/admin/users`, '_blank')}>
-        Open Org Dashboard
-      </Button>
-    </div>
-  );
-}
-
-// ─── API Keys Tab (placeholder) ─────────────────────────────
-
-function DetailApiKeysTab({ orgId }: { orgId: string }) {
-  return (
-    <div className="space-y-4">
-      <SectionLabel>API Keys</SectionLabel>
-      <p className="text-[11px] text-white/55">
-        API keys are managed from the organization's own dashboard by org admins.
-      </p>
     </div>
   );
 }
