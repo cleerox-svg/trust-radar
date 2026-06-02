@@ -658,6 +658,8 @@ export function parseCronIntervalMs(cron: string): number {
 
   const minute = parts[0] ?? "*";
   const hour = parts[1] ?? "*";
+  const dayOfMonth = parts[2] ?? "*";
+  const dayOfWeek = parts[4] ?? "*";
 
   // "*/N * * * *" — every N minutes
   if (minute.startsWith("*/")) {
@@ -672,6 +674,19 @@ export function parseCronIntervalMs(cron: string): number {
   // "0 * * * *" — hourly
   if (minute === "0" && hour === "*") {
     return 60 * 60 * 1000;
+  }
+
+  // "M H * * D" — specific day-of-week → weekly. MUST be checked before
+  // the daily branch below: a weekly cron like "0 0 * * 0" (Sundays) has
+  // numeric minute+hour and would otherwise fall through to the 24h daily
+  // interval, silently running 7× too often. This bug ran the
+  // disposable_email reference load (intended weekly) every single day,
+  // truncating + re-inserting ~5,600 rows daily — a 7× write overrun.
+  if (
+    /^\d+$/.test(minute) && /^\d+$/.test(hour) &&
+    dayOfMonth === "*" && /^\d+$/.test(dayOfWeek)
+  ) {
+    return 7 * 24 * 60 * 60 * 1000;
   }
 
   // "0 0 * * *" — daily (specific hour, no wildcard)

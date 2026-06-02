@@ -1393,13 +1393,11 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       }
     }
 
-    // Sync provider counts after backfill
+    // Sync provider counts after backfill (change-guarded shared helper —
+    // only writes providers whose counts actually moved).
     try {
-      await env.DB.prepare(`
-        UPDATE hosting_providers SET
-          active_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id AND threats.status = 'active'),
-          total_threat_count = (SELECT COUNT(*) FROM threats WHERE threats.hosting_provider_id = hosting_providers.id)
-      `).run();
+      const { syncHostingProviderCounts } = await import("../lib/provider-counts");
+      await syncHostingProviderCounts(env);
     } catch { /* non-critical */ }
 
     const remaining = Math.max(0, totalPending - totalEnriched - totalSkippedPrivate - totalSkippedNoResult);
