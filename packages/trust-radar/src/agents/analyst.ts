@@ -129,6 +129,21 @@ export const analystAgent: AgentModule = {
     const { env, runId } = ctx;
     const callCtx = { agentId: "analyst", runId };
 
+    // Per-run wall-clock budget. Analyst's reaper ceiling is
+    // stallThresholdMinutes(120) + REAP_BUFFER(30) = 150 min. The
+    // tail-end phases (5: subdomain spoof over LIMIT 500 + nested brand
+    // loop; 6: numbered-variant scan doing sequential live DNS-over-HTTPS
+    // fetches with 3s timeouts) are data-latency-bound and occasionally
+    // ran a single tick past 150 min → reaped (8/42 in the 06-04
+    // diagnostics). This caps a run at 10 min (15× margin under the
+    // ceiling), breaking out of those loops and leaving the remainder for
+    // next hour's tick. Safe because both phases write incrementally and
+    // analyst is dispatched inline-await every hour (orchestrator), so
+    // leftover backlog drains on subsequent ticks. Same pattern as
+    // feeds/greynoise.ts + feeds/seclookup.ts.
+    const BUDGET_MS = 600_000;
+    const runStart = Date.now();
+
     const apiKey = env.ANTHROPIC_API_KEY || env.LRX_API_KEY;
     const keySource = env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : env.LRX_API_KEY ? "LRX_API_KEY" : "NONE";
 
@@ -948,6 +963,12 @@ export const analystAgent: AgentModule = {
       `).all<{ id: string; malicious_domain: string; country_code: string | null }>();
 
       for (const threat of uncheckedThreats.results) {
+        // Wall-clock guard — leave the rest of the subdomain-spoof backlog
+        // for the next hourly run rather than risk the 150-min reap.
+        if (Date.now() - runStart > BUDGET_MS) {
+          console.warn(`[analyst] budget reached in phase 5 (subdomain spoof) — ${subdomainSpoofCount} matched, deferring remainder`);
+          break;
+        }
         const domain = threat.malicious_domain.toLowerCase();
         const apex = getApexDomain(domain);
         const subdomain = getSubdomain(domain);
@@ -1045,6 +1066,13 @@ export const analystAgent: AgentModule = {
       }>();
 
       for (const threat of numberedThreats.results) {
+        // Wall-clock guard — this loop's per-variant sequential DNS-over-HTTPS
+        // fetches (3s timeout each) are the dominant tail-latency sink; bail
+        // out and defer the rest rather than risk the 150-min reap.
+        if (Date.now() - runStart > BUDGET_MS) {
+          console.warn(`[analyst] budget reached in phase 6 (numbered variants) — ${numberedVariantsFound} created, deferring remainder`);
+          break;
+        }
         const pattern = extractNumberedPattern(threat.malicious_domain);
         if (!pattern) continue;
 
