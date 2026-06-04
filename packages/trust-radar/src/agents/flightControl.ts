@@ -40,7 +40,7 @@ import {
   renderPlatformFeedAtRisk,
   renderPlatformProviderEscalation,
 } from "../lib/platform-templates";
-import { getBudgetState, DAILY_BUDGET, WARN_THRESHOLD, fetchBillingCycleMetrics, WRITES_INCLUDED_QUOTA } from "../lib/d1-budget";
+import { getBudgetState, DAILY_BUDGET, WARN_THRESHOLD, fetchBillingCycleMetrics, fetchRecentWindowMetrics, WRITES_INCLUDED_QUOTA } from "../lib/d1-budget";
 import { getLastDispatchAt, getCooldownUntil } from "../lib/workflow-dispatch";
 import { getWorkflowAgentStats } from "../lib/workflow-agent-stats";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
@@ -1258,9 +1258,32 @@ export const flightControlAgent: AgentModule = {
     const PHASE2_REVIEW_DATE_UTC = '2026-05-27';
     if (todayUtc >= PHASE2_REVIEW_DATE_UTC) {
       try {
-        const cycle = await fetchBillingCycleMetrics(env);
-        if (!cycle.setup_required && !cycle.error
-            && cycle.cycle_projection_rows_written > WRITES_INCLUDED_QUOTA) {
+        // Blended gate: fire ONLY when BOTH the cycle-to-date projection AND
+        // a trailing-7-day projection exceed the 50M quota. The cycle-to-date
+        // number divides cumulative cycle writes by % elapsed, so a mid-cycle
+        // write-rate drop (e.g. the PR-1460 hosting_providers/brand-summary
+        // change-guards that took the real rate to ~10M/mo) stays inflated for
+        // the rest of the cycle and would keep this nag firing falsely. Gating
+        // on the recent-window rate too lets the alert self-resolve within ~7
+        // days of the rate drop without suppressing the genuine signal. This
+        // is a pure operator nag — it does NOT drive any write throttle (the
+        // only real budget protection is the daily-READ skip in navigator).
+        const [cycle, recent] = await Promise.all([
+          fetchBillingCycleMetrics(env),
+          fetchRecentWindowMetrics(env, 168), // trailing 7 days
+        ]);
+
+        const recentProjectionWrites =
+          !recent.setup_required && !recent.error && recent.window_hours > 0
+            ? Math.round((recent.rows_written / recent.window_hours) * 24 * cycle.cycle.days_total)
+            : null;
+
+        const cycleOver = !cycle.setup_required && !cycle.error
+          && cycle.cycle_projection_rows_written > WRITES_INCLUDED_QUOTA;
+        const recentOver = recentProjectionWrites != null
+          && recentProjectionWrites > WRITES_INCLUDED_QUOTA;
+
+        if (cycleOver && recentOver) {
           await emitPlatformNotification(env, 'platform_d1_writes_phase2_review',
             renderPlatformD1WritesPhase2Review({
               cycle_projection_rows_written: cycle.cycle_projection_rows_written,
@@ -1378,6 +1401,33 @@ export const flightControlAgent: AgentModule = {
               stale_days: lastSuccess.age_days,
             }),
           );
+
+          // Self-heal: the refresh has only ONE scheduled attempt per week
+          // (Sunday 02:00 cron). A single missed tick — exactly what happened
+          // 2026-05-31 (no attempt row was even logged) — leaves the DB stale
+          // for a full week with no retry. Re-dispatch here so staleness
+          // recovers within the hour instead. A non-force refresh no-ops if
+          // MaxMind is unchanged (and still stamps a fresh success row,
+          // clearing the alert); the agent has its own running-workflow guard
+          // + MaxMind 429 cooldown, so this is safe to call. A 6h KV cooldown
+          // stops FC from re-dispatching every hourly tick while a refresh is
+          // in flight or MaxMind is rate-limiting.
+          try {
+            const SELFHEAL_COOLDOWN_KEY = 'fc:geoip_selfheal_cooldown';
+            const onCooldown = env.CACHE ? await env.CACHE.get(SELFHEAL_COOLDOWN_KEY) : null;
+            if (!onCooldown) {
+              if (env.CACHE) {
+                await env.CACHE.put(SELFHEAL_COOLDOWN_KEY, new Date().toISOString(), { expirationTtl: 6 * 3600 });
+              }
+              const { geoipRefreshAgent } = await import('./geoip-refresh');
+              const { executeAgent } = await import('../lib/agentRunner');
+              await executeAgent(env, geoipRefreshAgent, { trigger: 'fc_staleness_selfheal' }, 'cron', 'event')
+                .catch((e) => console.warn('[flight-control] geoip self-heal dispatch failed:', e));
+              console.log(`[flight-control] geoip stale ${lastSuccess.age_days}d — dispatched self-heal refresh`);
+            }
+          } catch (e) {
+            console.warn('[flight-control] geoip self-heal failed:', e);
+          }
         }
       } catch { /* binding/table missing — same defensive pattern as above */ }
     }
