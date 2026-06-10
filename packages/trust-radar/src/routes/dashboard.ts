@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, requireAdmin, isAuthContext, getOrgScope } from "../middleware/auth";
+import { requireAuth, requireStaff, isAuthContext, getOrgScope } from "../middleware/auth";
 import { handleStats, handleSourceMix, handleQualityTrend } from "../handlers/stats";
 import { handleHeatmap } from "../handlers/heatmap";
 import {
@@ -40,26 +40,26 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
 
   // ─── Dashboard v2 (Observatory) ───────────────────────────────────
   router.get("/api/dashboard/overview", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     const scope = await getOrgScope(ctx, env.DB);
     return handleDashboardOverview(request, env, scope);
   });
   router.get("/api/dashboard/top-brands", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     const scope = await getOrgScope(ctx, env.DB);
     return handleDashboardTopBrands(request, env, scope);
   });
   router.get("/api/dashboard/providers", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleDashboardProviders(request, env);
   });
 
   // ─── Brand Admin Dashboard (scoped) ───────────────────────────────
   router.get("/api/dashboard/brand-admin", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     const scope = await getOrgScope(ctx, env.DB);
     if (!scope) {
@@ -83,45 +83,51 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
   // ─── Signals ──────────────────────────────────────────────────────
   router.get("/api/signals", (request: Request, env: Env) => handleSignals(request, env));
   router.post("/api/signals", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleIngestSignal(request, env, ctx.userId);
   });
 
   // ─── Alerts ───────────────────────────────────────────────────────
+  // Staff-only surface (H1, 2026-06-10 audit). Tenant alerts live at
+  // /api/orgs/:orgId/alerts (handlers/tenantData.ts) and are unaffected.
   router.get("/api/alerts/stats", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAlertStats(request, env, ctx.userId);
   });
   router.get("/api/alerts/triage-summary", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAlertTriageSummary(request, env, ctx.userId);
   });
+  // H2: by-id read/update thread the caller's userId + org scope so the
+  // handlers apply the same ownership predicates as handleListAlerts.
   router.get("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleGetAlert(request, env, request.params["id"] ?? "");
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleGetAlert(request, env, request.params["id"] ?? "", ctx.userId, scope);
   });
   router.patch("/api/alerts/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleUpdateAlert(request, env, request.params["id"] ?? "");
+    const scope = await getOrgScope(ctx, env.DB);
+    return handleUpdateAlert(request, env, request.params["id"] ?? "", ctx.userId, scope);
   });
   router.get("/api/alerts", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     const scope = await getOrgScope(ctx, env.DB);
     return handleListAlerts(request, env, ctx.userId, scope);
   });
   router.post("/api/alerts/bulk-acknowledge", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBulkAcknowledge(request, env, ctx.userId);
   });
   router.post("/api/alerts/bulk-takedown", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleBulkTakedown(request, env, ctx.userId);
   });
@@ -237,66 +243,66 @@ export function registerDashboardRoutes(router: RouterType<IRequest>): void {
 
   // ─── Insights ─────────────────────────────────────────────────────
   router.get("/api/insights/latest", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleLatestInsights(request, env);
   });
 
   // ─── Trends ───────────────────────────────────────────────────────
   router.get("/api/trends/volume", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendVolume(request, env);
   });
   router.get("/api/trends/brands", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendBrands(request, env);
   });
   router.get("/api/trends/providers", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendProviders(request, env);
   });
   router.get("/api/trends/tlds", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendTLDs(request, env);
   });
   router.get("/api/trends/types", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendTypes(request, env);
   });
   router.get("/api/trends/compare", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendCompare(request, env);
   });
 
   // ─── Trend Intelligence ───────────────────────────────────────────
   router.get("/api/trends/intelligence", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendIntelligence(request, env);
   });
   router.get("/api/trends/threat-volume", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendThreatVolume(request, env);
   });
   router.get("/api/trends/brand-momentum", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendBrandMomentum(request, env);
   });
   router.get("/api/trends/provider-momentum", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendProviderMomentum(request, env);
   });
   router.get("/api/trends/nexus-active", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireStaff(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleTrendNexusActive(request, env);
   });

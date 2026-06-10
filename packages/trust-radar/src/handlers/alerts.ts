@@ -130,16 +130,43 @@ export async function handleListAlerts(request: Request, env: Env, userId: strin
   }
 }
 
+/**
+ * Ownership predicate shared by the by-id handlers (H2, 2026-06-10
+ * audit). Mirrors handleListAlerts: alerts are owned per-user
+ * (a.user_id = ?) and, for org-scoped callers, restricted to the
+ * org's brand_ids. Returns null when the scope's brand list is empty
+ * (caller should 404 — same outcome as the list returning []).
+ */
+function buildAlertOwnershipWhere(
+  userId: string,
+  scope?: OrgScope | null,
+): { where: string; params: unknown[] } | null {
+  let where = `a.user_id = ?`;
+  const params: unknown[] = [userId];
+  if (scope) {
+    if (scope.brand_ids.length === 0) return null;
+    const placeholders = scope.brand_ids.map(() => "?").join(", ");
+    where += ` AND a.brand_id IN (${placeholders})`;
+    params.push(...scope.brand_ids);
+  }
+  return { where, params };
+}
+
 // GET /api/alerts/:id
-export async function handleGetAlert(request: Request, env: Env, alertId: string): Promise<Response> {
+export async function handleGetAlert(request: Request, env: Env, alertId: string, userId: string, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    const ownership = buildAlertOwnershipWhere(userId, scope);
+    if (!ownership) {
+      return json({ success: false, error: "Alert not found" }, 404, origin);
+    }
+
     const row = await env.DB.prepare(
       `SELECT a.*, b.name as brand_name, b.canonical_domain as brand_domain
        FROM alerts a
        LEFT JOIN brands b ON b.id = a.brand_id
-       WHERE a.id = ?`
-    ).bind(alertId).first();
+       WHERE a.id = ? AND ${ownership.where}`
+    ).bind(alertId, ...ownership.params).first();
 
     if (!row) {
       return json({ success: false, error: "Alert not found" }, 404, origin);
@@ -153,7 +180,7 @@ export async function handleGetAlert(request: Request, env: Env, alertId: string
 }
 
 // PATCH /api/alerts/:id
-export async function handleUpdateAlert(request: Request, env: Env, alertId: string): Promise<Response> {
+export async function handleUpdateAlert(request: Request, env: Env, alertId: string, userId: string, scope?: OrgScope | null): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     const body = await request.json() as { status?: AlertStatus; notes?: string };
@@ -165,6 +192,19 @@ export async function handleUpdateAlert(request: Request, env: Env, alertId: str
     const validStatuses: AlertStatus[] = ['new', 'acknowledged', 'investigating', 'resolved', 'false_positive'];
     if (!validStatuses.includes(body.status)) {
       return json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` }, 400, origin);
+    }
+
+    // H2: verify the caller owns the alert (same predicate as the list)
+    // before mutating. updateAlertStatus itself stays id-keyed.
+    const ownership = buildAlertOwnershipWhere(userId, scope);
+    if (!ownership) {
+      return json({ success: false, error: "Alert not found" }, 404, origin);
+    }
+    const owned = await env.DB.prepare(
+      `SELECT a.id FROM alerts a WHERE a.id = ? AND ${ownership.where}`
+    ).bind(alertId, ...ownership.params).first<{ id: string }>();
+    if (!owned) {
+      return json({ success: false, error: "Alert not found" }, 404, origin);
     }
 
     const updated = await updateAlertStatus(env.DB, alertId, body.status, body.notes);

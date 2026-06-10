@@ -57,47 +57,47 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/dashboard/overview` | User | Dashboard overview stats |
-| GET | `/api/dashboard/top-brands` | User | Top targeted brands |
-| GET | `/api/dashboard/providers` | User | Provider summary |
+| GET | `/api/dashboard/overview` | Staff | Dashboard overview stats |
+| GET | `/api/dashboard/top-brands` | Staff | Top targeted brands |
+| GET | `/api/dashboard/providers` | Staff | Provider summary |
 | GET | `/api/dashboard/stats` | User | Dashboard statistics |
 | GET | `/api/dashboard/sources` | User | Threat source breakdown |
 | GET | `/api/dashboard/trend` | User | Threat trend data |
-| GET | `/api/dashboard/brand-admin` | User | Brand-scoped admin dashboard |
+| GET | `/api/dashboard/brand-admin` | Staff | Brand-scoped admin dashboard |
 
 ## Brands
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/brands` | User | List all brands |
-| GET | `/api/brands/top-targeted` | User | Top targeted brands (with trends) |
-| GET | `/api/brands/monitored` | User | Monitored brands |
-| GET | `/api/brands/stats` | User | Brand aggregate statistics |
-| GET | `/api/brands/movers` | User | 7-day movers (rising / falling by active threat delta) |
-| POST | `/api/brands/monitor` | User | Add brand to monitoring |
-| DELETE | `/api/brands/monitor/:id` | User | Remove brand from monitoring |
-| GET | `/api/brands/:id` | User | Get brand detail |
-| GET | `/api/brands/:id/threats` | User | Brand's active threats |
-| GET | `/api/brands/:id/threats/locations` | User | Threat geo locations |
-| GET | `/api/brands/:id/threats/timeline` | User | Threat timeline |
-| GET | `/api/brands/:id/providers` | User | Hosting providers for brand threats |
-| GET | `/api/brands/:id/campaigns` | User | Campaigns targeting brand |
-| GET | `/api/brands/:id/analysis` | User | Get AI brand analysis |
-| POST | `/api/brands/:id/analysis` | User | Trigger AI brand analysis |
-| POST | `/api/brands/:id/deep-scan` | User | Trigger deep scan |
-| GET | `/api/brands/:id/report` | User | Generate brand report |
-| POST | `/api/brands/:id/clean-false-positives` | User | Clean false positives |
-| GET | `/api/brands/:id/safe-domains` | User | List safe/owned domains |
-| POST | `/api/brands/:id/safe-domains` | User | Add safe domain |
-| POST | `/api/brands/:id/safe-domains/bulk` | User | Bulk add safe domains |
-| DELETE | `/api/brands/:id/safe-domains/:domainId` | User | Remove safe domain |
-| GET | `/api/brands/:id/social-config` | User | Get brand social-monitoring config |
-| PATCH | `/api/brands/:id/social-config` | User | Update brand social-monitoring config |
-| GET | `/api/brands/:id/social-profiles` | User | List discovered social profiles for the brand |
-| PATCH | `/api/brands/:id/social-profiles/:profileId` | User | Classify / update a discovered social profile |
-| POST | `/api/brands/:id/discover-social` | User | Trigger social-link discovery for the brand |
-| POST | `/api/brands/:id/social-profiles/:profileId/assess` | User | Re-assess a social profile |
-| POST | `/api/brands/:id/compute-score` | User | Recompute brand threat score |
+| GET | `/api/brands` | Staff | List all brands |
+| GET | `/api/brands/top-targeted` | Staff | Top targeted brands (with trends) |
+| GET | `/api/brands/monitored` | Staff | Monitored brands |
+| GET | `/api/brands/stats` | Staff | Brand aggregate statistics |
+| GET | `/api/brands/movers` | Staff | 7-day movers (rising / falling by active threat delta) |
+| POST | `/api/brands/monitor` | Admin | Add brand to monitoring |
+| DELETE | `/api/brands/monitor/:id` | Admin | Remove brand from monitoring |
+| GET | `/api/brands/:id` | Staff | Get brand detail |
+| GET | `/api/brands/:id/threats` | Staff | Brand's active threats |
+| GET | `/api/brands/:id/threats/locations` | Staff | Threat geo locations |
+| GET | `/api/brands/:id/threats/timeline` | Staff | Threat timeline |
+| GET | `/api/brands/:id/providers` | Staff | Hosting providers for brand threats |
+| GET | `/api/brands/:id/campaigns` | Staff | Campaigns targeting brand |
+| GET | `/api/brands/:id/analysis` | Staff | Get AI brand analysis |
+| POST | `/api/brands/:id/analysis` | Staff | Trigger AI brand analysis |
+| POST | `/api/brands/:id/deep-scan` | Staff | Trigger deep scan |
+| GET | `/api/brands/:id/report` | Staff | Generate brand report |
+| POST | `/api/brands/:id/clean-false-positives` | Staff | Clean false positives |
+| GET | `/api/brands/:id/safe-domains` | Staff | List safe/owned domains |
+| POST | `/api/brands/:id/safe-domains` | Staff | Add safe domain |
+| POST | `/api/brands/:id/safe-domains/bulk` | Staff | Bulk add safe domains |
+| DELETE | `/api/brands/:id/safe-domains/:domainId` | Staff | Remove safe domain |
+| GET | `/api/brands/:id/social-config` | Staff | Get brand social-monitoring config |
+| PATCH | `/api/brands/:id/social-config` | Staff | Update brand social-monitoring config |
+| GET | `/api/brands/:id/social-profiles` | Staff | List discovered social profiles for the brand |
+| PATCH | `/api/brands/:id/social-profiles/:profileId` | Staff | Classify / update a discovered social profile |
+| POST | `/api/brands/:id/discover-social` | Staff | Trigger social-link discovery for the brand |
+| POST | `/api/brands/:id/social-profiles/:profileId/assess` | Staff | Re-assess a social profile |
+| POST | `/api/brands/:id/compute-score` | Staff | Recompute brand threat score |
 
 ## Brand Profiles (DEPRECATED)
 
@@ -117,24 +117,24 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/social/monitor` | User | Social monitoring overview (all brands) |
-| GET | `/api/social/monitor/:brandId` | User | Brand-specific monitoring results |
-| GET | `/api/social/alerts` | User | Active impersonation alerts |
-| POST | `/api/social/scan/:brandId` | User | Trigger immediate social scan |
+| GET | `/api/social/monitor` | Staff | Social monitoring overview (all brands) |
+| GET | `/api/social/monitor/:brandId` | Staff | Brand-specific monitoring results |
+| GET | `/api/social/alerts` | Staff | Active impersonation alerts |
+| POST | `/api/social/scan/:brandId` | Staff | Trigger immediate social scan |
 
 ## Threats
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/threats` | User | List threats (filterable) |
-| GET | `/api/threats/stats` | User | Threat statistics |
-| GET | `/api/threats/recent` | User | Recent threats |
-| GET | `/api/threats/correlations` | User | Threat correlations |
-| GET | `/api/threats/geo-clusters` | User | Geographic clusters |
-| GET | `/api/threats/attack-flows` | User | Attack flow visualization |
-| GET | `/api/threats/heatmap` | User | Paginated, KV-cached threat heatmap data |
-| GET | `/api/threats/:id` | User | Get threat detail |
-| PATCH | `/api/threats/:id` | User | Update threat status |
+| GET | `/api/threats` | Staff | List threats (filterable) |
+| GET | `/api/threats/stats` | Staff | Threat statistics |
+| GET | `/api/threats/recent` | Staff | Recent threats |
+| GET | `/api/threats/correlations` | Staff | Threat correlations |
+| GET | `/api/threats/geo-clusters` | Staff | Geographic clusters |
+| GET | `/api/threats/attack-flows` | Staff | Attack flow visualization |
+| GET | `/api/threats/heatmap` | Staff | Paginated, KV-cached threat heatmap data |
+| GET | `/api/threats/:id` | Staff | Get threat detail |
+| PATCH | `/api/threats/:id` | Admin | Update threat status |
 | POST | `/api/threats/enrich-geo` | Admin | Enrich threats with geo data |
 | POST | `/api/threats/enrich-all` | Admin | Full enrichment run |
 
@@ -198,67 +198,67 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/briefings` | User | List briefings |
-| GET | `/api/briefings/history` | User | Briefing history |
-| GET | `/api/briefings/:id` | User | Get briefing detail |
-| POST | `/api/briefings/generate` | Admin | Generate new briefing |
+| GET | `/api/briefings` | Staff | List briefings |
+| GET | `/api/briefings/history` | Staff | Briefing history |
+| GET | `/api/briefings/:id` | Staff | Get briefing detail |
+| POST | `/api/briefings/generate` | Staff | Generate new briefing |
 
 ## Campaigns
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/campaigns` | User | List campaign clusters |
-| GET | `/api/campaigns/stats` | User | Campaign statistics |
-| GET | `/api/campaigns/:id` | User | Get campaign detail |
-| GET | `/api/campaigns/:id/threats` | User | Campaign threats |
-| GET | `/api/campaigns/:id/infrastructure` | User | Campaign infrastructure |
-| GET | `/api/campaigns/:id/brands` | User | Brands targeted by campaign |
-| GET | `/api/campaigns/:id/timeline` | User | Campaign timeline |
+| GET | `/api/campaigns` | Staff | List campaign clusters |
+| GET | `/api/campaigns/stats` | Staff | Campaign statistics |
+| GET | `/api/campaigns/:id` | Staff | Get campaign detail |
+| GET | `/api/campaigns/:id/threats` | Staff | Campaign threats |
+| GET | `/api/campaigns/:id/infrastructure` | Staff | Campaign infrastructure |
+| GET | `/api/campaigns/:id/brands` | Staff | Brands targeted by campaign |
+| GET | `/api/campaigns/:id/timeline` | Staff | Campaign timeline |
 
 ## Operations (NEXUS Clusters)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/v1/operations` | User | List active NEXUS operations/clusters |
-| GET | `/api/v1/operations/stats` | User | Operations statistics |
-| GET | `/api/v1/operations/:id/timeline` | User | Operation event timeline |
-| GET | `/api/v1/operations/:id/threats` | User | Threats in operation cluster |
+| GET | `/api/v1/operations` | Staff | List active NEXUS operations/clusters |
+| GET | `/api/v1/operations/stats` | Staff | Operations statistics |
+| GET | `/api/v1/operations/:id/timeline` | Staff | Operation event timeline |
+| GET | `/api/v1/operations/:id/threats` | Staff | Threats in operation cluster |
 
 ## Geopolitical Campaigns
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/campaigns/geo` | User | List geopolitical campaigns (optional `?status=active`) |
-| GET | `/api/campaigns/geo/:slug` | User | Get geopolitical campaign by slug |
-| GET | `/api/campaigns/geo/:slug/stats` | User | Live aggregate stats (total threats, 24h, 7d, brands, IPs, domains) |
-| GET | `/api/campaigns/geo/:slug/threats` | User | Threats from adversary countries/ASNs (paginated) |
-| GET | `/api/campaigns/geo/:slug/timeline` | User | Daily attack timeline with type breakdown |
-| GET | `/api/campaigns/geo/:slug/brands` | User | Targeted brands heat map data |
-| GET | `/api/campaigns/geo/:slug/asns` | User | ASN cluster analysis (marks known adversary ASNs) |
-| GET | `/api/campaigns/geo/:slug/attack-types` | User | Attack type breakdown with severity counts |
+| GET | `/api/campaigns/geo` | Staff | List geopolitical campaigns (optional `?status=active`) |
+| GET | `/api/campaigns/geo/:slug` | Staff | Get geopolitical campaign by slug |
+| GET | `/api/campaigns/geo/:slug/stats` | Staff | Live aggregate stats (total threats, 24h, 7d, brands, IPs, domains) |
+| GET | `/api/campaigns/geo/:slug/threats` | Staff | Threats from adversary countries/ASNs (paginated) |
+| GET | `/api/campaigns/geo/:slug/timeline` | Staff | Daily attack timeline with type breakdown |
+| GET | `/api/campaigns/geo/:slug/brands` | Staff | Targeted brands heat map data |
+| GET | `/api/campaigns/geo/:slug/asns` | Staff | ASN cluster analysis (marks known adversary ASNs) |
+| GET | `/api/campaigns/geo/:slug/attack-types` | Staff | Attack type breakdown with severity counts |
 
 ## Providers
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/providers` | User | List hosting providers |
-| GET | `/api/providers/stats` | User | Provider statistics |
-| GET | `/api/providers/worst` | User | Worst providers (most threats) |
-| GET | `/api/providers/improving` | User | Improving providers |
-| GET | `/api/providers/movers` | User | 7-day movers (rising / falling by active threat delta) |
-| GET | `/api/providers/:id` | User | Get provider detail |
-| GET | `/api/providers/:id/threats` | User | Provider's threats |
-| GET | `/api/providers/:id/brands` | User | Brands affected by provider |
-| GET | `/api/providers/:id/timeline` | User | Provider timeline |
-| GET | `/api/providers/:id/locations` | User | Provider locations |
+| GET | `/api/providers` | Staff | List hosting providers |
+| GET | `/api/providers/stats` | Staff | Provider statistics |
+| GET | `/api/providers/worst` | Staff | Worst providers (most threats) |
+| GET | `/api/providers/improving` | Staff | Improving providers |
+| GET | `/api/providers/movers` | Staff | 7-day movers (rising / falling by active threat delta) |
+| GET | `/api/providers/:id` | Staff | Get provider detail |
+| GET | `/api/providers/:id/threats` | Staff | Provider's threats |
+| GET | `/api/providers/:id/brands` | Staff | Brands affected by provider |
+| GET | `/api/providers/:id/timeline` | Staff | Provider timeline |
+| GET | `/api/providers/:id/locations` | Staff | Provider locations |
 
 ### Provider Endpoints v2
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/providers/v2` | User | Providers list with pre-computed columns (replaces v1 JOIN-based query) |
-| GET | `/api/providers/intelligence` | User | Provider intelligence summary |
-| GET | `/api/providers/clusters` | User | Provider infrastructure clusters |
+| GET | `/api/providers/v2` | Staff | Providers list with pre-computed columns (replaces v1 JOIN-based query) |
+| GET | `/api/providers/intelligence` | Staff | Provider intelligence summary |
+| GET | `/api/providers/clusters` | Staff | Provider infrastructure clusters |
 
 ## Email Security
 
@@ -283,10 +283,10 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/lookalikes/:brandId` | User | List lookalike domains |
-| POST | `/api/lookalikes/:brandId/generate` | User | Generate domain permutations |
-| POST | `/api/lookalikes/:brandId/scan` | User | Scan lookalike domains |
-| PATCH | `/api/lookalikes/:id` | User | Update lookalike status |
+| GET | `/api/lookalikes/:brandId` | Staff | List lookalike domains |
+| POST | `/api/lookalikes/:brandId/generate` | Staff | Generate domain permutations |
+| POST | `/api/lookalikes/:brandId/scan` | Staff | Scan lookalike domains |
+| PATCH | `/api/lookalikes/:id` | Staff | Update lookalike status |
 
 ## App Store Impersonation Monitoring
 
@@ -298,10 +298,10 @@ HIGH/CRITICAL impersonation findings create `alerts` rows of type
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/appstore/monitor/:brandId` | User | List app-store listings + schedule for a brand. Filters: `store`, `classification`, `severity`, `status`, `limit`, `offset`. |
-| POST | `/api/appstore/scan/:brandId` | User | Trigger an immediate iOS scan + AI drain for this brand. |
-| PATCH | `/api/appstore/:id` | User | Update a listing's `classification` or `status` (manual override, wins over AI/system). |
-| PATCH | `/api/brands/:brandId/official-apps` | User | Replace the brand's `official_apps` allowlist. Matching existing rows auto-flip to `classification='official'`. |
+| GET | `/api/appstore/monitor/:brandId` | Staff | List app-store listings + schedule for a brand. Filters: `store`, `classification`, `severity`, `status`, `limit`, `offset`. |
+| POST | `/api/appstore/scan/:brandId` | Staff | Trigger an immediate iOS scan + AI drain for this brand. |
+| PATCH | `/api/appstore/:id` | Staff | Update a listing's `classification` or `status` (manual override, wins over AI/system). |
+| PATCH | `/api/brands/:brandId/official-apps` | Staff | Replace the brand's `official_apps` allowlist. Matching existing rows auto-flip to `classification='official'`. |
 
 **Takedown integration:** App-store findings can be escalated by creating
 a takedown with `target_type='mobile_app'` and `target_platform='ios_app_store'`
@@ -321,11 +321,11 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/darkweb/overview` | User | Cross-brand dashboard: one row per monitored brand with severity-bucketed counts and schedule info. Admin scope sees all; tenant scope sees `monitored_brands.added_by = :userId`. |
-| GET | `/api/darkweb/mentions/:brandId` | User | List mentions + schedule for a brand. Filters: `source`, `classification`, `severity`, `match_type`, `status`, `limit`, `offset`. |
-| POST | `/api/darkweb/scan/:brandId` | User | Trigger an immediate scan + AI drain for this brand. |
-| PATCH | `/api/darkweb/:id` | User | Update a mention's `classification` or `status` (manual override, wins over AI/system). |
-| GET | `/api/trademarks/overview` | User | Cross-brand trademark rollup: per-brand active asset count + finding counts (total/confirmed/likely/unknown/high_critical) + cross-brand totals. Admin scope sees all brands with trademark data; org scope sees its `org_brands` subset. Default page KV-cached 120s. Data from the Phase 1 correlation scanner (`scanners/trademark-monitor.ts`). |
+| GET | `/api/darkweb/overview` | Staff | Cross-brand dashboard: one row per monitored brand with severity-bucketed counts and schedule info. Admin scope sees all; tenant scope sees `monitored_brands.added_by = :userId`. |
+| GET | `/api/darkweb/mentions/:brandId` | Staff | List mentions + schedule for a brand. Filters: `source`, `classification`, `severity`, `match_type`, `status`, `limit`, `offset`. |
+| POST | `/api/darkweb/scan/:brandId` | Staff | Trigger an immediate scan + AI drain for this brand. |
+| PATCH | `/api/darkweb/:id` | Staff | Update a mention's `classification` or `status` (manual override, wins over AI/system). |
+| GET | `/api/trademarks/overview` | Staff | Cross-brand trademark rollup: per-brand active asset count + finding counts (total/confirmed/likely/unknown/high_critical) + cross-brand totals. Admin scope sees all brands with trademark data; org scope sees its `org_brands` subset. Default page KV-cached 120s. Data from the Phase 1 correlation scanner (`scanners/trademark-monitor.ts`). |
 
 **Classification values:** `confirmed`, `suspicious`, `false_positive`, `resolved`, `unknown`.
 **Status values:** `active`, `resolved`, `false_positive`, `investigating`.
@@ -335,38 +335,38 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/ct/certificates/:brandId` | User | List CT certificates |
-| GET | `/api/ct/certificates/:brandId/stats` | User | CT statistics |
-| POST | `/api/ct/scan/:brandId` | User | Trigger CT scan |
-| PATCH | `/api/ct/certificates/:id` | User | Update certificate status |
+| GET | `/api/ct/certificates/:brandId` | Staff | List CT certificates |
+| GET | `/api/ct/certificates/:brandId/stats` | Staff | CT statistics |
+| POST | `/api/ct/scan/:brandId` | Staff | Trigger CT scan |
+| PATCH | `/api/ct/certificates/:id` | Staff | Update certificate status |
 
 ## Threat Narratives
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/narratives/:brandId` | User | List narratives for brand |
-| GET | `/api/narratives/:brandId/:id` | User | Get narrative detail |
-| POST | `/api/narratives/:brandId/generate` | User | Generate AI narrative |
-| PATCH | `/api/narratives/:id` | User | Update narrative |
+| GET | `/api/narratives/:brandId` | Staff | List narratives for brand |
+| GET | `/api/narratives/:brandId/:id` | Staff | Get narrative detail |
+| POST | `/api/narratives/:brandId/generate` | Staff | Generate AI narrative |
+| PATCH | `/api/narratives/:id` | Staff | Update narrative |
 
 ## Threat Assessment
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/brand/:brandId/threat-assessment` | User | Brand threat assessment |
-| GET | `/api/brand/:brandId/threat-assessment/history` | User | Assessment history |
-| GET | `/api/threat-feeds/stats` | User | Threat feed statistics |
+| GET | `/api/brand/:brandId/threat-assessment` | Staff | Brand threat assessment |
+| GET | `/api/brand/:brandId/threat-assessment/history` | Staff | Assessment history |
+| GET | `/api/threat-feeds/stats` | Staff | Threat feed statistics |
 
 ## Alerts
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/alerts` | User | List alerts |
-| GET | `/api/alerts/stats` | User | Alert statistics |
-| GET | `/api/alerts/:id` | User | Get alert detail |
-| PATCH | `/api/alerts/:id` | User | Update alert status |
-| POST | `/api/alerts/bulk-acknowledge` | User | Bulk acknowledge alerts |
-| POST | `/api/alerts/bulk-takedown` | User | Bulk create takedown requests from alerts |
+| GET | `/api/alerts` | Staff | List alerts |
+| GET | `/api/alerts/stats` | Staff | Alert statistics |
+| GET | `/api/alerts/:id` | Staff | Get alert detail |
+| PATCH | `/api/alerts/:id` | Staff | Update alert status |
+| POST | `/api/alerts/bulk-acknowledge` | Staff | Bulk acknowledge alerts |
+| POST | `/api/alerts/bulk-takedown` | Staff | Bulk create takedown requests from alerts |
 | POST | `/api/admin/alerts/backfill-triage?limit=500&offset=0&threshold=0.5` | Admin | Auto-triage pass over `new` alerts. Dispatches by alert family: threat-sourced (VT/GSB/GreyNoise/SecLookup clean), social_impersonation (handle in official_handles or score < threshold), app_store_impersonation (developer in official_apps OR developer name normalizes to brand name OR score < threshold). Returns `{scanned, dismissed, kept, no_threat, by_type}`. **Use `offset` to advance through the queue across calls** — without it, batches with 0 dismissals will re-scan the same alerts forever. |
 | POST | `/api/admin/alerts/run-ai-judge?limit=50&offset=0` | Admin | Tier 3 — runs Haiku second-opinion on `new` alerts that haven't been AI-judged yet (`ai_assessment IS NULL`). Stamps verdict + reasoning into `ai_assessment`. Auto-dismisses only when verdict='likely_safe' AND confidence >= 90. Returns `{scanned, judged, dismissed, kept, failed, by_verdict}`. ~$0.001 per alert. Idempotent. |
 | POST | `/api/admin/notifications/cleanup-dismissed?lookback_hours=168&window_minutes=15&limit=1000` | Admin | Sweeps `notifications` for unread rows correlating (by `brand_id` + ±`window_minutes` of `created_at`) to recently auto-dismissed alerts (`resolution_notes LIKE 'auto:%'`). Marks matched notifications as `read`. Heuristic by design — alerts and notifications are not FK-linked. Returns `{alerts_checked, notifications_cleared}`. Idempotent. |
@@ -393,39 +393,39 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/trends/volume` | User | Threat volume over time |
-| GET | `/api/trends/types` | User | Threat type breakdown |
-| GET | `/api/trends/brands` | User | Brand trend data |
-| GET | `/api/trends/providers` | User | Provider trends |
-| GET | `/api/trends/tlds` | User | TLD trends |
-| GET | `/api/trends/compare` | User | Compare periods |
-| GET | `/api/trends/intelligence` | User | Observer intelligence insights |
-| GET | `/api/trends/threat-volume` | User | Threat volume by type over time window |
-| GET | `/api/trends/brand-momentum` | User | Brand threat momentum (week-over-week) |
-| GET | `/api/trends/provider-momentum` | User | Hosting provider momentum (7d/30d) |
-| GET | `/api/trends/nexus-active` | User | Active accelerating Nexus clusters |
+| GET | `/api/trends/volume` | Staff | Threat volume over time |
+| GET | `/api/trends/types` | Staff | Threat type breakdown |
+| GET | `/api/trends/brands` | Staff | Brand trend data |
+| GET | `/api/trends/providers` | Staff | Provider trends |
+| GET | `/api/trends/tlds` | Staff | TLD trends |
+| GET | `/api/trends/compare` | Staff | Compare periods |
+| GET | `/api/trends/intelligence` | Staff | Observer intelligence insights |
+| GET | `/api/trends/threat-volume` | Staff | Threat volume by type over time window |
+| GET | `/api/trends/brand-momentum` | Staff | Brand threat momentum (week-over-week) |
+| GET | `/api/trends/provider-momentum` | Staff | Hosting provider momentum (7d/30d) |
+| GET | `/api/trends/nexus-active` | Staff | Active accelerating Nexus clusters |
 
 ## Insights
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/insights/latest` | User | Latest AI insights |
+| GET | `/api/insights/latest` | Staff | Latest AI insights |
 
 ## Signals
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/signals` | User | List signals |
-| POST | `/api/signals` | Admin | Create signal |
+| POST | `/api/signals` | Staff | Create signal |
 
 ## Scans
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/scan` | User | Trigger scan |
-| GET | `/api/scan/history` | User | Scan history |
-| POST | `/api/brand-scan` | User | Brand exposure scan |
-| GET | `/api/brand-scan/history` | User | Brand scan history |
+| POST | `/api/scan` | Staff (optional) | Trigger scan — works unauthenticated (rate-limited); a staff Bearer token attributes the scan to the caller |
+| GET | `/api/scan/history` | Staff | Scan history |
+| POST | `/api/brand-scan` | Staff | Brand exposure scan |
+| GET | `/api/brand-scan/history` | Staff | Brand scan history |
 | POST | `/api/snapshots/generate` | Admin | Generate threat snapshot |
 
 ## Investigations
@@ -457,8 +457,8 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 |--------|------|------|-------------|
 | GET | `/api/intel/hotlist` | Staff | Mass-impersonation IPs + multi-feed-consensus IPs + recent temporal bursts (KV cached 5min). Powers the Home "Intel Hotlist" section — PR-A from the 2026-05-16 platform audit. |
 | GET | `/api/intel/critical-banner` | Staff | Prioritized "Critical Intelligence" events (provider surges, bursts, mass-impersonation IPs, new campaigns, falls back to open-critical alerts). Powers the red banner on Home — replaces the bare `alertStats.critical` count that conflated severity with operator concern. KV cached 60s. |
-| GET | `/api/trust-scores` | User | Trust score history |
-| GET | `/api/social-iocs` | User | Social IOCs |
+| GET | `/api/trust-scores` | Staff | Trust score history |
+| GET | `/api/social-iocs` | Staff | Social IOCs |
 
 ## Spam Trap
 
