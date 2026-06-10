@@ -85,7 +85,7 @@ Table stakes at every competitor; partial scaffolding exists (`evidence_assemble
   email references it; collection failures degrade gracefully (bundle is best-effort).
 - Est: 4–5 days. Depends on: S1.
 
-### S4 — Tenant weekly digest email ⬜
+### S4 — Tenant weekly digest email 🟡 (PR open — ships dark, TENANT_DIGEST_MODE='off')
 #1 customer-expectation gap. The briefing pipeline exists but is super-admin-only.
 - New `handleTenantDigest` (org-scoped: org's brands → new threats, alerts by severity,
   takedown progress, email-posture changes for the week) + Resend template.

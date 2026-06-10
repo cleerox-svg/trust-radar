@@ -318,6 +318,7 @@ hour-only time gates, never minute gates (see the cron-audit rule in CLAUDE.md �
 | `17 * * * *` | abuse_mailbox classifier | Haiku classification of pending abuse-inbox messages (own cron since PR-AY) |
 | `19 */4 * * *` | greynoise feed | Dedicated enrichment-feed cron (8×30s sleeps starved the inline chain) |
 | `21 * * * *` | seclookup feed | Dedicated enrichment-feed cron (same rationale) |
+| `24 14 * * 1` | tenant weekly digest | Org-scoped weekly email for digest-enabled brands (S4; gated on `TENANT_DIGEST_MODE` + per-brand + per-user opt-ins) |
 
 The weekly auto-seeder has **no dedicated cron** — Cloudflare rejects its 5-field
 expression (code 10100), so it's gated inside the hourly orchestrator at Sunday

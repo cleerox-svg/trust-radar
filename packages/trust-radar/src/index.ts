@@ -281,6 +281,28 @@ export default {
       }
 
       // ─── Internal agent trigger endpoints ─────────────────────────
+      // POST /api/internal/digest/weekly-tenant/run — manual trigger for
+      // the tenant weekly digest (S4). Body (all optional): { org_id?:
+      // number, force?: boolean, ignore_mode?: boolean }. `org_id`
+      // restricts to one org (supervised test send), `force` bypasses the
+      // KV week stamp, `ignore_mode` bypasses TENANT_DIGEST_MODE for that
+      // run. The Monday cron path never sets these.
+      if (url.pathname === '/api/internal/digest/weekly-tenant/run' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!timingSafeBearerEq(authHeader, internalSecret)) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const body = await request.json<{ org_id?: number; force?: boolean; ignore_mode?: boolean }>().catch(() => ({}) as { org_id?: number; force?: boolean; ignore_mode?: boolean });
+        const { runWeeklyTenantDigest } = await import('./lib/tenant-digest');
+        const result = await runWeeklyTenantDigest(env, {
+          orgId:      typeof body.org_id === 'number' ? body.org_id : undefined,
+          force:      body.force === true,
+          ignoreMode: body.ignore_mode === true,
+        });
+        return Response.json({ success: true, data: result });
+      }
+
       // ─── Internal cube/cache rebuild endpoints (POST) ─────────
       // Out-of-band rebuild for the dark-web + app-store brand summary
       // cubes. Cheap and idempotent — INSERT OR REPLACE keyed on

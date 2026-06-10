@@ -104,6 +104,10 @@ export interface Env {
    *  Any other value (default 'draft') → queued-draft behavior, no outbound
    *  side effect. Flipping back to 'draft' is the kill switch. */
   TAKEDOWN_SEND_MODE?: string;
+  /** Tenant weekly digest rollout flag (S4, IMPROVEMENT_PLAN_2026-06).
+   *  'live' → Monday digest cron sends org-scoped weekly emails.
+   *  Any other value (default 'off') → cron is a no-op. */
+  TENANT_DIGEST_MODE?: string;
   /** Override the daily-briefing recipient. Defaults to claude.leroux@averrow.com when unset. */
   BRIEFING_RECIPIENT?: string;
   /** HMAC secret for List-Unsubscribe one-click tokens
