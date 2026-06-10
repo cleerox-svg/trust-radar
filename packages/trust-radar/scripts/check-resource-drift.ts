@@ -92,6 +92,7 @@ const MANIFEST_NAME_OVERRIDES: Record<string, string> = {
   brand_analysis: "brand-analysis",
   brand_deep_scan: "brand-deep-scan",
   brand_enricher: "brand-enricher",
+  campaign_hunter: "campaign-hunter",
   brand_report: "brand-report",
   cube_healer: "cube-healer",
   dark_web_monitor: "darkWebMonitor",

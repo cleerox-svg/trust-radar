@@ -95,12 +95,12 @@ export const campaignHunterAgent: AgentModule = {
   // The global $50/mo cost guard + per-call gate are the real ceiling; this
   // cap is the per-agent alarm.
   budget: { monthlyTokenCap: 20_000_000 },
-  reads: [
-    { kind: "d1_table", name: "brands" },
-    { kind: "d1_table", name: "threats" },
-    { kind: "d1_table", name: "hosting_providers" },
-    { kind: "d1_table", name: "lookalike_domains" },
-  ],
+  // File-scoped declaration: the architect manifest's static extractor
+  // only scans this agent file, which queries `brands` (brand resolution).
+  // The investigation tools read threats / hosting_providers /
+  // lookalike_domains, but that SQL lives in lib/hunter-tools.ts (the tool
+  // layer), outside the agent-file extraction — same model as brand_deep_scan.
+  reads: [{ kind: "d1_table", name: "brands" }],
   writes: [],
   outputs: [{ type: "insight" }, { type: "diagnostic" }],
   status: "active",
