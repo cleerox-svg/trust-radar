@@ -1,4 +1,10 @@
 # AVERROW — Master Platform Plan
+
+> Archived 2026-06-10: historical March 2026 snapshot. Its "Current State" section is
+> badly stale (e.g. claims Cartographer is not running; it runs hourly at :09). For
+> current platform state see `docs/PLATFORM_ASSESSMENT_2026-06.md`; for the active
+> roadmap see `docs/IMPROVEMENT_PLAN_2026-06.md`.
+
 **Last updated:** March 27, 2026  
 **Status:** React /v2 is the live platform. Old SPA preserved at /legacy as escape hatch.
 **Repo:** github.com/cleerox-svg/trust-radar  

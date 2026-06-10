@@ -72,7 +72,7 @@ grep -rn "TODO\|FIXME\|HACK" packages/averrow-ops/src/ --include="*.tsx" | head 
 ├── CLAUDE.md                     ← This file
 ├── RESTRUCTURE_SPEC.md           ← Architecture source of truth ← READ THIS
 ├── AVERROW_UI_STANDARD.md        ← Component quick reference
-└── AVERROW_MASTER_PLAN.md        ← Platform vision + roadmap
+└── docs/IMPROVEMENT_PLAN_2026-06.md ← Active roadmap (see docs/PLATFORM_ASSESSMENT_2026-06.md; old master plan archived)
 ```
 
 ---
@@ -258,6 +258,12 @@ Two install affordances + one biometric auto-prompt:
 | `<FirstSignInPasskeyPrompt />` | Mounted at `Shell.tsx` root | Auto-fires when `passkey_count === 0` + WebAuthn supported |
 
 All three self-gate internally. Don't add per-route logic to control them.
+
+**Scope note (2026-06-10):** this PWA flow is fully wired in `averrow-ops` only
+(hand-rolled SW at `/v2/sw.js`, registered via `src/lib/pwa.ts`, push in
+`src/lib/push.ts`). `averrow-tenant` ships a manifest but **no service worker**,
+so install/push there is aspirational until improvement-plan session S12
+(`docs/IMPROVEMENT_PLAN_2026-06.md`) lands a tenant SW.
 
 ---
 

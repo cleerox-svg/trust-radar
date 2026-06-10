@@ -9,6 +9,48 @@ Trust Radar uses a mesh of AI agents plus infrastructure agents (Navigator, Cube
 
 This doc is the canonical "what does each agent do" reference. For "what's the status of agent X against the standard," consult the audit. For "how do I write a new agent," consult the standard.
 
+## Name map — agent_id ↔ file ↔ UI display name
+
+Agents are referred to by up to three names: the registry `agent_id` (what
+`agent_runs`/`agent_configs` store), the file in `src/agents/`, and the display
+name/codename shown in the ops UI (`packages/averrow-ops/src/lib/agent-metadata.ts`).
+When grepping, use the file name; when querying D1, use the agent_id.
+
+| agent_id | File (`src/agents/`) | UI display name | Codename |
+|---|---|---|---|
+| sentinel | sentinel.ts | Sentinel | — |
+| analyst | analyst.ts | Analyst | **ASTRA** |
+| cartographer | cartographer.ts | Cartographer | — |
+| navigator | (cron, `src/cron/`) | Navigator | — (historical runs use `fast_tick`) |
+| nexus | nexus.ts | NEXUS | — |
+| strategist | strategist.ts | Strategist | — |
+| observer | observer.ts | Observer | — |
+| sparrow | sparrow.ts | Sparrow | — |
+| pathfinder | pathfinder.ts | Pathfinder | — |
+| flight_control | flightControl.ts | Flight Control | — |
+| attributor | attributor.ts | Attributor | — |
+| news_watcher | news-watcher.ts | News Watcher | — |
+| watchdog | watchdog.ts | Watchdog | — |
+| curator | curator.ts | Curator | — |
+| cube_healer | cube-healer.ts | Cube Healer | — |
+| narrator | narrator.ts | Narrator | — |
+| notification_narrator | notification_narrator.ts | Notification Narrator | — |
+| social_discovery | socialDiscovery.ts | Social Discovery | — |
+| social_monitor | socialMonitor.ts | **Mockingbird** | social_monitor |
+| app_store_monitor | appStoreMonitor.ts | App Store Monitor | — |
+| dark_web_monitor | darkWebMonitor.ts | Dark Web Monitor | — |
+| trademark_monitor | trademarkMonitor.ts | **Herald** | trademark_monitor |
+| auto_seeder | auto-seeder.ts | **Recon** | auto_seeder |
+| seed_strategist | seed-strategist.ts | Seed Strategist | — |
+| enricher | enricher.ts | Enricher | — |
+| geoip_refresh | geoip-refresh.ts | GeoIP Refresh | — |
+| campaign_hunter | campaign-hunter.ts | Campaign Hunter | — |
+| evidence_assembler | evidence-assembler.ts | Evidence Assembler | — |
+| brand_enricher | brand-enricher.ts | Brand Enricher | — |
+| lookalike_scanner | lookalike-scanner.ts | Lookalike Scanner | — |
+| trustbot | trustbot.ts | TrustBot | — |
+| *retired (status flip 2026-05-14, files + routes intact):* admin_classify, brand_analysis, brand_deep_scan, brand_report, geo_campaign_assessment, honeypot_generator, public_trust_check, qualified_report, scan_report, social_ai_assessor, url_scan | hyphenated file names | plain names | — |
+
 ## Agent Infrastructure
 
 ### Agent Runner

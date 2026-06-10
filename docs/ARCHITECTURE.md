@@ -293,24 +293,48 @@ The `ThreatPushHub` Durable Object (`packages/trust-radar/src/durableObjects/Thr
 
 ## Cron Triggers
 
-The Worker has multiple cron triggers configured in `wrangler.toml`:
+The Worker has 15 cron triggers configured in `wrangler.toml` (see the extensive
+comments at `wrangler.toml:43-82`). Since Wave 1A, schedules are **staggered by
+minute** to avoid the :00 collision that used to saturate the D1 writer; since
+PR-E/F/Q/T, heavy agents and slow enrichment feeds run on **dedicated crons** so
+each gets a fresh per-invocation CPU/wall budget instead of competing inside the
+hourly orchestrator. `handleScheduled` dispatches by exact `event.cron` match —
+hour-only time gates, never minute gates (see the cron-audit rule in CLAUDE.md §6).
 
-| Cron | Handler | Purpose |
-|------|---------|---------|
-| `*/5 * * * *` | `navigator` | DNS geo-backfill (200 domains), OLAP cube refresh (6 cubes), KV cache pre-warming (24 endpoints) |
-| `*/15 * * * *` | `orchestrator` | Threat feed scan, Cartographer enrichment (dispatched as Workflow), agent scheduling |
-| `12 */6 * * *` | `cube-healer` | Full 30-day bulk rebuild of all 3 cube tables to fix retroactive drift |
+| Cron | Dispatches | Purpose |
+|------|------------|---------|
+| `*/5 * * * *` | navigator | DNS geo-backfill, OLAP cube refresh (current+prev hour), KV cache pre-warming (24 endpoints) |
+| `7 * * * *` | orchestrator | Feed ingestion, Flight Control, agent mesh dispatch (see below) |
+| `8 * * * *` | enricher | Domain geo / brand logo / sector / firmographic enrichment (own budget since PR-E) |
+| `9 * * * *` | cartographer | Guaranteed hourly maintenance run (own budget since PR-F); FC scaleAgents adds instances for backlog drain |
+| `10 */6 * * *` | strategist | Campaign correlation (relocated from orchestrator, PR-Q) |
+| `11 */6 * * *` | sparrow | Takedown automation (PR-Q) |
+| `12 */6 * * *` | cube-healer | Full 30-day retroactive cube rebuild |
+| `13 */6 * * *` | app_store monitor | App-store impersonation scan (PR-Q) |
+| `13 13 * * *` | daily briefing | Own invocation so the ~40-query briefing doesn't compete with the hourly mesh |
+| `14 */6 * * *` | dark_web monitor | Paste/ransomware-DLS scan (PR-Q) |
+| `15 */6 * * *` | social | social_discovery + social_monitor, discovery-first (PR-Q) |
+| `16 0 * * *` | brand_scores | Daily `computeBrandScoresBatch` over the brand catalog (PR-T) |
+| `17 * * * *` | abuse_mailbox classifier | Haiku classification of pending abuse-inbox messages (own cron since PR-AY) |
+| `19 */4 * * *` | greynoise feed | Dedicated enrichment-feed cron (8×30s sleeps starved the inline chain) |
+| `21 * * * *` | seclookup feed | Dedicated enrichment-feed cron (same rationale) |
 
-### Orchestrator (`src/cron/orchestrator.ts`)
+The weekly auto-seeder has **no dedicated cron** — Cloudflare rejects its 5-field
+expression (code 10100), so it's gated inside the hourly orchestrator at Sunday
+hour===5 (fires 05:07 UTC).
 
-Routes jobs by time of day:
-- Every 15 min: Threat feed scan (Sentinel)
-- Every 15 min: Cartographer enrichment (dispatched as `CartographerBackfillWorkflow`)
-- Every 4 hours: NEXUS clustering (dispatched as `NexusWorkflow`)
-- Every 30 min: Analyst brand attribution (via `ctx.waitUntil`)
-- Every 6 hours: Strategist campaign correlation (via `ctx.waitUntil`)
-- Daily: Observer briefings, Pathfinder lead generation
-- Weekly: Prospector sales intelligence
+### Orchestrator (hourly at :07)
+
+Inside `runThreatFeedScan` + `handleScheduled`, gated hour-only:
+- Every tick: Flight Control, incident recovery sweep, CertStream health, agent_events
+  consumer, feed ingestion, brand match, email security, CT monitor, lookalike check,
+  trademark scan
+- Sentinel: after feed ingestion when new items landed (inline await)
+- Analyst: every tick (`ctx.waitUntil`)
+- NEXUS: `hour % 4 === 0` (dispatched as the `NEXUS_RUN` Workflow)
+- Observer: `hour === 0` · Observer briefing + Narrator: `hour === 6`
+- Pathfinder: `hour === 3` (KV throttle, once per 7 days)
+- GeoIP refresh: Sunday `hour === 2` · Daily snapshots: `hour === 0`
 
 ### Navigator (`src/cron/navigator.ts`)
 
@@ -330,10 +354,13 @@ historical `agent_runs` rows carry `agent_id='fast_tick'` while new runs write
 
 Heavy agents are dispatched as durable Workflows to avoid blocking the cron mesh:
 
-- `CartographerBackfillWorkflow` — Multi-step enrichment with retry and checkpointing
-- `NexusWorkflow` — Clustering analysis with durable execution context
+- `CartographerBackfillWorkflow` — Multi-step enrichment with retry and checkpointing (fired by FC `scaleAgents` for backlog drain)
+- `CartographerMainWorkflow` — Durable wrapper for the full 7-phase Cartographer run (manual endpoint today; PR-M)
+- `NexusWorkflow` (`NEXUS_RUN`) — Clustering analysis, dispatched from the orchestrator at `hour % 4 === 0` with KV cooldown
+- `GeoipRefreshWorkflow` — Weekly MaxMind import (verify-staging → load-locations → chunk-import → atomic-swap)
 
-Workflows run in their own execution context with no CPU time ceiling, unlike cron which shares the 30s Worker limit.
+Workflows run in their own durable execution context with per-step retry policies,
+unlike cron invocations which share the Worker's per-invocation CPU/wall budget.
 
 ## Email Handling
 
