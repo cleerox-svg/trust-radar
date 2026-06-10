@@ -1,5 +1,6 @@
 import { Router } from "itty-router";
-import { handleOptions, json } from "./lib/cors";
+import { configureCors, handleOptions, json } from "./lib/cors";
+import { htmlResponse, withSecurityHeaders } from "./lib/security-headers";
 import { handleRegister, handleLogin, handleMe, handleUpdateProfile } from "./handlers/auth";
 import { handleAdminListUsers, handleAdminUpdateUser } from "./handlers/admin";
 import { handleListInfluencers, handleGetInfluencer, handleCreateInfluencer, handleUpdateInfluencer } from "./handlers/influencers";
@@ -389,30 +390,24 @@ router.get("/api/debug", async (request: Request, env: Env) => {
 });
 
 // ─── Public Homepage ──────────────────────────────────────────
-router.get("/", () =>
-  new Response(renderImprsn8Homepage(), {
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" },
-  })
-);
+router.get("/", () => htmlResponse(renderImprsn8Homepage(), "public, max-age=300"));
 
 // ─── Authenticated Dashboard ──────────────────────────────────
-router.get("/dashboard", () =>
-  new Response(renderImprsn8Dashboard(), {
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" },
-  })
-);
+router.get("/dashboard", () => htmlResponse(renderImprsn8Dashboard(), "private, no-store"));
 
 // ─── SPA fallback (must be last) ──────────────────────────────
-router.all("*", (request: Request, env: Env) => {
+router.all("*", async (request: Request, env: Env) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
     return json({ success: false, error: "Not found" }, 404, request.headers.get("Origin"));
   }
-  return env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  const asset = await env.ASSETS.fetch(new Request(new URL("/index.html", request.url).toString()));
+  return withSecurityHeaders(asset);
 });
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    configureCors(env); // M6: localhost CORS origins allowed only outside production
     return router
       .fetch(request, env, ctx)
       .catch((err: unknown) => {

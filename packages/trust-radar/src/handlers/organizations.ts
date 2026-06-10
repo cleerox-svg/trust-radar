@@ -6,6 +6,7 @@ import { audit } from "../lib/audit";
 import { generateInviteToken, hashToken } from "../lib/hash";
 import { sendInviteEmail } from "../lib/invite-email";
 import { sendTestWebhook } from "../lib/webhooks";
+import { validateOutboundWebhookUrl } from "../lib/url-guard";
 import { syncOrgModulesToPlan } from "../lib/entitlements";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
@@ -317,7 +318,15 @@ export async function handleUpdateOrg(
   if (body.max_brands !== undefined) { sets.push("max_brands = ?"); vals.push(body.max_brands); }
   if (body.max_members !== undefined) { sets.push("max_members = ?"); vals.push(body.max_members); }
   if (body.status !== undefined) { sets.push("status = ?"); vals.push(body.status); }
-  if (body.webhook_url !== undefined) { sets.push("webhook_url = ?"); vals.push(body.webhook_url); }
+  if (body.webhook_url !== undefined) {
+    // SSRF guard (audit M1): reject private/internal/platform targets.
+    if (body.webhook_url) {
+      const guard = validateOutboundWebhookUrl(body.webhook_url);
+      if (!guard.ok) return json({ success: false, error: guard.reason }, 400, origin);
+    }
+    sets.push("webhook_url = ?");
+    vals.push(body.webhook_url || null);
+  }
 
   // Plan changes flow through plan_id (the FK-soft to pricing_plans).
   // 'free' has no pricing_plans row, so plan_id goes NULL for that
@@ -1021,6 +1030,12 @@ export async function handleUpdateWebhook(
   const vals: unknown[] = [];
 
   if (body.webhook_url !== undefined) {
+    // SSRF guard (audit M1): reject private/internal/platform targets.
+    // Empty string / null clears the webhook, which is always allowed.
+    if (body.webhook_url) {
+      const guard = validateOutboundWebhookUrl(body.webhook_url);
+      if (!guard.ok) return json({ success: false, error: guard.reason }, 400, origin);
+    }
     sets.push("webhook_url = ?");
     vals.push(body.webhook_url || null);
   }

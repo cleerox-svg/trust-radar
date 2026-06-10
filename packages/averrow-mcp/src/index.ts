@@ -34,6 +34,37 @@ const MCP_PROTOCOL_VERSION = "2025-03-26";
 const SERVER_NAME = "averrow-mcp";
 const SERVER_VERSION = "1.0.0";
 
+// ─── Auth helpers ───────────────────────────────────────────────
+// Constant-time secret comparison (M3, SECURITY_AUDIT_2026-06-10).
+// Ported from packages/trust-radar/src/lib/internal-secret.ts — copied
+// here because averrow-mcp is a standalone, dependency-free Worker.
+// `!==` short-circuits at the first mismatching byte, leaking the
+// matching-prefix length via timing; the XOR loop runs all bytes
+// regardless of where the first mismatch sits.
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/**
+ * Constant-time check of an `Authorization: Bearer <secret>` header.
+ * Fails closed: returns `false` for an unset secret, a missing header,
+ * or any byte mismatch.
+ */
+function timingSafeBearerEq(
+  authHeader: string | null | undefined,
+  secret: string | undefined,
+): boolean {
+  if (!secret) return false;
+  if (!authHeader) return false;
+  return timingSafeEqual(authHeader, `Bearer ${secret}`);
+}
+
 // ─── Tool Definitions ──────────────────────────────────────────
 
 interface ToolDef {
@@ -831,7 +862,7 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
-        headers: corsHeaders(request),
+        headers: corsHeaders(),
       });
     }
 
@@ -844,8 +875,8 @@ export default {
     if (url.pathname === "/mcp" && request.method === "POST") {
       // Authenticate
       const authHeader = request.headers.get("Authorization");
-      if (!env.MCP_AUTH_TOKEN || authHeader !== `Bearer ${env.MCP_AUTH_TOKEN}`) {
-        return new Response("Unauthorized", { status: 401, headers: corsHeaders(request) });
+      if (!timingSafeBearerEq(authHeader, env.MCP_AUTH_TOKEN)) {
+        return new Response("Unauthorized", { status: 401, headers: corsHeaders() });
       }
 
       // Parse JSON-RPC
@@ -855,7 +886,7 @@ export default {
       } catch {
         return Response.json(
           jsonRpcError(null, -32700, "Parse error"),
-          { status: 400, headers: corsHeaders(request) }
+          { status: 400, headers: corsHeaders() }
         );
       }
 
@@ -866,28 +897,31 @@ export default {
         );
         const responses = results.filter((r): r is JsonRpcResponse => r !== null);
         if (responses.length === 0) {
-          return new Response(null, { status: 204, headers: corsHeaders(request) });
+          return new Response(null, { status: 204, headers: corsHeaders() });
         }
-        return Response.json(responses, { headers: corsHeaders(request) });
+        return Response.json(responses, { headers: corsHeaders() });
       }
 
       const result = await handleMcpRequest(body, env);
       if (result === null) {
         // Notification — no response needed
-        return new Response(null, { status: 204, headers: corsHeaders(request) });
+        return new Response(null, { status: 204, headers: corsHeaders() });
       }
-      return Response.json(result, { headers: corsHeaders(request) });
+      return Response.json(result, { headers: corsHeaders() });
     }
 
     return new Response("Not Found", { status: 404 });
   },
 };
 
-function corsHeaders(request: Request): Record<string, string> {
+// L3 (SECURITY_AUDIT_2026-06-10): this is a machine-to-machine MCP
+// endpoint — no browser clients exist, so we emit NO
+// Access-Control-Allow-Origin header at all (previously this reflected
+// the request Origin, granting any site cross-origin read access).
+// OPTIONS is still answered (204 + Allow) for client compatibility.
+function corsHeaders(): Record<string, string> {
   return {
-    "Access-Control-Allow-Origin": request.headers.get("Origin") || "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Allow": "POST, GET, OPTIONS",
     "Content-Type": "application/json",
   };
 }

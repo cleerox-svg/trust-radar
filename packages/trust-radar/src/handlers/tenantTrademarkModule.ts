@@ -17,7 +17,7 @@
 //
 // Phase B sprint 7.
 
-import { json } from "../lib/cors";
+import { json, corsHeaders } from "../lib/cors";
 import type { Env } from "../types";
 import type { AuthContext } from "../middleware/auth";
 import { requireModule, ModuleNotEntitledError } from "../lib/entitlements";
@@ -192,7 +192,9 @@ export async function handleServeTrademarkAssetImage(
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
   headers.set("Cache-Control", "private, max-age=300");
-  headers.set("Access-Control-Allow-Origin", origin ?? "*");
+  // Audit L4: never echo arbitrary Origins — use the central allow-list
+  // (falls back to https://averrow.com for non-allowed origins).
+  for (const [k, v] of Object.entries(corsHeaders(origin))) headers.set(k, v);
   return new Response(obj.body, { status: 200, headers });
 }
 

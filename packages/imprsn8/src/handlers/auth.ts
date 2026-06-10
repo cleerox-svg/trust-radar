@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { hashPassword, verifyPassword } from "../lib/hash";
+import { hashPassword, verifyPassword, isLegacyHash } from "../lib/hash";
 import { signJWT } from "../lib/jwt";
 import { json } from "../lib/cors";
+import { checkRateLimit, clientIp, rateLimitResponse } from "../lib/rate-limit";
 import type { Env } from "../types";
 
 const RegisterSchema = z.object({
@@ -20,6 +21,11 @@ const LoginSchema = z.object({
 
 export async function handleRegister(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+
+  // H7: throttle account creation — 5 registrations per IP per hour.
+  const regLimit = await checkRateLimit(env, "register:ip", clientIp(request), 5, 60 * 60);
+  if (!regLimit.allowed) return rateLimitResponse(origin, regLimit.retryAfterSecs);
+
   const body = await request.json().catch(() => null);
   const parsed = RegisterSchema.safeParse(body);
   if (!parsed.success) return json({ success: false, error: parsed.error.flatten().fieldErrors }, 400, origin);
@@ -81,17 +87,38 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 
 export async function handleLogin(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+
+  // H7: throttle online guessing — 10 attempts per IP per 15 minutes.
+  const ipLimit = await checkRateLimit(env, "login:ip", clientIp(request), 10, 15 * 60);
+  if (!ipLimit.allowed) return rateLimitResponse(origin, ipLimit.retryAfterSecs);
+
   const body = await request.json().catch(() => null);
   const parsed = LoginSchema.safeParse(body);
   if (!parsed.success) return json({ success: false, error: "Invalid request" }, 400, origin);
 
   const { email, password } = parsed.data;
+
+  // H7: per-account throttle — 5 attempts per email per 15 minutes,
+  // independent of source IP (defeats distributed guessing on one account).
+  const emailLimit = await checkRateLimit(env, "login:email", email.toLowerCase(), 5, 15 * 60);
+  if (!emailLimit.allowed) return rateLimitResponse(origin, emailLimit.retryAfterSecs);
+
   const user = await env.DB.prepare(
     "SELECT id, email, password_hash, plan FROM users WHERE email = ?"
   ).bind(email).first<{ id: string; email: string; password_hash: string; plan: string }>();
 
+  // Uniform message whether the account exists or not — no enumeration oracle.
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     return json({ success: false, error: "Invalid credentials" }, 401, origin);
+  }
+
+  // C4 migration-on-login: transparently upgrade legacy unsalted SHA-256
+  // hashes to PBKDF2 on the first successful login.
+  if (isLegacyHash(user.password_hash)) {
+    const upgraded = await hashPassword(password);
+    await env.DB.prepare(
+      "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?"
+    ).bind(upgraded, user.id).run();
   }
 
   const token = await signJWT(

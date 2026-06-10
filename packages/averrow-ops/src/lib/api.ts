@@ -34,6 +34,13 @@ class ApiClient {
       localStorage.removeItem('averrow_token');
       localStorage.removeItem('averrow_refresh');
     } catch {}
+    // H6 (SECURITY_AUDIT_2026-06-10): tell the service worker to drop any
+    // cached /api/* responses so authenticated data doesn't outlive the
+    // session in Cache Storage. Guarded — SW may be unsupported (older
+    // browsers, non-secure contexts) or not yet controlling this page.
+    try {
+      navigator.serviceWorker?.controller?.postMessage({ type: 'CLEAR_API_CACHE' });
+    } catch {}
   }
 
   getToken() {

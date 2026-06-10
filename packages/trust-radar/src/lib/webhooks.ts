@@ -9,6 +9,7 @@
  */
 
 import type { Env } from "../types";
+import { validateOutboundWebhookUrl } from "./url-guard";
 
 // ─── Event Types ─────────────────────────────────────────────
 
@@ -64,6 +65,10 @@ export async function deliverWebhook(
 
     if (!org || !org.webhook_url) return false;
 
+    // SSRF guard (audit M1, defense in depth): the URL is validated at
+    // config-write time, but stored values may predate the guard.
+    if (!validateOutboundWebhookUrl(org.webhook_url).ok) return false;
+
     // 2. Check event subscription
     if (org.webhook_events) {
       try {
@@ -110,6 +115,9 @@ export async function deliverWebhook(
         },
         body,
         signal: controller.signal,
+        // Never follow redirects — a "public" endpoint must not be able
+        // to bounce the signed payload to an internal address (M1).
+        redirect: "manual",
       });
 
       clearTimeout(timeout);
@@ -163,6 +171,12 @@ export async function sendTestWebhook(
     return { success: false, error: "No webhook URL configured" };
   }
 
+  // SSRF guard (audit M1, defense in depth): re-validate stored URL.
+  const guard = validateOutboundWebhookUrl(org.webhook_url);
+  if (!guard.ok) {
+    return { success: false, error: `Webhook URL rejected: ${guard.reason}` };
+  }
+
   const deliveryId = crypto.randomUUID();
   const envelope = {
     event: "test" as const,
@@ -196,6 +210,8 @@ export async function sendTestWebhook(
       },
       body,
       signal: controller.signal,
+      // Never follow redirects (M1) — see deliverWebhook.
+      redirect: "manual",
     });
 
     clearTimeout(timeout);

@@ -18,6 +18,13 @@ export interface DomainCheckResult {
 /**
  * Check if a domain is alive: A record, MX record, and web server.
  * Returns structured result with 3s timeout per check.
+ *
+ * SECURITY (audit L6): `domain` MUST be a platform-generated public
+ * hostname (lookalike permutations, tracked takedown domains) — never
+ * raw user input. This function probes the host directly over
+ * HTTP(S); feeding it attacker-controlled values would make it an
+ * SSRF primitive. Both probe branches use `redirect: 'manual'` so a
+ * probed host cannot bounce the request elsewhere.
  */
 export async function checkDomain(domain: string): Promise<DomainCheckResult> {
   let ip: string | undefined;
