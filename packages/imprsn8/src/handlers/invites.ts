@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { json } from "../lib/cors";
 import { sendInviteEmail } from "../lib/email";
+import { checkRateLimit, clientIp, rateLimitResponse } from "../lib/rate-limit";
 import type { Env } from "../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -143,6 +144,11 @@ export async function handleValidateInvite(
   token: string,
 ): Promise<Response> {
   const origin = _request.headers.get("Origin");
+
+  // H7: public endpoint — throttle invite-token guessing per IP.
+  const limit = await checkRateLimit(env, "invite-validate:ip", clientIp(_request), 20, 15 * 60);
+  if (!limit.allowed) return rateLimitResponse(origin, limit.retryAfterSecs);
+
   const invite = await env.DB.prepare(
     `SELECT i.token, i.influencer_id, p.display_name as influencer_name,
             p.handle, p.avatar_url, i.role, i.email_hint, i.expires_at, i.used_at

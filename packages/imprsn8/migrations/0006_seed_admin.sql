@@ -1,6 +1,9 @@
--- Migration: 0005_seed_admin
--- Seeds the default admin user (admin@imprsn8.io / Admin1234!)
--- Password is SHA-256("Admin1234!")
+-- Migration: 0006_seed_admin
+-- Seeds the default admin user (admin@imprsn8.io).
+-- SECURITY NOTE (audit 2026-06-10, finding C1): an earlier version of this
+-- comment documented the seeded cleartext password. That credential is burned
+-- and the account is disabled by migration 0019_disable_seeded_admin.sql.
+-- Do not seed fixed credentials via migrations — bootstrap admins out-of-band.
 
 INSERT OR IGNORE INTO users (id, email, password_hash, display_name, plan, role, is_admin)
 VALUES (

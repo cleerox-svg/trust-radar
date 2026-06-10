@@ -5,7 +5,13 @@
  *
  * Three caching strategies:
  *   1. Navigation requests (/v2/...)   → stale-while-revalidate against the shell cache
- *   2. /api/... GETs                   → network-first, cache fallback (offline 503)
+ *   2. /api/... GETs                   → network-only, never cached (offline 503)
+ *      H6 (SECURITY_AUDIT_2026-06-10): /api/* responses carry authenticated
+ *      data and must not persist in Cache Storage — they were previously
+ *      network-first with a cache fallback, which left session data readable
+ *      on a shared device after logout. Nothing in the SPA relied on the API
+ *      offline fallback (the app does its own refetching once the shell
+ *      boots), so this is a clean removal rather than an allowlist.
  *   3. /v2/assets/... (Vite hashed)    → cache-first immutable
  *   4. Anything else same-origin       → stale-while-revalidate (runtime cache)
  *
@@ -24,10 +30,13 @@
  * Bump VERSION on any change here so old caches are evicted on activate.
  */
 
-const VERSION = '2026-05-16.1';
+const VERSION = '2026-06-10.1';
 const SHELL_CACHE   = `averrow-shell-${VERSION}`;
-const API_CACHE     = `averrow-api-${VERSION}`;
 const RUNTIME_CACHE = `averrow-runtime-${VERSION}`;
+
+// Former API cache prefix — no longer written to (H6), but old versions'
+// caches are still evicted on activate and by the CLEAR_API_CACHE message.
+const API_CACHE_PREFIX = 'averrow-api-';
 
 // Minimal precache: the SPA shell, manifest, and root favicon. Everything
 // else fills in opportunistically through SWR + cache-first as the user
@@ -62,10 +71,11 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       const stale = keys.filter(
         (k) =>
-          (k.startsWith('averrow-shell-') ||
-            k.startsWith('averrow-api-') ||
-            k.startsWith('averrow-runtime-')) &&
-          !k.endsWith(VERSION)
+          // API caches are never created anymore (H6) — delete ALL of them,
+          // including any left behind by a previous SW version.
+          k.startsWith(API_CACHE_PREFIX) ||
+          ((k.startsWith('averrow-shell-') || k.startsWith('averrow-runtime-')) &&
+            !k.endsWith(VERSION))
       );
       await Promise.all(stale.map((k) => caches.delete(k)));
       await self.clients.claim();
@@ -87,9 +97,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API: network-first, cache fallback.
+  // API: network-only — authenticated data never touches Cache Storage (H6).
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(req, API_CACHE));
+    event.respondWith(networkOnly(req));
     return;
   }
 
@@ -105,6 +115,22 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
+
+  // Posted by the app on logout (api.ts clearTokens) so cached API data
+  // can't outlive the session. Defensive: nothing writes API caches anymore
+  // (H6), but this also clears caches left behind by older SW versions.
+  if (event.data && event.data.type === 'CLEAR_API_CACHE') {
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter((k) => k.startsWith(API_CACHE_PREFIX))
+            .map((k) => caches.delete(k))
+        );
+      })()
+    );
+  }
 });
 
 // ─── Strategies ─────────────────────────────────────────────────────────
@@ -129,19 +155,15 @@ async function navigationHandler(req) {
   }
 }
 
-async function networkFirst(req, cacheName) {
-  const cache = await caches.open(cacheName);
+// H6: API requests are pass-through. No Cache Storage read or write —
+// authenticated responses must not persist on disk. Offline still returns
+// a structured 503 so the SPA's error handling keeps working.
+async function networkOnly(req) {
   try {
-    const fresh = await fetch(req);
-    if (fresh && fresh.status === 200) {
-      cache.put(req, fresh.clone()).catch(() => {});
-    }
-    return fresh;
+    return await fetch(req);
   } catch {
-    const cached = await cache.match(req);
-    if (cached) return cached;
     return new Response(
-      JSON.stringify({ success: false, error: 'offline', message: 'No cached response available.' }),
+      JSON.stringify({ success: false, error: 'offline', message: 'Network unavailable.' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );
   }

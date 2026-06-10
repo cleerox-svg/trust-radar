@@ -666,6 +666,16 @@ if (!token) { window.location.href = '/login'; }
 
 var API = '';
 
+// HTML-entity-escape API-derived values before innerHTML interpolation (XSS).
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function authHeaders() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
@@ -754,9 +764,9 @@ async function loadOverview() {
         var date = new Date(a.created_at || a.analyzed_at).toLocaleDateString();
         var type = a.analysis_type || a.type || 'profile';
         return '<div class="analysis-row">' +
-          '<div class="analysis-score">' + score + '</div>' +
-          '<div class="analysis-meta"><div>' + type.charAt(0).toUpperCase() + type.slice(1) + ' Analysis</div>' +
-          '<div class="analysis-date">' + date + '</div></div>' +
+          '<div class="analysis-score">' + esc(score) + '</div>' +
+          '<div class="analysis-meta"><div>' + esc(type.charAt(0).toUpperCase() + type.slice(1)) + ' Analysis</div>' +
+          '<div class="analysis-date">' + esc(date) + '</div></div>' +
           '</div>';
       }).join('');
     } else {
@@ -883,8 +893,8 @@ function showResults(data) {
     document.getElementById('res-signals').innerHTML = signals.map(function(s) {
       var color = s.status === 'pass' ? 'var(--green)' : s.status === 'fail' ? 'var(--red)' : 'var(--gold)';
       return '<div class="signal-item"><div class="signal-dot" style="background:' + color + '"></div>' +
-             '<div>' + (s.label || s.type || '') + '</div>' +
-             '<div style="margin-left:auto;font-size:12px;color:var(--subtext)">' + (s.value || s.detail || '') + '</div>' +
+             '<div>' + esc(s.label || s.type || '') + '</div>' +
+             '<div style="margin-left:auto;font-size:12px;color:var(--subtext)">' + esc(s.value || s.detail || '') + '</div>' +
              '</div>';
     }).join('');
   } else {
@@ -907,11 +917,11 @@ async function loadSocials() {
       grid.innerHTML = d.data.map(function(s) {
         var icon = platformIcons[s.platform] || '◈';
         return '<div class="social-card connected">' +
-          '<div class="social-platform"><span>' + icon + '</span>' + s.platform.charAt(0).toUpperCase() + s.platform.slice(1) + '</div>' +
-          '<div class="social-handle">@' + (s.handle || s.username || '') + '</div>' +
+          '<div class="social-platform"><span>' + icon + '</span>' + esc(s.platform.charAt(0).toUpperCase() + s.platform.slice(1)) + '</div>' +
+          '<div class="social-handle">@' + esc(s.handle || s.username || '') + '</div>' +
           '<div class="social-meta">' +
-            (s.follower_count ? formatNum(s.follower_count) + ' followers · ' : '') +
-            'Last scanned ' + (s.last_scanned_at ? new Date(s.last_scanned_at).toLocaleDateString() : 'never') +
+            (s.follower_count ? esc(formatNum(s.follower_count)) + ' followers · ' : '') +
+            'Last scanned ' + esc(s.last_scanned_at ? new Date(s.last_scanned_at).toLocaleDateString() : 'never') +
           '</div>' +
         '</div>';
       }).join('');
@@ -955,10 +965,10 @@ async function loadThreats() {
         return '<div class="analysis-row">' +
           '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0;margin-top:4px;"></div>' +
           '<div style="flex:1;">' +
-            '<div style="font-size:13px;">@' + (t.suspect_handle || '') + ' on ' + (t.platform || '') + '</div>' +
-            '<div style="font-size:11px;color:var(--subtext);">' + (t.threat_type || '').replace('_',' ') + ' · ' + (t.status || '') + '</div>' +
+            '<div style="font-size:13px;">@' + esc(t.suspect_handle || '') + ' on ' + esc(t.platform || '') + '</div>' +
+            '<div style="font-size:11px;color:var(--subtext);">' + esc((t.threat_type || '').replace('_',' ')) + ' · ' + esc(t.status || '') + '</div>' +
           '</div>' +
-          '<div style="font-size:11px;color:' + color + ';text-transform:uppercase;letter-spacing:0.5px;">' + (t.severity || '') + '</div>' +
+          '<div style="font-size:11px;color:' + color + ';text-transform:uppercase;letter-spacing:0.5px;">' + esc(t.severity || '') + '</div>' +
         '</div>';
       }).join('');
     } else {
@@ -990,9 +1000,9 @@ async function loadReports() {
         var delta = (prev != null && score !== '—') ? (score - prev) : null;
         var date = new Date(a.created_at || a.analyzed_at).toLocaleDateString('en-US', { month:'long', year:'numeric', day:'numeric' });
         return '<div class="report-row">' +
-          '<div class="report-date">' + date + '</div>' +
-          '<div class="report-score">' + score + ' / 100</div>' +
-          (delta != null ? '<div class="report-delta ' + (delta >= 0 ? 'up' : 'down') + '">' + (delta >= 0 ? '↑ +' : '↓ ') + delta + '</div>' : '<div class="report-delta"></div>') +
+          '<div class="report-date">' + esc(date) + '</div>' +
+          '<div class="report-score">' + esc(score) + ' / 100</div>' +
+          (delta != null ? '<div class="report-delta ' + (delta >= 0 ? 'up' : 'down') + '">' + (delta >= 0 ? '↑ +' : '↓ ') + esc(delta) + '</div>' : '<div class="report-delta"></div>') +
         '</div>';
       }).join('');
     } else {

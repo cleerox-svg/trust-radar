@@ -16,6 +16,19 @@ export interface ScanRecord {
   created_at: string;
 }
 
+/**
+ * Escape user/AI/DB-derived strings before HTML interpolation.
+ * Escapes `"` and `'` as well so the helper is safe in attribute
+ * contexts (e.g. <meta content="...">). Same pattern as the local
+ * escapeHtml helpers in incident-detail.ts / qualifiedReport.ts.
+ */
+function escapeHtml(s: string | null | undefined): string {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c] ?? c));
+}
+
 function hasFlag(flags: ScanRecord["flags"], type: string): boolean {
   return flags.some((f) => f.type === type);
 }
@@ -105,8 +118,8 @@ export function renderScanResult(scan: ScanRecord): string {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Scan Report: ${scan.domain} — Averrow</title>
-  <meta name="description" content="Defense Grade ${score}/100 for ${scan.domain}. ${verdict}."/>
+  <title>Scan Report: ${escapeHtml(scan.domain)} — Averrow</title>
+  <meta name="description" content="Defense Grade ${score}/100 for ${escapeHtml(scan.domain)}. ${verdict}."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
@@ -271,8 +284,8 @@ export function renderScanResult(scan: ScanRecord): string {
 
   <div class="report-header">
     <div class="report-label">Intercept Report</div>
-    <div class="report-url">${scan.url}</div>
-    <div class="report-meta">Scanned ${new Date(scan.created_at).toLocaleString()} · ID: ${scan.id.slice(0, 8)}</div>
+    <div class="report-url">${escapeHtml(scan.url)}</div>
+    <div class="report-meta">Scanned ${escapeHtml(new Date(scan.created_at).toLocaleString())} · ID: ${escapeHtml(scan.id.slice(0, 8))}</div>
   </div>
 
   <div class="score-card">
@@ -282,19 +295,19 @@ export function renderScanResult(scan: ScanRecord): string {
     </div>
     <div class="score-meta">
       <div class="score-verdict" style="color:${gradeColor}">${verdictIcon} ${verdict}</div>
-      <div class="score-domain">${scan.domain}</div>
+      <div class="score-domain">${escapeHtml(scan.domain)}</div>
     </div>
   </div>
 
   ${aiInsight ? `
   <div class="ai-insight">
     <div class="ai-label">⚡ ASTRA Analysis</div>
-    ${aiInsight.summary ? `<div class="ai-summary">${aiInsight.summary}</div>` : ""}
-    ${aiInsight.explanation ? `<div class="ai-explanation">${aiInsight.explanation}</div>` : ""}
+    ${aiInsight.summary ? `<div class="ai-summary">${escapeHtml(aiInsight.summary)}</div>` : ""}
+    ${aiInsight.explanation ? `<div class="ai-explanation">${escapeHtml(aiInsight.explanation)}</div>` : ""}
     ${aiInsight.recommendations?.length ? `
     <div class="ai-recs">
       <div class="ai-recs-label">Recommendations</div>
-      ${aiInsight.recommendations.map((r) => `<div class="ai-rec">${r}</div>`).join("")}
+      ${aiInsight.recommendations.map((r) => `<div class="ai-rec">${escapeHtml(r)}</div>`).join("")}
     </div>` : ""}
   </div>` : ""}
 
@@ -305,8 +318,8 @@ export function renderScanResult(scan: ScanRecord): string {
       <div class="signal-dot" style="background:${signalDotColor[s.status] ?? "#78A0C8"}"></div>
       <div class="signal-label">${s.label}</div>
       <div class="signal-value-wrap">
-        <div class="signal-value">${s.value}</div>
-        ${s.detail ? `<div class="signal-detail">${s.detail}</div>` : ""}
+        <div class="signal-value">${escapeHtml(s.value)}</div>
+        ${s.detail ? `<div class="signal-detail">${escapeHtml(s.detail)}</div>` : ""}
       </div>
     </div>`).join("")}
   </div>
@@ -316,8 +329,8 @@ export function renderScanResult(scan: ScanRecord): string {
     <div class="signals-title">Additional Flags</div>
     ${allFlags.map((f) => `
     <div class="flag-row">
-      <span class="flag-severity ${f.severity}">${f.severity}</span>
-      <span>${f.detail || f.type}</span>
+      <span class="flag-severity ${escapeHtml(f.severity)}">${escapeHtml(f.severity)}</span>
+      <span>${escapeHtml(f.detail || f.type)}</span>
     </div>`).join("")}
   </div>` : ""}
 
