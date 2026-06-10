@@ -86,6 +86,30 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return;
   }
 
+  // ─── Tenant weekly digest: dedicated trigger (24 14 * * 1, Mondays 14:24 UTC) ───
+  // S4 (docs/IMPROVEMENT_PLAN_2026-06.md). One email per org per ISO week
+  // for digest-enabled brands. Gated inside runWeeklyTenantDigest on
+  // TENANT_DIGEST_MODE='live' (default off) + per-brand weekly_digest
+  // opt-in + per-user intelligence_digest preference; KV week-stamp dedup
+  // makes overlap with the manual internal endpoint safe.
+  if (event.cron === '24 14 * * 1') {
+    try {
+      const { runWeeklyTenantDigest } = await import('../lib/tenant-digest');
+      const result = await runWeeklyTenantDigest(env);
+      logger.info('tenant_digest_cron_done', {
+        mode: result.mode,
+        orgs: result.orgs,
+        sent: result.outcomes.filter((o) => o.status === 'sent').length,
+        failed: result.outcomes.filter((o) => o.status === 'failed').length,
+      });
+    } catch (err) {
+      logger.error('tenant_digest_cron_error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
   // ─── Cube healer tick: 30-day bulk rebuild (12 */6 * * *, 6-hourly at :12) ───
   // Heals retroactive enrichment drift that Navigator's current+prev-hour
   // refresh can't catch. Demoted from */20 to 6-hourly in Wave 1A to reduce

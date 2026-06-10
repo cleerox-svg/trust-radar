@@ -793,6 +793,7 @@ All internal endpoints require `Authorization: Bearer $AVERROW_INTERNAL_SECRET`.
 | POST | `/api/internal/agents/cartographer/main-workflow` | Dispatch the Cartographer main run as a durable Workflow (PR-M manual validation hook) |
 | POST | `/api/internal/briefing/send` | Manually generate and email the daily briefing |
 | POST | `/api/internal/cubes/brand-summaries/rebuild` | Out-of-band rebuild of the dark-web + app-store brand summary cubes (idempotent; use when you can't wait for cube_healer's 6-hour tick) |
+| POST | `/api/internal/digest/weekly-tenant/run` | Manual trigger for the tenant weekly digest (S4). Optional JSON body: `org_id` (restrict to one org), `force` (bypass KV week-stamp dedup), `ignore_mode` (bypass `TENANT_DIGEST_MODE` for a supervised test send) |
 | GET | `/api/internal/geoip-status` | MCP-callable mirror of `/api/admin/geoip-status` (getGeoMmdbStatus: row count, shadow progress, recent attempts) |
 | POST | `/api/internal/geoip-refresh` | MCP-callable mirror of `/api/admin/geoip-refresh`. Body `{ "forceReload": true }` bypasses the skip-if-current guard |
 | GET | `/api/internal/taxii/discover` | TAXII server discovery helper (`?root_url=&auth_type=&api_key_env=&username=`). Walks api_roots → collections and returns a flat inventory. Used by `scripts/taxii-discover.sh` |
