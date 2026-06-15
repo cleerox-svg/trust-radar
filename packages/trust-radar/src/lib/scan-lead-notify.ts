@@ -136,3 +136,105 @@ function buildText(p: NewLeadNotifyParams & { adminLink: string }): string {
     `Lead id: ${p.leadId}`,
   ].filter(Boolean).join("\n");
 }
+
+// ─── Prospect-facing acknowledgement ─────────────────────────────────
+// The public scan-results page tells the visitor "check your inbox" the
+// moment they hand over a business email. Until this existed, the only
+// email that fired was the internal sales alert above — the prospect
+// received nothing, so the on-screen promise was false. This sends them
+// an immediate, on-brand confirmation. The full Brand Exposure Report is
+// still delivered by sales (admin generates it via
+// /api/admin/leads/:id/qualified-report), so the copy here sets that
+// expectation rather than claiming an instant attachment.
+
+// Transactional sender (verified domain, same one used for invites and
+// magic-links) — distinct from the sales@ alias so prospect replies
+// don't thread into the internal lead alert.
+const PROSPECT_FROM_ADDRESS = "Averrow <noreply@averrow.com>";
+
+interface ProspectAckParams {
+  email: string;
+  name: string | null;
+  domain: string | null;
+}
+
+export async function sendScanReportAcknowledgement(
+  env: Env,
+  params: ProspectAckParams,
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  if (!env.RESEND_API_KEY) {
+    logger.warn("scan-ack-skipped", { email: params.email, reason: "no RESEND_API_KEY" });
+    return { ok: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const domain = params.domain?.trim() || "your domain";
+  const subject = `Your Averrow Brand Exposure Report — ${domain}`;
+  const html = buildProspectAckHtml(params, domain);
+  const text = buildProspectAckText(params, domain);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: PROSPECT_FROM_ADDRESS,
+      to: [params.email],
+      reply_to: "sales@averrow.com",
+      subject,
+      html,
+      text,
+    }),
+  });
+
+  const body = (await res.json().catch(() => ({}))) as ResendResponse;
+  if (!res.ok) {
+    const error = body.message ?? body.error ?? `HTTP ${res.status}`;
+    logger.error("scan-ack", { email: params.email, error });
+    return { ok: false, error };
+  }
+  logger.info("scan-ack", { email: params.email, resendId: body.id });
+  return { ok: true, id: body.id };
+}
+
+function buildProspectAckHtml(p: ProspectAckParams, domain: string): string {
+  const greeting = p.name ? `Hi ${escapeHtml(p.name)},` : "Hi there,";
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f7f7f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:24px;background:#fff;color:#222;line-height:1.6;">
+    <div style="color:#C83C3C;font-weight:700;letter-spacing:2px;font-size:12px;text-transform:uppercase;margin-bottom:4px;">Averrow</div>
+    <div style="color:#888;font-weight:600;letter-spacing:1px;font-size:10px;text-transform:uppercase;margin-bottom:16px;">Threat Interceptor</div>
+    <h2 style="font-size:18px;margin:0 0 16px;color:#111;">We've received your scan request</h2>
+    <p style="margin:0 0 14px;">${greeting}</p>
+    <p style="margin:0 0 14px;">Thanks for scanning <strong style="font-family:monospace;">${escapeHtml(domain)}</strong> with Averrow. We've logged your request for the full Brand Exposure Report.</p>
+    <p style="margin:0 0 14px;">Your full report goes deeper than the on-screen score — threat-actor analysis, infrastructure mapping, lookalike-domain inventory, and a specific remediation plan. A member of the Averrow team will review your results and deliver it to this inbox shortly.</p>
+    <p style="margin:0 0 14px;">In the meantime, just reply to this email if you'd like to fast-track the conversation or have questions about what we found.</p>
+    <hr style="border:none;border-top:1px solid #eee;margin:24px 0 12px;">
+    <div style="color:#888;font-size:11px;">
+      Averrow · Threat Interceptor · LRX Enterprises Inc.<br>
+      AI-first threat intelligence — detect · analyze · correlate · respond
+    </div>
+  </div>
+</body></html>`;
+}
+
+function buildProspectAckText(p: ProspectAckParams, domain: string): string {
+  const greeting = p.name ? `Hi ${p.name},` : "Hi there,";
+  return [
+    "Averrow · Threat Interceptor",
+    "",
+    "We've received your scan request",
+    "",
+    greeting,
+    "",
+    `Thanks for scanning ${domain} with Averrow. We've logged your request for the full Brand Exposure Report.`,
+    "",
+    "Your full report goes deeper than the on-screen score — threat-actor analysis, infrastructure mapping, lookalike-domain inventory, and a specific remediation plan. A member of the Averrow team will review your results and deliver it to this inbox shortly.",
+    "",
+    "In the meantime, just reply to this email if you'd like to fast-track the conversation or have questions about what we found.",
+    "",
+    "Averrow · LRX Enterprises Inc.",
+  ].join("\n");
+}

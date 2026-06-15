@@ -529,23 +529,35 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
       correlatedBrandId,
     ).run();
 
-    // Fire-and-forget alert email to sales@averrow.com. Wrapped in
-    // try/catch so the prospect's submission isn't impacted by an alert
-    // pipeline hiccup. Logged on failure (lib/logger).
+    // Fire-and-forget emails. Both wrapped in try/catch so the prospect's
+    // submission isn't impacted by an email pipeline hiccup (the lead row
+    // is already committed). Logged on failure (lib/logger).
+    //   1. Internal alert to sales@averrow.com.
+    //   2. Prospect-facing acknowledgement — the scan-results page tells
+    //      the visitor "check your inbox" the instant they submit, so we
+    //      owe them an actual email. The full report is still delivered by
+    //      sales; this confirms receipt and sets that expectation.
     try {
-      const { notifySalesOfNewLead } = await import("../lib/scan-lead-notify");
+      const { notifySalesOfNewLead, sendScanReportAcknowledgement } = await import("../lib/scan-lead-notify");
       const url = new URL(request.url);
-      await notifySalesOfNewLead(env, {
-        leadId: id,
-        email: body.email,
-        name: body.name ?? null,
-        company: body.company ?? null,
-        domain: body.domain ?? null,
-        phone: body.phone ?? null,
-        message: body.message ?? null,
-        correlatedBrandId,
-        adminUrlBase: url.origin,
-      });
+      await Promise.allSettled([
+        notifySalesOfNewLead(env, {
+          leadId: id,
+          email: body.email,
+          name: body.name ?? null,
+          company: body.company ?? null,
+          domain: body.domain ?? null,
+          phone: body.phone ?? null,
+          message: body.message ?? null,
+          correlatedBrandId,
+          adminUrlBase: url.origin,
+        }),
+        sendScanReportAcknowledgement(env, {
+          email: body.email,
+          name: body.name ?? null,
+          domain: body.domain ?? null,
+        }),
+      ]);
     } catch { /* swallow — lead capture is the priority */ }
 
     return json({ success: true, data: { id, message: "Thank you! Our team will contact you shortly." } }, 200, origin);
