@@ -33,7 +33,7 @@ import {
 import {
   handleGenerateVapidKeys, handleGetPushConfig, handleUpdatePushConfig, handlePushTest,
 } from "../handlers/adminPush";
-import { handleListLeads, handleUpdateLead } from "../handlers/brandScan";
+import { handleListLeads, handleUpdateLead, handleGetLead } from "../handlers/brandScan";
 import {
   handleListSalesLeads, handleGetSalesLead, handleUpdateSalesLead,
   handleApproveLead, handleSendLead, handleRespondLead,
@@ -543,6 +543,12 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAdmin(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListLeads(request, env);
+  });
+  // Single lead + live customer intel snapshot (drill-down view).
+  router.get("/api/admin/leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleGetLead(request, env, request.params["id"] ?? "");
   });
   router.patch("/api/admin/leads/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAdmin(request, env);

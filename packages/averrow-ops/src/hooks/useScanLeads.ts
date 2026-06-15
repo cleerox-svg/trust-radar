@@ -65,6 +65,61 @@ export function useScanLeads(options?: { status?: string }) {
   });
 }
 
+// ─── Single lead drill-down + live customer intel ────────────────
+
+export interface ScanLeadThreatSample {
+  id: string;
+  threat_type: string;
+  severity: string | null;
+  source_feed: string;
+  malicious_domain: string | null;
+  ip_address: string | null;
+  country_code: string | null;
+  first_seen: string;
+}
+
+export interface ScanLeadIntel {
+  domain: string;
+  threats: {
+    active_total: number;
+    by_severity: Record<string, number>;
+    samples: ScanLeadThreatSample[];
+  };
+  email_security: {
+    grade: string | null;
+    spf: string | null;
+    dmarc: string | null;
+    mx_count: number;
+  } | null;
+  top_providers: { name: string; asn: string | null; threat_count: number }[];
+  top_countries: { country: string; threat_count: number }[];
+  lookalikes_count: number;
+  correlated_brand: { id: string; name: string } | null;
+  latest_report: {
+    share_token: string;
+    risk_grade: string | null;
+    created_at: string;
+    expires_at: string;
+  } | null;
+}
+
+export interface ScanLeadDetailResponse {
+  lead: ScanLead;
+  intel: ScanLeadIntel | null;
+}
+
+export function useScanLead(id: string | null) {
+  return useQuery({
+    queryKey: ["scan-lead", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const res = await api.get<ScanLeadDetailResponse>(`/api/admin/leads/${id}`);
+      return res.data ?? null;
+    },
+    refetchInterval: 60_000,
+  });
+}
+
 export function useUpdateScanLead() {
   const qc = useQueryClient();
   return useMutation({
@@ -73,6 +128,7 @@ export function useUpdateScanLead() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["scan-leads"] });
+      qc.invalidateQueries({ queryKey: ["scan-lead"] });
     },
   });
 }
@@ -94,6 +150,7 @@ export function useGenerateQualifiedReport() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["scan-leads"] });
+      qc.invalidateQueries({ queryKey: ["scan-lead"] });
     },
   });
 }
@@ -113,6 +170,7 @@ export function useSendOutreach() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["scan-leads"] });
+      qc.invalidateQueries({ queryKey: ["scan-lead"] });
     },
   });
 }
@@ -135,6 +193,7 @@ export function useConvertToTenant() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["scan-leads"] });
+      qc.invalidateQueries({ queryKey: ["scan-lead"] });
     },
   });
 }

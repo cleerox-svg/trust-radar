@@ -660,6 +660,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | PATCH | `/api/admin/organizations/:orgId` | Super Admin | Update organization |
 | GET | `/api/admin/brands/search` | Super Admin | Search brands for org assignment |
 | GET | `/api/admin/leads` | Admin | List leads |
+| GET | `/api/admin/leads/:id` | Admin | Single `scan_leads` row + live customer intel snapshot for the drill-down view (active threats by severity + recent samples, email security grade/SPF/DMARC/MX, top hosting providers + source countries, lookalike count, correlated brand, latest qualified report). Read-only, no AI. Returns `{ lead, intel }` (`intel: null` when the lead has no domain). |
 | PATCH | `/api/admin/leads/:id` | Admin | Update lead |
 | GET | `/api/admin/takedowns` | `manage_takedowns` (analyst, admin, super_admin) | List takedowns across orgs |
 | PATCH | `/api/admin/takedowns/:id` | `manage_takedowns` (analyst, admin, super_admin) | Update takedown status |

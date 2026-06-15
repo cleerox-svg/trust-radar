@@ -573,7 +573,10 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
           severity: "low",
           title: `New lead — ${leadLabel}`,
           message: `${leadLabel} scanned ${scannedDomain}${body.company ? ` (${body.company})` : ""} and requested the full report.`,
-          link: "/v2/leads?view=scan",
+          // Basename-relative (SPA mounts at /v2) and deep-links straight
+          // to this lead's drill-down. group_key is per-lead so distinct
+          // leads never dedup against each other.
+          link: `/leads?view=scan&lead=${id}`,
           groupKey: `new_lead:${id}`,
           reasonText: "A visitor submitted the public domain-scan lead form.",
           recommendedAction: "Review the lead and generate a qualified report or reach out.",
@@ -647,6 +650,140 @@ export async function handleUpdateLead(request: Request, env: Env, id: string): 
 
     await env.DB.prepare(`UPDATE scan_leads SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
     return json({ success: true }, 200, origin);
+  } catch (err) {
+    return json({ success: false, error: "An internal error occurred" }, 500, origin);
+  }
+}
+
+// ─── Lead drill-down — single lead + live customer intel ──────────
+//
+// Powers the Scan Leads detail view (the "New lead" notification deep-
+// links here). Returns the scan_leads row plus a lightweight intel
+// snapshot for the lead's domain: active-threat posture, email security
+// grade, top hosting infrastructure, lookalike count, the correlated
+// brand (for linking into /brands/:id), and any qualified report already
+// generated for this lead. Read-only and admin-gated, so the per-domain
+// scans here are low-frequency — no cube/cache indirection needed. The
+// heavier AI-narrated report stays behind POST .../qualified-report.
+
+export async function handleGetLead(request: Request, env: Env, id: string): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const lead = await env.DB.prepare(
+      `SELECT id, email, name, company, phone, domain, form_type, source, message,
+              status, notes, correlated_brand_id, outreach_sent_at, outreach_email_id,
+              converted_org_id, converted_at, created_at, updated_at
+         FROM scan_leads WHERE id = ?`,
+    ).bind(id).first<Record<string, unknown> & { domain: string | null; correlated_brand_id: string | null }>();
+
+    if (!lead) return json({ success: false, error: "Lead not found" }, 404, origin);
+
+    const domain = lead.domain ? lead.domain.toLowerCase().trim() : null;
+
+    // No domain → nothing to enrich. Return the lead with a null intel
+    // block so the UI can show contact + funnel state without erroring.
+    if (!domain) {
+      return json({ success: true, data: { lead, intel: null } }, 200, origin);
+    }
+
+    const likeSub = `%.${domain}`;
+    const keyword = domain.split(".")[0] ?? domain;
+
+    // Prefer the correlated brand row; fall back to canonical_domain match.
+    const brandStmt = lead.correlated_brand_id
+      ? env.DB.prepare(
+          `SELECT id, name, email_security_grade, spf_policy, dmarc_policy, mx_count
+             FROM brands WHERE id = ? LIMIT 1`,
+        ).bind(lead.correlated_brand_id)
+      : env.DB.prepare(
+          `SELECT id, name, email_security_grade, spf_policy, dmarc_policy, mx_count
+             FROM brands WHERE canonical_domain = ? LIMIT 1`,
+        ).bind(domain);
+
+    const [
+      severityRows, providerRows, countryRows, sampleRows,
+      lookalikes, brand, latestReport,
+    ] = await Promise.all([
+      env.DB.prepare(
+        `SELECT severity, COUNT(*) AS n FROM threats
+          WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active'
+          GROUP BY severity`,
+      ).bind(domain, likeSub).all<{ severity: string | null; n: number }>(),
+      env.DB.prepare(
+        `SELECT hp.name, hp.asn, COUNT(*) AS threat_count
+           FROM threats t JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
+          WHERE (t.malicious_domain = ? OR t.malicious_domain LIKE ?) AND t.status = 'active'
+          GROUP BY hp.id ORDER BY threat_count DESC LIMIT 5`,
+      ).bind(domain, likeSub).all<{ name: string; asn: string | null; threat_count: number }>(),
+      env.DB.prepare(
+        `SELECT country_code AS country, COUNT(*) AS threat_count FROM threats
+          WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active' AND country_code IS NOT NULL
+          GROUP BY country_code ORDER BY threat_count DESC LIMIT 5`,
+      ).bind(domain, likeSub).all<{ country: string; threat_count: number }>(),
+      env.DB.prepare(
+        `SELECT id, threat_type, severity, source_feed, malicious_domain, ip_address, country_code, created_at AS first_seen
+           FROM threats
+          WHERE (malicious_domain = ? OR malicious_domain LIKE ?) AND status = 'active'
+          ORDER BY created_at DESC LIMIT 8`,
+      ).bind(domain, likeSub).all<{
+        id: string; threat_type: string; severity: string | null; source_feed: string;
+        malicious_domain: string | null; ip_address: string | null; country_code: string | null; first_seen: string;
+      }>(),
+      env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM lookalike_domains WHERE target_brand LIKE ?`,
+      ).bind(`%${keyword}%`).first<{ n: number }>(),
+      brandStmt.first<{
+        id: string; name: string; email_security_grade: string | null;
+        spf_policy: string | null; dmarc_policy: string | null; mx_count: number | null;
+      }>(),
+      env.DB.prepare(
+        `SELECT share_token, payload_json, created_at, expires_at
+           FROM qualified_reports WHERE lead_id = ?
+          ORDER BY created_at DESC LIMIT 1`,
+      ).bind(id).first<{ share_token: string; payload_json: string; created_at: string; expires_at: string }>(),
+    ]);
+
+    const bySeverity: Record<string, number> = {};
+    let activeTotal = 0;
+    for (const row of severityRows.results) {
+      const sev = row.severity ?? "unknown";
+      bySeverity[sev] = row.n;
+      activeTotal += row.n;
+    }
+
+    let report: { share_token: string; risk_grade: string | null; created_at: string; expires_at: string } | null = null;
+    if (latestReport) {
+      let riskGrade: string | null = null;
+      try {
+        const payload = JSON.parse(latestReport.payload_json) as { executive_summary?: { risk_grade?: string } };
+        riskGrade = payload.executive_summary?.risk_grade ?? null;
+      } catch { /* malformed payload — leave grade null */ }
+      report = {
+        share_token: latestReport.share_token,
+        risk_grade: riskGrade,
+        created_at: latestReport.created_at,
+        expires_at: latestReport.expires_at,
+      };
+    }
+
+    return json({
+      success: true,
+      data: {
+        lead,
+        intel: {
+          domain,
+          threats: { active_total: activeTotal, by_severity: bySeverity, samples: sampleRows.results },
+          email_security: brand
+            ? { grade: brand.email_security_grade, spf: brand.spf_policy, dmarc: brand.dmarc_policy, mx_count: brand.mx_count ?? 0 }
+            : null,
+          top_providers: providerRows.results,
+          top_countries: countryRows.results,
+          lookalikes_count: lookalikes?.n ?? 0,
+          correlated_brand: brand ? { id: brand.id, name: brand.name } : null,
+          latest_report: report,
+        },
+      },
+    }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

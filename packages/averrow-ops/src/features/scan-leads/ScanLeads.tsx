@@ -13,14 +13,17 @@
 // PageHeader. Both are exported so the Leads page can drop the
 // view in as a tab without the duplicate header.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   useScanLeads,
+  useScanLead,
   useUpdateScanLead,
   useGenerateQualifiedReport,
   useSendOutreach,
   useConvertToTenant,
   type ScanLead,
+  type ScanLeadIntel,
 } from "@/hooks/useScanLeads";
 import { Card, Badge, Button, PageHeader, StatGrid, StatCard } from "@/design-system/components";
 import { Table, Th, Td } from "@/components/ui/Table";
@@ -28,7 +31,7 @@ import { TableLoader } from "@/components/ui/PageLoader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { relativeTime } from "@/lib/time";
-import { Inbox } from "lucide-react";
+import { Inbox, ArrowLeft, ExternalLink, ShieldCheck, Globe, Server, Copy } from "lucide-react";
 
 const STATUS_FILTERS = ["all", "new", "contacted", "qualified", "converted", "closed_lost"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -45,11 +48,31 @@ const STATUS_BADGE: Record<ScanLead["status"], "info" | "high" | "medium" | "low
 
 export function ScanLeadsView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?lead=<id>` opens the drill-down — the "New lead" notification
+  // deep-links straight here.
+  const selectedLeadId = searchParams.get("lead");
   const { data, isLoading } = useScanLeads(
     statusFilter === "all" ? undefined : { status: statusFilter },
   );
   const stats = data?.stats;
   const leads = data?.leads ?? [];
+
+  function openLead(id: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set("lead", id);
+    setSearchParams(next, { replace: false });
+  }
+
+  function closeLead() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("lead");
+    setSearchParams(next, { replace: false });
+  }
+
+  if (selectedLeadId) {
+    return <ScanLeadDetail leadId={selectedLeadId} onBack={closeLead} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -108,14 +131,14 @@ export function ScanLeadsView() {
                 </tr>
               </thead>
               <tbody>
-                {leads.map((lead) => <ScanLeadRow key={lead.id} lead={lead} />)}
+                {leads.map((lead) => <ScanLeadRow key={lead.id} lead={lead} onOpen={openLead} />)}
               </tbody>
             </Table>
           </div>
 
           {/* Mobile stacked cards */}
           <div className="md:hidden space-y-3">
-            {leads.map((lead) => <ScanLeadCard key={lead.id} lead={lead} />)}
+            {leads.map((lead) => <ScanLeadCard key={lead.id} lead={lead} onOpen={openLead} />)}
           </div>
         </Card>
       )}
@@ -141,11 +164,18 @@ export function ScanLeads() {
 
 // ─── Row (desktop table) ──────────────────────────────────────────
 
-function ScanLeadRow({ lead }: { lead: ScanLead }) {
+function ScanLeadRow({ lead, onOpen }: { lead: ScanLead; onOpen: (id: string) => void }) {
   const actions = useLeadActions(lead);
 
   return (
-    <tr className="hover:bg-white/[0.02]">
+    <tr
+      className="hover:bg-white/[0.04] cursor-pointer"
+      onClick={() => onOpen(lead.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpen(lead.id); }}
+      aria-label={`Open lead ${lead.email}`}
+    >
       <Td>
         <Badge severity={STATUS_BADGE[lead.status]}>{lead.status.replace("_", " ")}</Badge>
       </Td>
@@ -169,7 +199,9 @@ function ScanLeadRow({ lead }: { lead: ScanLead }) {
         {relativeTime(lead.created_at)}
       </Td>
       <Td>
-        <ActionMenu lead={lead} actions={actions} />
+        <div onClick={(e) => e.stopPropagation()}>
+          <ActionMenu lead={lead} actions={actions} />
+        </div>
       </Td>
     </tr>
   );
@@ -177,10 +209,17 @@ function ScanLeadRow({ lead }: { lead: ScanLead }) {
 
 // ─── Card (mobile) ────────────────────────────────────────────────
 
-function ScanLeadCard({ lead }: { lead: ScanLead }) {
+function ScanLeadCard({ lead, onOpen }: { lead: ScanLead; onOpen: (id: string) => void }) {
   const actions = useLeadActions(lead);
   return (
-    <div className="border border-white/5 p-3 space-y-2 bg-white/[0.02]">
+    <div
+      className="border border-white/5 p-3 space-y-2 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04]"
+      onClick={() => onOpen(lead.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpen(lead.id); }}
+      aria-label={`Open lead ${lead.email}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <Badge severity={STATUS_BADGE[lead.status]}>{lead.status.replace("_", " ")}</Badge>
         <span className="text-[10px] text-[var(--text-tertiary,var(--text-tertiary))] font-mono">
@@ -195,7 +234,9 @@ function ScanLeadCard({ lead }: { lead: ScanLead }) {
         <div className="font-mono text-[11px] mt-1">{lead.domain ?? "—"}</div>
       </div>
       <FunnelStateChips lead={lead} />
-      <ActionMenu lead={lead} actions={actions} />
+      <div onClick={(e) => e.stopPropagation()}>
+        <ActionMenu lead={lead} actions={actions} />
+      </div>
     </div>
   );
 }
@@ -326,6 +367,345 @@ function ActionMenu({ lead, actions }: { lead: ScanLead; actions: LeadActions })
           Qualify
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+// ─── Drill-down: single lead + live customer intel ────────────────
+
+function gradeColor(g: string | null | undefined): string {
+  if (!g) return "var(--text-tertiary,#8A8F9C)";
+  const u = g.toUpperCase();
+  if (u === "A" || u === "B" || u === "LOW") return "var(--green,#3CB878)";
+  if (u === "C" || u === "MODERATE" || u === "MEDIUM") return "var(--amber,#E5A832)";
+  return "var(--red,#C83C3C)";
+}
+
+const SEV_BADGE: Record<string, "info" | "high" | "medium" | "low" | "critical"> = {
+  critical: "critical",
+  high: "high",
+  medium: "medium",
+  low: "low",
+  unknown: "info",
+};
+
+export function ScanLeadDetail({ leadId, onBack }: { leadId: string; onBack: () => void }) {
+  const { data, isLoading, isError } = useScanLead(leadId);
+
+  const backBtn = (
+    <Button size="sm" variant="ghost" onClick={onBack}>
+      <ArrowLeft className="w-4 h-4 mr-1" /> Back to leads
+    </Button>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {backBtn}
+        <TableLoader />
+      </div>
+    );
+  }
+
+  if (isError || !data?.lead) {
+    return (
+      <div className="space-y-4">
+        {backBtn}
+        <EmptyState
+          icon={<Inbox className="w-10 h-10" />}
+          title="Lead not found"
+          description="This lead may have been removed, or the link is stale."
+        />
+      </div>
+    );
+  }
+
+  return <ScanLeadDetailBody lead={data.lead} intel={data.intel} backBtn={backBtn} />;
+}
+
+function ScanLeadDetailBody({
+  lead,
+  intel,
+  backBtn,
+}: {
+  lead: ScanLead;
+  intel: ScanLeadIntel | null;
+  backBtn: React.ReactNode;
+}) {
+  const actions = useLeadActions(lead);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {backBtn}
+        <div onClick={(e) => e.stopPropagation()}>
+          <ActionMenu lead={lead} actions={actions} />
+        </div>
+      </div>
+
+      {/* Identity header */}
+      <Card>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-mono text-lg text-[var(--text-primary,#fff)]">
+                {lead.domain ?? "—"}
+              </div>
+              <div className="text-sm text-[var(--text-secondary,#7a8ba8)]">
+                {lead.company ?? "Unknown company"}
+              </div>
+            </div>
+            <Badge severity={STATUS_BADGE[lead.status]}>{lead.status.replace("_", " ")}</Badge>
+          </div>
+          <FunnelStateChips lead={lead} />
+        </div>
+      </Card>
+
+      {/* Contact */}
+      <Card>
+        <div className="space-y-3">
+          <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)]">
+            Contact
+          </h3>
+          <dl className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <Field label="Email" value={lead.email} mono />
+            <Field label="Name" value={lead.name} />
+            <Field label="Phone" value={lead.phone} />
+            <Field label="Source" value={lead.source} />
+            <Field label="Submitted" value={relativeTime(lead.created_at)} />
+            {lead.converted_org_id != null ? (
+              <Field label="Tenant org" value={`#${lead.converted_org_id}`} />
+            ) : null}
+          </dl>
+          {lead.message ? (
+            <div className="text-sm text-[var(--text-secondary,#7a8ba8)] border-l-2 border-white/10 pl-3">
+              {lead.message}
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      {/* Customer intel */}
+      {intel ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Threat posture */}
+            <Card>
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" /> Active threats
+                </h3>
+                <div className="mt-2 text-3xl font-bold text-[var(--text-primary,#fff)]">
+                  {intel.threats.active_total}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {Object.entries(intel.threats.by_severity).map(([sev, n]) => (
+                    <Badge key={sev} severity={SEV_BADGE[sev] ?? "info"}>
+                      {sev}: {n}
+                    </Badge>
+                  ))}
+                  {intel.threats.active_total === 0 ? (
+                    <span className="text-xs text-[var(--green,#3CB878)]">No active threats</span>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+
+            {/* Email security */}
+            <Card>
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Email security
+                </h3>
+                {intel.email_security ? (
+                  <>
+                    <div
+                      className="mt-2 text-3xl font-bold"
+                      style={{ color: gradeColor(intel.email_security.grade) }}
+                    >
+                      {intel.email_security.grade ?? "—"}
+                    </div>
+                    <div className="mt-2 text-xs text-[var(--text-secondary,#7a8ba8)] space-y-0.5 font-mono">
+                      <div>SPF: {intel.email_security.spf ?? "none"}</div>
+                      <div>DMARC: {intel.email_security.dmarc ?? "none"}</div>
+                      <div>MX records: {intel.email_security.mx_count}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-2 text-xs text-[var(--text-tertiary,#8A8F9C)]">
+                    Not yet scanned — generate the report to populate.
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Lookalikes + brand link */}
+            <Card>
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] flex items-center gap-1.5">
+                  <Server className="w-3.5 h-3.5" /> Exposure
+                </h3>
+                <div className="mt-2 text-3xl font-bold text-[var(--text-primary,#fff)]">
+                  {intel.lookalikes_count}
+                </div>
+                <div className="text-xs text-[var(--text-secondary,#7a8ba8)]">lookalike domains</div>
+                {intel.correlated_brand ? (
+                  <Link
+                    to={`/brands/${intel.correlated_brand.id}`}
+                    className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--amber,#E5A832)] hover:underline"
+                  >
+                    {intel.correlated_brand.name} <ExternalLink className="w-3 h-3" />
+                  </Link>
+                ) : (
+                  <div className="mt-3 text-xs text-[var(--text-tertiary,#8A8F9C)]">
+                    Not yet a monitored brand
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Infrastructure */}
+          {intel.top_providers.length > 0 || intel.top_countries.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {intel.top_providers.length > 0 ? (
+                <Card>
+                  <div>
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] mb-3">
+                      Top hosting providers
+                    </h3>
+                    <ul className="space-y-1.5 text-sm">
+                      {intel.top_providers.map((p) => (
+                        <li key={p.name} className="flex justify-between gap-2">
+                          <span className="truncate">{p.name}</span>
+                          <span className="font-mono text-[var(--text-secondary,#7a8ba8)]">{p.threat_count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Card>
+              ) : null}
+              {intel.top_countries.length > 0 ? (
+                <Card>
+                  <div>
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] mb-3">
+                      Top source countries
+                    </h3>
+                    <ul className="space-y-1.5 text-sm">
+                      {intel.top_countries.map((c) => (
+                        <li key={c.country} className="flex justify-between gap-2">
+                          <span className="font-mono">{c.country}</span>
+                          <span className="font-mono text-[var(--text-secondary,#7a8ba8)]">{c.threat_count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Card>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Recent threat samples */}
+          {intel.threats.samples.length > 0 ? (
+            <Card>
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)] mb-3">
+                  Recent threats targeting {intel.domain}
+                </h3>
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>Severity</Th>
+                      <Th>Type</Th>
+                      <Th>Domain</Th>
+                      <Th>Feed</Th>
+                      <Th>First seen</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {intel.threats.samples.map((t) => (
+                      <tr key={t.id}>
+                        <Td>
+                          <Badge severity={SEV_BADGE[t.severity ?? "unknown"] ?? "info"}>
+                            {t.severity ?? "unknown"}
+                          </Badge>
+                        </Td>
+                        <Td className="text-xs">{t.threat_type}</Td>
+                        <Td className="font-mono text-xs">{t.malicious_domain ?? "—"}</Td>
+                        <Td className="text-xs">{t.source_feed}</Td>
+                        <Td className="text-xs text-[var(--text-secondary,#7a8ba8)]">{relativeTime(t.first_seen)}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Existing qualified report */}
+          {intel.latest_report ? (
+            <Card>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)]">
+                    Qualified report
+                  </h3>
+                  <div className="mt-1 text-sm">
+                    Risk grade:{" "}
+                    <span style={{ color: gradeColor(intel.latest_report.risk_grade) }} className="font-semibold">
+                      {intel.latest_report.risk_grade ?? "—"}
+                    </span>
+                    <span className="text-[var(--text-tertiary,#8A8F9C)]">
+                      {" "}· generated {relativeTime(intel.latest_report.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard
+                        ?.writeText(`${window.location.origin}/qualified-report/${intel.latest_report!.share_token}`)
+                        .catch(() => undefined);
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" /> Copy link
+                  </Button>
+                  <a
+                    href={`/qualified-report/${intel.latest_report.share_token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button size="sm" variant="primary">
+                      Open report <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </Card>
+          ) : null}
+        </>
+      ) : (
+        <EmptyState
+          icon={<Globe className="w-10 h-10" />}
+          title="No domain on this lead"
+          description="This lead didn't include a domain, so there's no customer intel to show."
+        />
+      )}
+    </div>
+  );
+}
+
+function Field({ label, value, mono }: { label: string; value: string | null; mono?: boolean }) {
+  return (
+    <div>
+      <dt className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary,#8A8F9C)]">
+        {label}
+      </dt>
+      <dd className={`text-[var(--text-primary,#fff)] ${mono ? "font-mono text-xs" : "text-sm"} break-all`}>
+        {value ?? "—"}
+      </dd>
     </div>
   );
 }
