@@ -897,7 +897,7 @@ function renderReport(data, brandName) {
       gbtn.textContent = '\\u2713 Sent!';
       gbtn.style.background = 'var(--green)';
       const note = document.getElementById('gateNote');
-      note.textContent = 'Check your inbox. Full intercept report delivered within 2 minutes.';
+      note.textContent = 'Check your inbox \\u2014 we\\u2019ve confirmed your request. Your Averrow team is preparing your full report.';
       note.style.color = 'var(--green)';
       note.className = 'gate-note';
     })

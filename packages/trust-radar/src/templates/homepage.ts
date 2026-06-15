@@ -1605,7 +1605,7 @@ document.getElementById('scanForm').addEventListener('submit', function(e) {
         gbtn.textContent = '\\u2713 Sent!';
         gbtn.style.background = 'var(--green)';
         var note = document.getElementById('gateNote');
-        note.textContent = 'Check your inbox. Full intercept report delivered within 2 minutes.';
+        note.textContent = 'Check your inbox \\u2014 we\\u2019ve confirmed your request. Your Averrow team is preparing your full report.';
         note.style.color = 'var(--green)';
         note.className = 'gate-note';
       })
@@ -1676,12 +1676,16 @@ export function renderAssessResults(scanId: string): string {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg-void:#040810;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--blue-primary:#00d4ff;--blue-muted:#0091b3;--blue-glow:rgba(0,212,255,.08);--blue-border:rgba(0,212,255,.15);--blue-border-bright:rgba(0,212,255,.35);--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--positive:#00e5a0;--positive-muted:rgba(0,229,160,.12);--negative:#ff3b5c;--purple:#b388ff;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#00d4ff;--font-display:'Plus Jakarta Sans',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
+/* --blue-* names retained for diff-locality, but the accent is the
+   Averrow red (#C83C3C) so this page matches averrow.com + /scan
+   instead of the retired cyan Trust Radar identity. */
+:root{--bg-void:#060A14;--bg-surface:#0a1020;--bg-panel:#0d1528;--bg-elevated:#111d35;--blue-primary:#C83C3C;--blue-muted:#8B1A1A;--blue-glow:rgba(200,60,60,.08);--blue-border:rgba(200,60,60,.18);--blue-border-bright:rgba(200,60,60,.40);--amber:#E5A832;--threat-critical:#ff3b5c;--threat-high:#ff6b35;--threat-medium:#ffb627;--positive:#3CB878;--positive-muted:rgba(60,184,120,.12);--negative:#ff3b5c;--purple:#b388ff;--text-primary:#e8edf5;--text-secondary:#7a8ba8;--text-tertiary:#4a5a73;--text-accent:#C83C3C;--font-display:'Plus Jakarta Sans',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;--font-mono:'IBM Plex Mono',monospace;--radius:6px;--radius-lg:10px}
 *{margin:0;padding:0;box-sizing:border-box}html{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body)}
 .pub-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 40px;background:rgba(4,8,16,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--blue-border)}
-.pub-logo{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text-primary)}
-.pub-logo span{color:var(--blue-primary)}
-.logo-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--blue-primary);display:flex;align-items:center;justify-content:center}.logo-dot::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--blue-primary)}
+.pub-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text-primary)}
+.pub-logo svg{flex-shrink:0}
+.pub-logo .brand-name{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:2px;text-transform:uppercase;line-height:1;display:block}
+.pub-logo .brand-sub{font-family:var(--font-mono);font-weight:600;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-tertiary);display:block;margin-top:3px}
 .login-btn{font-family:var(--font-display);font-size:11px;font-weight:600;padding:7px 18px;border-radius:var(--radius);border:1px solid var(--blue-border-bright);background:var(--bg-panel);color:var(--blue-primary);cursor:pointer;text-decoration:none;transition:all .15s}.login-btn:hover{background:var(--bg-elevated)}
 .results-page{max-width:640px;margin:0 auto;padding:100px 24px 60px;text-align:center}
 .loading{font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);padding:60px 0}
@@ -1710,7 +1714,15 @@ export function renderAssessResults(scanId: string): string {
 </head>
 <body>
 <nav class="pub-nav">
-  <a href="/" class="pub-logo"><div class="logo-dot"></div>TRUST <span>RADAR</span></a>
+  <a href="/" class="pub-logo">
+    <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+      <defs><linearGradient id="deep-arrow-assess" x1="16" y1="5" x2="16" y2="26" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#6B1010"/><stop offset="100%" stop-color="#C83C3C"/></linearGradient></defs>
+      <rect width="32" height="32" rx="6" fill="#080E18"/>
+      <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="url(#deep-arrow-assess)"/>
+      <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
+    </svg>
+    <div><span class="brand-name">AVERROW</span><span class="brand-sub">Threat Interceptor</span></div>
+  </a>
   <a class="login-btn" href="/login">Sign In</a>
 </nav>
 <div class="results-page">
@@ -1719,7 +1731,7 @@ export function renderAssessResults(scanId: string): string {
 </div>
 <script>
 var FREEMAIL_DOMAINS=['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','mail.com','protonmail.com','proton.me','yandex.com','zoho.com','gmx.com','fastmail.com','tutanota.com','hey.com','live.com','msn.com','me.com','qq.com','163.com'];
-function scoreColor(s){return s>=80?'var(--positive)':s>=60?'var(--blue-primary)':s>=40?'var(--threat-medium)':s>=25?'var(--threat-high)':'var(--negative)'}
+function scoreColor(s){return s>=80?'var(--positive)':s>=60?'var(--amber)':s>=40?'var(--threat-medium)':s>=25?'var(--threat-high)':'var(--negative)'}
 function gradeFor(s){return s>=90?'A':s>=80?'B':s>=60?'C':s>=40?'D':'F'}
 function summaryFor(s,d){
   if(s>=80)return d+' has strong security posture. Email authentication is well-configured and we found minimal threat activity.';
@@ -1789,7 +1801,7 @@ fetch('/api/brand-scan/public/'+encodeURIComponent(scanId))
     var gbtn=document.getElementById('gateBtn');
     gbtn.textContent='Sending...';gbtn.disabled=true;
     fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,name:email.split('@')[0],domain:domain,company:emailDomain})})
-    .then(function(){gbtn.textContent='\\u2713 Sent!';gbtn.style.background='var(--positive)';var n=document.getElementById('gateNote');n.textContent='Check your inbox. Full report delivered within 2 minutes.';n.style.color='var(--positive)';n.className='gate-note';})
+    .then(function(){gbtn.textContent='\\u2713 Sent!';gbtn.style.background='var(--positive)';var n=document.getElementById('gateNote');n.textContent='Check your inbox \\u2014 we\\u2019ve confirmed your request. Your Averrow team is preparing your full report.';n.style.color='var(--positive)';n.className='gate-note';})
     .catch(function(){gbtn.textContent='Get Report';gbtn.disabled=false;});
   });
 })
