@@ -14,6 +14,7 @@
  */
 
 import { json } from "../lib/cors";
+import { isFreemailEmail } from "../lib/freemail";
 import type { Env } from "../types";
 
 // ─── Typosquat / Lookalike Domain Generation ────────────────────
@@ -502,6 +503,15 @@ export async function handleLeadCapture(request: Request, env: Env): Promise<Res
 
     if (!body.email || !body.name) {
       return json({ success: false, error: "Name and email are required" }, 400, origin);
+    }
+
+    // Business-email gate — mirrors the in-page check so a direct POST
+    // can't slip a personal/free address past the client validation.
+    if (!body.email.includes("@") || !body.email.split("@")[1]?.includes(".")) {
+      return json({ success: false, error: "Please enter a valid email address" }, 400, origin);
+    }
+    if (isFreemailEmail(body.email)) {
+      return json({ success: false, error: "Please use a business email address (no free email providers)" }, 400, origin);
     }
 
     const id = crypto.randomUUID();
