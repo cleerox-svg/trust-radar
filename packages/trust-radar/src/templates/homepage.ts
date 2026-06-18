@@ -1721,7 +1721,7 @@ export function renderAssessResults(scanId: string): string {
       <path d="M16 5L26 26H18L16 21L14 26H6Z" fill="url(#deep-arrow-assess)"/>
       <path d="M14.5 22H17.5L16 18Z" fill="#080E18"/>
     </svg>
-    <div><span class="brand-name">AVERROW</span><span class="brand-sub">Threat Interceptor</span></div>
+    <div><span class="brand-name">AVERROW</span><span class="brand-sub">Threat Intelligence</span></div>
   </a>
   <a class="login-btn" href="/login">Sign In</a>
 </nav>
