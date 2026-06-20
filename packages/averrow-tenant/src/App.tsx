@@ -6,6 +6,7 @@ import { Modules } from '@/features/modules/Modules';
 import { ModulePlaceholder } from '@/features/modules/ModulePlaceholder';
 import { Settings, TakedownAuthorizationPage } from '@/features/settings/Settings';
 import { AutomationPolicy } from '@/features/settings/AutomationPolicy';
+import { MonitoringRules } from '@/features/settings/MonitoringRules';
 import { AuditLog } from '@/features/settings/AuditLog';
 import { Members } from '@/features/settings/Members';
 import { Profile } from '@/features/profile/Profile';
@@ -80,6 +81,7 @@ export function App() {
 
               <Route path="profile" element={<Profile />} />
               <Route path="automation-policy" element={<AutomationPolicy />} />
+              <Route path="settings/monitoring" element={<MonitoringRules />} />
               <Route path="audit-log" element={<AuditLog />} />
               <Route path="settings" element={<Settings />} />
               <Route path="settings/takedown-authorization" element={<TakedownAuthorizationPage />} />

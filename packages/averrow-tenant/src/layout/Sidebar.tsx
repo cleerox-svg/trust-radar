@@ -6,7 +6,7 @@
 // once that lands in Phase B).
 
 import { NavLink } from 'react-router-dom';
-import { Globe, Users, Smartphone, EyeOff, Inbox, Award, Crosshair, Settings, Bell, AlertTriangle, Radar, Send, Sun, Moon, Laptop, ShieldAlert, SlidersHorizontal, ScrollText, LayoutDashboard, type LucideIcon } from 'lucide-react';
+import { Globe, Users, Smartphone, EyeOff, Inbox, Award, Crosshair, Settings, Bell, AlertTriangle, Radar, Send, Sun, Moon, Laptop, ShieldAlert, SlidersHorizontal, ScrollText, LayoutDashboard, ListFilter, type LucideIcon } from 'lucide-react';
 import { useTenantModules, MODULE_LABELS, type ModuleKey } from '@/lib/modules';
 import { useCanViewAudit } from '@/lib/auditLog';
 import { useTheme } from '@/lib/useTheme';
@@ -147,6 +147,10 @@ export function Sidebar() {
           <NavLink to="/automation-policy" className={({ isActive }) => cn(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}>
             <SlidersHorizontal size={16} />
             <span>Automation Policy</span>
+          </NavLink>
+          <NavLink to="/settings/monitoring" className={({ isActive }) => cn(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}>
+            <ListFilter size={16} />
+            <span>Monitoring Rules</span>
           </NavLink>
           {canViewAudit && (
             <NavLink to="/audit-log" className={({ isActive }) => cn(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}>
