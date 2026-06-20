@@ -1,0 +1,14 @@
+-- 0220: Persist the authentication method on each session (H-3, AUTH_AUDIT_2026-06)
+--
+-- Privileged users (admin / super_admin) only receive a FULL session when
+-- they authenticate with a passkey. A non-passkey login (Google OAuth or
+-- magic-link) yields an enrollment-scoped session that can do nothing but
+-- register a passkey. /api/auth/refresh must reproduce that decision on
+-- every rotation, so it needs to know how the session was originally
+-- authenticated — recorded here.
+--
+-- Values: 'google_oauth' | 'magic_link' | 'passkey'. Nullable so pre-existing
+-- sessions (issued before this migration) keep working; a null auth_method is
+-- treated as non-passkey, so a legacy privileged session is downgraded to
+-- enrollment scope on its next refresh until the user signs in with a passkey.
+ALTER TABLE sessions ADD COLUMN auth_method TEXT;

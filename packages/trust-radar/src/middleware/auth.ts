@@ -18,15 +18,53 @@ export interface AuthContext {
    * the role check inside getOrgScope().
    */
   embeddedScope: { org_id: number; brand_ids: string[] } | undefined;
+  /**
+   * H-3 (AUTH_AUDIT_2026-06): true when the token carries the
+   * `passkey_enroll` scope — a privileged user who signed in without a
+   * passkey. Only ever true on contexts returned by
+   * `requireAuthAllowEnroll`; `requireAuth` (and every guard built on it)
+   * rejects these tokens outright, so a normal protected handler never
+   * sees `enrollOnly === true`.
+   */
+  enrollOnly: boolean;
 }
 
 /**
  * Validates JWT access token and returns auth context.
  * Checks for forced logout via KV.
+ *
+ * H-3 (AUTH_AUDIT_2026-06): rejects enrollment-scoped tokens
+ * (`scope === 'passkey_enroll'`) with a 403 `passkey_enrollment_required`.
+ * Every guard built on `requireAuth` (requireRole/Admin/Staff/Permission)
+ * inherits this gate, so a privileged user who signed in without a passkey
+ * cannot reach any protected route. Use `requireAuthAllowEnroll` only on
+ * the handful of endpoints that must remain reachable to bootstrap a
+ * passkey (register begin/finish, /me, logout, passkey list).
  */
 export async function requireAuth(
   request: Request,
   env: Env,
+): Promise<AuthContext | Response> {
+  return requireAuthInternal(request, env, false);
+}
+
+/**
+ * Like `requireAuth`, but accepts enrollment-scoped tokens. The returned
+ * context's `enrollOnly` flag reflects whether the token was enrollment-
+ * scoped, so handlers can branch (e.g. /me surfacing `passkey_required`).
+ * Wire this ONLY onto passkey-enrollment bootstrap endpoints.
+ */
+export async function requireAuthAllowEnroll(
+  request: Request,
+  env: Env,
+): Promise<AuthContext | Response> {
+  return requireAuthInternal(request, env, true);
+}
+
+async function requireAuthInternal(
+  request: Request,
+  env: Env,
+  allowEnroll: boolean,
 ): Promise<AuthContext | Response> {
   const authHeader = request.headers.get("Authorization");
   const origin = request.headers.get("Origin");
@@ -40,6 +78,14 @@ export async function requireAuth(
 
   if (!payload) {
     return json({ success: false, error: "Invalid or expired token" }, 401, origin);
+  }
+
+  // H-3: enrollment-scoped tokens may only touch the passkey-bootstrap
+  // endpoints. Everything else gets a 403 the SPA turns into a mandatory
+  // "set up your passkey to continue" gate.
+  const enrollOnly = payload.scope === "passkey_enroll";
+  if (enrollOnly && !allowEnroll) {
+    return json({ success: false, error: "passkey_enrollment_required" }, 403, origin);
   }
 
   // Check for forced logout (admin-initiated session invalidation)
@@ -67,6 +113,7 @@ export async function requireAuth(
     orgId: payload.org_id ?? null,
     orgRole: payload.org_role ?? null,
     embeddedScope: payload.org_scope,
+    enrollOnly,
   };
 }
 
@@ -241,7 +288,7 @@ export async function getOrgScope(
   }
 
   // Legacy fallback: 2 D1 queries. Removed once all tokens have rotated
-  // through a refresh after Fix 4 ships (max 12h for access tokens,
+  // through a refresh after Fix 4 ships (max 30m for access tokens,
   // 7 days for refresh tokens).
   const membership = await db.prepare(
     "SELECT org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1"

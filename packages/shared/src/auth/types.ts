@@ -23,6 +23,15 @@ export interface SharedAuthUser {
   timezone?:        string | null;
   theme_preference?: 'dark' | 'light' | null;
   passkey_count?:   number;
+  /**
+   * H-3 (AUTH_AUDIT_2026-06): true when this session is restricted to
+   * passkey enrollment — a privileged user (admin/super_admin) who signed
+   * in without a passkey. The host renders a mandatory enrollment gate and
+   * blocks the app until the user registers a passkey and signs in with it.
+   * Always falsy for non-privileged users and for passkey-authenticated
+   * privileged sessions.
+   */
+  passkey_required?: boolean;
   avatar_url?:      string;
   organization?:    SharedAuthUserOrganization | null;
 }
