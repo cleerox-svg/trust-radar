@@ -668,6 +668,22 @@ export default {
         return handleMintServiceJwt(request, env);
       }
 
+      // Mint a SHORT-LIVED, LOW-PRIVILEGE JWT for Claude Code UI inspection.
+      // Internal secret authenticates the caller. Role is hard-capped
+      // (staff → analyst|admin, tenant → client) — never super_admin. See
+      // handleMintUiPreviewJwt for params + the kill-switch SQL.
+      //   POST /api/internal/auth/mint-ui-preview-jwt?surface=staff[&role=analyst|admin][&ttl_minutes=N]
+      //   POST /api/internal/auth/mint-ui-preview-jwt?surface=tenant[&org_id=N][&ttl_minutes=N]
+      if (url.pathname === '/api/internal/auth/mint-ui-preview-jwt' && request.method === 'POST') {
+        const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
+        const authHeader = request.headers.get('Authorization');
+        if (!timingSafeBearerEq(authHeader, internalSecret)) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        const { handleMintUiPreviewJwt } = await import('./handlers/auth');
+        return handleMintUiPreviewJwt(request, env);
+      }
+
       // Manual briefing email trigger
       if (url.pathname === '/api/internal/briefing/send' && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
