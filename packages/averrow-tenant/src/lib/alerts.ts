@@ -36,6 +36,8 @@ export interface Alert {
   acknowledged_at:     string | null;
   resolved_at:         string | null;
   resolution_notes:    string | null;
+  assigned_to:         string | null;
+  assigned_to_name:    string | null;
   created_at:          string;
 }
 
@@ -161,6 +163,26 @@ export function useUpdateAlert() {
       // Prefix-match invalidation covers every severity/status filter variant.
       qc.invalidateQueries({ queryKey: ['tenant-alerts', orgId] });
       qc.invalidateQueries({ queryKey: ['tenant-dashboard', orgId] });
+    },
+  });
+}
+
+/** Assign (or unassign with null) a signal's owner. Same endpoint as the
+ *  status update; the backend accepts assigned_to independently. */
+export function useAssignAlert() {
+  const { user } = useAuth();
+  const orgId = user?.organization?.id ?? null;
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ alertId, assignedTo }: { alertId: string; assignedTo: string | null }) => {
+      return apiPatch<{ message: string }>(
+        `/api/orgs/${orgId}/alerts/${alertId}`,
+        { assigned_to: assignedTo },
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tenant-alerts', orgId] });
     },
   });
 }

@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { Inbox, Bot, ArrowRight, ShieldAlert, Send, CheckCircle2, type LucideIcon } from 'lucide-react';
 import { useTenantAlerts, useCanTriage, extractConfidence, type Alert, type AlertSeverity } from '@/lib/alerts';
 import { useTenantTakedowns, takedownActionsFor, type TakedownListRow } from '@/lib/takedowns';
-import { AlertActions } from '@/features/alerts/AlertActions';
+import { AlertActions, AssigneeControl } from '@/features/alerts/AlertActions';
 import { VerdictChip } from '@/features/alerts/AiAssessment';
 import { TakedownActions } from '@/features/takedowns/TakedownActions';
 
@@ -132,6 +132,7 @@ function SignalRow({ alert: a, canTriage }: { alert: Alert; canTriage: boolean }
         <span className="ml-auto text-[10px] font-mono text-white/35">{a.brand_name}</span>
       </div>
       <div className="text-[13.5px] font-semibold text-white/90 leading-snug">{a.title}</div>
+      <div className="mt-2"><AssigneeControl alert={a} canTriage={canTriage} /></div>
       {canTriage && <AlertActions alert={a} />}
     </div>
   );
