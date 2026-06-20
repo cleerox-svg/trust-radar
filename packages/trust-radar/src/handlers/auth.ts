@@ -978,3 +978,171 @@ export async function handleMintServiceJwt(request: Request, env: Env): Promise<
     );
   }
 }
+
+// ─── UI-preview JWT minting (Claude Code UI inspection) ─────────
+//
+// Mints a SHORT-LIVED, LOW-PRIVILEGE JWT so an automated agent (Claude
+// Code) can load the live SPA and inspect the UI. Auth is via
+// AVERROW_INTERNAL_SECRET — same gate as handleMintServiceJwt, and strictly
+// LESS powerful: the role is hard-capped (staff → analyst|admin, tenant →
+// client) so it can NEVER mint super_admin, and the TTL is hard-capped too.
+//
+// Inject the token by navigating a browser to the returned `preview_url`
+// (`<origin>/v2/#token=…` or `/tenant/#token=…`) — the SPA's AuthProvider
+// reads the hash, validates /api/auth/me, and boots.
+//
+// Kill switch (instant):
+//   UPDATE users SET status='suspended'
+//     WHERE id IN ('claude_ui_staff','claude_ui_tenant');
+//   requireAuth rejects on the next request; re-enable with status='active'.
+// Full removal:
+//   DELETE FROM org_members WHERE user_id='claude_ui_tenant';
+//   DELETE FROM users WHERE id IN ('claude_ui_staff','claude_ui_tenant');
+
+interface UiPreviewPreset {
+  id: string;
+  email: string;
+  name: string;
+  returnTo: string;
+}
+const UI_PREVIEW_STAFF: UiPreviewPreset = {
+  id: "claude_ui_staff",
+  email: "claude-ui-staff@averrow.local",
+  name: "Claude UI Preview (Staff)",
+  returnTo: "/v2/",
+};
+const UI_PREVIEW_TENANT: UiPreviewPreset = {
+  id: "claude_ui_tenant",
+  email: "claude-ui-tenant@averrow.local",
+  name: "Claude UI Preview (Tenant)",
+  returnTo: "/tenant/",
+};
+/** Roles the staff preview may request. super_admin is deliberately absent. */
+const UI_PREVIEW_STAFF_ROLES: UserRole[] = ["analyst", "admin"];
+const UI_PREVIEW_DEFAULT_TTL_MIN = 60;
+const UI_PREVIEW_MAX_TTL_MIN = 240;
+
+export async function handleMintUiPreviewJwt(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  try {
+    const url = new URL(request.url);
+    const surface = url.searchParams.get("surface");
+    if (surface !== "staff" && surface !== "tenant") {
+      return json({ success: false, error: "surface must be 'staff' or 'tenant'" }, 400, origin);
+    }
+
+    // Resolve preset + role. Tenant is always 'client'; staff defaults to
+    // 'analyst' and may opt up to 'admin' but never super_admin.
+    const preset = surface === "staff" ? UI_PREVIEW_STAFF : UI_PREVIEW_TENANT;
+    let role: UserRole;
+    if (surface === "staff") {
+      const roleParam = (url.searchParams.get("role") ?? "analyst") as UserRole;
+      if (!UI_PREVIEW_STAFF_ROLES.includes(roleParam)) {
+        return json({ success: false, error: "staff role must be 'analyst' or 'admin'" }, 400, origin);
+      }
+      role = roleParam;
+    } else {
+      role = "client";
+    }
+
+    // TTL clamp.
+    const reqTtl = parseInt(url.searchParams.get("ttl_minutes") ?? "", 10);
+    const ttlMin = Number.isFinite(reqTtl) && reqTtl > 0
+      ? Math.min(reqTtl, UI_PREVIEW_MAX_TTL_MIN)
+      : UI_PREVIEW_DEFAULT_TTL_MIN;
+    const ttlSec = ttlMin * 60;
+
+    // Ensure the dedicated preview user exists. Does NOT auto-reactivate a
+    // suspended user — the kill switch must hold across re-mints.
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, email, name, role, status, created_at)
+       VALUES (?, ?, ?, ?, 'active', datetime('now'))`,
+    ).bind(preset.id, preset.email, preset.name, role).run();
+
+    const existing = await env.DB.prepare("SELECT status, role FROM users WHERE id = ?")
+      .bind(preset.id).first<{ status: string; role: string }>();
+    if (!existing || existing.status !== "active") {
+      return json({ success: false, error: "Preview user is suspended" }, 503, origin);
+    }
+    // Keep the stored role in sync with the requested one (the JWT role is
+    // authoritative for access, but a consistent row avoids confusion).
+    if (existing.role !== role) {
+      await env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, preset.id).run();
+    }
+
+    // Tenant preview: optionally scope to a real org so org-filtered pages
+    // render real data. Adds an idempotent viewer membership.
+    let orgIdNum: number | undefined;
+    if (surface === "tenant") {
+      const orgIdRaw = url.searchParams.get("org_id");
+      if (orgIdRaw) {
+        orgIdNum = parseInt(orgIdRaw, 10);
+        if (!Number.isFinite(orgIdNum)) {
+          return json({ success: false, error: "org_id must be numeric" }, 400, origin);
+        }
+        const org = await env.DB.prepare("SELECT id FROM organizations WHERE id = ?")
+          .bind(orgIdNum).first<{ id: number }>();
+        if (!org) return json({ success: false, error: "org_id not found" }, 404, origin);
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO org_members (org_id, user_id, role, status, provisioned_by, invited_at, accepted_at)
+           VALUES (?, ?, 'viewer', 'active', 'ui_preview', datetime('now'), datetime('now'))`,
+        ).bind(orgIdNum, preset.id).run();
+      }
+    }
+
+    // Resolve org context for the JWT so org-scoped queries work.
+    const membership = await env.DB.prepare(`
+      SELECT om.org_id, om.role AS org_role
+      FROM org_members om
+      JOIN organizations o ON o.id = om.org_id
+      WHERE om.user_id = ? AND om.status = 'active'
+      LIMIT 1
+    `).bind(preset.id).first<{ org_id: number; org_role: string }>();
+
+    const orgScope = await loadOrgScopeForToken(env.DB, preset.id, role);
+
+    const jwt = await signJWT(
+      {
+        sub: preset.id,
+        email: preset.email,
+        role,
+        org_id: membership?.org_id?.toString() ?? undefined,
+        org_role: membership?.org_role ?? undefined,
+        org_scope: orgScope,
+      },
+      env.JWT_SECRET,
+      ttlSec,
+    );
+
+    const siteOrigin = new URL(request.url).origin;
+    const previewUrl = `${siteOrigin}${preset.returnTo}#token=${jwt}&expires_in=${ttlSec}`;
+    const expiresAt = new Date((Math.floor(Date.now() / 1000) + ttlSec) * 1000).toISOString();
+
+    await audit(env, {
+      action: "ui_preview_jwt_minted",
+      userId: preset.id,
+      details: { surface, role, org_id: orgIdNum ?? null, ttl_minutes: ttlMin },
+      request,
+    }).catch(() => {});
+
+    return json({
+      success: true,
+      data: {
+        jwt,
+        preview_url: previewUrl,
+        expires_at: expiresAt,
+        ttl_seconds: ttlSec,
+        user_id: preset.id,
+        role,
+        surface,
+        org_id: orgIdNum ?? null,
+      },
+    }, 200, origin);
+  } catch (err) {
+    return json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      origin,
+    );
+  }
+}
