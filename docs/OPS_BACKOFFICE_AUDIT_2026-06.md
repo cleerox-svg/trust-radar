@@ -231,3 +231,36 @@ existing names into `<Link>`s; G2 is making Providers/Actors deep-link targets.
    visualization lift; flag for its own batch/PR.
 
 > Slices A–B are the "make the entity graph logical" core and should ship first.
+
+### 4.6 Implementation note — corrections from code verification (Slice A+B shipped)
+
+Verifying against the live components (per the standing "confirm current-state in
+code" rule) **corrected several recon claims** — the dead-ends were real, but in
+a different place than the recon reported:
+
+- **Campaign detail already links out** — Brand→`/brands/:id`, Provider→
+  `/providers/:id`, Threat→`/threats/:id` are all `<Link>`s today (recon said
+  "not clickable" — wrong).
+- **Threat-Actor detail is already richly connected** — `active_campaigns`→
+  `/campaigns/:id`, Targeted Brands→`/brands/:id`, plus a real recent-activity
+  timeline + news mentions (recon called it "view-only, terminal" — wrong; G5 is
+  largely already met).
+- **The actual bug:** those Provider/Actor links pointed at `/providers/:id` and
+  `/threat-actors/:id`, which **redirected to the bare list (dropping the id)**;
+  and `/threats/:id` **had no route at all** (Campaign→Threat was a 404).
+
+**Shipped fix (Slice A+B):**
+1. `?focus=:id` deep-link on the Providers and Threat Actors lists — auto-expands
+   + scrolls the target card (Threat Actors broadens past active-only so a
+   dormant target still appears).
+2. Rewrote the `/providers/:id` and `/threat-actors/:id` redirects to **carry the
+   id as `?focus`** instead of dropping it — instantly resolving the existing
+   Campaign→Provider and Brand→Actor pivots.
+3. Seeded the Threats table from `?q=` and repointed Campaign→Threat at
+   `/threats?q=<indicator>` (fixes the 404; the filtered table is the resolution
+   since there's no single-threat route).
+
+**Still open after this slice:** Brand→Provider/Campaign (brand detail doesn't
+link *out* to those entities at all — needs a "providers/campaigns targeting this
+brand" read, G3/G7); interactive campaign graph (G4); shared `EntityList` shell
+(C1/G6); actor `motivation`/`active-since` (G5 remainder).
