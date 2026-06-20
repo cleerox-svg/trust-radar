@@ -20,7 +20,7 @@ import {
   useTenantAlerts, useCanTriage, extractConfidence,
   type Alert, type AlertSeverity, type AlertStatus,
 } from '@/lib/alerts';
-import { AlertActions } from './AlertActions';
+import { AlertActions, AssigneeControl } from './AlertActions';
 import { AiAssessmentPanel } from './AiAssessment';
 import { cn } from '@/lib/cn';
 
@@ -201,9 +201,12 @@ function AlertRow({ alert: a, canTriage }: { alert: Alert; canTriage: boolean })
             {a.alert_type.replace(/_/g, ' ')}
           </span>
         </div>
-        <div className="text-right text-[10px] font-mono text-white/40 flex-shrink-0">
-          <div>{new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-          <div className="mt-0.5 truncate max-w-[140px] text-white/55">{a.brand_name}</div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <AssigneeControl alert={a} canTriage={canTriage} />
+          <div className="text-right text-[10px] font-mono text-white/40">
+            <div>{new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+            <div className="mt-0.5 truncate max-w-[140px] text-white/55">{a.brand_name}</div>
+          </div>
         </div>
       </div>
 

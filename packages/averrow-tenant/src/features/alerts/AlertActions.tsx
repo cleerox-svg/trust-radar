@@ -4,9 +4,59 @@
 // before confirming. Driven by PATCH /api/orgs/:orgId/alerts/:alertId.
 
 import { useState } from 'react';
-import { Check, Eye, ShieldCheck, Ban, Loader2, type LucideIcon } from 'lucide-react';
-import { useUpdateAlert, type Alert, type AlertAction, type AlertStatus } from '@/lib/alerts';
+import { Check, Eye, ShieldCheck, Ban, Loader2, UserCheck, UserPlus, X, type LucideIcon } from 'lucide-react';
+import { useUpdateAlert, useAssignAlert, type Alert, type AlertAction, type AlertStatus } from '@/lib/alerts';
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/cn';
+
+// Per-signal ownership. Self-assign / unassign for analysts; a read-only
+// "Assigned: …" chip for viewers (and when assigned to someone else).
+export function AssigneeControl({ alert: a, canTriage }: { alert: Alert; canTriage: boolean }) {
+  const { user } = useAuth();
+  const assign = useAssignAlert();
+  const me = user?.id ?? null;
+  const assignedToMe = !!a.assigned_to && a.assigned_to === me;
+
+  if (!canTriage) {
+    if (!a.assigned_to_name) return null;
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-mono text-white/50 bg-white/[0.04] border border-white/[0.08] rounded px-1.5 py-0.5">
+        <UserCheck size={10} /> {assignedToMe ? 'You' : a.assigned_to_name}
+      </span>
+    );
+  }
+
+  const chip = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider border transition-colors disabled:opacity-50';
+  return (
+    <div className="flex items-center gap-1.5">
+      {a.assigned_to_name && (
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-mono text-white/55 bg-white/[0.04] border border-white/[0.08] rounded px-1.5 py-0.5">
+          <UserCheck size={10} /> {assignedToMe ? 'You' : a.assigned_to_name}
+        </span>
+      )}
+      {assignedToMe ? (
+        <button
+          type="button"
+          disabled={assign.isPending}
+          onClick={() => assign.mutate({ alertId: a.id, assignedTo: null })}
+          className={`${chip} bg-white/[0.04] text-white/55 border-white/[0.08] hover:text-white/85`}
+        >
+          <X size={10} /> Unassign
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={assign.isPending || !me}
+          onClick={() => me && assign.mutate({ alertId: a.id, assignedTo: me })}
+          className={`${chip} bg-white/[0.04] text-white/60 border-white/[0.08] hover:text-white/90 hover:border-white/[0.18]`}
+        >
+          <UserPlus size={10} /> {a.assigned_to_name ? 'Reassign to me' : 'Assign to me'}
+        </button>
+      )}
+      {assign.isPending && <Loader2 size={11} className="text-white/40 animate-spin" />}
+    </div>
+  );
+}
 
 // Valid next transitions per current status — mirrors the backend's accepted
 // statuses; 'new' is the system default and not a transition target.

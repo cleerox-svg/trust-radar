@@ -200,9 +200,28 @@ export async function handleTenantAlerts(
       GROUP BY a.severity
     `).bind(...bindings).all();
 
+    // Resolve assignee display names (cheap second query) so the queue can
+    // show ownership without the client holding a member directory.
+    const rawAlerts = (alertsResult.results || []) as Array<Record<string, unknown>>;
+    const assigneeIds = [...new Set(
+      rawAlerts.map((a) => a.assigned_to).filter((x): x is string => typeof x === "string" && !!x),
+    )];
+    const nameById: Record<string, string> = {};
+    if (assigneeIds.length > 0) {
+      const ph = assigneeIds.map(() => "?").join(",");
+      const us = await env.DB.prepare(
+        `SELECT id, COALESCE(display_name, name, email) AS name FROM users WHERE id IN (${ph})`,
+      ).bind(...assigneeIds).all<{ id: string; name: string }>();
+      for (const u of us.results ?? []) nameById[u.id] = u.name;
+    }
+    const data = rawAlerts.map((a) => ({
+      ...a,
+      assigned_to_name: a.assigned_to ? (nameById[a.assigned_to as string] ?? null) : null,
+    }));
+
     return json({
       success: true,
-      data: alertsResult.results || [],
+      data,
       total: countResult?.total ?? 0,
       severity_breakdown: severityBreakdown.results || [],
     }, 200, origin);
@@ -444,14 +463,16 @@ export async function handleTenantUpdateAlert(
   }
 
   try {
-    const body = await request.json() as { status?: string; notes?: string };
+    const body = await request.json() as { status?: string; notes?: string; assigned_to?: string | null };
+    const hasStatus = typeof body.status === "string";
+    const hasAssignee = Object.prototype.hasOwnProperty.call(body, "assigned_to");
 
-    if (!body.status) {
-      return json({ success: false, error: "Missing required field: status" }, 400, origin);
+    if (!hasStatus && !hasAssignee) {
+      return json({ success: false, error: "Provide a status and/or an assignee" }, 400, origin);
     }
 
     const validStatuses = ["acknowledged", "investigating", "resolved", "false_positive"];
-    if (!validStatuses.includes(body.status)) {
+    if (hasStatus && !validStatuses.includes(body.status as string)) {
       return json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }, 400, origin);
     }
 
@@ -467,21 +488,43 @@ export async function handleTenantUpdateAlert(
       return json({ success: false, error: "Alert not found or not accessible" }, 404, origin);
     }
 
+    // Validate the assignee (when assigning to a user, not unassigning) — must
+    // be an active member of this org.
+    if (hasAssignee && body.assigned_to != null) {
+      const member = await env.DB.prepare(
+        "SELECT 1 FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active'",
+      ).bind(orgId, body.assigned_to).first();
+      if (!member) {
+        return json({ success: false, error: "Assignee must be an active member of this organization" }, 400, origin);
+      }
+    }
+
     // Update alert
     const now = new Date().toISOString();
-    const updates: string[] = ["status = ?", "updated_at = ?"];
-    const updateBindings: unknown[] = [body.status, now];
+    const updates: string[] = ["updated_at = ?"];
+    const updateBindings: unknown[] = [now];
 
-    if (body.status === "acknowledged") {
-      updates.push("acknowledged_at = ?");
-      updateBindings.push(now);
-    } else if (body.status === "resolved" || body.status === "false_positive") {
-      updates.push("resolved_at = ?");
-      updateBindings.push(now);
-      if (body.notes) {
-        updates.push("resolution_notes = ?");
-        updateBindings.push(body.notes);
+    if (hasStatus) {
+      updates.push("status = ?");
+      updateBindings.push(body.status);
+      if (body.status === "acknowledged") {
+        updates.push("acknowledged_at = ?");
+        updateBindings.push(now);
+      } else if (body.status === "resolved" || body.status === "false_positive") {
+        updates.push("resolved_at = ?");
+        updateBindings.push(now);
+        if (body.notes) {
+          updates.push("resolution_notes = ?");
+          updateBindings.push(body.notes);
+        }
       }
+    }
+
+    if (hasAssignee) {
+      updates.push("assigned_to = ?");
+      updateBindings.push(body.assigned_to ?? null);
+      updates.push("assigned_at = ?");
+      updateBindings.push(body.assigned_to ? now : null);
     }
 
     await env.DB.prepare(`
@@ -498,23 +541,29 @@ export async function handleTenantUpdateAlert(
         org_id: orgId,
         org_role: ctx.orgRole,
         previous_status: alert.current_status,
-        new_status: body.status,
+        new_status: hasStatus ? body.status : null,
         notes: body.notes ?? null,
+        assigned_to: hasAssignee ? (body.assigned_to ?? null) : undefined,
       },
       outcome: "success",
       request,
     });
 
-    // Fire webhook: alert.status_changed
-    deliverWebhook(env, Number(orgId), "alert.status_changed", {
-      alert_id: alertId,
-      previous_status: alert.current_status,
-      new_status: body.status,
-      updated_by: ctx.userId,
-      notes: body.notes ?? null,
-    }).catch(() => {});
+    // Fire webhook only when the status actually changed.
+    if (hasStatus) {
+      deliverWebhook(env, Number(orgId), "alert.status_changed", {
+        alert_id: alertId,
+        previous_status: alert.current_status,
+        new_status: body.status,
+        updated_by: ctx.userId,
+        notes: body.notes ?? null,
+      }).catch(() => {});
+    }
 
-    return json({ success: true, message: `Alert ${body.status}` }, 200, origin);
+    const message = hasStatus
+      ? `Alert ${body.status}`
+      : (body.assigned_to ? "Alert assigned" : "Alert unassigned");
+    return json({ success: true, message }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }
