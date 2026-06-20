@@ -8,6 +8,7 @@ import { DeepBackground } from '@/components/ui/DeepBackground';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { useBreakpoint }  from '@/design-system/hooks';
 import { FirstSignInPasskeyPrompt } from '@/components/FirstSignInPasskeyPrompt';
+import { PasskeyEnrollmentGate } from '@/components/PasskeyEnrollmentGate';
 import { PlatformAlertBanner } from '@/components/PlatformAlertBanner';
 
 export function Shell() {
@@ -88,6 +89,10 @@ export function Shell() {
           (localStorage flag + passkey_count check) so it can sit at
           the Shell root without any per-route logic. */}
       <FirstSignInPasskeyPrompt />
+      {/* H-3: blocking gate for privileged users who signed in without a
+          passkey. Self-gates on user.passkey_required, so it sits at the
+          Shell root with no per-route logic. */}
+      <PasskeyEnrollmentGate />
     </div>
   );
 }

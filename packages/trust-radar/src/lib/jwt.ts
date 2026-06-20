@@ -19,8 +19,17 @@ function b64url(buf: ArrayBuffer): string {
     .replace(/=/g, "");
 }
 
-/** 12-hour access token */
-export const ACCESS_TOKEN_TTL = 60 * 60 * 12;
+/**
+ * 30-minute access token.
+ *
+ * H-1 (AUTH_AUDIT_2026-06): shortened from 12h. Access tokens are
+ * memory-only in the SPA and silently refreshed via the HttpOnly
+ * `radar_refresh` cookie on 401 / reload, so a short TTL is invisible
+ * to users but sharply bounds the exposure window of a token leaked
+ * via XSS or the `#token=` redirect hash. Best practice is 15–60 min
+ * for SPA bearer tokens.
+ */
+export const ACCESS_TOKEN_TTL = 60 * 30;
 /** 7-day refresh token */
 export const REFRESH_TOKEN_TTL = 60 * 60 * 24 * 7;
 /** 30-day absolute session limit */

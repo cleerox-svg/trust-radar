@@ -334,6 +334,19 @@ interface MeResponse {
   theme_preference: 'dark' | 'light' | null;
   /** Drives FirstSignInPasskeyPrompt — auto-prompts when 0. */
   passkey_count: number;
+  /**
+   * H-3 (AUTH_AUDIT_2026-06): true when this session is restricted to
+   * passkey enrollment — a privileged user (admin/super_admin) who signed
+   * in via a non-passkey method (Google/magic-link). The host renders a
+   * mandatory enrollment gate (`<PasskeyEnrollmentGate>`) and blocks the
+   * app until the user registers a passkey and signs in with it. The
+   * backend returns 403 `passkey_enrollment_required` on every protected
+   * route for such sessions; only the passkey-bootstrap endpoints
+   * (register begin/finish, /me, logout, passkey list) remain reachable.
+   * Always falsy for non-privileged users and passkey-authenticated
+   * privileged sessions.
+   */
+  passkey_required: boolean;
   organization: {
     id: number;
     name: string;

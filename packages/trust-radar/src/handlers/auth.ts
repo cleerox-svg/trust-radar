@@ -212,6 +212,17 @@ async function completeOAuthCallback(
 // Set-Cookie; the JSON envelope carries just the short-lived access
 // token, which the SPAs hold in memory.
 
+/**
+ * Grace window (ms) during which a just-rotated refresh token may be
+ * re-presented without tripping reuse detection. Covers the realistic
+ * benign race: two browser tabs sharing the same HttpOnly cookie both
+ * hit a 401 and fire /api/auth/refresh near-simultaneously — the slower
+ * request arrives carrying the token the faster one already rotated.
+ * Tight enough that a genuinely stolen token surfacing later is still
+ * caught and nukes the session family.
+ */
+const REFRESH_REUSE_GRACE_MS = 15_000;
+
 export async function handleRefreshToken(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
 
@@ -226,8 +237,8 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
   const tokenHash = await hashToken(refreshToken);
 
   // Find active session
-  const session = await env.DB.prepare(
-    `SELECT s.id, s.user_id, s.issued_at, s.expires_at,
+  let session = await env.DB.prepare(
+    `SELECT s.id, s.user_id, s.issued_at, s.expires_at, s.auth_method,
             u.email, u.role, u.status
      FROM sessions s
      JOIN users u ON u.id = s.user_id
@@ -236,8 +247,62 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
        AND s.expires_at > datetime('now')`,
   ).bind(tokenHash).first<{
     id: string; user_id: string; issued_at: string; expires_at: string;
+    auth_method: string | null;
     email: string; role: UserRole; status: string;
   }>();
+
+  if (!session) {
+    // H-2 (AUTH_AUDIT_2026-06): reuse detection. The token isn't the
+    // current active hash on any live session — was it a token we ALREADY
+    // rotated away? If so, distinguish two cases by the rotation age:
+    //   * within REFRESH_REUSE_GRACE_MS on a still-live session → benign
+    //     concurrent refresh (e.g. two tabs racing on the same cookie).
+    //     Adopt the session and re-rotate normally below.
+    //   * otherwise (stale, or the session was already revoked) → a
+    //     replayed/stolen token. Revoke the whole family + force-logout.
+    const prior = await env.DB.prepare(
+      `SELECT s.id, s.user_id, s.issued_at, s.expires_at, s.revoked_at, s.rotated_at, s.auth_method,
+              u.email, u.role, u.status
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+        WHERE s.previous_token_hash = ?`,
+    ).bind(tokenHash).first<{
+      id: string; user_id: string; issued_at: string; expires_at: string;
+      revoked_at: string | null; rotated_at: string | null; auth_method: string | null;
+      email: string; role: UserRole; status: string;
+    }>();
+
+    if (prior) {
+      const rotatedMs = prior.rotated_at ? new Date(prior.rotated_at).getTime() : 0;
+      const withinGrace = prior.revoked_at === null && Date.now() - rotatedMs <= REFRESH_REUSE_GRACE_MS;
+
+      if (withinGrace) {
+        // Benign race — fall through to the normal rotation tail.
+        session = {
+          id: prior.id, user_id: prior.user_id,
+          issued_at: prior.issued_at, expires_at: prior.expires_at,
+          auth_method: prior.auth_method,
+          email: prior.email, role: prior.role, status: prior.status,
+        };
+      } else {
+        // Replay of an already-rotated token → treat as theft.
+        await env.DB.prepare(
+          "UPDATE sessions SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL",
+        ).bind(prior.user_id).run();
+        // Belt-and-suspenders: invalidate any live access tokens for this
+        // user too (the forced-logout gate rejects tokens with iat <= now).
+        await env.CACHE.put(
+          `forced_logout:${prior.user_id}`,
+          String(Math.floor(Date.now() / 1000)),
+          { expirationTtl: ABSOLUTE_SESSION_TTL },
+        ).catch(() => {});
+        await audit(env, { action: "refresh_token_reuse", userId: prior.user_id, outcome: "denied", request });
+        return clearRefreshCookie(
+          json({ success: false, error: "Session security check failed. Please log in again." }, 401, origin),
+        );
+      }
+    }
+  }
 
   if (!session) {
     await audit(env, { action: "refresh_invalid", outcome: "failure", request });
@@ -263,12 +328,14 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
     return clearRefreshCookie(json({ success: false, error: "Session invalidated" }, 401, origin));
   }
 
-  // Rotate refresh token — revoke old, issue new
+  // Rotate refresh token — issue new, remember the just-rotated hash so a
+  // later replay of it is caught by the reuse-detection branch above.
   const newRefreshToken = generateRefreshToken();
   const newRefreshHash = await hashToken(newRefreshToken);
 
-  await env.DB.prepare("UPDATE sessions SET refresh_token_hash = ?, expires_at = datetime('now', '+7 days') WHERE id = ?")
-    .bind(newRefreshHash, session.id).run();
+  await env.DB.prepare(
+    "UPDATE sessions SET refresh_token_hash = ?, previous_token_hash = ?, rotated_at = datetime('now'), expires_at = datetime('now', '+7 days') WHERE id = ?",
+  ).bind(newRefreshHash, tokenHash, session.id).run();
 
   // Look up org membership for refresh
   const membership = await env.DB.prepare(`
@@ -283,7 +350,10 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
   // never has to look it up again (saves 2 D1 queries per request).
   const orgScope = await loadOrgScopeForToken(env.DB, session.user_id, session.role as UserRole);
 
-  // Issue new access token
+  // Issue new access token. H-3: re-evaluate the enrollment gate on every
+  // rotation from the session's recorded auth_method, so a privileged
+  // session stays enrollment-scoped until the user signs in with a passkey
+  // (and a legacy session with a null auth_method is downgraded until then).
   const accessToken = await signJWT(
     {
       sub: session.user_id,
@@ -292,6 +362,7 @@ export async function handleRefreshToken(request: Request, env: Env): Promise<Re
       org_id: membership?.org_id?.toString() ?? undefined,
       org_role: membership?.org_role ?? undefined,
       org_scope: orgScope,
+      scope: enrollScopeFor(session.role as UserRole, session.auth_method as AuthMethod | null),
     },
     env.JWT_SECRET,
     ACCESS_TOKEN_TTL,
@@ -330,7 +401,7 @@ export async function handleLogout(request: Request, env: Env, userId: string): 
 
 // ─── /api/auth/me ───────────────────────────────────────────────
 
-export async function handleMe(request: Request, env: Env, userId: string): Promise<Response> {
+export async function handleMe(request: Request, env: Env, userId: string, enrollOnly = false): Promise<Response> {
   const origin = request.headers.get("Origin");
 
   // Pulls the new profile-personalization fields (display_name,
@@ -372,6 +443,10 @@ export async function handleMe(request: Request, env: Env, userId: string): Prom
       // up display_name first, name as the fallback. Existing callers
       // of `name` keep working unchanged.
       name: user.display_name ?? user.name,
+      // H-3: true when this session is restricted to passkey enrollment
+      // (privileged user signed in without a passkey). The SPA renders a
+      // mandatory enrollment gate and blocks the rest of the app.
+      passkey_required: enrollOnly,
       organization: membership ? {
         id: membership.org_id,
         name: membership.name,
@@ -469,6 +544,25 @@ export type AuthMethod = "google_oauth" | "magic_link" | "passkey";
  *     (used by passkey auth/finish — XHR caller navigates manually). */
 export type IssueSessionMode = 'redirect' | 'json';
 
+/** Scope marker for an enrollment-only restricted session (H-3). */
+export const PASSKEY_ENROLL_SCOPE = "passkey_enroll" as const;
+
+/** Roles that must hold (and authenticate with) a passkey for full access. */
+export function isPrivilegedRole(role: UserRole): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
+/**
+ * H-3 (AUTH_AUDIT_2026-06): decide whether a freshly-authenticated session
+ * is restricted to passkey enrollment. Privileged users (admin/super_admin)
+ * only get a full session when they signed in WITH a passkey; any other
+ * method yields an enrollment-only session so they can register one and then
+ * sign in with it. Non-privileged roles are never restricted.
+ */
+export function enrollScopeFor(role: UserRole, method: AuthMethod | null): typeof PASSKEY_ENROLL_SCOPE | undefined {
+  return isPrivilegedRole(role) && method !== "passkey" ? PASSKEY_ENROLL_SCOPE : undefined;
+}
+
 export async function issueSession(
   request: Request,
   env: Env,
@@ -493,6 +587,9 @@ export async function issueSession(
   // never has to look it up again (saves 2 D1 queries per request).
   const orgScope = await loadOrgScopeForToken(env.DB, userId, role);
 
+  // H-3: privileged non-passkey logins are restricted to passkey enrollment.
+  const enrollScope = enrollScopeFor(role, method);
+
   // Generate tokens
   const jwtPayload: Omit<import("../types").JWTPayload, "iat" | "exp"> = {
     sub: userId,
@@ -501,6 +598,7 @@ export async function issueSession(
     org_id: membership?.org_id?.toString() ?? undefined,
     org_role: membership?.org_role ?? undefined,
     org_scope: orgScope,
+    scope: enrollScope,
   };
   const accessToken = await signJWT(jwtPayload, env.JWT_SECRET, ACCESS_TOKEN_TTL);
   const refreshToken = generateRefreshToken();
@@ -513,9 +611,9 @@ export async function issueSession(
   const ua = request.headers.get("User-Agent") ?? null;
 
   await env.DB.prepare(
-    `INSERT INTO sessions (id, user_id, refresh_token_hash, expires_at, ip_address, user_agent)
-     VALUES (?, ?, ?, datetime('now', '+7 days'), ?, ?)`,
-  ).bind(sessionId, userId, refreshHash, ip, ua).run();
+    `INSERT INTO sessions (id, user_id, refresh_token_hash, expires_at, ip_address, user_agent, auth_method)
+     VALUES (?, ?, ?, datetime('now', '+7 days'), ?, ?, ?)`,
+  ).bind(sessionId, userId, refreshHash, ip, ua, method).run();
 
   // Update last_login
   await env.DB.prepare("UPDATE users SET last_login = datetime('now'), last_active = datetime('now') WHERE id = ?")

@@ -307,6 +307,15 @@ export interface JWTPayload {
    * For super_admins this is always omitted; their scope is null by role.
    */
   org_scope?: { org_id: number; brand_ids: string[] };
+  /**
+   * Restricted-session marker (H-3, AUTH_AUDIT_2026-06). When set to
+   * 'passkey_enroll', this token grants ONLY passkey-enrollment access
+   * (register endpoints + /me + logout). It is minted for privileged
+   * users (admin / super_admin) who authenticated via a non-passkey
+   * method, forcing them to enroll/use a passkey before reaching any
+   * protected route. Absent on every normal full session.
+   */
+  scope?: "passkey_enroll";
   plan?: UserPlan;    // v1 compat — remove when v1 auth handlers are replaced
   iat: number;
   exp: number;

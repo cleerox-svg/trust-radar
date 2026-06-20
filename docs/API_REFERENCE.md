@@ -19,6 +19,21 @@ Complete reference for the Averrow API. All authenticated endpoints require a `B
 | GET | `/api/invites/:token` | — | Validate an invite token before acceptance |
 | GET | `/invite` | — | Invite landing page (HTML) |
 
+**Auth hardening (AUTH_AUDIT_2026-06):**
+- **Access token TTL** is **30 min** (was 12h). The SPA holds it in memory
+  only and silently refreshes via the HttpOnly `radar_refresh` cookie.
+- **Refresh-token reuse detection (H-2):** `/api/auth/refresh` rotates the
+  refresh token and remembers the prior hash. Re-presenting an already-
+  rotated token outside a ~15s concurrency grace revokes the user's entire
+  session family and force-logs-them-out (audit `refresh_token_reuse`).
+- **Passkey-required staff sessions (H-3):** an `admin`/`super_admin` who
+  signs in via Google or magic-link receives an *enrollment-scoped* session.
+  `/api/auth/me` returns `passkey_required: true`, and every protected route
+  returns **403 `passkey_enrollment_required`**. Only the passkey-bootstrap
+  endpoints (`/api/passkeys/register/*`, `/api/auth/me`, `/api/auth/logout`,
+  `GET /api/passkeys`) remain reachable. A full session is only issued when
+  `method === 'passkey'`. Non-privileged roles are unaffected.
+
 ### Passkeys (WebAuthn)
 
 Registration is auth-required (passkey is added to a signed-in user). Authentication is public (it produces a fresh session).

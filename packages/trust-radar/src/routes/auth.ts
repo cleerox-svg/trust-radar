@@ -1,7 +1,7 @@
 import { Router } from "itty-router";
 import type { RouterType, IRequest } from "itty-router";
 import type { Env } from "../types";
-import { requireAuth, isAuthContext } from "../middleware/auth";
+import { requireAuth, requireAuthAllowEnroll, isAuthContext } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
 import {
   handleOAuthLogin, handleOAuthInviteLogin, handleOAuthCallback,
@@ -47,16 +47,21 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
     return handleRefreshToken(request, env);
   });
 
+  // Logout must work for enrollment-scoped sessions too — let a privileged
+  // user bail out of the passkey-setup gate (H-3).
   router.post("/api/auth/logout", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireAuthAllowEnroll(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleLogout(request, env, ctx.userId);
   });
 
+  // /me must remain reachable by enrollment-scoped sessions so the SPA can
+  // render the mandatory passkey-setup gate (H-3). It echoes
+  // `passkey_required` from ctx.enrollOnly.
   router.get("/api/auth/me", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireAuthAllowEnroll(request, env);
     if (!isAuthContext(ctx)) return ctx;
-    return handleMe(request, env, ctx.userId);
+    return handleMe(request, env, ctx.userId, ctx.enrollOnly);
   });
 
   // ─── /api/profile (user-editable surface) ──────────────────────
@@ -96,13 +101,15 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
   // ─── Passkeys (WebAuthn) ────────────────────────────────────────
   // Registration is auth-required (passkey is added to a signed-in user).
   // Authentication is public (it produces a fresh session).
+  // Passkey registration is the bootstrap path out of an enrollment-scoped
+  // session, so it must accept those tokens (H-3).
   router.post("/api/passkeys/register/begin", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireAuthAllowEnroll(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handlePasskeyRegisterBegin(request, env, ctx.userId);
   });
   router.post("/api/passkeys/register/finish", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireAuthAllowEnroll(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handlePasskeyRegisterFinish(request, env, ctx.userId);
   });
@@ -116,8 +123,10 @@ export function registerAuthRoutes(router: RouterType<IRequest>): void {
     if (limited) return limited;
     return handlePasskeyAuthFinish(request, env);
   });
+  // Listing passkeys stays reachable in enrollment scope so the setup gate
+  // can show any already-registered devices (H-3).
   router.get("/api/passkeys", async (request: Request, env: Env) => {
-    const ctx = await requireAuth(request, env);
+    const ctx = await requireAuthAllowEnroll(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListPasskeys(request, env, ctx.userId);
   });
