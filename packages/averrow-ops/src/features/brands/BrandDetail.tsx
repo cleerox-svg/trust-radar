@@ -14,7 +14,7 @@
 // concerns itself only with the outcome-shaped IA.
 
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { ThreatsTable, useThreatsTable, type ThreatRow } from '@averrow/shared/threats-table';
 import { SimpleStatCard } from '@/components/ui/StatCard';
@@ -107,6 +107,8 @@ export function BrandDetailV3() {
 
   const brand = data?.brand;
   const threats = data?.threats || [];
+  const brandProviders = data?.providers || [];
+  const brandCampaigns = data?.campaigns || [];
   const safeDomains = data?.safeDomains || [];
   const emailSec = data?.emailSecurity;
   const socialProfiles = data?.socialProfiles || [];
@@ -228,6 +230,8 @@ export function BrandDetailV3() {
         <RiskTab
           brand={brand}
           threats={threats}
+          brandProviders={brandProviders}
+          brandCampaigns={brandCampaigns}
           emailSec={emailSec}
           socialProfiles={socialProfiles}
           suspiciousSocials={suspiciousSocials}
@@ -654,7 +658,7 @@ function SurfaceTab({
 // for now — those upstream surfaces (threats / social / apps / dark-web)
 // are getting their own audits.
 function RiskTab({
-  brand, threats, emailSec, socialProfiles, suspiciousSocials, suspiciousApps,
+  brand, threats, brandProviders, brandCampaigns, emailSec, socialProfiles, suspiciousSocials, suspiciousApps,
   darkWebMentions, alerts, scoreHistory, narratives, onJumpV2, onScanSocials, onDiscoverSocials,
   onAiDeepScan, aiPending, scanPending, discoverPending,
 }: any) {
@@ -742,6 +746,8 @@ function RiskTab({
         </div>
       </Card>
 
+      <AttackInfraSection providers={brandProviders} campaigns={brandCampaigns} />
+
       <NarrativesPanel narratives={narratives as BrandNarrative[]} />
 
       <TyposquatsSection threats={threats} />
@@ -752,6 +758,87 @@ function RiskTab({
         </DimensionalButton>
       </div>
     </div>
+  );
+}
+
+// ── ATTACKING INFRASTRUCTURE ────────────────────────────────────────
+// Completes the entity pivot graph (audit G3/G7): the brand's attacking
+// providers + linked campaigns were fetched by useBrandFullDetail but never
+// rendered. Each row links OUT — providers to /providers?focus (auto-expand),
+// campaigns to /campaigns/:id — so an analyst can pivot from "who's hit"
+// to "where it's hosted / which operation". Hidden entirely when neither
+// has attribution so it doesn't add noise to clean brands.
+interface BrandProviderRow { provider_id: string; name: string; threat_count: number; active_count: number }
+interface BrandCampaignRow { id: string; name: string; status: string; threat_count: number }
+
+function AttackInfraSection({ providers, campaigns }: {
+  providers: BrandProviderRow[];
+  campaigns: BrandCampaignRow[];
+}) {
+  if (providers.length === 0 && campaigns.length === 0) return null;
+
+  return (
+    <Card hover={false}>
+      <SectionLabel>Attacking infrastructure</SectionLabel>
+      <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Hosting providers → /providers?focus=:id (inline auto-expand) */}
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+            Hosting providers <span className="text-[var(--text-muted)]">({providers.length})</span>
+          </div>
+          <div className="space-y-1">
+            {providers.length === 0 ? (
+              <div className="py-3 text-center font-mono text-[11px] text-[var(--text-muted)]">No provider attribution</div>
+            ) : providers.slice(0, 8).map(p => (
+              <Link
+                key={p.provider_id}
+                to={`/providers?focus=${encodeURIComponent(p.provider_id)}`}
+                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded transition-colors hover:bg-white/[0.04]"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-[var(--text-primary)]">{p.name}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {p.active_count > 0 && (
+                    <span className="font-mono text-[9px] uppercase tracking-wide text-[var(--sev-high)]">{p.active_count} active</span>
+                  )}
+                  <span className="font-mono text-xs font-bold text-[var(--blue)]">{p.threat_count.toLocaleString()}</span>
+                  <span className="text-[var(--text-muted)]">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Linked campaigns → /campaigns/:id */}
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+            Linked campaigns <span className="text-[var(--text-muted)]">({campaigns.length})</span>
+          </div>
+          <div className="space-y-1">
+            {campaigns.length === 0 ? (
+              <div className="py-3 text-center font-mono text-[11px] text-[var(--text-muted)]">No campaign attribution</div>
+            ) : campaigns.slice(0, 8).map(c => {
+              const active = (c.status ?? '').toLowerCase() === 'active';
+              return (
+                <Link
+                  key={c.id}
+                  to={`/campaigns/${c.id}`}
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded transition-colors hover:bg-white/[0.04]"
+                >
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    <span className="truncate text-sm text-[var(--text-primary)]">{c.name}</span>
+                    <Badge status={active ? 'active' : 'inactive'} label={active ? 'Active' : 'Dormant'} size="xs" pulse={active} />
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="font-mono text-xs font-bold text-[var(--amber)]">{(c.threat_count ?? 0).toLocaleString()}</span>
+                    <span className="text-[var(--text-muted)]">→</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
