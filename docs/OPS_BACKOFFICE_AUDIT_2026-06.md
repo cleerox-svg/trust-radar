@@ -382,4 +382,60 @@ next* and lets them act in bulk.
 
 ### 5.3 Inventory & gap analysis
 
-_Pending — populated from the in-flight working-queue recon._
+Recon of `features/threats/Threats.tsx` (+ shared `threats-table`),
+`features/alerts/Alerts.tsx`, `features/trends/Trends.tsx` and their endpoints.
+
+**Capability matrix vs the W1–W9 benchmark:**
+
+| W | Capability | Threats | Alerts/Signals | Intelligence/Trends |
+|---|---|---|---|---|
+| W1 | severity + **age** ordering | severity sort ✓ · no age | severity sort ✓ · no age | n/a (briefing) |
+| W2 | status lifecycle + **ownership** | **no status action ✗** | new→ack→resolved/FP ✓ · no owner | n/a |
+| W3 | bulk actions | **none ✗** | ack-all + bulk-takedown ✓ | n/a |
+| W4 | dedup / grouping | flat list | brand-grouped ✓ | n/a |
+| W5 | risk scoring | confidence in detail only | AI verdict badges ✓ | n/a |
+| W6 | saved / smart views | **none** (URL state only) ✗ | **none ✗** | n/a |
+| W7 | inline enrichment | rich ✓✓ | partial (AI assessment) | n/a |
+| W8 | **SLA / aging** | **none ✗** | **none ✗** | n/a |
+| W9 | assignment + notes | **none ✗** | notes ✓ · no assignment | n/a |
+
+**Per-surface read:**
+- **Threats** is a **read-only catalog** with strong situational dashboards
+  (slice summary, hero tiles, surging signals, leaderboards) + rich per-row
+  enrichment + pivots to Brand/Actor — but **no triage mutation** (statuses
+  `active/down/remediated` exist and a `PATCH /api/threats/:id` reportedly
+  exists, yet nothing in the UI changes a threat's state).
+- **Alerts/Signals** is the real **triage queue**: per-alert
+  new→ack→resolved/false_positive, **bulk** acknowledge + create-takedown,
+  notes, and AI-judge verdict badges. Missing the queue-ergonomics layer.
+- **Intelligence/Trends** is a **read-only briefing dashboard**, not a queue —
+  appropriate for its purpose; the "Intelligence"→`/trends` label/route
+  mismatch (F-B) persists.
+
+**Gap table (severity-ranked):**
+
+| # | Gap | Benchmark | Backend exists? | Severity |
+|---|---|---|---|---|
+| GQ1 | **No SLA / aging anywhere** — an acknowledged alert can sit for weeks with no visual warning; no "work next by age". | W1/W8 | `created_at` present | **High** |
+| GQ2 | **Threats has no triage action** — can't mark down/remediated/false-positive from the UI. (NB: threat status is largely machine-managed — confirm intent before adding operator mutation.) | W2 | `PATCH /api/threats/:id` (verify) | High |
+| GQ3 | **No saved / smart views** — every session starts fresh; can't pin "new high-sev app-store impers". | W6 | — | Medium |
+| GQ4 | **Auto-triage is invisible in the queue** — backend computes rule/AI dismissals + reasons (`run-ai-judge`, `backfill-triage`) but the UI shows no summary ("N auto-dismissed by rule, M by AI"), and the AI-verdict filter is client-side over a 200-row cap. | W5/W7 | stats from admin endpoints | Medium |
+| GQ5 | **No assignment / ownership** — neither surface lets an analyst claim or route work. | W2/W9 | needs `assigned_to` column | Medium |
+| GQ6 | **Alert→source-threat dead-end** — when `source_type='threat'` the detail shows the threat's technique but won't pivot to the threat. | W4/E2 | join exists | Medium |
+| GQ7 | `Intelligence` nav label → `/trends` mismatch (carryover F-B). | — | — | Low |
+
+**Recommended slice order:**
+1. **Slice A — SLA/aging on the Alerts queue (GQ1).** Per-severity SLA (Crit 15m
+   · High 1h · Med 4h · Low 24h) from `created_at` while unresolved; an
+   age/SLA chip per row (within → approaching → breached) + a "breaching first"
+   sort/filter. Pure client-side, no backend. The single most-cited SOC queue
+   capability, currently absent. *Highest leverage, lowest risk.*
+2. **Slice B — Alert→threat pivot + triage transparency (GQ6/GQ4).** Link the
+   alert detail to its source threat; surface a small auto-triage summary line.
+3. **Slice C — Saved views (GQ3).** localStorage-backed named filter sets on
+   Alerts (and Threats), reusing the existing filter state.
+4. **(Bigger, needs backend) Slice D — assignment/ownership (GQ5)** and **Slice E
+   — operator threat triage (GQ2, pending intent check).**
+
+> Slice A is the clear first ship. Slices D/E touch schema or platform intent
+> and should be confirmed before building.
