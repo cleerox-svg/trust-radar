@@ -479,3 +479,20 @@ Two of the recon's alert dead-ends, fixed pure-frontend:
 GQ4's queue-level summary ("N auto-dismissed by rule vs AI") and GQ6's
 specific-threat link remain open (the latter needs a threat-focus/search-by-id,
 same constraint as Batch 1).
+
+### 5.6 Implementation note — Saved views on the Alerts queue (Slice C, GQ3 shipped)
+
+W6 (saved/smart views) was absent — every session rebuilt filters from scratch.
+Added a localStorage-backed **Views** bar on the Alerts queue:
+
+- A generic `useSavedViews<T>(key)` hook (`hooks/useSavedViews.ts`) following the
+  codebase localStorage convention (SSR guard, try/catch, cross-tab sync).
+- A view captures the **full operator filter state** — severity, status, type,
+  search, AI verdict, and SLA.
+- **Built-in presets** (Breaching SLA · New·Critical · AI: Threat) cover common
+  triage entry points; **user views** persist per-device and are deletable.
+- The active view highlights when the current filters match it; "+ Save current"
+  is disabled until at least one filter is set.
+
+Reusable on the Threats queue later via the same hook. Remaining Batch-2:
+D/E (assignment, operator threat-triage) — schema/intent, pending confirmation.
