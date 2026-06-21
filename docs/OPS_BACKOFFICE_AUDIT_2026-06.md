@@ -835,3 +835,45 @@ gap). Remaining, shipped here:
 GM6 (incidents super_admin-only vs takedowns permission-gated) is left as a
 **design call** — it needs a new `view_incidents`/`manage_incidents` flag, not a
 clear bug. **Batch 5 done** (GM6 deferred by design).
+
+---
+
+## 8. Batch 4 — Big-picture (Observatory · Trends)
+
+Situational-awareness surfaces. Status: 🔄 in progress (final batch). **The
+WebGL globe/particle renderers are frozen per CLAUDE.md — this batch audits
+everything *around* the viz** (controls, legends, drill-downs, time, stats).
+
+### 8.1 Competitor benchmark — situational-awareness / threat map
+
+Reference set: **Kaspersky Cyberthreat Map**, **Check Point ThreatMap**,
+**Fortinet**, **Recorded Future**, SOC wall displays, geospatial-intel tooling.
+Theme: a threat map earns its screen space when it's an **interactive entry
+point** — filterable, time-aware, and clickable through to detail — not a
+decorative globe.
+
+| # | Expected capability | Source / precedent |
+|---|---|---|
+| S1 | **Drill-down from the map** — click a node / arc / country → region density or the underlying entity/threats; "zoom into a region for threat density." | Kaspersky, Check Point, BigGeo |
+| S2 | **Filtering / custom view** — by attack type, severity, geography; layer toggles; "customize their view… focus on specific attack types or areas." | Kaspersky controls, threat-map UX |
+| S3 | **Live feed / event ticker** — real-time incident feed beside the map (SOC wall: "live incident feeds"). | SOC wall displays |
+| S4 | **Stats / rankings panels** — source-country rankings, per-type breakdown, threat-level indicators, top entities. | SOC wall: "source-country rankings, per-protocol breakdowns" |
+| S5 | **Time control** — date-range / scrubber / playback for historical exploration ("filtering by date ranges… detailed exploration"). | threat-map drill-down UX |
+| S6 | **Connected to the investigation graph** — map + side panels pivot into entity/threat detail, aligning threats with impact, not observe-only. | "transforms disjointed data into a unified, risk-aware view" |
+
+> Platform context: Observatory has `/api/observatory/{nodes,arcs,stats,live,
+> operations}` + `/api/threats/heatmap`, fed by the OLAP cubes (incl.
+> `threat_cube_arcs`). The audit question is whether the **controls/legends/side
+> lists pivot into the entity graph** the earlier batches connected (S6), whether
+> there's **time control** (S5), and **v2↔v3 parity**. Trends (§5/§7 already
+> renamed it) is the historical-analytics companion — check overlap with
+> Observatory.
+
+### 8.2 Sources
+
+- [Kaspersky Cyberthreat Map](https://cybermap.kaspersky.com/) · [Check Point ThreatMap](https://threatmap.checkpoint.com/) · [CyberSecurityNews — cyber attack maps 2026](https://cybersecuritynews.com/cyber-attack-maps/) · [RedLegg — cyber threat maps](https://www.redlegg.com/blog/cyber-threat-maps)
+- [Help Net Security — open-source global threat map (2026)](https://www.helpnetsecurity.com/2026/02/04/global-threat-map-open-source-osint/) · [MeetCyber — data visualization cuts threat-analysis time](https://medium.com/meetcyber/accelerating-the-soc-how-data-visualization-cuts-threat-analysis-time-91ce92e1a9b1) · [ArmorPoint — threat mapping 101](https://armorpoint.com/2025/06/11/threat-mapping-101-how-to-visualize-and-prioritize-cyber-risk/)
+
+### 8.3 Inventory & gap analysis
+
+_Pending — populated from the in-flight Observatory/Trends recon._
