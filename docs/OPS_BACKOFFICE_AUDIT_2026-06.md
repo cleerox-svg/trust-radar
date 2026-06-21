@@ -642,3 +642,22 @@ buttons where an operator would use it.
 
 > Slice A is the clear first ship — it turns a read-only dashboard into an actual
 > control plane using machinery that already exists.
+
+### 6.4 Implementation note — Agent control plane wired to the UI (Slice A, GA1 shipped)
+
+The flagship gap: the admin control plane existed entirely server-side
+(`/api/agents/:name/{trigger,toggle,reset-circuit}`, all requireAdmin) but had
+no buttons where operators look — they could *see* a tripped breaker and not
+reset it.
+
+- **Frontend:** an admin-gated **Controls** bar in the agent detail panel —
+  **Trigger now**, **Pause/Resume** (shows Resume when `circuit_state ===
+  'manual_pause'`), and **Reset circuit** (only when `tripped`). Reuses the
+  existing `useTriggerAgent`/`useResetAgentCircuit` hooks; added the missing
+  `useToggleAgent`. Gated to admin (the endpoints are requireAdmin).
+- **Backend:** the three mutation handlers now **bust the `agents_list:v4` KV
+  cache** (it's cached 5 min) so the action reflects immediately instead of
+  looking like a no-op for minutes.
+
+Remaining Batch-3 slices: B (surface cost — GA2), C (discoverability of the
+orphaned Approvals/Architect/Config — GA3), D (operator stalled-runs — GA4).
