@@ -339,3 +339,47 @@ entrance fade, a breathing pulse on the campaign node, animated flow on
 highlighted edges, and **tap-to-select on touch** (first tap reveals the label +
 highlights, second tap pivots) so the IP/domain labels and the highlight are
 reachable without a mouse.
+
+---
+
+## 5. Batch 2 — Working queues (Threats · Alerts/Signals · Intelligence)
+
+The surfaces where SOC analysts spend the day. Status: 🔄 in progress.
+
+### 5.1 Competitor benchmark — what a triage queue is expected to do
+
+Reference set: **Microsoft Sentinel** (Incidents), **Splunk ES** (Notable
+Events), **Google Chronicle/SecOps** (Cases), **Expel**, **Swimlane**, **Torq**,
+plus the CTI vendors from §2. The recurring theme: a queue isn't a list — it's a
+**prioritized, ownable, enrichable workflow** that tells an analyst *what to work
+next* and lets them act in bulk.
+
+| # | Expected capability | Source / precedent |
+|---|---|---|
+| W1 | **Severity-then-age prioritization** — order by severity, then oldest-first within a severity; an explicit "work next" signal. | Sentinel/Splunk triage; SOC L1 guides |
+| W2 | **Status lifecycle + ownership** — assign-to-self → In Progress → Resolved; case management groups related alerts and tracks investigation status. | Sentinel Incidents, Chronicle Cases |
+| W3 | **Bulk actions** — select-all + bulk status / acknowledge / dismiss / suppress, so analysts clear noise in one gesture. | Splunk Notable Events, Chronicle |
+| W4 | **Dedup + grouping** — collapse identical/recurrent alerts in a time window; correlate incoming IOCs against active alerts. | Springer CTI dedup, Sentinel correlation |
+| W5 | **Risk scoring / "likely to matter"** — a real-time score that estimates whether an event matters, drives ordering. | Dropzone, Swimlane, StrangeBee |
+| W6 | **Saved views / smart filters** — save the Crit+High filter and return to it; tag-by-SLA/client to auto-route into queues. | Chronicle saved filters |
+| W7 | **Inline enrichment** — every alert pre-enriched with TI/asset/history so the analyst doesn't manually look up (saves 3–5 min/alert). | Torq, Expel lifecycle |
+| W8 | **SLA / aging indicators** — visible age + SLA-breach warning per severity (Crit 15m, High 1h, Med 4h, Low 24h). | SOC SLA standards |
+| W9 | **Assignment + notes/comments** — assign to an analyst, attach notes / a comment thread / evidence to a case. | Chronicle Cases, Sentinel |
+
+> Platform context to check against the UI: Trust-Radar already has rule-based
+> **alert auto-triage** (`lib/alert-triage.ts`), an **AI judge**
+> (`lib/alert-ai-judge.ts` — Haiku verdict + confidence), and backfill endpoints
+> (`POST /api/admin/alerts/backfill-triage`, `…/run-ai-judge`). The open question
+> is how much of this (triage reasons, AI assessment, auto-dismissed counts) the
+> Alerts UI actually surfaces vs. backend-only — directly relevant to W5/W7.
+
+### 5.2 Sources
+
+- [Strike48 — Alert Triage guide](https://www.strike48.com/post/alert-triage) · [CyberDefenders — Alert Triage Process](https://cyberdefenders.org/blog/alert-triage-process/) · [Expel — SOC alert lifecycle](https://expel.com/cyberspeak/what-does-the-soc-alert-lifecycle-look-like/)
+- [Google Chronicle/SecOps — Triage and respond to cases](https://docs.cloud.google.com/chronicle/docs/secops/respond-cases)
+- [Dropzone — Alert Triage guide](https://www.dropzone.ai/glossary/alert-triage-in-2025-the-complete-guide-to-90-faster-investigations) · [Swimlane — AI Alert Triage](https://swimlane.com/blog/ai-alert-triage/) · [StrangeBee — incident prioritization](https://strangebee.com/blog/security-incident-prioritization-proven-methods-to-improve-alert-triage/) · [Torq — alert fatigue](https://torq.io/blog/cybersecurity-alert-fatigue/)
+- [Springer — Reducing alert fatigue via CTI correlation & dedup](https://link.springer.com/chapter/10.1007/978-3-032-19540-1_2)
+
+### 5.3 Inventory & gap analysis
+
+_Pending — populated from the in-flight working-queue recon._
