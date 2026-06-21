@@ -796,3 +796,24 @@ The compliance centerpiece where every reference dead-ended. Pure frontend:
 Remaining Batch-5: B (admin entity pivots — GM4), C (module-endpoint route guard
 — GM3, small backend), D (pricing RBAC alignment — GM2, **needs sign-off**),
 plus GM5/GM7.
+
+### 7.5 Implementation notes — admin pivots, hardening, pricing RBAC (Slices B/C/D)
+
+- **B (GM4) — admin entity pivots.** SuperAdminOrgs brands tab → `/brands/:id`;
+  Takedowns card brand → `/brands/:id` (stopPropagation). Org→brand→threats now
+  navigable. Pure frontend.
+- **C (GM3) — route-layer hardening.** `POST /api/admin/orgs/:id/modules`,
+  `/sync-plan-modules`, `/sync-all-plan-modules` were `requireAuth`-only at the
+  route (handlers checked `role==='super_admin'`); lifted the same guard to the
+  route layer (`requireSuperAdmin`). Defense-in-depth, no behavior change.
+- **D (GM2) — pricing RBAC alignment** (operator-approved). `/admin/pricing` was
+  hard-gated to super_admin in the UI; now gated on the documented model —
+  **view** on `view_billing`, **edit** on `edit_pricing` — so sales/billing can
+  use it (the endpoints already enforced these flags). Added a frontend
+  `lib/permissions.ts` mirroring the backend matrix; gated the page, the per-row
+  Edit buttons, and the sidebar Pricing item. (Customers stays super_admin —
+  its page guard wasn't in scope; analogous follow-up noted.)
+
+**Batch 5 nearly complete** — GM1–GM4 + GM2 done. Remaining: GM5 (webhook
+deliveries UI / incident fields), GM6 (incident permission gate — design call),
+GM7 (push nav).
