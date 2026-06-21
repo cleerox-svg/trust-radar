@@ -734,5 +734,49 @@ tooling.
 
 ### 7.3 Inventory & gap analysis
 
-_Pending — populated from the in-flight admin-cluster recon (two passes:
-customer/RBAC/billing + enforcement/incident/compliance)._
+Recon (two passes) of Team/Customers/Pricing + Incidents/Takedowns/Audit/Push and
+their handlers. The cluster is **mature** — rich org/pricing/module management,
+a strong incident timeline with promote-to-public, a full takedown lifecycle.
+The gaps cluster into three themes.
+
+**Capability matrix vs M1–M8:**
+
+| # | Capability | State |
+|---|---|---|
+| M1 | platform/org role separation + delegated admin | **Mostly strong** — global roles + `StaffPermission` flags + org roles; but **two coherence bugs** (below) |
+| M2 | admin-action audit log | **Strong data, weak UX** — full audit log + CSV export, but `resource_type` filter param **isn't exposed** and entries **don't link** to the affected entity |
+| M3 | impersonation dual-audit | Out of scope here (no impersonation surface audited) |
+| M4 | customer/org lifecycle | **Strong** — create wizard, brands, modules, plan + per-module overrides (append-only audit trail) |
+| M5 | enterprise access | **Strong** — API keys, integrations, SSO, webhooks (one endpoint unsurfaced) |
+| M6 | takedown full lifecycle | **Good, partial** — draft→submitted→taken_down/failed + priority; **no closure-confirmation/SLA view, no evidence drill, no bulk** |
+| M7 | incident response | **Strong** — timeline (operator/system/synthetic), promote-to-public, per-update public copy |
+| M8 | cross-surface pivots | **Weak everywhere** — org→brand, takedown→brand/provider, incident→components/source, audit→resource all **dead-end** |
+
+**Gap table (severity-ranked):**
+
+| # | Gap | Benchmark | Backend exists? | Severity |
+|---|---|---|---|---|
+| GM1 | **Audit log dead-ends + missing filter** — `resource_type:resource_id` and `user_id` shown but not clickable; the `resource_type` filter param is supported by the handler but not in the UI. The compliance surface can't pivot to what changed. | M2/M8 | ✅ filter param + entity routes exist | **High** |
+| GM2 | **Pricing RBAC over-restriction** — `/admin/pricing` is hard-gated to super_admin in the UI, but `view_billing`/`edit_pricing` are granted to **sales/billing** (and the endpoints honor that). Those roles can't reach a page they're meant to use. | M1 | ✅ endpoints already permission-gated | High |
+| GM3 | **Module-action endpoint route-layer auth gap** — `POST /api/admin/orgs/:id/modules` is `requireAuth`-only at the route; only the handler checks super_admin (inverted layering). | M1 | n/a (hardening) | Medium-High |
+| GM4 | **Admin entity-pivot dead-ends** — SuperAdminOrgs brands, Takedown brand all show a name with no link to `/brands/:id`; org→brands→threats not navigable. | M8 | ✅ routes exist | Medium-High |
+| GM5 | **Unsurfaced data** — webhook *deliveries* endpoint+hook exist with no tab; incident `root_cause`/`mitigation`/`lead_user_id` stored but never displayed. | M2/M5 | ✅ | Medium |
+| GM6 | **Incidents super_admin-only vs Takedowns permission-gated** — an analyst can work takedowns but can't see the incidents from the same events (role asymmetry). | M1 | — (design question) | Medium |
+| GM7 | **Push discoverability** — `/admin/push` only appears as a dashboard card *when misconfigured*; a greenfield super_admin can't find it. | A7-style | ✅ route exists | Low-Med |
+
+**Headline:** the recurring audit pattern again — **M8 pivot dead-ends are
+pervasive** (GM1/GM4), and the data/endpoints to fix them already exist. GM1
+(audit log) is the highest-leverage because the audit log is the compliance
+centerpiece and *every* reference in it is currently a dead-end.
+
+**Recommended slice order:**
+1. **Slice A — Audit log pivots + `resource_type` filter (GM1).** Expose the
+   filter (param exists) and make `resource_type:resource_id` link to the entity
+   (brand/incident/org/…). Pure frontend, high compliance value.
+2. **Slice B — Admin entity pivots (GM4).** Org brands + takedown brand → `/brands/:id`.
+3. **Slice C — Security hardening (GM3).** Add a route-layer super_admin guard on
+   the module-action endpoint. Small backend, tightens (doesn't widen).
+4. **Slice D — Pricing RBAC alignment (GM2).** *Needs sign-off* — it widens who
+   can reach pricing (to sales/billing per the documented model); confirm intent
+   before shipping.
+5. Lower: GM5 (webhook deliveries / incident fields), GM7 (push nav).
