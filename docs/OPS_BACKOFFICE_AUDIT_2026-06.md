@@ -599,4 +599,46 @@ loop approval).
 
 ### 6.3 Inventory & gap analysis
 
-_Pending — populated from the in-flight automation recon._
+Recon of `features/agents/{Agents,AgentApprovals,AgentReview,ArchitectDetail,AgentConfig}.tsx`
++ handlers `agents.ts` / `agent-approvals.ts` / diagnostics.
+
+**Capability matrix vs A1–A8:**
+
+| # | Capability | State |
+|---|---|---|
+| A1 | per-agent health dashboard | **Strong** — 24h jobs/outputs/errors, hourly charts, recent_ticks, last-run, circuit_state, dispatch_source, network view |
+| A2 | run history + traces | **Partial** — detail shows recent outputs + last error; run-history endpoint exists; **no per-run trace/logs/tokens/model** |
+| A3 | cost per agent | **Weak** — token-usage + `ai_spend_24h` + budget-vs-cap all **exist as endpoints but aren't on the Agents UI** (ai_spend only in internal diagnostics; budget is super_admin-only) |
+| A4 | stalled / anomaly | **Partial** — circuit_state shown; **`stalled[]` only in `/platform-diagnostics`** (internal), not operator-facing |
+| A5 | lifecycle control plane | **Backend-only** — `trigger` / `toggle` / `reset-circuit` / `threshold` endpoints exist (requireAdmin) but **no buttons on the grid/detail** (trigger only on the orphaned AgentConfig page) |
+| A6 | circuit-breaker control | **Backend-only** — breaker state is *shown* but **can't be reset/paused from the UI** |
+| A7 | human-in-the-loop approval | **Exists but orphaned** — approve/reject/request-changes work; reached only via a banner on /agents or direct URL |
+| A8 | orchestration/lane visibility | **Partial** — TRIGGER_CHAIN is **hardcoded** in the component, not driven by live dispatch data |
+
+**Gap table (severity-ranked):**
+
+| # | Gap | Benchmark | Backend exists? | Severity |
+|---|---|---|---|---|
+| GA1 | **Control plane not wired to the UI** — operator sees a tripped breaker / failing agent but can't **trigger / pause-resume / reset-circuit** from the Agents detail. All endpoints exist (requireAdmin). | A5/A6 | ✅ `trigger`,`toggle`,`reset-circuit`,`threshold` | **Critical** |
+| GA2 | **Cost/budget invisible on the Agents UI** — per-agent tokens, 24h $ spend, and budget-vs-cap exist but aren't surfaced where operators look. | A3 | ✅ `token-usage`, `ai_spend_24h`, module-metadata | High |
+| GA3 | **Orphaned automation surfaces** — Architect + AgentConfig are URL-only; Approvals only via a conditional banner. | A7/F-C | ✅ routes exist | Medium-High |
+| GA4 | **Stalled runs not operator-visible** — only in the internal `/platform-diagnostics`. | A4 | ✅ diagnostics computes it | Medium |
+| GA5 | **No per-run trace/log/token drill-down** — detail stops at last-error + recent outputs. | A2 | ⚠️ per-run tokens in DB, not returned | Medium |
+
+**Headline:** like Batch 1/2, the top gap is **UI wiring on endpoints that already
+exist** — GA1 is the flagship: the entire admin control plane
+(trigger/pause/resume/reset-breaker) is built and tested server-side but has no
+buttons where an operator would use it.
+
+**Recommended slice order:**
+1. **Slice A — Wire the agent control plane (GA1).** Admin-gated **Trigger now ·
+   Pause/Resume · Reset circuit** controls in the agent detail panel, reusing the
+   existing `requireAdmin` endpoints. Highest leverage, lowest risk.
+2. **Slice B — Surface cost on the Agents UI (GA2).** Per-agent token usage / 24h
+   spend in the detail (and a cost signal on the card).
+3. **Slice C — Discoverability (GA3).** Nav entries (or an Agents-page tab) for
+   Approvals / Architect / Config so they're not URL-only.
+4. **Slice D — Stalled-runs surface (GA4).** Operator-facing stalled list.
+
+> Slice A is the clear first ship — it turns a read-only dashboard into an actual
+> control plane using machinery that already exists.
