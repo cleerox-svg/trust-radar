@@ -876,4 +876,43 @@ decorative globe.
 
 ### 8.3 Inventory & gap analysis
 
-_Pending — populated from the in-flight Observatory/Trends recon._
+Recon of Observatory v2/v3 + Trends (around the frozen WebGL). The viz is rich
+and the filtering/live-feed/stats are strong; the gap is **S6 — connection to
+the investigation graph — and it's inconsistent across the three surfaces.**
+
+**Capability matrix vs S1–S6:**
+
+| # | Capability | State |
+|---|---|---|
+| S1 | map drill-down | **Weak** — arc/cluster clicks open *read-only* floating cards; no click-through |
+| S2 | filtering / custom view | **Strong (v2)** — mode/period/color/source/layers; **v3 regressed** (dropped source filter + legend) |
+| S3 | live feed / ticker | **Strong** — EventTicker + Live Threat Feed |
+| S4 | stats / rankings | **Good** — stats bar + side lists; `geo_coverage_pct`/`threats_total` computed but unsurfaced |
+| S5 | time control | **Partial** — fixed periods, no scrubber; period **lost on navigation** |
+| S6 | connected to graph | **Inconsistent** — **v2 panels dead-end**; **v3 panel navigates** (brands/ops) but its **Providers widget doesn't**; **Trends** chips navigate but its **momentum tables dead-end** |
+
+**Gap table (severity-ranked):**
+
+| # | Gap | Backend exists? | Severity |
+|---|---|---|---|
+| GO1 | **Observatory v2 side panels are dead-ends** — Top Brands / Providers / Active Operations read-only, while **v3 already navigates** from the equivalents. | ✅ ids + routes exist | **High** |
+| GO2 | **v3 Providers widget read-only** — Brands + Operations navigate, Providers doesn't. | ✅ | Medium |
+| GO3 | **Trends momentum tables dead-end** — endpoints return **names only (no ids)**, so a pivot needs the id added. | ⚠️ needs id | Medium |
+| GO4 | **Map detail cards don't navigate** — cluster card has an id (→ `/campaigns/:id`); arc card has `brand_name` but no `brand_id`. | ⚠️ partial | Medium |
+| GO5 | **v3 regressions** — dropped the source filter + legend (bug or intentional?). | — | Low-Med |
+| GO6 | **Unsurfaced stats + period-loss on nav.** | ✅ | Low |
+
+**Headline:** the same pivot-dead-end theme as Batch 1, but here it's an
+*internal inconsistency* — **v3 already proves the pattern**, so GO1/GO2 just
+bring v2 (and v3's Providers widget) to parity. Pure frontend, ids already in the
+payloads, entirely *around* the frozen viz.
+
+**Recommended slice order:**
+1. **Slice A — Observatory side-panel pivots (GO1+GO2).** v2 Top Brands →
+   `/brands/:id`, Providers → `/providers?focus=:id`, Active Operations →
+   `/campaigns/:id`; v3 Providers → `/providers?focus=:id`. Match v3's pattern.
+   Pure frontend, flagship.
+2. **Slice B — Trends momentum pivots (GO3).** Add ids to the momentum endpoints,
+   then link the rows. Small backend + frontend.
+3. Lower: GO4 (cluster card → campaign), GO5 (restore v3 source/legend — confirm
+   intent), GO6 (surface stats / preserve period on nav).
