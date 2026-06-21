@@ -292,3 +292,23 @@ preserved via a frame-polled scroll) and the Campaigns "Active Campaigns" sectio
 richer server-side list flows and were left as-is — the shell is available for
 them to adopt in a later pass without a forced rewrite. No card renderer or
 frozen sparkline was touched.
+
+### 4.8 Implementation note — Brand outbound pivots (G3 / G7 shipped)
+
+The last open edges in the entity graph. Verifying in code: the endpoints
+`/api/brands/:id/providers` and `/api/brands/:id/campaigns` **already existed**
+*and* `useBrandFullDetail` **already fetched both** — but BrandDetail never
+rendered them, so the data was loaded and thrown away.
+
+**Shipped:** an "Attacking infrastructure" section on the Brand **Risk** tab
+(two columns: Hosting providers + Linked campaigns) whose rows link OUT —
+providers to `/providers?focus=:id` (the inline auto-expand from §4.6),
+campaigns to `/campaigns/:id`. Hidden entirely when a brand has no
+provider/campaign attribution so it adds no noise. Pure UI wiring — no new
+endpoint, no backend change.
+
+**Pivot graph status:** Brand now pivots out to **Actor** (existing) +
+**Provider** + **Campaign**; Campaign↔Brand/Provider/Actor and Actor↔Campaign/
+Brand all resolve; Provider/Actor are deep-link targets. The four-entity graph
+is connected. Remaining Batch-1 items are enhancements, not dead-ends:
+interactive campaign graph (G4) and actor `motivation`/`active-since` (G5).
