@@ -24,7 +24,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  useAgents, useAgentDetail, useAgentHealth,
+  useAgents, useAgentDetail, useAgentHealth, useAgentTokenUsage, useAgentRuns,
   useTriggerAgent, useToggleAgent, useResetAgentCircuit,
 } from '@/hooks/useAgents';
 import type { Agent, AgentOutput } from '@/hooks/useAgents';
@@ -669,12 +669,22 @@ function AgentControlBar({ agent }: { agent: Agent }) {
   );
 }
 
+// Compact token formatter: 980 · 12.3k · 1.2M.
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
 function AgentDetailPanelV3({ agent }: { agent: Agent }) {
   const { data: detail, isLoading } = useAgentDetail(agent.name);
+  const { data: tokenUsage } = useAgentTokenUsage();
   const recentOutputs = (detail?.outputs ?? []).slice(0, 5);
   const meta = AGENT_METADATA[agent.name as AgentId];
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  // token-usage keys by agent_runs.agent_id (canonical id); match either field.
+  const tu = tokenUsage?.find(t => t.agent_id === agent.agent_id || t.agent_id === agent.name);
 
   return (
     <Card variant="elevated" className="p-5 col-span-full">
@@ -711,6 +721,31 @@ function AgentDetailPanelV3({ agent }: { agent: Agent }) {
                 <div className="font-mono text-[9px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-muted)' }}>Failures</div>
                 <div className="text-lg font-mono" style={{ color: detail.stats.failures > 0 ? 'var(--sev-high)' : 'var(--text-primary)' }}>
                   {detail.stats.failures}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Token usage (GA2) — the cost driver, surfaced where operators
+              look. All-time per-agent from agent_runs.tokens_used. */}
+          {tu && tu.total_tokens > 0 && (
+            <div>
+              <div className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                Token usage · all-time
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <div className="font-mono text-[9px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-muted)' }}>Total</div>
+                  <div className="text-lg font-mono" style={{ color: 'var(--amber)' }}>{fmtTokens(tu.total_tokens)}</div>
+                </div>
+                <div>
+                  <div className="font-mono text-[9px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-muted)' }}>In · Out</div>
+                  <div className="text-sm font-mono pt-1" style={{ color: 'var(--text-secondary)' }}>
+                    {fmtTokens(tu.total_input_tokens)} · {fmtTokens(tu.total_output_tokens)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-[9px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-muted)' }}>Runs w/ AI</div>
+                  <div className="text-lg font-mono" style={{ color: 'var(--text-primary)' }}>{tu.runs_with_tokens.toLocaleString()}</div>
                 </div>
               </div>
             </div>
@@ -857,6 +892,15 @@ function ViewModeToggle({ value, onChange }: { value: ViewMode; onChange: (v: Vi
 
 export function Agents() {
   const { data: agents = [], isLoading } = useAgents();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
+  // Stalled runs (GA4) — stuck in 'running' >15min. The internal diagnostics
+  // computes this; surface it operator-side from the runs endpoint.
+  const { data: runningRuns } = useAgentRuns({ status: 'running', limit: 50 });
+  const stalled = (runningRuns?.data ?? []).filter(
+    r => Date.now() - new Date(r.started_at).getTime() > 15 * 60_000,
+  );
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [viewMode, setViewModeState] = useState<ViewMode>(readViewMode);
 
@@ -912,6 +956,25 @@ export function Agents() {
         subtitle={`${agents.length} agents · ${supervisors.length} supervisor`}
         actions={
           <div className="flex items-center gap-3">
+            {/* Discoverability (GA3) — Approvals + Architect were URL-only. */}
+            {isSuperAdmin && (
+              <Link
+                to="/agents/approvals"
+                className="font-mono text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border transition-all"
+                style={{ borderColor: 'var(--border-base)', color: 'var(--text-secondary)' }}
+              >
+                Approvals
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                to="/agents/architect"
+                className="font-mono text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-md border transition-all"
+                style={{ borderColor: 'var(--border-base)', color: 'var(--text-secondary)' }}
+              >
+                Architect
+              </Link>
+            )}
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
             <LiveIndicator />
           </div>
@@ -919,6 +982,28 @@ export function Agents() {
       />
 
       <PendingApprovalsBanner />
+
+      {/* Stalled runs (GA4) — stuck >15min, was only in internal diagnostics. */}
+      {stalled.length > 0 && (
+        <Card variant="critical" style={{ padding: '12px 16px' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle size={14} style={{ color: 'var(--sev-critical)' }} />
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-primary)' }}>
+              {stalled.length} stalled run{stalled.length !== 1 ? 's' : ''} · stuck &gt;15m
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {stalled.slice(0, 8).map(r => (
+              <span key={r.id} className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                {r.agent_id} <span style={{ color: 'var(--text-muted)' }}>· started {relativeTime(r.started_at)}</span>
+              </span>
+            ))}
+            {stalled.length > 8 && (
+              <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>+{stalled.length - 8} more</span>
+            )}
+          </div>
+        </Card>
+      )}
 
       <StatGrid cols={4}>
         <StatCard label="Agents Operational" value={`${operational}/${agents.length}`} accentColor="var(--green)" />
