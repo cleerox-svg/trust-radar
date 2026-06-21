@@ -693,3 +693,46 @@ Remaining Batch-3: C (discoverability — GA3), D (stalled runs — GA4).
 **Batch 3 complete** — GA1 (control plane), GA2 (token usage), GA3
 (discoverability), GA4 (stalled runs). GA5 (per-run trace/token drill-down)
 remains as a deeper follow-up.
+
+---
+
+## 7. Batch 5 — Admin cluster (Team · Customers · Pricing · Incidents · Takedowns · Audit · Push)
+
+The operational back-office: RBAC/customer/billing admin + enforcement/incident/
+compliance surfaces. Status: 🔄 in progress. (Batch 4 — Observatory/Trends —
+deferred by choice; this batch first.)
+
+### 7.1 Competitor benchmark — back-office admin + enforcement
+
+Two reference sets. **Admin/RBAC/billing:** WorkOS, Descope, LoginRadius, Oso,
+enterprise-SaaS IAM. **Enforcement/incident:** ZeroFox (Enforcement & Takedowns,
+Adversary Disruption), Doppel (CTI automation), BrandShield, status-page/incident
+tooling.
+
+| # | Expected capability | Source / precedent |
+|---|---|---|
+| M1 | **Platform-vs-org role separation + delegated admin** — internal staff roles never leak into tenants; each org manages its own members/roles within scope. | WorkOS/Descope multi-tenant RBAC |
+| M2 | **Admin-action audit log** — role/permission changes + admin actions, who/what/when, filterable, traceable to the affected entity. | Enterprise-ready RBAC, "trace who changed what when" |
+| M3 | **Support impersonation WITH dual-audit** — log both the acting and target user; impersonation without an audit trail is a known anti-pattern. | WorkOS impersonation auditing |
+| M4 | **Customer/org lifecycle** — create/edit org, assign brands, plan + per-module pricing config, seat/billing visibility. | multi-tenant customer admin |
+| M5 | **Enterprise access** — API keys, integrations (SSO/SCIM aspirational). | enterprise-ready integrations |
+| M6 | **Takedown full lifecycle** — submit → track → verify → **closure confirmation**, provider-specific workflow, SLA + case-status visibility (not "submitted ticket" counts). | ZeroFox enforcement, Doppel guardrails+review |
+| M7 | **Incident response** — status lifecycle + timeline + **promote-to-public** (status page). | incident/status-page tooling |
+| M8 | **Cross-surface pivots** — org→brands→threats, takedown→threat/provider, incident→threats, audit→the affected entity. | relationship mapping (ZeroFox) |
+
+> Platform context: the RBAC model is documented (global roles + `StaffPermission`
+> flags + org-level roles; `requirePermission()` guards on org reads / pricing /
+> invites / takedown queue — see CLAUDE.md §7). The audit question is whether the
+> **UI** matches that model coherently, whether the enforcement/incident
+> workflows are complete (closure confirmation, SLA), and whether these surfaces
+> dead-end or pivot into the entity graph the earlier batches connected.
+
+### 7.2 Sources
+
+- [WorkOS — multi-tenant RBAC providers](https://workos.com/blog/top-rbac-providers-for-multi-tenant-saas-2025) · [LoginRadius — RBAC for multi-tenant B2B](https://www.loginradius.com/blog/engineering/rbac-saas-multi-tenant-b2b-platforms) · [EnterpriseReady — RBAC](https://www.enterpriseready.io/features/role-based-access-control/) · [Descope — RBAC for B2B SaaS](https://www.descope.com/blog/post/rbac-providers-b2b-saas)
+- [ZeroFox — Enforcement & Takedowns](https://www.zerofox.com/solutions/protection/enforcement-and-takedowns/) · [ZeroFox — Adversary Disruption](https://www.zerofox.com/products/adversary-disruption/) · [Doppel — CTI automation for takedowns](https://www.doppel.com/blog/cti-automation-brand-protection-and-takedowns) · [CloudSEK — phishing domain takedown services 2026](https://www.cloudsek.com/knowledge-base/best-phishing-domain-takedown-services)
+
+### 7.3 Inventory & gap analysis
+
+_Pending — populated from the in-flight admin-cluster recon (two passes:
+customer/RBAC/billing + enforcement/incident/compliance)._
