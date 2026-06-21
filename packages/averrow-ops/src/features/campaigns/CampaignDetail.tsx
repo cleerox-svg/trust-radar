@@ -26,6 +26,7 @@ import {
 } from '@/design-system/components';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ThreatAreaChart } from '@/components/ui/ThreatAreaChart';
+import { CampaignGraph } from './CampaignGraph';
 import {
   useCampaignDetail,
   useCampaignTimeline,
@@ -265,6 +266,21 @@ export function CampaignDetail() {
           )}
         </div>
       </Card>
+
+      {/* ─── Infrastructure graph (connected node-link view) ── */}
+      {!infraLoading && infrastructure && (infrastructure.providers.length > 0 || infrastructure.domains.length > 0) && (
+        <Card hover={false} style={{ padding: '16px 18px' }}>
+          <PanelHeader title="Infrastructure graph" subtitle="campaign → provider → IP → domain · brands" />
+          <div className="mt-3">
+            <CampaignGraph
+              campaignName={campaign.name}
+              accent={accent}
+              infrastructure={infrastructure}
+              brands={brandImpact ?? []}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* ─── Brand impact + Infrastructure (side-by-side) ──── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

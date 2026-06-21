@@ -312,3 +312,24 @@ endpoint, no backend change.
 Brand all resolve; Provider/Actor are deep-link targets. The four-entity graph
 is connected. Remaining Batch-1 items are enhancements, not dead-ends:
 interactive campaign graph (G4) and actor `motivation`/`active-since` (G5).
+
+### 4.9 Implementation note — interactive campaign graph (G4 shipped)
+
+The Doppel/ZeroFox "threat graph" capability. The Campaign detail page showed
+infrastructure as three disconnected tables (providers / IPs / domains); this
+adds a **connected node-link view** of the same data so the *shape* of the
+operation is visible.
+
+**Shipped:** `CampaignGraph` (`features/campaigns/CampaignGraph.tsx`) — a custom
+SVG radial graph (no graph-lib dependency, in the platform's bespoke-SVG
+tradition). Infra fans right (campaign → provider → IP → domain), brands arc
+left; capped fan-out per tier keeps dense campaigns legible; hovering a node
+highlights its connected edges. Nodes are **clickable and pivot into the rest
+of the entity graph** — provider → `/providers?focus=:id`, brand →
+`/brands/:id`, IP/domain → `/threats?q=<indicator>` — so the graph isn't a
+dead-end visualization but an entry point to the same drill-downs. Rendered on
+Campaign detail above the existing tables (graph = overview, tables = detail);
+built entirely from data the page already fetched — no backend change.
+
+**Batch 1 now complete** except the minor actor `motivation`/`active-since`
+fields (G5).
