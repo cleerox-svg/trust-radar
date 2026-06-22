@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Radar, Crosshair, Siren, Gavel, Mail, Inbox,
+  LayoutDashboard, SquareTerminal, Radar, Crosshair, Siren, Gavel, Mail, Inbox,
   Globe, Shield, Users, Activity, Server, Smartphone, EyeOff, Award,
   TrendingUp, Cpu, Rss, BarChart3, ClipboardList, Bell, Target,
   Search, Sparkles, RotateCcw, Menu, X,
@@ -30,6 +30,7 @@ const V4_NAV: NavGroup[] = [
   {
     label: 'SOC CONSOLE',
     items: [
+      { label: 'Console',       to: '/console',              icon: SquareTerminal },
       { label: 'Overview',      to: '/',                     icon: LayoutDashboard, end: true },
       { label: 'Signals',       to: '/alerts',               icon: Radar },
       { label: 'Threats',       to: '/threats',              icon: Crosshair },

@@ -46,6 +46,7 @@ const GeopoliticalCampaignDashboard = React.lazy(() => import('@/features/campai
 const Trends = React.lazy(() => import('@/features/trends/Trends').then(m => ({ default: m.Trends })));
 const ThreatActors = React.lazy(() => import('@/features/threat-actors/ThreatActors').then(m => ({ default: m.ThreatActors })));
 const Leads = React.lazy(() => import('@/features/leads/Leads').then(m => ({ default: m.Leads })));
+const Console = React.lazy(() => import('@/features/console/Console').then(m => ({ default: m.Console })));
 const Home = React.lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })));
 const BrandAdminDashboard = React.lazy(() => import('@/features/admin/BrandAdminDashboard').then(m => ({ default: m.BrandAdminDashboard })));
 const Threats = React.lazy(() => import('@/features/threats/Threats').then(m => ({ default: m.Threats })));
@@ -148,6 +149,9 @@ export default function App() {
         </ProtectedRoute>
       }>
         <Route index element={lazyRoute(<RoleAwareHome />)} />
+        {/* v4 SOC Console workspace (hosts Signals/Threats/Incidents/Takedowns
+            as ?tab= panes). Reachable in both shells; the v4 sidebar links it. */}
+        <Route path="console" element={lazyRoute(<Console />)} />
         <Route path="observatory" element={lazyRoute(<Observatory />, <ObservatoryLoader />)} />
         <Route path="observatory-v3" element={lazyRoute(<ObservatoryV3 />, <ObservatoryLoader />)} />
         <Route path="brands" element={lazyRoute(<Brands />)} />
