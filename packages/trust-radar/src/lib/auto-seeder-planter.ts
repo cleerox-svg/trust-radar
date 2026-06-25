@@ -68,18 +68,25 @@ export interface RosterEntry {
   id?: number;
 }
 
+// Non-negative modulo. JS `%` keeps the sign of the dividend, so a negative
+// `seed` would compute FIRST_NAMES[-n] === undefined and crash localPart's
+// .toLowerCase(). Guard every index through this.
+function modIndex(n: number, len: number): number {
+  return ((Math.trunc(n) % len) + len) % len;
+}
+
 /**
  * Synthesize a unique Firstname Lastname pair using the seed week as a
  * cohort hint. The cohort suffix is only used if a raw first.last
  * collides with an existing seed_address — keeps most addresses
  * looking like real people, not "user-2026-04-29@…".
  */
-function synthName(seed: number): { firstName: string; lastName: string; title: string } {
+export function synthName(seed: number): { firstName: string; lastName: string; title: string } {
   // Mix the seed through three different prime offsets so a contiguous
   // run of seeds doesn't produce three Sarah Chens.
-  const firstName = FIRST_NAMES[(seed * 7 + 3) % FIRST_NAMES.length]!;
-  const lastName = LAST_NAMES[(seed * 11 + 5) % LAST_NAMES.length]!;
-  const title = TITLES[(seed * 13 + 1) % TITLES.length]!;
+  const firstName = FIRST_NAMES[modIndex(seed * 7 + 3, FIRST_NAMES.length)]!;
+  const lastName = LAST_NAMES[modIndex(seed * 11 + 5, LAST_NAMES.length)]!;
+  const title = TITLES[modIndex(seed * 13 + 1, TITLES.length)]!;
   return { firstName, lastName, title };
 }
 
@@ -112,7 +119,12 @@ export async function plantBatch(
   },
 ): Promise<RosterEntry[]> {
   const planted: RosterEntry[] = [];
-  const baseSeed = Date.now() & 0xffff_ffff;
+  // `>>> 0` coerces to UNSIGNED 32-bit. The old `& 0xffffffff` produced a
+  // SIGNED int (negative when bit 31 is set), which made synthName index with
+  // a negative modulo → undefined name → crash. The bug surfaced on a ~50-day
+  // cycle (Date.now() mod 2^32 spends ~25 days above 2^31); it silently zeroed
+  // out all planting from ~2026-06-01, drying up the spam trap.
+  const baseSeed = Date.now() >>> 0;
 
   for (let i = 0; i < opts.count; i++) {
     const { firstName, lastName, title } = synthName(baseSeed + i);
