@@ -15,6 +15,8 @@ import { useThreatActors, useThreatActorStats } from '@/hooks/useThreatActors';
 import type { ThreatActor } from '@/hooks/useThreatActors';
 import { useCardStyle } from '@/hooks/useCardStyle';
 import { saasTechniquesForTtps } from '@/lib/saas-techniques';
+import { useShellVersion } from '@/design-system/hooks/useShellVersion';
+import { PageHeroV4 } from '@/components/v4/PageHeroV4';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -528,6 +530,7 @@ const ACTOR_SORTS: EntityListSort<ThreatActor>[] = [
 ];
 
 export function ThreatActors() {
+  const { isV4 } = useShellVersion();
   const [searchParams, setSearchParams] = useSearchParams();
   const focusId = searchParams.get('focus');
 
@@ -597,13 +600,26 @@ export function ThreatActors() {
 
   return (
     <div style={{ padding: 24 }}>
-      <PageHeader
+      {isV4 && (
+        <PageHeroV4
+          crumb="INTELLIGENCE"
+          title="Threat Actors"
+          kpis={[
+            { tone: 'red', label: 'Tracked Actors', value: stats?.total ?? null, sub: `${stats?.active ?? 0} active` },
+            { tone: 'amber', label: 'Infrastructure', value: stats?.tracked_infrastructure ?? null, sub: 'ASNs / IPs / Domains' },
+            { tone: 'red', label: 'Targeted Brands', value: stats?.targeted_brands ?? null, sub: 'In crosshairs' },
+            { tone: 'blue', label: 'Attribution Groups', value: attributionGroups.length || null, sub: `${attributionGroups[0]?.attribution || 'Unknown'} leads` },
+          ]}
+        />
+      )}
+
+      {!isV4 && <PageHeader
         title="Threat Actors"
         subtitle="State-sponsored and organized threat actor profiles — infrastructure, TTPs, and targeted brands"
-      />
+      />}
 
       {/* Stats */}
-      <StatGrid cols={4}>
+      {!isV4 && <StatGrid cols={4}>
         <StatCard
           title="Tracked Actors"
           metric={stats?.total ?? 0}
@@ -692,7 +708,7 @@ export function ThreatActors() {
             ))}
           </div>
         </StatCard>
-      </StatGrid>
+      </StatGrid>}
 
       {/* List — shared shell owns search / sort / pagination; country pills
           (server-side refetch) pass through; cards + inline detail stay bespoke. */}

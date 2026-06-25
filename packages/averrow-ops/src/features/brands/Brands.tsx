@@ -18,6 +18,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip } from 'r
 import { useAuth } from '@/lib/auth';
 import { useBrandStats } from '@/hooks/useBrands';
 import { useBrandMovers, type BrandMover } from '@/hooks/useBrandMovers';
+import { useShellVersion } from '@/design-system/hooks/useShellVersion';
+import { PageHeroV4 } from '@/components/v4/PageHeroV4';
 import {
   useEmailSecurityAggregate,
   usePressureAggregate,
@@ -56,6 +58,10 @@ type V3Tab = typeof V3_TABS[number]['id'];
 export function BrandsV3() {
   const { user } = useAuth();
   const isStaff = !!user && STAFF_ROLES.has(user.role);
+  const { isV4 } = useShellVersion();
+  // KPIs for the v4 cinematic hero. TanStack dedupes this against the
+  // same query inside IntelTab, so the extra call is free.
+  const { data: brandStats } = useBrandStats();
 
   // Default Option A: Intel for everyone (per design decision in
   // earlier conversation). Tenants see catalog-level intel filtered
@@ -65,9 +71,21 @@ export function BrandsV3() {
   return (
     <div className="animate-fade-in space-y-6">
       {/* Header — title only; v2 brands surface decommissioned. */}
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Brands</h1>
-      </div>
+      {isV4 ? (
+        <PageHeroV4
+          crumb="INTELLIGENCE"
+          title="Brands"
+          kpis={[
+            { tone: 'blue', label: 'Brands Tracked', value: brandStats?.total_tracked ?? null, sub: 'In the catalog' },
+            { tone: 'amber', label: 'New This Week', value: brandStats?.new_this_week ?? null, sub: brandStats?.newest_brand_name ? `Latest: ${brandStats.newest_brand_name}` : 'Catalog growth' },
+            { tone: 'green', label: 'Sectors', value: brandStats?.sector_breakdown?.length ?? null, sub: 'Represented' },
+          ]}
+        />
+      ) : (
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Brands</h1>
+        </div>
+      )}
 
       {/* Sticky tab strip */}
       <div className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur-lg border-b border-white/[0.06] -mx-6 px-6">

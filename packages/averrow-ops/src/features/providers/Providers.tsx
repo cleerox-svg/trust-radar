@@ -24,6 +24,8 @@ import {
 } from '@/hooks/useProviders';
 import type { Provider, Cluster } from '@/hooks/useProviders';
 import { useCardStyle } from '@/hooks/useCardStyle';
+import { useShellVersion } from '@/design-system/hooks/useShellVersion';
+import { PageHeroV4 } from '@/components/v4/PageHeroV4';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -783,6 +785,7 @@ const SORT_OPTIONS = [
 // ─── Main Page ───────────────────────────────────────────────
 
 export function Providers() {
+  const { isV4 } = useShellVersion();
   const [searchParams, setSearchParams] = useSearchParams();
   const focusId = searchParams.get('focus');
 
@@ -828,33 +831,48 @@ export function Providers() {
 
   return (
     <div className="animate-fade-in space-y-6">
-      <PageHeader title="Hosting Providers" subtitle="Infrastructure hosting threat activity" />
+      {isV4 ? (
+        <PageHeroV4
+          crumb="INTELLIGENCE"
+          title="Hosting Providers"
+          kpis={[
+            { tone: 'blue', label: 'Providers Tracked', value: intelLoading ? null : (intelligence?.total_providers ?? 0), sub: `${intelligence?.total_clusters ?? 0} clusters` },
+            { tone: 'green', label: 'Active Operations', value: intelLoading ? null : (intelligence?.active_operations ?? 0), sub: 'Providers with active threats' },
+            { tone: 'amber', label: 'Accelerating', value: intelLoading ? null : (intelligence?.accelerating ?? 0), sub: '7d trend > 30d average' },
+            { tone: 'red', label: 'Pivots Detected', value: intelLoading ? null : (intelligence?.pivots_detected ?? 0), sub: 'Silent after >50 threats/30d' },
+          ]}
+        />
+      ) : (
+        <>
+          <PageHeader title="Hosting Providers" subtitle="Infrastructure hosting threat activity" />
 
-      <StatGrid cols={4}>
-        <StatCard
-          label="Providers Tracked"
-          value={intelLoading ? '—' : (intelligence?.total_providers ?? 0).toLocaleString()}
-          sublabel={`${intelligence?.total_clusters ?? 0} clusters`}
-        />
-        <StatCard
-          label="Active Operations"
-          value={intelLoading ? '—' : (intelligence?.active_operations ?? 0).toLocaleString()}
-          accentColor="var(--green)"
-          sublabel="Providers with active threats"
-        />
-        <StatCard
-          label="Accelerating"
-          value={intelLoading ? '—' : (intelligence?.accelerating ?? 0).toLocaleString()}
-          accentColor="var(--amber)"
-          sublabel="7d trend > 30d average"
-        />
-        <StatCard
-          label="Pivots Detected"
-          value={intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
-          accentColor="var(--red)"
-          sublabel="Silent after >50 threats/30d"
-        />
-      </StatGrid>
+          <StatGrid cols={4}>
+            <StatCard
+              label="Providers Tracked"
+              value={intelLoading ? '—' : (intelligence?.total_providers ?? 0).toLocaleString()}
+              sublabel={`${intelligence?.total_clusters ?? 0} clusters`}
+            />
+            <StatCard
+              label="Active Operations"
+              value={intelLoading ? '—' : (intelligence?.active_operations ?? 0).toLocaleString()}
+              accentColor="var(--green)"
+              sublabel="Providers with active threats"
+            />
+            <StatCard
+              label="Accelerating"
+              value={intelLoading ? '—' : (intelligence?.accelerating ?? 0).toLocaleString()}
+              accentColor="var(--amber)"
+              sublabel="7d trend > 30d average"
+            />
+            <StatCard
+              label="Pivots Detected"
+              value={intelLoading ? '—' : (intelligence?.pivots_detected ?? 0).toLocaleString()}
+              accentColor="var(--red)"
+              sublabel="Silent after >50 threats/30d"
+            />
+          </StatGrid>
+        </>
+      )}
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
