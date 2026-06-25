@@ -12,10 +12,11 @@
 import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, SquareTerminal, Radar, Crosshair, Siren, Gavel, Mail, Inbox,
+  LayoutDashboard, SquareTerminal, Mail, Inbox,
   Globe, Shield, Users, Activity, Server, Smartphone, EyeOff, Award,
   TrendingUp, Cpu, Rss, BarChart3, ClipboardList, Bell, Target,
   Search, Sparkles, RotateCcw, Menu, X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { parseInitials } from '@/lib/avatar';
@@ -24,19 +25,19 @@ import { Shell } from './Shell';
 import { useShellVersion } from '@/design-system/hooks/useShellVersion';
 import './shell-v4.css';
 
-interface NavItem { label: string; to: string; icon: typeof Radar; end?: boolean; }
+interface NavItem { label: string; to: string; icon: LucideIcon; end?: boolean; }
 interface NavGroup { label: string; items: NavItem[]; }
 
 const V4_NAV: NavGroup[] = [
   {
     label: 'SOC CONSOLE',
     items: [
+      // Console consolidates Signals / Threats / Incidents / Takedowns as
+      // tabs — so those don't appear as separate menu items in v4 (their
+      // routes stay live for deep links). Abuse Mailbox + Spam Trap are NOT
+      // Console tabs, so they remain standalone here.
       { label: 'Console',       to: '/console',              icon: SquareTerminal },
       { label: 'Overview',      to: '/',                     icon: LayoutDashboard, end: true },
-      { label: 'Signals',       to: '/alerts',               icon: Radar },
-      { label: 'Threats',       to: '/threats',              icon: Crosshair },
-      { label: 'Incidents',     to: '/admin/incidents',      icon: Siren },
-      { label: 'Takedowns',     to: '/admin/takedowns',      icon: Gavel },
       { label: 'Abuse Mailbox', to: '/admin/abuse-mailbox',  icon: Mail },
       { label: 'Spam Trap',     to: '/admin/spam-trap',      icon: Inbox },
     ],
