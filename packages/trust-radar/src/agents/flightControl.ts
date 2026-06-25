@@ -32,6 +32,8 @@ import {
   renderPlatformDnsQueueStalled,
   renderPlatformDnsQueueReaperStalled,
   renderPlatformAbuseClassifierSilent,
+  renderPlatformSpamTrapSeedingStalled,
+  renderPlatformSpamTrapCaptureStale,
   renderPlatformGeoipRefreshStalled,
   renderPlatformWorkflowDispatchSilent,
   // NX6: previously-unwired templates.
@@ -933,6 +935,41 @@ export const flightControlAgent: AgentModule = {
       }
     } catch (err) {
       console.warn('[flight-control] abuse classifier silence check failed:', err);
+    }
+
+    // ─── Spam-trap silent-failure guard ──────────────────────────────
+    // Watch the OUTCOME, not the agent's self-reported "success": the
+    // auto-seeder once planted 0 for ~5 weeks while reporting success, and
+    // captures dried up unnoticed. Fire on seed-roster + capture staleness.
+    try {
+      const SEED_STALE_DAYS = 10;     // seeder runs weekly, plants ~96; >10d = a missed cycle
+      const CAPTURE_STALE_DAYS = 14;  // captures are sparse; 14d of zero is clearly abnormal
+      const isoAgeDays = (ts: string) =>
+        (Date.now() - Date.parse(ts.replace(' ', 'T') + 'Z')) / 86_400_000;
+
+      const seedRow = await db.prepare(
+        `SELECT MAX(seeded_at) AS last_seed FROM seed_addresses`,
+      ).first<{ last_seed: string | null }>();
+      if (seedRow?.last_seed) {
+        const days = isoAgeDays(seedRow.last_seed);
+        if (Number.isFinite(days) && days > SEED_STALE_DAYS) {
+          await emitPlatformNotification(env, 'platform_spam_trap_seeding_stalled',
+            renderPlatformSpamTrapSeedingStalled({ days_since_seed: days, threshold_days: SEED_STALE_DAYS }));
+        }
+      }
+
+      const capRow = await db.prepare(
+        `SELECT MAX(captured_at) AS last_cap FROM spam_trap_captures`,
+      ).first<{ last_cap: string | null }>();
+      if (capRow?.last_cap) {
+        const days = isoAgeDays(capRow.last_cap);
+        if (Number.isFinite(days) && days > CAPTURE_STALE_DAYS) {
+          await emitPlatformNotification(env, 'platform_spam_trap_capture_stale',
+            renderPlatformSpamTrapCaptureStale({ days_since_capture: days, threshold_days: CAPTURE_STALE_DAYS }));
+        }
+      }
+    } catch (err) {
+      console.warn('[flight-control] spam-trap freshness check failed:', err);
     }
 
     // Collect enrichment backlog warnings into a single D1 batch
