@@ -255,6 +255,11 @@ export const flightControlAgent: AgentModule = {
     // classifier Haiku timestamp.
     { kind: "d1_table", name: "abuse_inbox_messages" },
     { kind: "d1_table", name: "budget_ledger" },
+    // Spam-trap silent-failure monitor (2026-06): reads MAX(seeded_at)
+    // from seed_addresses and MAX(captured_at) from spam_trap_captures
+    // to detect a stalled honeypot planter / stale captures.
+    { kind: "d1_table", name: "seed_addresses" },
+    { kind: "d1_table", name: "spam_trap_captures" },
   ],
   writes: [
     { kind: "d1_table", name: "agent_activity_log" },
