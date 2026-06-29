@@ -29,6 +29,7 @@ export const sparrowAgent: AgentModule = {
     { kind: "d1_table", name: "app_store_listings" },
     { kind: "d1_table", name: "brands" },
     { kind: "d1_table", name: "dark_web_mentions" },
+    { kind: "d1_table", name: "lookalike_domains" },
     { kind: "d1_table", name: "org_brands" },
     { kind: "d1_table", name: "social_mentions" },
     { kind: "d1_table", name: "social_profiles" },
@@ -40,6 +41,7 @@ export const sparrowAgent: AgentModule = {
     { kind: "d1_table", name: "url_scan_results" },
   ],
   writes: [
+    { kind: "d1_table", name: "lookalike_domains" },
     { kind: "d1_table", name: "takedown_evidence" },
     { kind: "d1_table", name: "takedown_requests" },
     { kind: "d1_table", name: "url_scan_results" },
@@ -85,17 +87,22 @@ export const sparrowAgent: AgentModule = {
     const darkWebTakedowns = await createTakedownsFromDarkWebMentions(env);
     itemsCreated += darkWebTakedowns;
 
-    if (urlTakedowns > 0 || socialTakedowns > 0 || appStoreTakedowns > 0 || darkWebTakedowns > 0) {
-      const totalNew = urlTakedowns + socialTakedowns + appStoreTakedowns + darkWebTakedowns;
+    // ── Phase B2: Auto-create takedowns from active lookalike/typosquat domains ──
+    const lookalikeTakedowns = await createTakedownsFromLookalikes(env);
+    itemsCreated += lookalikeTakedowns;
+
+    if (urlTakedowns > 0 || socialTakedowns > 0 || appStoreTakedowns > 0 || darkWebTakedowns > 0 || lookalikeTakedowns > 0) {
+      const totalNew = urlTakedowns + socialTakedowns + appStoreTakedowns + darkWebTakedowns + lookalikeTakedowns;
       outputs.push({
         type: "insight",
-        summary: `Created ${totalNew} takedown drafts (${urlTakedowns} URL, ${socialTakedowns} social, ${appStoreTakedowns} app-store, ${darkWebTakedowns} dark-web)`,
+        summary: `Created ${totalNew} takedown drafts (${urlTakedowns} URL, ${socialTakedowns} social, ${appStoreTakedowns} app-store, ${darkWebTakedowns} dark-web, ${lookalikeTakedowns} lookalike)`,
         severity: totalNew > 5 ? "high" : "medium",
         details: {
           url_takedowns: urlTakedowns,
           social_takedowns: socialTakedowns,
           app_store_takedowns: appStoreTakedowns,
           dark_web_takedowns: darkWebTakedowns,
+          lookalike_takedowns: lookalikeTakedowns,
         },
       });
     }
@@ -497,6 +504,107 @@ async function createTakedownsFromMaliciousUrls(env: Env): Promise<number> {
         hosting_provider: hostingProvider,
         known_threat_id: result.known_threat_id,
         source_capture_id: result.source_id,
+      }),
+    ).run();
+
+    created++;
+  }
+
+  return created;
+}
+
+// ─── Phase B2: Active Lookalike / Typosquat Domain → Takedown ──────
+//
+// Close the loop. HIGH/CRITICAL lookalike domains surfaced by the
+// lookalike scanner were previously a detect-and-alert dead end — never
+// wired into the takedown system. This drafts a takedown for each active
+// (registered + resolving) HIGH/CRITICAL lookalike, which then flows
+// through the SAME pipeline as every other source: Phase E resolves the
+// provider, Phase G submits ONLY if the org's signed `domain`
+// authorization + policy mode + caps permit. This adds drafts; it does
+// not bypass any consent gate.
+//
+// Conservative on purpose: only org-owned brands are drafted (orgless
+// rows would create drafts Phase G skips — left for the operator surface),
+// each row is drafted at most once (takedown_id link), and only
+// registered domains with a live web/MX footprint qualify.
+async function createTakedownsFromLookalikes(env: Env): Promise<number> {
+  const candidates = await env.DB.prepare(`
+    SELECT ld.id, ld.brand_id, ld.domain, ld.permutation_type,
+           ld.threat_level, ld.ai_assessment, ld.has_mx, ld.has_web,
+           ld.resolves_to, b.name AS brand_name
+    FROM lookalike_domains ld
+    JOIN brands b ON b.id = ld.brand_id
+    WHERE ld.registered = 1
+      AND ld.takedown_id IS NULL
+      AND ld.threat_level IN ('HIGH', 'CRITICAL')
+      AND ld.status NOT IN ('benign', 'taken_down')
+      AND (ld.has_web = 1 OR ld.has_mx = 1)
+    ORDER BY CASE ld.threat_level WHEN 'CRITICAL' THEN 0 ELSE 1 END, ld.first_seen DESC
+    LIMIT 10
+  `).all();
+
+  let created = 0;
+
+  for (const ld of candidates.results) {
+    const brandId = ld.brand_id as string | null;
+    // Only auto-draft for customer (org-owned) brands. An orgless draft
+    // would be skipped by Phase G (org_id IS NOT NULL) and just litter the
+    // queue, so leave non-customer lookalikes for the operator surface.
+    const owningOrgId = await resolveOwningOrgId(env, brandId);
+    if (owningOrgId === null) continue;
+
+    const domain = ld.domain as string;
+    const threatLevel = (ld.threat_level as string) || "HIGH";
+    const permutationType = (ld.permutation_type as string) || "lookalike";
+    const brandName = (ld.brand_name as string) || "a monitored brand";
+    const signals = [
+      ld.has_web ? "live web server" : null,
+      ld.has_mx ? "mail (MX) records" : null,
+      ld.resolves_to ? `resolves to ${ld.resolves_to}` : null,
+    ].filter(Boolean).join(", ");
+
+    const takedownId = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO takedown_requests (
+        id, org_id, brand_id, module_key, target_type, target_value, target_url,
+        source_type, source_id, evidence_summary, evidence_detail,
+        provider_name, provider_abuse_contact, provider_method,
+        status, severity, priority_score, requested_by, created_at, updated_at
+      ) VALUES (?, ?, ?, 'domain', 'domain', ?, null, 'lookalike', ?, ?, ?, null, null, 'email', 'draft', ?, ?, null, datetime('now'), datetime('now'))
+    `).bind(
+      takedownId,
+      owningOrgId,
+      brandId,
+      domain,
+      String(ld.id),
+      `Active ${permutationType} lookalike domain impersonating ${brandName}: ${domain}${signals ? ` (${signals})` : ""}.`,
+      `Domain: ${domain}\nPermutation: ${permutationType}\nThreat level: ${threatLevel}\nSignals: ${signals || "registered"}${ld.ai_assessment ? `\nAssessment: ${ld.ai_assessment}` : ""}`,
+      threatLevel === "CRITICAL" ? "CRITICAL" : "HIGH",
+      threatLevel === "CRITICAL" ? 80 : 65,
+    ).run();
+
+    // Link back so we don't re-draft + the lookalike UI can show status.
+    await env.DB.prepare(
+      "UPDATE lookalike_domains SET takedown_id = ? WHERE id = ?"
+    ).bind(takedownId, ld.id).run();
+
+    // Evidence record (mirrors Phase B).
+    await env.DB.prepare(`
+      INSERT INTO takedown_evidence (id, takedown_id, evidence_type, title, content_text, metadata_json, created_at)
+      VALUES (?, ?, 'lookalike', 'Lookalike Domain Detection', ?, ?, datetime('now'))
+    `).bind(
+      crypto.randomUUID(),
+      takedownId,
+      `Domain: ${domain}\nPermutation type: ${permutationType}\nThreat level: ${threatLevel}\nRegistered: Yes\nSignals: ${signals || "registered"}`,
+      JSON.stringify({
+        domain,
+        permutation_type: permutationType,
+        threat_level: threatLevel,
+        has_mx: ld.has_mx,
+        has_web: ld.has_web,
+        resolves_to: ld.resolves_to,
+        lookalike_id: ld.id,
       }),
     ).run();
 
