@@ -185,6 +185,47 @@ export function useOrgIntegrations() {
   });
 }
 
+export interface IntegrationDelivery {
+  id: string;
+  event_type: string;
+  status: string;
+  http_status: number | null;
+  error: string | null;
+  created_at: string;
+  integration_name: string;
+  integration_type: string;
+}
+
+export interface IntegrationTicket {
+  id: string;
+  source_type: string;
+  source_id: string;
+  external_key: string;
+  external_url: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  integration_name: string;
+  integration_type: string;
+}
+
+export interface IntegrationActivity {
+  deliveries: IntegrationDelivery[];
+  tickets: IntegrationTicket[];
+}
+
+export function useOrgIntegrationActivity() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ['org-integration-activity', orgId],
+    queryFn: async () => {
+      const res = await api.get<IntegrationActivity>(`/api/orgs/${orgId}/integrations/activity`);
+      return res.data ?? { deliveries: [], tickets: [] };
+    },
+    enabled: !!orgId,
+  });
+}
+
 export function useWebhookConfig() {
   const orgId = useOrgId();
   return useQuery({

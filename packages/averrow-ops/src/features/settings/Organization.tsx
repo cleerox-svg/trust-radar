@@ -20,7 +20,7 @@ import { WebhookConfig } from '@/features/admin/components/WebhookConfig';
 import { SsoConfig } from '@/features/admin/components/SsoConfig';
 import {
   useOrg, useOrgMembers, useOrgBrands, useOrgInvites,
-  useOrgApiKeys, useOrgIntegrations,
+  useOrgApiKeys, useOrgIntegrations, useOrgIntegrationActivity,
   useRemoveMember, useUpdateMemberRole, useRevokeInvite,
   useRemoveBrand, useRevokeApiKey, useDeleteIntegration,
   useUpdateOrg,
@@ -442,6 +442,78 @@ function IntegrationsTab({ integrations, onConnect }: {
       {renderSection('SIEM & Logging', SIEM_INTEGRATIONS)}
       {renderSection('Ticketing & Incident Management', TICKETING_INTEGRATIONS)}
       {renderSection('Inbound Feeds', INBOUND_INTEGRATIONS)}
+      <IntegrationActivityPanel />
+    </div>
+  );
+}
+
+function activityTimeAgo(iso: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z')).getTime();
+  if (Number.isNaN(then)) return iso;
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// Data-out proof: what got delivered to the org's SIEM and which compliance
+// tickets were opened/closed. Hidden until there's activity to show.
+function IntegrationActivityPanel() {
+  const { data } = useOrgIntegrationActivity();
+  const deliveries = data?.deliveries ?? [];
+  const tickets = data?.tickets ?? [];
+  if (deliveries.length === 0 && tickets.length === 0) return null;
+
+  return (
+    <div>
+      <SectionLabel className="mb-3">Activity</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="text-xs font-semibold text-white/70 mb-3">Recent deliveries</div>
+          {deliveries.length === 0 ? (
+            <div className="text-[11px] text-white/40">No events delivered yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {deliveries.slice(0, 12).map((d) => (
+                <div key={d.id} className="flex items-center gap-2 text-[11px]">
+                  <span style={{ color: d.status === 'delivered' ? 'var(--green)' : 'var(--red)' }}>●</span>
+                  <span className="text-white/75">{d.integration_name}</span>
+                  <span className="text-white/40 font-mono">{d.event_type}</span>
+                  {d.error && <span className="text-white/40 truncate" title={d.error}>· {d.error}</span>}
+                  <span className="ml-auto text-white/30 shrink-0">{activityTimeAgo(d.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="text-xs font-semibold text-white/70 mb-3">Compliance tickets</div>
+          {tickets.length === 0 ? (
+            <div className="text-[11px] text-white/40">No tickets opened yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {tickets.slice(0, 12).map((t) => (
+                <div key={t.id} className="flex items-center gap-2 text-[11px]">
+                  <span style={{ color: t.status === 'closed' ? 'var(--text-tertiary)' : 'var(--green)' }}>●</span>
+                  {t.external_url ? (
+                    <a href={t.external_url} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline font-mono">
+                      {t.external_key}
+                    </a>
+                  ) : (
+                    <span className="text-white/75 font-mono">{t.external_key}</span>
+                  )}
+                  <span className="text-white/40">{t.integration_name}</span>
+                  <span className="ml-auto text-white/30 shrink-0 capitalize">{t.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   handleUpdateWebhook, handleRegenerateSecret, handleTestWebhook, handleGetWebhookConfig,
   handleListApiKeys, handleCreateApiKey, handleRevokeApiKey,
   handleListIntegrations, handleCreateIntegration, handleUpdateIntegration,
-  handleDeleteIntegration, handleTestIntegration,
+  handleDeleteIntegration, handleTestIntegration, handleIntegrationActivity,
 } from "../handlers/organizations";
 import {
   handleTenantDashboard, handleTenantAlerts, handleTenantAlertDetail, handleTenantUpdateAlert, handleTenantBulkUpdateAlerts, handleTenantAuditLog,
@@ -153,6 +153,11 @@ export function registerTenantRoutes(router: RouterType<IRequest>): void {
     const ctx = await requireAuth(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleListIntegrations(request, env, request.params["orgId"] ?? "", ctx);
+  });
+  router.get("/api/orgs/:orgId/integrations/activity", async (request: Request & { params: Record<string, string> }, env: Env) => {
+    const ctx = await requireAuth(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleIntegrationActivity(request, env, request.params["orgId"] ?? "", ctx);
   });
   router.post("/api/orgs/:orgId/integrations", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireAuth(request, env);
