@@ -37,10 +37,14 @@ There are two delivery modes:
 | `org_integrations.type` | Mode | Status | File |
 |---|---|---|---|
 | `splunk` (HEC) | push | ✅ live | `src/lib/integrations/splunk.ts` |
+| `sentinel` (Log Analytics) | push | ✅ live | `src/lib/integrations/sentinel.ts` |
+| `qradar` (HTTP Receiver) | push | ✅ live | `src/lib/integrations/qradar.ts` |
 | `jira` | ticketing | ✅ live | `src/lib/integrations/jira.ts` |
 | `servicenow` | ticketing | ✅ live | `src/lib/integrations/servicenow.ts` |
-| `sentinel` | push | planned | — |
-| `qradar` | push | planned | — |
+
+Push connectors share `src/lib/integrations/push-types.ts` (the
+`ConnectorResult` / `OutboundEvent` shapes + base64/HMAC helpers +
+`isRetryableStatus`).
 
 `DELIVERABLE_INTEGRATION_TYPES` (push), `TICKETING_INTEGRATION_TYPES`, and
 their union `CONNECTOR_INTEGRATION_TYPES` in `lib/integration-delivery.ts` are
@@ -82,6 +86,31 @@ URL, https), `hec_token`, optional `index` / `source` / `sourcetype`
 (`validateOutboundWebhookUrl`: https-only, no internal IPs) and requests use
 `redirect: manual`.
 
+### Microsoft Sentinel (Azure Log Analytics HTTP Data Collector)
+Config: `workspace_id` (Log Analytics workspace **GUID** — validated against a
+GUID regex because it lands in the request hostname), `shared_key` (base64
+primary/secondary key), optional `log_type` (default `AverrowEvent`; letters /
+underscores only, Azure appends `_CL`). Delivery POSTs a JSON record array to
+`https://{workspace_id}.ods.opinsights.azure.com/api/logs` with an
+**HMAC-SHA256 SharedKey** signature over the canonical request string
+(`POST\n{len}\napplication/json\nx-ms-date:{rfc1123}\n/api/logs`), signed with
+the base64-decoded shared key via Web Crypto. SSRF-guarded; `redirect: manual`.
+
+### IBM QRadar (HTTP Receiver)
+Config: `url` (HTTP Receiver endpoint; `receiver_url` alias accepted),
+optional `api_token` (`auth_token` alias) sent as `Authorization: Bearer`, or
+a custom `auth_header` to carry the raw token. Delivery POSTs one JSON event
+(QRadar's serverless-friendly push path — raw TCP/UDP syslog isn't available to
+Workers `fetch`). SSRF-guarded; `redirect: manual`.
+
+### Push delivery durability (retry/backoff)
+`dispatchWithRetry` in `lib/integration-delivery.ts` retries push connectors up
+to **3 attempts** (400ms → 1200ms backoff) but **only on transient failures**
+(`result.retryable`: network/timeout, 429, or 5xx — set via `isRetryableStatus`).
+4xx config/auth errors fail fast. The final attempt count is written to
+`integration_deliveries.attempts`. Ticketing connectors are **not** retried
+(create is not idempotent — a retry could double-open a ticket).
+
 ## Audit / observability — `integration_deliveries`
 Every delivery attempt writes a row (migration `0229`): `integration_id`,
 `org_id`, `event_type`, `status`, `http_status`, `error`, `attempts`,
@@ -99,11 +128,13 @@ stamped per attempt.
 4. Add a `parse<Type>Config` unit test.
 
 ## Known gaps (next PRs)
-- More push connectors: Sentinel, QRadar (same pattern as Splunk).
 - Ticketing v1 covers takedowns; extend to alerts if customers want
   alert-level tickets. Jira close depends on a `Done`/`Closed`/`Resolved`
   transition existing (or `done_transition_id` set).
-- Webhook + integration **delivery durability**: retry/backoff + DLQ (the
-  `attempts` column + `integration_deliveries` are the foundation).
-- A deliveries-read endpoint + UI panel (surface the compliance trail).
+- **Durability v2**: in-request retry/backoff is live for push connectors, but
+  a failure that exhausts all 3 attempts is logged, not re-queued. A durable
+  DLQ + async re-drive (a Queue or a periodic re-attempt of `failed`
+  `integration_deliveries` rows) is the next step.
+- A deliveries-read endpoint + UI panel exists (Integration Activity panel);
+  extend it to expose per-event retry counts.
 - Outbound TAXII server (today STIX is download-only).
