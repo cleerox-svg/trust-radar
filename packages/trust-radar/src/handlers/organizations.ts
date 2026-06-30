@@ -1531,6 +1531,55 @@ export async function handleTestIntegration(
   return json({ success: false, data: { status: "error", message: "No configuration found" } }, 400, origin);
 }
 
+// ─── Integration Activity (data-out proof / compliance trail) ───
+
+export async function handleIntegrationActivity(
+  request: Request,
+  env: Env,
+  orgId: string,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const denied = requireOrgAdmin(ctx, orgId, origin);
+  if (denied) return denied;
+
+  let deliveries: unknown[] = [];
+  let tickets: unknown[] = [];
+
+  try {
+    const d = await env.DB.prepare(`
+      SELECT d.id, d.event_type, d.status, d.http_status, d.error, d.created_at,
+             i.name AS integration_name, i.type AS integration_type
+      FROM integration_deliveries d
+      JOIN org_integrations i ON i.id = d.integration_id
+      WHERE d.org_id = ?
+      ORDER BY d.created_at DESC
+      LIMIT 50
+    `).bind(orgId).all();
+    deliveries = d.results;
+  } catch {
+    // integration_deliveries may not exist in this environment yet
+  }
+
+  try {
+    const t = await env.DB.prepare(`
+      SELECT t.id, t.source_type, t.source_id, t.external_key, t.external_url,
+             t.status, t.created_at, t.updated_at,
+             i.name AS integration_name, i.type AS integration_type
+      FROM integration_tickets t
+      JOIN org_integrations i ON i.id = t.integration_id
+      WHERE t.org_id = ?
+      ORDER BY t.updated_at DESC
+      LIMIT 50
+    `).bind(orgId).all();
+    tickets = t.results;
+  } catch {
+    // integration_tickets may not exist in this environment yet
+  }
+
+  return json({ success: true, data: { deliveries, tickets } }, 200, origin);
+}
+
 // ─── Bulk Re-Encrypt (WS-B #4 migration) ────────────────────
 //
 // One-shot admin endpoint: walks org_integrations, decrypts each

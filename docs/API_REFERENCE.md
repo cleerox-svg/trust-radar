@@ -738,6 +738,7 @@ All endpoints under `/api/orgs/:orgId/...` require the caller to be a member of 
 | POST | `/api/orgs/:orgId/api-keys` | Admin (org) | Create API key |
 | DELETE | `/api/orgs/:orgId/api-keys/:keyId` | Admin (org) | Revoke API key |
 | GET | `/api/orgs/:orgId/integrations` | Admin (org) | List integrations (SIEM, SOAR, webhook) |
+| GET | `/api/orgs/:orgId/integrations/activity` | Admin (org) | Recent data-out deliveries + opened/closed compliance tickets (proof / audit trail) |
 | POST | `/api/orgs/:orgId/integrations` | Admin (org) | Create integration |
 | PATCH | `/api/orgs/:orgId/integrations/:integrationId` | Admin (org) | Update integration |
 | DELETE | `/api/orgs/:orgId/integrations/:integrationId` | Admin (org) | Delete integration |
