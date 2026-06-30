@@ -14,12 +14,10 @@
 import type { Env } from "../types";
 import type { WebhookEventType } from "./webhooks";
 import { decryptConfig } from "./integration-secret";
-import {
-  parseSplunkConfig,
-  deliverToSplunk,
-  type ConnectorResult,
-  type OutboundEvent,
-} from "./integrations/splunk";
+import type { ConnectorResult, OutboundEvent } from "./integrations/push-types";
+import { parseSplunkConfig, deliverToSplunk } from "./integrations/splunk";
+import { parseSentinelConfig, deliverToSentinel } from "./integrations/sentinel";
+import { parseQRadarConfig, deliverToQRadar } from "./integrations/qradar";
 import {
   parseJiraConfig,
   createJiraIssue,
@@ -39,7 +37,7 @@ import type {
 } from "./integrations/ticketing-types";
 
 /** Push connectors — fire each event. */
-export const DELIVERABLE_INTEGRATION_TYPES = new Set<string>(["splunk"]);
+export const DELIVERABLE_INTEGRATION_TYPES = new Set<string>(["splunk", "sentinel", "qradar"]);
 /** Ticketing connectors — open-on-detection, close-on-resolution. */
 export const TICKETING_INTEGRATION_TYPES = new Set<string>(["jira", "servicenow"]);
 /** All org_integrations.type values that have a connector. */
@@ -69,9 +67,49 @@ async function dispatchToConnector(
       if (!cfg) return { ok: false, error: "Splunk config missing hec_url/hec_token" };
       return deliverToSplunk(cfg, event);
     }
+    case "sentinel": {
+      const cfg = parseSentinelConfig(config);
+      if (!cfg) return { ok: false, error: "Sentinel config missing/invalid workspace_id/shared_key" };
+      return deliverToSentinel(cfg, event);
+    }
+    case "qradar": {
+      const cfg = parseQRadarConfig(config);
+      if (!cfg) return { ok: false, error: "QRadar config missing receiver_url" };
+      return deliverToQRadar(cfg, event);
+    }
     default:
       return { ok: false, error: `No connector for integration type '${type}'` };
   }
+}
+
+/** Max push attempts (1 try + 2 retries) for transient failures. */
+const MAX_PUSH_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Deliver a push event with bounded retry/backoff. Retries only on
+ * transient failures (network/timeout/429/5xx — `result.retryable`); 4xx
+ * config/auth errors fail fast. Returns the final result plus the attempt
+ * count for the delivery log.
+ */
+async function dispatchWithRetry(
+  type: string,
+  config: Record<string, unknown> | null,
+  event: OutboundEvent,
+): Promise<{ result: ConnectorResult; attempts: number }> {
+  let result: ConnectorResult = { ok: false, error: "not attempted" };
+  for (let attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
+    result = await dispatchToConnector(type, config, event);
+    if (result.ok || !result.retryable) return { result, attempts: attempt };
+    if (attempt < MAX_PUSH_ATTEMPTS) {
+      // 400ms, 1200ms backoff — bounded so a slow sink can't blow the worker budget.
+      await sleep(attempt * attempt * 400);
+    }
+  }
+  return { result, attempts: MAX_PUSH_ATTEMPTS };
 }
 
 /**
@@ -113,13 +151,16 @@ export async function deliverToIntegrations(
       continue;
     }
     let result: ConnectorResult;
+    let attempts = 1;
     try {
       const config = await decryptConfig(env, row.config_encrypted);
-      result = await dispatchToConnector(row.type, config, event);
+      const out = await dispatchWithRetry(row.type, config, event);
+      result = out.result;
+      attempts = out.attempts;
     } catch (err) {
       result = { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
-    await recordDelivery(env, row, orgId, eventType, result);
+    await recordDelivery(env, row, orgId, eventType, result, attempts);
   }
 }
 
@@ -281,13 +322,14 @@ async function recordDelivery(
   orgId: number,
   eventType: string,
   result: ConnectorResult,
+  attempts = 1,
 ): Promise<void> {
   const errText = result.ok ? null : (result.error ?? "delivery failed").slice(0, 500);
   try {
     await env.DB.prepare(`
       INSERT INTO integration_deliveries
-        (integration_id, org_id, event_type, status, http_status, error, payload_summary)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (integration_id, org_id, event_type, status, http_status, error, attempts, payload_summary)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       row.id,
       orgId,
@@ -295,6 +337,7 @@ async function recordDelivery(
       result.ok ? "delivered" : "failed",
       result.httpStatus ?? null,
       errText,
+      attempts,
       `${row.type}:${eventType}`,
     ).run();
 

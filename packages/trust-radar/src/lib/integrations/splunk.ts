@@ -11,6 +11,9 @@
  */
 
 import { validateOutboundWebhookUrl } from "../url-guard";
+import { isRetryableStatus, type ConnectorResult, type OutboundEvent } from "./push-types";
+
+export type { ConnectorResult, OutboundEvent };
 
 export interface SplunkConfig {
   /** Full HEC collector URL, e.g. https://http-inputs-acme.splunkcloud.com/services/collector/event */
@@ -19,19 +22,6 @@ export interface SplunkConfig {
   index?: string;
   source?: string;
   sourcetype?: string;
-}
-
-export interface ConnectorResult {
-  ok: boolean;
-  httpStatus?: number;
-  error?: string;
-}
-
-export interface OutboundEvent {
-  event: string;
-  timestamp: string;
-  org_id: number;
-  data: Record<string, unknown>;
 }
 
 export function parseSplunkConfig(config: Record<string, unknown> | null): SplunkConfig | null {
@@ -95,9 +85,9 @@ export async function deliverToSplunk(
     } catch {
       /* non-JSON error body */
     }
-    return { ok: false, httpStatus: res.status, error: `HEC HTTP ${res.status}${detail}` };
+    return { ok: false, httpStatus: res.status, error: `HEC HTTP ${res.status}${detail}`, retryable: isRetryableStatus(res.status) };
   } catch (err) {
     clearTimeout(timeout);
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err), retryable: true };
   }
 }
