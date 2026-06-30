@@ -9,14 +9,15 @@
 // Responsive: desktop = fixed rail; <=900px = off-canvas drawer + hamburger,
 // single-column. Mostly CSS-driven (shell-v4.css); JS only tracks the drawer.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, SquareTerminal, Mail, Inbox,
   Globe, Users, Cpu, Rss, BarChart3, ClipboardList, Bell, Target,
   Search, Sparkles, RotateCcw, Menu, X,
   Plug, Building2, DollarSign, ListChecks, Compass, Layers,
-  LogOut, UserCircle,
+  LogOut, UserCircle, ShieldAlert, Bug, Network, Megaphone, Server,
+  Smartphone, EyeOff, Scale, TrendingUp, UserCog,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -25,6 +26,7 @@ import { parseInitials } from '@/lib/avatar';
 import { VERSION_LABEL, BUILD_SHA } from '@/lib/version';
 import { Shell } from './Shell';
 import { useShellVersion } from '@/design-system/hooks/useShellVersion';
+import { CommandPalette, type PaletteCommand } from './CommandPalette';
 import './shell-v4.css';
 
 interface NavItem { label: string; to: string; icon: LucideIcon; end?: boolean; }
@@ -96,12 +98,68 @@ function navClass({ isActive }: { isActive: boolean }) {
   return 'v4-item' + (isActive ? ' active' : '');
 }
 
+// Palette commands = every nav destination (already role-gated by buildV4Nav)
+// PLUS the consolidated targets that live inside Console/Explorer/Coverage as
+// tabs and the entity pages that don't get their own sidebar row, so ⌘K can
+// still jump straight to any page. Keywords cover synonyms an analyst might
+// type (e.g. "alerts" for Signals, "typosquat" for Trademarks).
+function buildPaletteCommands(nav: NavGroup[]): PaletteCommand[] {
+  const fromNav: PaletteCommand[] = nav.flatMap(group =>
+    group.items.map(item => ({
+      label: item.label,
+      to: item.to,
+      group: group.label,
+      icon: item.icon,
+    })),
+  );
+
+  const extras: PaletteCommand[] = [
+    // Console tabs (deep-linked routes that don't have their own nav row)
+    { label: 'Signals',   to: '/alerts',           group: 'SOC CONSOLE', icon: ShieldAlert, keywords: 'alerts queue triage' },
+    { label: 'Threats',   to: '/threats',          group: 'SOC CONSOLE', icon: Bug, keywords: 'iocs indicators' },
+    { label: 'Incidents', to: '/admin/incidents',  group: 'SOC CONSOLE', icon: ShieldAlert, keywords: 'cases' },
+    { label: 'Takedowns', to: '/admin/takedowns',  group: 'SOC CONSOLE', icon: Target, keywords: 'sparrow disruption removal' },
+    // Intelligence entity pages (consolidated under Explorer / Coverage tabs)
+    { label: 'Brands',        to: '/brands',        group: 'INTELLIGENCE', icon: Building2 },
+    { label: 'Threat Actors', to: '/threat-actors', group: 'INTELLIGENCE', icon: Network, keywords: 'apt groups attribution' },
+    { label: 'Campaigns',     to: '/campaigns',     group: 'INTELLIGENCE', icon: Megaphone },
+    { label: 'Providers',     to: '/providers',     group: 'INTELLIGENCE', icon: Server, keywords: 'hosting asn' },
+    { label: 'Apps',          to: '/apps',          group: 'INTELLIGENCE', icon: Smartphone, keywords: 'app store mobile impersonation' },
+    { label: 'Dark Web',      to: '/dark-web',      group: 'INTELLIGENCE', icon: EyeOff, keywords: 'breach leak' },
+    { label: 'Trademarks',    to: '/trademarks',    group: 'INTELLIGENCE', icon: Scale, keywords: 'typosquat lookalike' },
+    { label: 'Trends',        to: '/trends',        group: 'INTELLIGENCE', icon: TrendingUp, keywords: 'intelligence analytics' },
+    // Account / personal
+    { label: 'Profile',       to: '/profile',       group: 'ACCOUNT', icon: UserCog, keywords: 'account sign out settings' },
+    { label: 'Notifications', to: '/notifications', group: 'ACCOUNT', icon: Bell, keywords: 'inbox' },
+  ];
+
+  // de-dupe by route — nav rows win, extras only fill the gaps
+  const seen = new Set(fromNav.map(c => c.to));
+  return [...fromNav, ...extras.filter(c => !seen.has(c.to))];
+}
+
 export function ShellV4() {
   const { user, isSuperAdmin, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const initials = parseInitials(user?.display_name ?? user?.name ?? null, user?.email ?? null);
   const closeDrawer = () => setDrawerOpen(false);
   const nav = buildV4Nav({ isSuperAdmin, role: user?.role });
+  const commands = buildPaletteCommands(nav);
+
+  // global ⌘K / Ctrl-K to toggle the palette (and "/" when not already typing)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(o => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const openPalette = () => { setDrawerOpen(false); setPaletteOpen(true); };
 
   return (
     <div className={'shell-v4' + (drawerOpen ? ' drawer-open' : '')}>
@@ -173,17 +231,19 @@ export function ShellV4() {
           <button type="button" className="v4-hamburger" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
             <Menu size={18} strokeWidth={2} />
           </button>
-          <div className="v4-cmdk" title="Command palette arrives with the v4 component library">
+          <button type="button" className="v4-cmdk" onClick={openPalette} aria-label="Open command palette">
             <Search size={14} strokeWidth={2} />
             <span className="v4-cmdk-label">Search threats, brands, actors…</span>
             <kbd>⌘K</kbd>
-          </div>
+          </button>
           <div className="v4-live"><span className="dot" />LIVE</div>
         </header>
         <div className="v4-outlet">
           <Outlet />
         </div>
       </section>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
     </div>
   );
 }
