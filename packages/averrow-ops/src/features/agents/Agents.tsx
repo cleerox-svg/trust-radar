@@ -955,7 +955,7 @@ export function Agents() {
         title="AI Agent Operations"
         subtitle={`${agents.length} agents · ${supervisors.length} supervisor`}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Discoverability (GA3) — Approvals + Architect were URL-only. */}
             {isSuperAdmin && (
               <Link
