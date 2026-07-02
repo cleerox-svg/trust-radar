@@ -1115,24 +1115,33 @@ export async function handleAdminListUsers(request: Request, env: Env): Promise<
   const offset = parseInt(url.searchParams.get("offset") ?? "0");
   const roleFilter = url.searchParams.get("role");
   const statusFilter = url.searchParams.get("status");
+  const q = url.searchParams.get("q")?.trim() ?? "";
 
-  let sql = "SELECT id, email, name, role, status, created_at, last_login, last_active, invited_by FROM users WHERE 1=1";
-  const params: unknown[] = [];
+  // Shared WHERE so the total respects the active filters (the old
+  // unfiltered COUNT made pagination lie whenever a filter was set).
+  let where = " WHERE 1=1";
+  const whereParams: unknown[] = [];
 
   if (roleFilter) {
-    sql += " AND role = ?";
-    params.push(roleFilter);
+    where += " AND role = ?";
+    whereParams.push(roleFilter);
   }
   if (statusFilter) {
-    sql += " AND status = ?";
-    params.push(statusFilter);
+    where += " AND status = ?";
+    whereParams.push(statusFilter);
+  }
+  if (q) {
+    where += " AND (email LIKE ? OR name LIKE ?)";
+    const like = `%${q.replace(/[%_]/g, "")}%`;
+    whereParams.push(like, like);
   }
 
-  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
-
-  const { results } = await env.DB.prepare(sql).bind(...params).all();
-  const total = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
+  const { results } = await env.DB.prepare(
+    `SELECT id, email, name, role, status, created_at, last_login, last_active, invited_by
+     FROM users${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+  ).bind(...whereParams, limit, offset).all();
+  const total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM users${where}`)
+    .bind(...whereParams).first<{ n: number }>();
 
   return json({ success: true, data: { users: results, total: total?.n ?? 0 } }, 200, origin);
 }

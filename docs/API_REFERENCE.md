@@ -614,7 +614,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | GET | `/api/internal/budget/status` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/admin/budget/status` for MCP server access. |
 | GET | `/api/internal/budget/ledger-health` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/admin/budget/ledger-health` for MCP server access. |
 | GET | `/api/internal/agents/:name/health` | AVERROW_INTERNAL_SECRET | Internal mirror of `/api/agents/:name/health` for MCP server access. |
-| GET | `/api/admin/users` | Admin | List users |
+| GET | `/api/admin/users` | Admin | List users (`?q=` name/email search, `?role=`, `?status=`, `limit`/`offset`; `total` respects the active filters). Consumed by the Platform Users admin page (`/admin/platform-users`, Governance → Users tab) |
 | PATCH | `/api/admin/users/:id` | Admin | Update user |
 | GET | `/api/admin/sessions` | Admin | Active sessions |
 | POST | `/api/admin/users/:id/force-logout` | Admin | Force logout user |

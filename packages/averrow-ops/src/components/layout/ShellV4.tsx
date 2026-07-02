@@ -130,6 +130,9 @@ function buildPaletteCommands(
     { label: 'Takedown Integrations', to: '/admin/integrations', group: 'PLATFORM', icon: Plug, keywords: 'submitters providers registrars' },
     { label: 'Attribution Backlog',   to: '/admin/agents/attribution-backlog', group: 'PLATFORM', icon: ListChecks, keywords: 'clusters unattributed' },
     { label: 'Audit Log',             to: '/admin/audit',       group: 'PLATFORM', icon: ClipboardList, keywords: 'compliance history actions' },
+    ...(isSuperAdmin || role === 'admin'
+      ? [{ label: 'Platform Users', to: '/admin/platform-users', group: 'PLATFORM', icon: Users, keywords: 'staff accounts roles sessions invites' } as PaletteCommand]
+      : []),
     ...(roleHasPermission(role, 'view_billing')
       ? [{ label: 'Pricing', to: '/admin/pricing', group: 'PLATFORM', icon: DollarSign, keywords: 'plans billing modules' } as PaletteCommand]
       : []),
