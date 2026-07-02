@@ -25,6 +25,7 @@ import {
   useAdminAbuseMailboxMessageDetail,
   useUnthrottleAbuseMessage,
   useUpdateAbuseMessageStatus,
+  useBulkUpdateAbuseMessageStatus,
   useAdminAbuseMailboxIntel,
   type AdminAbuseAlias,
   type AdminAbuseMailboxTotals,
@@ -49,6 +50,11 @@ export function AdminAbuseMailbox() {
   const [statusTab, setStatusTab] = useState<'all' | AbuseMessageStatus>('all');
   const [classFilter, setClassFilter] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
+  // Bulk triage — checkbox selection over the filtered list. Cleared
+  // whenever the filters change so a hidden row can't be bulk-mutated.
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const bulkUpdate = useBulkUpdateAbuseMessageStatus();
+  useEffect(() => { setCheckedIds(new Set()); }, [statusTab, classFilter, searchText, activeBrand]);
   const summaryQ  = useAdminAbuseMailboxSummary();
   const messagesQ = useAdminAbuseMailboxMessages(activeBrand);
   const intelQ    = useAdminAbuseMailboxIntel();
@@ -172,18 +178,77 @@ export function AdminAbuseMailbox() {
                   </div>
                 );
               }
+              const allChecked = filtered.length > 0 && filtered.every(m => checkedIds.has(m.id));
+              const toggleAll = () => {
+                setCheckedIds(allChecked ? new Set() : new Set(filtered.map(m => m.id)));
+              };
+              const toggleOne = (id: string) => {
+                setCheckedIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id); else next.add(id);
+                  return next;
+                });
+              };
+              const runBulk = (status: AbuseMessageStatus, label: string) => {
+                const ids = [...checkedIds];
+                if (ids.length === 0 || bulkUpdate.isPending) return;
+                if (!window.confirm(`${label} ${ids.length} message${ids.length === 1 ? '' : 's'}?`)) return;
+                bulkUpdate.mutate({ ids, status }, {
+                  onSuccess: () => setCheckedIds(new Set()),
+                });
+              };
               return (
                 <div className="space-y-2">
+                  {/* Bulk-triage bar */}
+                  <div className="flex items-center gap-3 flex-wrap px-1 py-1.5">
+                    <label className="flex items-center gap-2 text-[11px] font-mono cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                      <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+                      {checkedIds.size > 0 ? `${checkedIds.size} selected` : 'Select all'}
+                    </label>
+                    {checkedIds.size > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <BulkBtn label="Investigate" color="var(--sev-medium)"      disabled={bulkUpdate.isPending} onClick={() => runBulk('investigating', 'Move to investigating:')} />
+                        <BulkBtn label="Resolve"     color="var(--green)"           disabled={bulkUpdate.isPending} onClick={() => runBulk('resolved', 'Resolve')} />
+                        <BulkBtn label="Dismiss"     color="var(--text-secondary)"  disabled={bulkUpdate.isPending} onClick={() => runBulk('dismissed', 'Dismiss')} />
+                        <button
+                          type="button"
+                          className="text-[10px] font-mono uppercase tracking-wider px-2 py-1.5 text-white/50 hover:text-white/80"
+                          onClick={() => setCheckedIds(new Set())}
+                        >
+                          Clear
+                        </button>
+                        {bulkUpdate.isPending && (
+                          <span className="text-[10px] font-mono text-white/50">Updating…</span>
+                        )}
+                        {bulkUpdate.isError && (
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--sev-critical)' }}>
+                            {(bulkUpdate.error as Error).message}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {filtered.map((m) => (
                     <Fragment key={m.id}>
                       {/* id is the deep-link anchor target — notifications
-                          send users here with `#msg-<id>` in the URL. */}
-                      <div id={`msg-${m.id}`}>
-                        <MessageRow
-                          message={m}
-                          expanded={selectedId === m.id}
-                          onToggle={() => setSelectedId(prev => prev === m.id ? null : m.id)}
+                          send users here with `#msg-<id>` in the URL. The
+                          checkbox sits OUTSIDE MessageRow (its root is a
+                          <button>, which can't contain another control). */}
+                      <div id={`msg-${m.id}`} className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          className="mt-4 shrink-0"
+                          checked={checkedIds.has(m.id)}
+                          onChange={() => toggleOne(m.id)}
+                          aria-label={`Select message ${m.id.slice(0, 8)}`}
                         />
+                        <div className="flex-1 min-w-0">
+                          <MessageRow
+                            message={m}
+                            expanded={selectedId === m.id}
+                            onToggle={() => setSelectedId(prev => prev === m.id ? null : m.id)}
+                          />
+                        </div>
                       </div>
                       {selectedId === m.id && <MessageDetail message={m} />}
                     </Fragment>
@@ -1328,6 +1393,22 @@ function StatusActions({ message }: { message: AdminAbuseInboxMessage }) {
       {BTN('Dismiss',     'dismissed',     'var(--text-secondary)')}
       {cur !== 'new' && BTN('Reopen',      'new',           'var(--amber)')}
     </div>
+  );
+}
+
+function BulkBtn({ label, color, disabled, onClick }: {
+  label: string; color: string; disabled: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-default"
+      style={{ color, background: 'rgba(0,0,0,0.30)', border: `1px solid ${color}55` }}
+    >
+      {label}
+    </button>
   );
 }
 

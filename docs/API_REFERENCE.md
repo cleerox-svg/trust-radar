@@ -554,6 +554,7 @@ of type `dark_web_mention` and fire an `alert.created` webhook.
 | GET | `/api/admin/abuse-mailbox/messages` | Super-admin | Averrow self abuse-mailbox messages list |
 | GET | `/api/admin/abuse-mailbox/messages/:id` | Super-admin | Per-message detail with raw body / headers / URL list / attachments (PR-AS) |
 | POST | `/api/admin/abuse-mailbox/messages/:id/unthrottle` | Super-admin | Clear rate-limit flag on a message + queue for next classifier pass (PR-AT) |
+| PATCH | `/api/admin/abuse-mailbox/messages/bulk-status` | Super-admin | Bulk triage: `{ ids: string[], status }` — one UPDATE over up to 200 message ids (scoped to the Averrow self-org). Returns `{ requested, updated, status }`; unknown ids are skipped |
 | PATCH | `/api/admin/abuse-mailbox/messages/:id/status` | Super-admin | Update message status (new / investigating / resolved / dismissed) — PR-BD |
 | GET | `/api/admin/abuse-mailbox/intel` | Super-admin | Aggregated intel summary from `deep_analysis` rows: active campaigns, recent takedown recommendations, top hosting providers, 7d/30d analyzed counts (PR-BD) |
 | POST | `/api/admin/abuse-mailbox/run-classifier` | Admin | Run the abuse-mailbox AI classifier over the pending pile (`?limit=&offset=`). Idempotent on retry; parse-failure rows stay `pending` |

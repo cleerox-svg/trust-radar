@@ -154,6 +154,31 @@ export async function handleAdminAbuseMailboxMessageStatusUpdate(
 }
 
 /**
+ * PATCH /api/admin/abuse-mailbox/messages/bulk-status
+ * Bulk triage — same self-org resolution as the single-message path.
+ */
+export async function handleAdminAbuseMailboxBulkStatusUpdate(
+  request: Request,
+  env:     Env,
+  ctx:     AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (ctx.role !== "super_admin") {
+    return json({ success: false, error: "super_admin required" }, 403, origin);
+  }
+  const selfOrgId = await getAverrowSelfOrgId(env);
+  if (selfOrgId === null) {
+    return json({
+      success: false,
+      error: "Averrow self-org not provisioned",
+      code: "SELF_ORG_NOT_PROVISIONED",
+    }, 503, origin);
+  }
+  const { handleBulkUpdateAbuseInboxMessageStatus } = await import("./tenantAbuseMailboxModule");
+  return handleBulkUpdateAbuseInboxMessageStatus(request, env, String(selfOrgId), ctx);
+}
+
+/**
  * GET /api/admin/abuse-mailbox/intel
  * PR-BD — Intel summary aggregated over deep_analysis rows.
  */

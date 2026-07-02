@@ -486,6 +486,79 @@ export async function handleUpdateAbuseInboxMessageStatus(
   return json({ success: true, data: { id: messageId, status: body.status } }, 200, origin);
 }
 
+/**
+ * Bulk status transition — one UPDATE over up to 200 message ids,
+ * org-scoped. Powers checkbox bulk-triage in the admin mailbox UI
+ * (dismissing a page of spam one row at a time doesn't scale).
+ * Same validation as the single-message path; ids that don't exist
+ * (or belong to another org) are silently skipped and the response
+ * reports how many rows actually changed.
+ */
+export async function handleBulkUpdateAbuseInboxMessageStatus(
+  request: Request,
+  env:     Env,
+  orgId:   string,
+  ctx:     AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const accessError = verifyOrgAccess(ctx, orgId);
+  if (accessError) return json({ success: false, error: accessError }, 403, origin);
+
+  const orgIdNum = Number(orgId);
+  if (!Number.isFinite(orgIdNum)) {
+    return json({ success: false, error: "Invalid organization id" }, 400, origin);
+  }
+
+  try {
+    if (ctx.role !== "super_admin") {
+      await requireModule(env, orgIdNum, "abuse_mailbox");
+    }
+  } catch (err) {
+    if (err instanceof ModuleNotEntitledError) {
+      return json({
+        success: false,
+        error: "Abuse Mailbox isn't enabled for your organization.",
+        code: "MODULE_NOT_ENTITLED",
+      }, 403, origin);
+    }
+    throw err;
+  }
+
+  let body: { ids?: unknown; status?: unknown };
+  try {
+    body = await request.json() as { ids?: unknown; status?: unknown };
+  } catch {
+    return json({ success: false, error: "Invalid JSON body" }, 400, origin);
+  }
+  if (typeof body.status !== "string" || !VALID_STATUS_TRANSITIONS.has(body.status)) {
+    return json({
+      success: false,
+      error: "status must be one of: new, investigating, resolved, dismissed",
+    }, 400, origin);
+  }
+  const ids = Array.isArray(body.ids)
+    ? body.ids.filter((v): v is string => typeof v === "string" && v.length > 0 && v.length <= 64)
+    : [];
+  if (ids.length === 0) {
+    return json({ success: false, error: "ids must be a non-empty array of message ids" }, 400, origin);
+  }
+  if (ids.length > 200) {
+    return json({ success: false, error: "At most 200 ids per call" }, 400, origin);
+  }
+
+  const placeholders = ids.map(() => "?").join(",");
+  const res = await env.DB.prepare(
+    `UPDATE abuse_inbox_messages
+     SET status = ?, updated_at = datetime('now')
+     WHERE org_id = ? AND id IN (${placeholders})`,
+  ).bind(body.status, orgIdNum, ...ids).run();
+
+  return json({
+    success: true,
+    data: { requested: ids.length, updated: res.meta?.changes ?? 0, status: body.status },
+  }, 200, origin);
+}
+
 // ─── GET /api/orgs/:orgId/modules/abuse-mailbox/intel ──────────
 //
 // PR-BD: high-signal Intel summary for the top-level page. Aggregates

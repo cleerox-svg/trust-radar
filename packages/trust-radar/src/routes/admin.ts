@@ -146,6 +146,14 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const { handleAdminAbuseMailboxMessageDetail } = await import("../handlers/adminAbuseMailbox");
     return handleAdminAbuseMailboxMessageDetail(request, env, request.params["id"] ?? "", ctx);
   });
+  // Bulk triage — up to 200 ids per call. Registered BEFORE the :id/status
+  // route so "bulk-status" never matches as a message id.
+  router.patch("/api/admin/abuse-mailbox/messages/bulk-status", async (request: Request, env: Env) => {
+    const ctx = await requireSuperAdmin(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    const { handleAdminAbuseMailboxBulkStatusUpdate } = await import("../handlers/adminAbuseMailbox");
+    return handleAdminAbuseMailboxBulkStatusUpdate(request, env, ctx);
+  });
   // PR-BD — status transition (new | investigating | resolved | dismissed)
   router.patch("/api/admin/abuse-mailbox/messages/:id/status", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requireSuperAdmin(request, env);

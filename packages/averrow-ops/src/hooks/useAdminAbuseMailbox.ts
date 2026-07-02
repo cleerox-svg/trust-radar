@@ -189,6 +189,25 @@ export function useUpdateAbuseMessageStatus() {
   });
 }
 
+/** Bulk triage — one PATCH over up to 200 selected message ids. */
+export function useBulkUpdateAbuseMessageStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: AbuseMessageStatus }) => {
+      const res = await api.patch<{ requested: number; updated: number; status: AbuseMessageStatus }>(
+        '/api/admin/abuse-mailbox/messages/bulk-status',
+        { ids, status },
+      );
+      if (!res.success || !res.data) throw new Error(res.error ?? 'Bulk update failed');
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-abuse-mailbox-messages'] });
+      qc.invalidateQueries({ queryKey: ['admin-abuse-mailbox-summary'] });
+    },
+  });
+}
+
 export interface IntelCampaign  { campaign_id: string; campaign_name: string | null; first_seen: string; count: number; }
 export interface IntelTakedown  { message_id: string; received_at: string; original_subject: string | null; target: string | null; hosting_provider: string | null; hosting_country: string | null; }
 export interface IntelProvider  { hosting_provider: string; hosting_country: string | null; count: number; }
