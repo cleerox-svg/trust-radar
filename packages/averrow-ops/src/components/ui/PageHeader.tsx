@@ -71,14 +71,19 @@ export function PageHeader({
         </button>
       )}
 
-      {/* Title row */}
+      {/* Title row. flexWrap + the 260px flex-basis on the title block are
+          the responsive fix: on narrow viewports the actions cluster wraps
+          BELOW the title instead of crushing it to one word per line (and
+          painting the h1 over the squeezed action pills). */}
       <div style={{
         display:        'flex',
         alignItems:     'flex-start',
         justifyContent: 'space-between',
+        flexWrap:       'wrap',
         gap:            16,
+        rowGap:         10,
       }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: '1 1 260px', minWidth: 0 }}>
           {/* Title + badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{
@@ -126,14 +131,16 @@ export function PageHeader({
           )}
         </div>
 
-        {/* Right-side actions */}
+        {/* Right-side actions — allowed to wrap internally so a long
+            control cluster never forces horizontal overflow on mobile. */}
         {actions && (
           <div style={{
             display:    'flex',
             alignItems: 'center',
+            flexWrap:   'wrap',
             gap:        8,
-            flexShrink: 0,
             paddingTop: 2,
+            maxWidth:   '100%',
           }}>
             {actions}
           </div>
