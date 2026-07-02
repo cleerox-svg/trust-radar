@@ -53,6 +53,7 @@ const ExploreWorkspace = React.lazy(() => import('@/features/explore/ExploreWork
 const CoverageWorkspace = React.lazy(() => import('@/features/coverage/CoverageWorkspace').then(m => ({ default: m.CoverageWorkspace })));
 const OperationsWorkspace = React.lazy(() => import('@/features/operations/OperationsWorkspace').then(m => ({ default: m.OperationsWorkspace })));
 const GovernanceWorkspace = React.lazy(() => import('@/features/governance/GovernanceWorkspace').then(m => ({ default: m.GovernanceWorkspace })));
+const PlatformUsers = React.lazy(() => import('@/features/admin/PlatformUsers').then(m => ({ default: m.PlatformUsers })));
 const Home = React.lazy(() => import('@/pages/Home').then(m => ({ default: m.Home })));
 const OverviewV4 = React.lazy(() => import('@/features/home/OverviewV4').then(m => ({ default: m.OverviewV4 })));
 const BrandAdminDashboard = React.lazy(() => import('@/features/admin/BrandAdminDashboard').then(m => ({ default: m.BrandAdminDashboard })));
@@ -170,6 +171,7 @@ export default function App() {
         <Route path="coverage" element={lazyRoute(<CoverageWorkspace />)} />
         <Route path="admin/operations" element={lazyRoute(<OperationsWorkspace />)} />
         <Route path="admin/governance" element={lazyRoute(<GovernanceWorkspace />)} />
+        <Route path="admin/platform-users" element={lazyRoute(<PlatformUsers />)} />
         <Route path="observatory" element={lazyRoute(<Observatory />, <ObservatoryLoader />)} />
         <Route path="observatory-v3" element={lazyRoute(<ObservatoryV3 />, <ObservatoryLoader />)} />
         <Route path="brands" element={lazyRoute(<Brands />)} />
