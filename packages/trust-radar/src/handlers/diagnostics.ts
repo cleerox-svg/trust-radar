@@ -1262,6 +1262,20 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       };
     }
 
+    // Brand counter drift telemetry — stamped by the cube_healer's
+    // reconciliation stage (lib/brand-count-reconciler.ts) every 6h.
+    // `drifted` staying large across runs means a brand-link writer is
+    // skipping the counter bump again. null = reconciler hasn't run
+    // since deploy (or KV stamp expired after 7 days of not running).
+    const brandCountDrift = await (async () => {
+      try {
+        const raw = await env.CACHE.get('metrics:brand_threat_count_drift');
+        return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    })();
+
     return json({
       success: true,
       data: {
@@ -1271,6 +1285,8 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           window_hours: hoursBack,
           endpoint_version: 9,
         },
+
+        brand_count_drift: brandCountDrift,
 
         geo_coverage: {
           // Per-window mapped/total/coverage_pct. The home tile's "Threats · 7d"

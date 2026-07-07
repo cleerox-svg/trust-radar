@@ -309,8 +309,10 @@ export async function handleListBrands(request: Request, env: Env, scope?: OrgSc
     params.push(limit, offset);
 
     // Use pre-computed columns on brands table instead of JOINing 113K threats.
-    // brands.threat_count and brands.last_threat_seen are maintained by
-    // cartographer, handleAddMonitoredBrand, and handleBrandDeepScan.
+    // brands.threat_count and brands.last_threat_seen are bumped at link time
+    // (analyst matches, enrichment brandDetect, admin backfills) and reconciled
+    // 6-hourly by cube_healer via lib/brand-count-reconciler.ts — NOT by
+    // cartographer, which only owns the hosting_providers counters.
     const rows = await session.prepare(`
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.source, b.first_seen,
              b.official_handles, b.email_security_grade,
