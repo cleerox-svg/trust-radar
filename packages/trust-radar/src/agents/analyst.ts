@@ -13,7 +13,7 @@ import { correlateBrandThreats } from "../brand-threat-correlator";
 import { resolveMasterBrandName } from "../lib/threatScoring";
 import { getBrandSocialIntel } from "../lib/social-intel";
 import { computeBrandExposureScore } from "../lib/brand-scoring";
-import { getBrandById, incrementBrandThreatCount } from "../db/brands";
+import { getBrandById, bumpBrandThreatCountStmt } from "../db/brands";
 import { cachedValue } from "../lib/cached-value";
 
 // ─── Domain parsing utilities ─────────────────────────────────────
@@ -369,16 +369,27 @@ export const analystAgent: AgentModule = {
     }
 
     // ─── Batch flush keyword-match updates ────────────────────────
-    // Send all keyword-matched threat updates in a single D1 batch request.
+    // Send all keyword-matched threat updates in a single D1 batch request,
+    // including the per-brand counter bumps: this path linked threats for
+    // months without touching brands.threat_count, which is how well-known
+    // brands sat at 0 while carrying dozens of linked threats (drift audit
+    // 2026-07-07 — see lib/brand-count-reconciler.ts).
     if (keywordMatchBatch.length > 0) {
+      const keywordBrandCounts = new Map<string, number>();
+      for (const { brandId } of keywordMatchBatch) {
+        keywordBrandCounts.set(brandId, (keywordBrandCounts.get(brandId) ?? 0) + 1);
+      }
       try {
-        await env.DB.batch(
-          keywordMatchBatch.map(({ threatId, brandId }) =>
+        await env.DB.batch([
+          ...keywordMatchBatch.map(({ threatId, brandId }) =>
             env.DB.prepare(
               `UPDATE threats SET target_brand_id = ?, brand_match_method = 'keyword' WHERE id = ?`
             ).bind(brandId, threatId)
-          )
-        );
+          ),
+          ...[...keywordBrandCounts].map(([brandId, n]) =>
+            bumpBrandThreatCountStmt(env, brandId, n)
+          ),
+        ]);
       } catch (err) {
         console.error('[analyst] keyword batch update failed:', err);
       }
@@ -399,11 +410,19 @@ export const analystAgent: AgentModule = {
         console.error('[analyst] AI-match batch update failed:', err);
       }
 
-      // Bulk-increment threat counts for all matched brands
-      const uniqueAiMatchedBrands = [...new Set(aiMatchUpdates.map(u => u.brandId))];
-      for (const bId of uniqueAiMatchedBrands) {
-        try { await incrementBrandThreatCount(env, bId); } catch { /* non-fatal */ }
+      // Bulk-increment threat counts for all matched brands. Count per
+      // matched threat, not +1 per unique brand — the old loop undercounted
+      // whenever one batch matched several threats to the same brand.
+      const aiBrandCounts = new Map<string, number>();
+      for (const u of aiMatchUpdates) {
+        aiBrandCounts.set(u.brandId, (aiBrandCounts.get(u.brandId) ?? 0) + 1);
       }
+      try {
+        await env.DB.batch(
+          [...aiBrandCounts].map(([bId, n]) => bumpBrandThreatCountStmt(env, bId, n))
+        );
+      } catch { /* non-fatal — reconciler heals on the next cube_healer tick */ }
+      const uniqueAiMatchedBrands = [...aiBrandCounts.keys()];
 
       // Fetch email security for all matched brands in one query, then process escalations
       if (uniqueAiMatchedBrands.length > 0) {

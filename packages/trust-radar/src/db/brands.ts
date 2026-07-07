@@ -105,3 +105,15 @@ export async function incrementBrandThreatCount(env: Env, brandId: string): Prom
     "UPDATE brands SET threat_count = threat_count + 1, last_threat_seen = datetime('now') WHERE id = ?"
   ).bind(brandId).run();
 }
+
+/**
+ * Prepared statement bumping a brand's counter by N newly linked threats.
+ * Batch these alongside the threats UPDATEs that set target_brand_id so
+ * the counter moves with the link (the analyst keyword pre-match linked
+ * threats for months without bumping — see lib/brand-count-reconciler.ts).
+ */
+export function bumpBrandThreatCountStmt(env: Env, brandId: string, n: number): D1PreparedStatement {
+  return env.DB.prepare(
+    "UPDATE brands SET threat_count = threat_count + ?, last_threat_seen = datetime('now') WHERE id = ?"
+  ).bind(n, brandId);
+}

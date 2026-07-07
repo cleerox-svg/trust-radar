@@ -285,6 +285,7 @@ export const cubeHealerAgent: AgentModule = {
     { kind: 'd1_table', name: 'threat_cube_provider' },
     { kind: 'd1_table', name: 'threat_cube_status' },
     { kind: 'd1_table', name: 'threat_cube_arcs' },
+    { kind: 'd1_table', name: 'brands' },
   ],
   outputs: [],
   status: 'active',
@@ -417,6 +418,30 @@ export const cubeHealerAgent: AgentModule = {
       });
     }
 
+    // ── Brand counter reconciliation (2026-07-07 drift audit) ───
+    // brands.threat_count / last_threat_seen had NO owner: several
+    // brand-link paths set threats.target_brand_id without bumping the
+    // counter (analyst keyword pre-match above all), so 45% of linked
+    // brands drifted and 3,246 sat at 0 — which also silently excluded
+    // them from the mastodon/reddit `threat_count > 0` eligibility
+    // gate. Same healer pattern as the cubes: full diff per tick,
+    // batched fix-ups for drifted rows only. Stamps
+    // metrics:brand_threat_count_drift for platform-diagnostics.
+    let brandDrift: { brandsChecked: number; drifted: number; fixed: number } | null = null;
+    try {
+      const { reconcileBrandThreatCounts } = await import('../lib/brand-count-reconciler');
+      brandDrift = await reconcileBrandThreatCounts(env);
+      rowsWritten += brandDrift.fixed;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      partialFailures.push({
+        type: 'diagnostic',
+        summary: 'cube_healer brand counter reconciliation failed',
+        severity: 'high',
+        details: { error: errMsg, stage: 'brand_count_reconcile', rowsLanded: rowsWritten },
+      });
+    }
+
     // ── Weekly ANALYZE ──────────────────────────────────────────
     // D1 doesn't auto-run ANALYZE, so sqlite_stat1 only updates when
     // we explicitly ask. Without fresh stats the query planner falls
@@ -457,7 +482,7 @@ export const cubeHealerAgent: AgentModule = {
       itemsProcessed: rowsWritten,
       itemsCreated: rowsWritten,
       itemsUpdated: 0,
-      output: { rowsWritten, partialFailureCount: partialFailures.length, scope, windowDays },
+      output: { rowsWritten, partialFailureCount: partialFailures.length, scope, windowDays, brandDrift },
       agentOutputs: partialFailures,
     };
   },

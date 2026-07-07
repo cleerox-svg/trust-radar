@@ -944,6 +944,7 @@ The endpoint `GET /api/internal/platform-diagnostics?hours=N` returns:
 | `backlog_trends` | Per-pipeline: `current`, `previous`, `trend` (negative = draining) |
 | `ai_spend_24h` | Per-agent: `calls`, `input_tokens`, `output_tokens`, `cost_usd` |
 | `platform_totals` | `brands`, `providers`, `campaigns`, `clusters`, `feeds_enabled`, `feeds_disabled` |
+| `brand_count_drift` | Last cube_healer reconciliation of `brands.threat_count` (`brandsChecked`, `drifted`, `fixed`, `checked_at`). Persistent large `drifted` = a brand-link writer is skipping the counter bump — see `lib/brand-count-reconciler.ts`. |
 | `_meta` | `db_clock_utc` (verify timezone), `window_hours`, `generated_at` |
 
 ### When the user asks for a health check
