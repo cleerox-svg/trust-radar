@@ -285,7 +285,9 @@ export const cubeHealerAgent: AgentModule = {
     { kind: 'd1_table', name: 'threat_cube_provider' },
     { kind: 'd1_table', name: 'threat_cube_status' },
     { kind: 'd1_table', name: 'threat_cube_arcs' },
-    { kind: 'd1_table', name: 'brands' },
+    // Also writes brands.threat_count via lib/brand-count-reconciler.ts —
+    // not declared here because the resource-drift check extracts only SQL
+    // in this file (same as the dark-web/app-store summaries above).
   ],
   outputs: [],
   status: 'active',
