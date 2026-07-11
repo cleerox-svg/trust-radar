@@ -56,8 +56,10 @@ owns that surface.
    runtime failure class `tsc` waves through (dead `LIKE` indexes,
    broken tab routes, SQL/bind arity, stamp/SELECT divergence). Never
    ship a non-trivial change without it.
-5. **Review** — `appsec-reviewer` when the diff touches
-   auth/RBAC/data-exposure; `design-reviewer` when it touches UI. The
+5. **Review** — `code-reviewer` on any non-trivial diff (correctness +
+   reuse/simplification/efficiency); `appsec-reviewer` when the diff
+   touches auth/RBAC/data-exposure; `design-reviewer` when it touches
+   UI. The three lanes are independent — fan them out concurrently. The
    `/code-review` and `/security-review` skills are the mechanical
    layer beneath them.
 6. **Ship** — commit as logical units, push to the feature branch, open

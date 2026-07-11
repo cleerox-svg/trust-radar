@@ -27,6 +27,7 @@ their own context and only the tools their charter grants.
 | `frontend-engineer` | Software dev | React SPAs (`averrow-ops`, `averrow-tenant`, `shared`, marketing islands) | sonnet | ✅ |
 | `test-engineer` | Testing | Writes/maintains vitest unit + integration tests (backend + React) | sonnet | Tests only |
 | `qa-verifier` | Testing | Runs the gate + drives changes end-to-end to catch runtime bugs | sonnet | Verify only |
+| `code-reviewer` | Review | General correctness bugs + reuse/simplification/efficiency | opus | Review only |
 | `design-reviewer` | UI/UX | Visual/UX/a11y review vs the design system | sonnet | Review + small fixes |
 | `threat-intel-analyst` | Threat intel | Detection, enrichment, correlation, triage/AI-judge logic | opus | Logic design |
 | `appsec-reviewer` | Cyber (internal) | RBAC, auth, secrets, injection, security review | opus | Review only |
@@ -74,6 +75,17 @@ report-with-evidence, never claim a check passed without running it; report-don'
 Specifically probes the failure class this platform's typecheck waves through:
 D1 column/placeholder/bind arity, stamp/SELECT divergence, SQL errors, migration
 typos.
+
+### `code-reviewer` — general correctness & code quality
+The non-security, non-UI review lane. Reviews a diff for logic bugs, edge cases,
+and reuse/simplification/efficiency cleanups, ranked correctness-first with a
+concrete failure scenario per finding. **Doctrine:** also runs a static pass at
+the runtime failure class this platform waves through (D1 bind arity,
+stamp/SELECT divergence, dead indexes, broken route wiring) and the §8 cost red
+flags (raw `GROUP BY` / `COUNT(*)` where a cube / pre-computed column /
+`cachedCount` exists). Drives the `/code-review` skill as its mechanical layer.
+Read-only; hands confirmed bugs to the owning engineer. Distinct from
+`appsec-reviewer` (auth/RBAC/secrets) and `design-reviewer` (UI/UX).
 
 ### `design-reviewer` — UI/UX & accessibility
 Reviews rendered UI vs `AVERROW_UI_STANDARD.md`: token adherence, light/dark
@@ -134,16 +146,22 @@ read-only questions bypass it.
    the standing test gate — invoke it whenever code changes, not just when asked.
    `qa-verifier` catches the runtime failure class `tsc` misses (SQL arity,
    stamp/SELECT parity) that has bitten this platform before.
-4. **Before merge** → `appsec-reviewer` (if the diff touches auth/RBAC/data
-   exposure) and/or `design-reviewer` (if UI). Use the `/code-review` and
-   `/security-review` skills as the mechanical layer.
+4. **Before merge** → `code-reviewer` on any non-trivial diff for correctness +
+   quality, plus `appsec-reviewer` (if the diff touches auth/RBAC/data
+   exposure) and/or `design-reviewer` (if UI). These three lanes are
+   independent and fan out concurrently. Use the `/code-review` and
+   `/security-review` skills as the mechanical layer beneath them.
 5. **After ship** → `content-strategist` for user-facing releases (changelog +
    version), `docs-maintainer` for any doc drift, `platform-sre` to confirm
    health.
 
 ## Boundaries (who does NOT do what)
-- Reviewers (`design-reviewer`, `appsec-reviewer`) and `platform-sre` don't ship
-  feature code — they report and hand off.
+- Reviewers (`code-reviewer`, `design-reviewer`, `appsec-reviewer`) and
+  `platform-sre` don't ship feature code — they report and hand off.
+- The three review lanes are distinct: `code-reviewer` owns general correctness
+  + quality, `appsec-reviewer` owns auth/RBAC/secrets/injection,
+  `design-reviewer` owns UI/UX/a11y. Each hands cross-lane findings to the
+  right owner rather than adjudicating them.
 - `docs-maintainer` never edits product source; `content-strategist` never edits
   component logic; `delivery-lead` never edits anything.
 - Detection *logic* is `threat-intel-analyst`; Worker *plumbing* is
