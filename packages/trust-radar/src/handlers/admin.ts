@@ -15,8 +15,9 @@ import { fuzzyMatchBrand } from "../lib/brandDetect";
 import { cachedCount } from "../lib/cached-count";
 import { cachedValue } from "../lib/cached-value";
 import { getReadSession, getDbContext } from "../lib/db";
+import type { AuthContext } from "../middleware/auth";
 import { classifySaasTechnique } from "../lib/saas-classifier";
-import { BudgetManager } from "../lib/budgetManager";
+import { BudgetManager, type BudgetStatus } from "../lib/budgetManager";
 import {
   buildGeoCubeForHour,
   buildProviderCubeForHour,
@@ -399,6 +400,304 @@ export async function handleSystemHealth(request: Request, env: Env): Promise<Re
 
   await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 });
   return json(data, 200, origin);
+}
+
+// ─── Admin Dashboard Snapshot (P5 — Tier 2a) ─────────────────────
+//
+// GET /api/admin/dashboard
+//
+// ONE KV-cached composite the /admin LANDING reads instead of fanning
+// out to ~6 independently-cached endpoints. Composes the slices the
+// landing + VerdictBand need by REUSING the existing handlers'
+// internals (each is already KV-cached), exactly like handleD1Budget
+// composes the diagnostics helpers.
+//
+// Contract rules:
+//   - Each slice is INDEPENDENTLY NULLABLE. A partial failure of any
+//     source degrades that slice to `null` — never a thrown 500. The
+//     frontend treats a null slice as "unknown", never "healthy".
+//   - Additive: this does NOT replace the underlying endpoints; they
+//     keep serving their still-live consumers unchanged.
+//   - The composite does no direct D1 — it only calls sub-handlers
+//     that read replicas / cubes / pre-computed columns / KV per §8.
+
+/** Threat totals + 24h agent/feed health + 14d trend. Source: handleSystemHealth. */
+export interface DashboardThreatHealthSlice {
+  threats: { total: number; today: number; week: number };
+  agents_24h: { total: number; successes: number; errors: number };
+  feeds_24h: { pulls: number; ingested: number };
+  active_sessions: number;
+  trend_14d: Array<{ day: string; count: number }>;
+}
+
+/** Budget status + top spenders. Source: handleBudgetStatus + handleBudgetBreakdown. */
+export interface DashboardBudgetSlice {
+  status: BudgetStatus;
+  top_agents: Array<{ agent_id: string; cost_usd: number; calls: number }>;
+}
+
+/** Feeds needing attention (CRITICAL / AT RISK). Source: handleMetricsFeedFailures. */
+export interface DashboardFeedsSlice {
+  at_risk_count: number;
+  at_risk: Array<{
+    feed_name: string;
+    display_name: string;
+    verdict: { tone: string; label: string };
+    failure_rate_pct: number;
+    pct_to_auto_pause: number;
+    enabled: boolean;
+  }>;
+  totals_24h: {
+    total_pulls: number;
+    total_success: number;
+    total_failed: number;
+    feeds_active: number;
+  };
+}
+
+/** Backlog verdict / GROWING-STALE signal. Source: handlePipelineStatus. */
+export interface DashboardPipelineSlice {
+  worst_tone: "critical" | "warning" | "ok" | "unknown";
+  growing_or_stale_count: number;
+  total_pipelines: number;
+  concerning: Array<{
+    id: string;
+    label: string;
+    verdict: { tone: string; label: string };
+    trend_direction: string;
+    count: number;
+  }>;
+}
+
+/** Email-security posture summary. Source: handleEmailSecurityStats. */
+export interface DashboardEmailSecuritySlice {
+  total_scanned: number;
+  total_unscanned: number;
+  average_score: number;
+  grade_distribution: Array<{ grade: string; count: number }>;
+  worst_count: number;
+}
+
+export interface DashboardSnapshot {
+  threat_health: DashboardThreatHealthSlice | null;
+  budget: DashboardBudgetSlice | null;
+  feeds: DashboardFeedsSlice | null;
+  pipeline: DashboardPipelineSlice | null;
+  email_security: DashboardEmailSecuritySlice | null;
+  generated_at: string;
+}
+
+const DASHBOARD_SNAPSHOT_CACHE_KEY = "admin:dashboard_snapshot:v1";
+const DASHBOARD_SNAPSHOT_TTL = 75; // ~60-90s window per spec
+
+/** Parse a sub-handler's `{ success?, data }` body into its `data`,
+ *  degrading any non-ok / `success:false` / parse failure to null. */
+async function readSnapshotSlice<T>(res: Response): Promise<T | null> {
+  try {
+    if (!res.ok) return null;
+    const body = (await res.json()) as { success?: boolean; data?: unknown };
+    if (body && body.success === false) return null;
+    return (body?.data ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
+/** Call a sub-handler and shape its data, swallowing any throw to null. */
+async function snapshotSlice<TRaw, TOut>(
+  produce: () => Promise<Response>,
+  shape: (raw: TRaw) => TOut | null,
+): Promise<TOut | null> {
+  try {
+    const raw = await readSnapshotSlice<TRaw>(await produce());
+    return raw === null ? null : shape(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function handleAdminDashboard(
+  request: Request,
+  env: Env,
+  ctx: AuthContext,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+
+  // RBAC boundary: the `threat_health` slice reuses handleSystemHealth,
+  // whose own route (/api/admin/system-health) is requireSuperAdmin. This
+  // composite is only requireAdmin, so including threat_health for a plain
+  // admin would widen that boundary. Gate the slice to super_admin; plain
+  // admins get threat_health: null (the contract makes every slice
+  // nullable and the frontend reads null as "absent/unknown"). The other
+  // four slices (budget/pipeline/feeds/email_security) are requireAdmin /
+  // requireStaff at their own routes, so they stay for all admins.
+  const includeThreatHealth = ctx.role === "super_admin";
+
+  // Cache is keyed by whether threat_health is present so a super_admin's
+  // populated slice never leaks to a plain admin via the shared cache (and
+  // vice versa).
+  const cacheKey = includeThreatHealth
+    ? `${DASHBOARD_SNAPSHOT_CACHE_KEY}:sa`
+    : `${DASHBOARD_SNAPSHOT_CACHE_KEY}:admin`;
+
+  const cached = await env.CACHE.get(cacheKey);
+  if (cached) return json(JSON.parse(cached), 200, origin);
+
+  // Synthetic request for the sub-handlers — they only read query params
+  // and route replica context off the URL, never auth (this endpoint is
+  // already requireAdmin-gated at the route layer).
+  const syntheticReq = () => new Request("https://averrow.com/api/admin/dashboard");
+
+  // Lazy-load the cross-file handlers (budget + email-security live in
+  // sibling handler modules). System-health / feed-failures / pipeline
+  // are in THIS module.
+  const { handleBudgetStatus, handleBudgetBreakdown } = await import("./budget");
+  const { handleEmailSecurityStats } = await import("./emailSecurity");
+
+  type SystemHealthRaw = {
+    threats: { total: number; today: number; week: number };
+    agents: { total: number; successes: number; errors: number };
+    feeds: { pulls: number; ingested: number };
+    sessions: { count: number };
+    trend: Array<{ day: string; count: number }>;
+  };
+  type FeedFailuresRaw = {
+    totals_24h: { total_pulls: number; total_success: number; total_failed: number; feeds_active: number };
+    per_feed: Array<{
+      feed_name: string;
+      display_name: string;
+      enabled: boolean;
+      failure_rate_pct: number;
+      pct_to_auto_pause: number;
+      verdict: { tone: string; label: string };
+    }>;
+  };
+  type PipelineRaw = Array<{
+    id: string;
+    label: string;
+    verdict: { tone: string; label: string };
+    trend_direction: string;
+    count: number;
+  }>;
+  type EmailRaw = {
+    total_scanned: number;
+    total_unscanned: number;
+    average_score: number;
+    grade_distribution: Array<{ grade: string; count: number }>;
+    worst_brands: unknown[];
+  };
+  type BreakdownRaw = Array<{ agent_id: string; cost_usd: number; calls: number }>;
+
+  // Super_admin only: skip the work entirely for plain admins — don't
+  // compute-then-null, just never call handleSystemHealth.
+  const threatHealthPromise: Promise<DashboardThreatHealthSlice | null> = includeThreatHealth
+    ? snapshotSlice<SystemHealthRaw, DashboardThreatHealthSlice>(
+        () => handleSystemHealth(syntheticReq(), env),
+        (sh) => ({
+          threats: sh.threats,
+          agents_24h: sh.agents,
+          feeds_24h: sh.feeds,
+          active_sessions: sh.sessions?.count ?? 0,
+          trend_14d: sh.trend ?? [],
+        }),
+      )
+    : Promise.resolve(null);
+
+  const [threatHealth, budgetStatus, budgetBreakdown, feeds, pipeline, emailSecurity] = await Promise.all([
+    threatHealthPromise,
+    // Budget is a two-source slice: status is the core, breakdown augments.
+    snapshotSlice<BudgetStatus, BudgetStatus>(
+      () => handleBudgetStatus(syntheticReq(), env),
+      (s) => s,
+    ),
+    snapshotSlice<BreakdownRaw, BreakdownRaw>(
+      () => handleBudgetBreakdown(syntheticReq(), env),
+      (b) => b,
+    ),
+    snapshotSlice<FeedFailuresRaw, DashboardFeedsSlice>(
+      () => handleMetricsFeedFailures(syntheticReq(), env),
+      (ff) => {
+        const atRisk = ff.per_feed.filter(
+          (f) => f.verdict.label === "AT RISK" || f.verdict.label === "CRITICAL",
+        );
+        return {
+          at_risk_count: atRisk.length,
+          at_risk: atRisk.slice(0, 20).map((f) => ({
+            feed_name: f.feed_name,
+            display_name: f.display_name,
+            verdict: f.verdict,
+            failure_rate_pct: f.failure_rate_pct,
+            pct_to_auto_pause: f.pct_to_auto_pause,
+            enabled: f.enabled,
+          })),
+          totals_24h: {
+            total_pulls: ff.totals_24h.total_pulls,
+            total_success: ff.totals_24h.total_success,
+            total_failed: ff.totals_24h.total_failed,
+            feeds_active: ff.totals_24h.feeds_active,
+          },
+        };
+      },
+    ),
+    snapshotSlice<PipelineRaw, DashboardPipelineSlice>(
+      () => handlePipelineStatus(syntheticReq(), env),
+      (pipes) => {
+        const concerning = pipes.filter(
+          (p) => p.verdict.tone === "failed" || p.verdict.label === "GROWING" || p.verdict.label === "STALE",
+        );
+        const tones = new Set(pipes.map((p) => p.verdict.tone));
+        const worst_tone: DashboardPipelineSlice["worst_tone"] =
+          pipes.length === 0
+            ? "unknown"
+            : tones.has("failed")
+              ? "critical"
+              : tones.has("pending") || tones.has("warning")
+                ? "warning"
+                : "ok";
+        return {
+          worst_tone,
+          growing_or_stale_count: concerning.length,
+          total_pipelines: pipes.length,
+          concerning: concerning.slice(0, 20).map((p) => ({
+            id: p.id,
+            label: p.label,
+            verdict: p.verdict,
+            trend_direction: p.trend_direction,
+            count: p.count,
+          })),
+        };
+      },
+    ),
+    snapshotSlice<EmailRaw, DashboardEmailSecuritySlice>(
+      () => handleEmailSecurityStats(syntheticReq(), env),
+      (es) => ({
+        total_scanned: es.total_scanned,
+        total_unscanned: es.total_unscanned,
+        average_score: es.average_score,
+        grade_distribution: es.grade_distribution ?? [],
+        worst_count: Array.isArray(es.worst_brands) ? es.worst_brands.length : 0,
+      }),
+    ),
+  ]);
+
+  const budget: DashboardBudgetSlice | null = budgetStatus
+    ? { status: budgetStatus, top_agents: (budgetBreakdown ?? []).slice(0, 8) }
+    : null;
+
+  const snapshot: DashboardSnapshot = {
+    threat_health: threatHealth,
+    budget,
+    feeds,
+    pipeline,
+    email_security: emailSecurity,
+    generated_at: new Date().toISOString(),
+  };
+
+  const body = { success: true, data: snapshot };
+  await env.CACHE.put(cacheKey, JSON.stringify(body), {
+    expirationTtl: DASHBOARD_SNAPSHOT_TTL,
+  });
+  return json(body, 200, origin);
 }
 
 const UpdateUserSchema = z.object({

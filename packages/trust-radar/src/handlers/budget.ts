@@ -10,7 +10,7 @@ import { BudgetManager, fetchAnthropicUsageReport } from "../lib/budgetManager";
 export async function handleBudgetStatus(_request: Request, env: Env): Promise<Response> {
   const mgr = new BudgetManager(env.DB);
   const anthropicKey = (env as unknown as Record<string, string | undefined>).ANTHROPIC_ADMIN_KEY;
-  const anthropicReported = await fetchAnthropicUsageReport(anthropicKey);
+  const anthropicReported = await fetchAnthropicUsageReport(anthropicKey, env);
   const status = await mgr.getStatus(anthropicReported);
   return json({ data: status });
 }
