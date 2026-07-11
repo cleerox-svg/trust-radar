@@ -374,7 +374,7 @@ export async function handleEmailSecurityStats(
       // Worst-protected brands (all F/D/C grades, up to 200)
       env.DB.prepare(`
         SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade,
-               (SELECT COUNT(*) FROM threats t WHERE t.target_brand_id = b.id AND t.status = 'active') AS active_threats
+               b.active_threat_count AS active_threats
         FROM brands b
         WHERE b.email_security_score IS NOT NULL AND b.email_security_grade IN ('F', 'D', 'C')
         ORDER BY b.email_security_score ASC

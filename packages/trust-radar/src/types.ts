@@ -219,6 +219,7 @@ export interface Brand {
   sector: string | null;
   first_seen: string;
   threat_count: number;
+  active_threat_count: number;
   last_threat_seen: string | null;
   email_security_grade: string | null;
   email_security_score: number | null;

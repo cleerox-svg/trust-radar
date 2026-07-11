@@ -48,12 +48,11 @@ export async function handleTenantDashboard(
       SELECT b.id, b.name, b.canonical_domain, b.sector, b.threat_count,
              b.exposure_score, b.email_security_grade, b.social_risk_score,
              b.last_social_scan, b.last_threat_seen, ob.is_primary,
-             COALESCE(t_active.cnt, 0) AS active_threats,
+             b.active_threat_count AS active_threats,
              COALESCE(sp_all.cnt, 0) AS social_profiles_count,
              COALESCE(sp_imp.cnt, 0) AS impersonation_count
       FROM org_brands ob
       JOIN brands b ON b.id = ob.brand_id
-      LEFT JOIN (SELECT target_brand_id, COUNT(*) AS cnt FROM threats WHERE status = 'active' GROUP BY target_brand_id) t_active ON t_active.target_brand_id = b.id
       LEFT JOIN (SELECT brand_id, COUNT(*) AS cnt FROM social_profiles WHERE status = 'active' GROUP BY brand_id) sp_all ON sp_all.brand_id = b.id
       LEFT JOIN (SELECT brand_id, COUNT(*) AS cnt FROM social_profiles WHERE classification = 'impersonation' AND status = 'active' GROUP BY brand_id) sp_imp ON sp_imp.brand_id = b.id
       WHERE ob.org_id = ?
