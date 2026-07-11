@@ -650,6 +650,7 @@ context is the column name, not the value.
 
 ### Pre-computed columns — use them, don't re-derive
 - `brands.threat_count`, `brands.last_threat_seen` — use instead of `COUNT(*) FROM threats WHERE target_brand_id = ?`
+- `brands.active_threat_count` (migration 0233) — use instead of `COUNT(*) FROM threats WHERE target_brand_id = ? AND status='active'`. Maintained by the change-guarded whole-table sync in `lib/brand-active-counts.ts`; read by `handlers/tenantData.ts` (tenant dashboard) and `handlers/emailSecurity.ts` (worst-protected brands).
 - `hosting_providers.active_threat_count`, `hosting_providers.total_threat_count` — use instead of JOIN to threats
 - `hosting_providers.trend_7d`, `hosting_providers.trend_30d` — use instead of 14-day window GROUP BY
 
@@ -944,7 +945,7 @@ The endpoint `GET /api/internal/platform-diagnostics?hours=N` returns:
 | `backlog_trends` | Per-pipeline: `current`, `previous`, `trend` (negative = draining) |
 | `ai_spend_24h` | Per-agent: `calls`, `input_tokens`, `output_tokens`, `cost_usd` |
 | `platform_totals` | `brands`, `providers`, `campaigns`, `clusters`, `feeds_enabled`, `feeds_disabled` |
-| `brand_count_drift` | Last cube_healer reconciliation of `brands.threat_count` (`brandsChecked`, `drifted`, `fixed`, `checked_at`). Persistent large `drifted` = a brand-link writer is skipping the counter bump — see `lib/brand-count-reconciler.ts`. |
+| `brand_count_drift` | Last cube_healer reconciliation of `brands.threat_count` AND `brands.active_threat_count` in one pass (`brandsChecked`, `drifted`, `fixed`, `checked_at`). Persistent large `drifted` = a brand-link writer is skipping the counter bump — see `lib/brand-count-reconciler.ts`. |
 | `_meta` | `db_clock_utc` (verify timezone), `window_hours`, `generated_at` |
 
 ### When the user asks for a health check

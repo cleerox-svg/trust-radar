@@ -307,10 +307,10 @@ Kill switch: flip the var back to `'draft'`.
 | **Trigger** | Scheduled — every 4 hours (hours 0/4/8/12/16/20). Cron at `hour % 4 === 0` calls `dispatchWorkflow()` in `lib/workflow-dispatch.ts`, which has KV cooldown on `WorkflowInternalError` + last-dispatch stamp watched by FC supervisor. |
 | **Purpose** | Infrastructure cluster detection — the operations layer |
 
-Nexus correlates shared infrastructure (IPs, ASNs, certificates, registrars, naming patterns) into `infrastructure_clusters` rows that represent distinct threat actor operations. Pivot detection emits immediate events for Observer.
+Nexus correlates shared infrastructure into `infrastructure_clusters` rows that represent distinct threat actor operations, via a 6-lane precedence pipeline (most-specific first — first lane to claim a threat wins): cert-serial → cert-SAN → per-IP fan-out → /24 subnet → registrar cohort → ASN (mops up leftovers). The cert lanes run first because shared certificate identity is near-conclusive same-operator evidence; the ASN pass runs last even though it's the oldest lane. Pivot detection emits immediate events for Observer.
 
 **Inputs:** Enriched threats, certificates, providers
-**Outputs:** `infrastructure_clusters` rows; `pivot_detected` / `cluster_detected` events
+**Outputs:** `infrastructure_clusters` rows; `pivot_detected` event. (`cluster_detected` is declared in the event-type union but never emitted anywhere in code — see CLAUDE.md §6.)
 
 ---
 
