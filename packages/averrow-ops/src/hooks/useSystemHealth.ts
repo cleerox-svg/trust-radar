@@ -25,5 +25,9 @@ export function useSystemHealth() {
       return res.data || null;
     },
     refetchInterval: 60_000,
+    // Matches the 60s refetchInterval above (the backend's outer KV wrap is
+    // actually 120s — this staleTime is about not double-fetching on top of
+    // our own poller, not about mirroring the backend cache TTL).
+    staleTime: 60_000,
   });
 }

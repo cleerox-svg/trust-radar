@@ -19,24 +19,33 @@ export interface TabsProps {
   variant?:  'pills' | 'underline' | 'bar';
   sticky?:   boolean;  // position sticky with blur backdrop
   className?: string;
+  // Opt-in: emit `id="tab-<id>"` + `aria-controls="tabpanel-<id>"` on each
+  // tab button. Only pass this when the consumer actually renders a
+  // matching `role="tabpanel" id="tabpanel-<id>"` element alongside — an
+  // unmatched `aria-controls` points at a DOM id that doesn't exist, which
+  // is invalid ARIA. Defaults to false so most consumers (which render no
+  // tabpanel at all) get valid tablist/tab markup without a dangling ref.
+  linkedPanels?: boolean;
 }
 
 export function Tabs({
   tabs,
   activeTab,
   onChange,
-  variant   = 'pills',
-  sticky    = false,
-  className = '',
+  variant      = 'pills',
+  sticky       = false,
+  className    = '',
+  linkedPanels = false,
 }: TabsProps) {
 
   if (variant === 'underline') {
-    return <UnderlineTabs tabs={tabs} activeTab={activeTab} onChange={onChange} sticky={sticky} className={className} />;
+    return <UnderlineTabs tabs={tabs} activeTab={activeTab} onChange={onChange} sticky={sticky} className={className} linkedPanels={linkedPanels} />;
   }
 
   if (variant === 'bar') {
     return (
       <div
+        role="tablist"
         className={cn(className)}
         style={{
           display:      'flex',
@@ -54,6 +63,10 @@ export function Tabs({
           return (
             <button
               key={tab.id}
+              id={linkedPanels ? `tab-${tab.id}` : undefined}
+              role="tab"
+              aria-selected={active}
+              aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
               onClick={() => onChange(tab.id)}
               style={{
                 flex:          1,
@@ -87,12 +100,16 @@ export function Tabs({
 
   // Default: pills variant — fall through
   return (
-    <div className={cn('flex flex-wrap gap-2', className)}>
+    <div role="tablist" className={cn('flex flex-wrap gap-2', className)}>
       {tabs.map(tab => {
         const active = tab.id === activeTab;
         return (
           <button
             key={tab.id}
+            id={linkedPanels ? `tab-${tab.id}` : undefined}
+            role="tab"
+            aria-selected={active}
+            aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
             onClick={() => onChange(tab.id)}
             style={{
               fontSize:      10,
@@ -157,6 +174,7 @@ function UnderlineTabs({
   onChange,
   sticky,
   className,
+  linkedPanels,
 }: Omit<TabsProps, 'variant'>) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [edges, setEdges] = useState<{ left: boolean; right: boolean }>({ left: false, right: false });
@@ -197,6 +215,7 @@ function UnderlineTabs({
     >
       <div
         ref={scrollRef}
+        role="tablist"
         style={{
           display:      'flex',
           gap:          4,
@@ -209,6 +228,10 @@ function UnderlineTabs({
           return (
             <button
               key={tab.id}
+              id={linkedPanels ? `tab-${tab.id}` : undefined}
+              role="tab"
+              aria-selected={active}
+              aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
               onClick={() => onChange(tab.id)}
               style={{
                 flexShrink:    0,

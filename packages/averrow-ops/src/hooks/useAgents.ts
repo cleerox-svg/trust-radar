@@ -214,7 +214,11 @@ export function usePipelineStatus(_agents?: Agent[] | undefined) {
       return res.data ?? [];
     },
     placeholderData: keepPreviousData,
+    // Backend caches this endpoint at ~5 min (see FeedFailures.tsx /
+    // Pipelines.tsx comments on the same cadence) — match staleTime so a
+    // remount doesn't refetch on top of the interval poller.
     refetchInterval: 300_000,
+    staleTime: 300_000,
   });
 }
 

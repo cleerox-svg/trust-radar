@@ -32,8 +32,40 @@ vi.mock('@/hooks/useSystemHealth', () => ({
   useSystemHealth: vi.fn().mockReturnValue({
     data: null,
     isLoading: false,
+    isError: false,
   }),
 }));
+
+// VerdictBand (mounted unconditionally at the top of AdminDashboard, per
+// the P1 un-gating change) reads three more hooks. This file's assertions
+// are about the health-gated sections below it, not the verdict band
+// itself — that has its own dedicated coverage in
+// features/admin/components/VerdictBand.test.tsx — so these are mocked to
+// a stable "everything healthy" shape purely to keep this suite from
+// making real network calls.
+vi.mock('@/hooks/useBudget', () => ({
+  useBudgetStatus: vi.fn().mockReturnValue({
+    data: { throttle_level: 'none', pct_used: 10, spent_this_month: 10, remaining: 90, config: { monthly_limit_usd: 100 }, daily_burn_rate: 1, projected_monthly: 30, days_in_month: 30, days_elapsed: 10 },
+    isLoading: false,
+    isError: false,
+  }),
+  useBudgetBreakdown: vi.fn().mockReturnValue({ data: [], isLoading: false, isError: false }),
+  useBudgetConfigMutation: vi.fn().mockReturnValue({ mutate: vi.fn() }),
+}));
+vi.mock('@/hooks/useMetrics', () => ({
+  useFeedFailures: vi.fn().mockReturnValue({
+    data: { per_feed: [], totals_24h: { total_pulls: 0, total_success: 0, total_failed: 0, total_records: 0, feeds_active: 0 }, recent_errors: [] },
+    isLoading: false,
+    isError: false,
+  }),
+}));
+vi.mock('@/hooks/useAgents', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useAgents')>('@/hooks/useAgents');
+  return {
+    ...actual,
+    usePipelineStatus: vi.fn().mockReturnValue({ data: [], isLoading: false, isError: false }),
+  };
+});
 
 // Mock recharts to avoid canvas/SVG rendering issues in test
 vi.mock('recharts', () => ({
@@ -53,13 +85,14 @@ describe('AdminDashboard', () => {
     (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockSystemHealthData,
       isLoading: false,
+      isError: false,
     });
   });
 
-  it('renders page header with operational badge', () => {
+  it('renders page header', () => {
     renderWithProviders(<AdminDashboard />);
-    expect(screen.getByText('System Health')).toBeInTheDocument();
-    expect(screen.getByText('OPERATIONAL')).toBeInTheDocument();
+    expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Platform health and operations')).toBeInTheDocument();
   });
 
   it('renders top stat row with correct values', () => {
@@ -128,21 +161,77 @@ describe('AdminDashboard', () => {
     expect(screen.getByTestId('area-chart')).toBeInTheDocument();
   });
 
-  it('shows degraded badge when errors exist', () => {
+  it('still renders agent error counts in the Agent Performance card when errors exist', () => {
+    // The old top-of-page pill (binary "OPERATIONAL"/"DEGRADED" derived
+    // solely from agents.errors) was replaced by VerdictBand — see
+    // features/admin/components/VerdictBand.test.tsx for the worst-of
+    // severity coverage. This just confirms the health-gated section
+    // still surfaces the raw error count.
     (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({
       data: {
         ...mockSystemHealthData,
         agents: { total: 229, successes: 180, errors: 3 },
       },
       isLoading: false,
+      isError: false,
     });
     renderWithProviders(<AdminDashboard />);
-    expect(screen.getByText('DEGRADED')).toBeInTheDocument();
+    expect(screen.getAllByText(/errors/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows loading state', () => {
-    (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true });
+  it('shows loading state for the health-gated sections only', () => {
+    (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true, isError: false });
     const { container } = renderWithProviders(<AdminDashboard />);
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    // P1 un-gating: PushBootstrapCard/DailyBriefingWidget/BudgetPanel/
+    // EmailSecuritySection/MaintenanceSection no longer wait on
+    // system-health — the page header renders immediately even while
+    // system-health is still loading.
+    expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
+  });
+
+  it('mounts the always-on children (VerdictBand, BudgetPanel, DailyBriefingWidget) while system-health is still loading', () => {
+    // This is the actual regression the P1 un-gating fixed: before it,
+    // the whole page returned a single top-level PageLoader gated on
+    // useSystemHealth().isLoading, so NOTHING below the header rendered
+    // until system-health resolved. Assert each always-on child's own
+    // content is present — not just the page header — to prove they
+    // mount and fire their own hooks in parallel rather than waiting in
+    // a serial waterfall behind system-health.
+    (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true, isError: false });
+    renderWithProviders(<AdminDashboard />);
+
+    // VerdictBand: mounted immediately and reacts to the very same loading
+    // useSystemHealth mock — its "agents" contributor is unresolved, so the
+    // worst-of band reads PENDING (not blank, not OPERATIONAL).
+    expect(screen.getByText('PENDING')).toBeInTheDocument();
+
+    // BudgetPanel: owns its own (mocked-healthy) hook, unaffected by the
+    // system-health loading state.
+    expect(screen.getByText('AI Budget')).toBeInTheDocument();
+
+    // DailyBriefingWidget: mounted immediately under its own SectionLabel;
+    // with no explicit briefing-query mock in this suite it renders its
+    // own loading state, proving the *widget* (not just the wrapper
+    // section) fired its hook rather than waiting behind system-health.
+    expect(screen.getByText('Daily Briefing')).toBeInTheDocument();
+    expect(screen.getByText(/Loading briefing/i)).toBeInTheDocument();
+  });
+
+  it('gates StatGrid / 14d Activity / Infrastructure behind system-health and shows skeletons instead', () => {
+    (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true, isError: false });
+    const { container } = renderWithProviders(<AdminDashboard />);
+
+    // The health-derived stat values must NOT render while data is undefined.
+    expect(screen.queryByText('Threats Today')).not.toBeInTheDocument();
+    expect(screen.queryByText('Feed Ingestion')).not.toBeInTheDocument();
+    expect(screen.queryByText(/success rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText('trust-radar-v2')).not.toBeInTheDocument();
+
+    // In their place, skeleton placeholders render — more than one, since
+    // the stat row, the 14d activity section, and infrastructure are all
+    // independently gated on the same `healthReady` flag.
+    const skeletons = container.querySelectorAll('.animate-pulse');
+    expect(skeletons.length).toBeGreaterThan(1);
   });
 });

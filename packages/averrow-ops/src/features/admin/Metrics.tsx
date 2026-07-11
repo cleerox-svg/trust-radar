@@ -125,15 +125,22 @@ export function Metrics() {
         activeTab={activeTab}
         onChange={onChange}
         variant="pills"
+        linkedPanels
       />
 
-      {activeTab === 'summary'           && <SummaryView agents={agents} />}
-      {activeTab === 'pipelines'         && <Pipelines agents={agents} />}
-      {activeTab === 'd1-budget'         && <D1Budget />}
-      {activeTab === 'ai-spend'          && <AiSpend />}
-      {activeTab === 'cost-optimization' && <CostOptimization />}
-      {activeTab === 'geo-coverage'      && <GeoCoverage />}
-      {activeTab === 'feed-failures'     && <FeedFailures />}
+      <div
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+      >
+        {activeTab === 'summary'           && <SummaryView agents={agents} />}
+        {activeTab === 'pipelines'         && <Pipelines agents={agents} />}
+        {activeTab === 'd1-budget'         && <D1Budget />}
+        {activeTab === 'ai-spend'          && <AiSpend />}
+        {activeTab === 'cost-optimization' && <CostOptimization />}
+        {activeTab === 'geo-coverage'      && <GeoCoverage />}
+        {activeTab === 'feed-failures'     && <FeedFailures />}
+      </div>
     </div>
   );
 }
