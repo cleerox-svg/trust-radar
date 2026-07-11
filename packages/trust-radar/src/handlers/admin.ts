@@ -1408,6 +1408,10 @@ export async function handleBackfillGeo(request: Request, env: Env): Promise<Res
       const { syncHostingProviderCounts } = await import("../lib/provider-counts");
       await syncHostingProviderCounts(env);
     } catch { /* non-critical */ }
+    try {
+      const { syncBrandActiveThreatCounts } = await import("../lib/brand-active-counts");
+      await syncBrandActiveThreatCounts(env);
+    } catch { /* non-critical */ }
 
     const remaining = Math.max(0, totalPending - totalEnriched - totalSkippedPrivate - totalSkippedNoResult);
     return json({

@@ -20,10 +20,17 @@
  * (index-driven via idx_threats_brand_status), diffed in memory
  * against the non-zero counters, then batched UPDATEs for drifted
  * rows only. Steady-state this touches only the rows the incremental
- * writers missed since the last run. Semantics: COUNT(*) of ALL
- * linked threats regardless of status — parity with the two existing
- * authoritative recompute sites in handlers/brands.ts (add-monitored
- * and deep-scan flows).
+ * writers missed since the last run. Semantics for threat_count:
+ * COUNT(*) of ALL linked threats regardless of status — parity with
+ * the two existing authoritative recompute sites in handlers/brands.ts
+ * (add-monitored and deep-scan flows).
+ *
+ * The same pass also reconciles brands.active_threat_count (the
+ * active-only pre-computed counter read by the tenant dashboard +
+ * email-security stats). Its primary maintainer is the change-guarded
+ * whole-table sync in lib/brand-active-counts.ts (enrichment Stage 5);
+ * this reconciler is its drift safety-net, computed for free from the
+ * same GROUP BY via a conditional SUM.
  *
  * Runs inside the cube_healer agent (6-hourly cron) — same "healer"
  * pattern that bounds cube drift. Stamps its result into KV
@@ -44,43 +51,54 @@ const BATCH_SIZE = 100;
 export async function reconcileBrandThreatCounts(env: Env): Promise<BrandCountReconcileResult> {
   const [agg, current] = await Promise.all([
     env.DB.prepare(
-      `SELECT target_brand_id AS id, COUNT(*) AS n, MAX(last_seen) AS latest
+      `SELECT target_brand_id AS id, COUNT(*) AS n,
+              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_n,
+              MAX(last_seen) AS latest
          FROM threats
         WHERE target_brand_id IS NOT NULL
         GROUP BY target_brand_id`,
-    ).all<{ id: string; n: number; latest: string | null }>(),
+    ).all<{ id: string; n: number; active_n: number; latest: string | null }>(),
     env.DB.prepare(
-      `SELECT id, threat_count FROM brands WHERE threat_count != 0`,
-    ).all<{ id: string; threat_count: number }>(),
+      `SELECT id, threat_count, active_threat_count FROM brands
+        WHERE threat_count != 0 OR active_threat_count != 0`,
+    ).all<{ id: string; threat_count: number; active_threat_count: number }>(),
   ]);
 
-  const currentMap = new Map(current.results.map((r) => [r.id, r.threat_count]));
+  const currentMap = new Map(
+    current.results.map((r) => [r.id, r]),
+  );
   const liveIds = new Set<string>();
   const fixes: D1PreparedStatement[] = [];
 
   for (const row of agg.results) {
     liveIds.add(row.id);
-    if ((currentMap.get(row.id) ?? 0) !== row.n) {
+    const cur = currentMap.get(row.id);
+    const activeN = row.active_n ?? 0;
+    if ((cur?.threat_count ?? 0) !== row.n || (cur?.active_threat_count ?? 0) !== activeN) {
       // COALESCE keeps an existing last_threat_seen when the aggregate
       // has no timestamp (last_seen NULL on every linked row).
       fixes.push(
         env.DB.prepare(
           `UPDATE brands
               SET threat_count = ?,
+                  active_threat_count = ?,
                   last_threat_seen = COALESCE(?, last_threat_seen)
             WHERE id = ?`,
-        ).bind(row.n, row.latest, row.id),
+        ).bind(row.n, activeN, row.latest, row.id),
       );
     }
   }
 
   // Counter is non-zero but no linked threats remain (links removed or
-  // threats deleted) — zero it so the social-feed eligibility gate and
-  // list sort stop trusting a phantom count.
+  // threats deleted) — zero both counters so the social-feed eligibility
+  // gate, list sort, and the active-only reads stop trusting a phantom
+  // count.
   for (const row of current.results) {
     if (!liveIds.has(row.id)) {
       fixes.push(
-        env.DB.prepare(`UPDATE brands SET threat_count = 0 WHERE id = ?`).bind(row.id),
+        env.DB.prepare(
+          `UPDATE brands SET threat_count = 0, active_threat_count = 0 WHERE id = ?`,
+        ).bind(row.id),
       );
     }
   }

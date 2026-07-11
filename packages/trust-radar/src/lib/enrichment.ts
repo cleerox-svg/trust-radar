@@ -27,6 +27,7 @@ export interface EnrichmentResult {
   brandsMatched: number;
   providersUpserted: number;
   providerCountsUpdated: number;
+  brandActiveCountsUpdated: number;
   /** PR-D (2026-05-16 audit): threats whose confidence_score was
    *  boosted because their IP is corroborated by ≥4 distinct feeds.
    *  Was zero coverage pre-fix — confidence stayed flat regardless
@@ -46,6 +47,7 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     brandsMatched: 0,
     providersUpserted: 0,
     providerCountsUpdated: 0,
+    brandActiveCountsUpdated: 0,
     corroborationBoosted: 0,
   };
 
@@ -420,6 +422,17 @@ export async function runEnrichmentPipeline(env: Env): Promise<EnrichmentResult>
     result.providerCountsUpdated = await syncHostingProviderCounts(env);
   } catch (err) {
     console.error("[enrich] Stage 5 provider count update failed:", err);
+  }
+
+  // Same change-guarded sync for brands.active_threat_count (active-only
+  // pre-computed counter read by the tenant dashboard + email-security
+  // stats). Isolated try/catch so a brand-count failure can't mask a
+  // successful provider sync above.
+  try {
+    const { syncBrandActiveThreatCounts } = await import("./brand-active-counts");
+    result.brandActiveCountsUpdated = await syncBrandActiveThreatCounts(env);
+  } catch (err) {
+    console.error("[enrich] Stage 5 brand active-count update failed:", err);
   }
 
   return result;
