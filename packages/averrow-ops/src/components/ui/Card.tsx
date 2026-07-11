@@ -18,6 +18,14 @@ export interface CardProps {
   className?:  string;
   onClick?:    () => void;
   hover?:      boolean;
+  // Optional a11y pass-through for Cards that act as a clickable control
+  // (e.g. an expand/collapse row). Additive only — omitting these keeps
+  // every existing call site's rendered output unchanged.
+  role?:       string;
+  tabIndex?:   number;
+  onKeyDown?:  (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  'aria-label'?:    string;
+  'aria-expanded'?: boolean;
 }
 
 const VARIANT_STYLES: Record<CardVariant, {
@@ -62,6 +70,11 @@ export function Card({
   className = '',
   onClick,
   hover: _hover,
+  role,
+  tabIndex,
+  onKeyDown,
+  'aria-label': ariaLabel,
+  'aria-expanded': ariaExpanded,
 }: CardProps) {
   const v = VARIANT_STYLES[variant];
 
@@ -74,6 +87,11 @@ export function Card({
   return (
     <div
       onClick={onClick}
+      role={role}
+      tabIndex={tabIndex}
+      onKeyDown={onKeyDown}
+      aria-label={ariaLabel}
+      aria-expanded={ariaExpanded}
       className={className}
       style={{
         background:           v.bg,

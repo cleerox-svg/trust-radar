@@ -25,5 +25,8 @@ export function useSystemHealth() {
       return res.data || null;
     },
     refetchInterval: 60_000,
+    // Backend caches at 60s; a fresh mount within that window shouldn't
+    // trigger a refetch on top of the interval poller.
+    staleTime: 60_000,
   });
 }

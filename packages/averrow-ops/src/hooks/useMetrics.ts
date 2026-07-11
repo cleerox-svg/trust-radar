@@ -113,6 +113,7 @@ export function useD1Budget() {
     // Backend caches at 60s; poll at the same cadence so the section
     // refreshes about as fast as the underlying data moves.
     refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 }
 
@@ -163,6 +164,7 @@ export function useAiSpend() {
     // Backend caches at 5 min — AI spend trend is stable, no
     // need to poll faster.
     refetchInterval: 300_000,
+    staleTime: 300_000,
   });
 }
 
@@ -217,6 +219,7 @@ export function useAiCostOptimization() {
     placeholderData: keepPreviousData,
     // Backend caches at 5 min — match cadence.
     refetchInterval: 300_000,
+    staleTime: 300_000,
   });
 }
 
@@ -261,7 +264,11 @@ export function useGeoCoverage() {
       return res.data ?? null;
     },
     placeholderData: keepPreviousData,
+    // No explicit backend cache comment on this endpoint, but it's polled
+    // at the same 5-min cadence as the other metrics-page trend hooks —
+    // match staleTime so a remount within that window skips a refetch.
     refetchInterval: 300_000,
+    staleTime: 300_000,
   });
 }
 
@@ -319,5 +326,6 @@ export function useFeedFailures() {
     // Backend caches at 60s; poll at the same cadence so the table
     // refreshes about as fast as the underlying data moves.
     refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 }

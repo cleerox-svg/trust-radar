@@ -37,6 +37,7 @@ export function Tabs({
   if (variant === 'bar') {
     return (
       <div
+        role="tablist"
         className={cn(className)}
         style={{
           display:      'flex',
@@ -54,6 +55,10 @@ export function Tabs({
           return (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={active}
+              aria-controls={`tabpanel-${tab.id}`}
               onClick={() => onChange(tab.id)}
               style={{
                 flex:          1,
@@ -87,12 +92,16 @@ export function Tabs({
 
   // Default: pills variant — fall through
   return (
-    <div className={cn('flex flex-wrap gap-2', className)}>
+    <div role="tablist" className={cn('flex flex-wrap gap-2', className)}>
       {tabs.map(tab => {
         const active = tab.id === activeTab;
         return (
           <button
             key={tab.id}
+            id={`tab-${tab.id}`}
+            role="tab"
+            aria-selected={active}
+            aria-controls={`tabpanel-${tab.id}`}
             onClick={() => onChange(tab.id)}
             style={{
               fontSize:      10,
@@ -197,6 +206,7 @@ function UnderlineTabs({
     >
       <div
         ref={scrollRef}
+        role="tablist"
         style={{
           display:      'flex',
           gap:          4,
@@ -209,6 +219,10 @@ function UnderlineTabs({
           return (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={active}
+              aria-controls={`tabpanel-${tab.id}`}
               onClick={() => onChange(tab.id)}
               style={{
                 flexShrink:    0,

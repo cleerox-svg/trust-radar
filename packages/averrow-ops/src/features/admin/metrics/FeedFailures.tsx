@@ -106,8 +106,11 @@ function Tile({ label, value, accent }: { label: string; value: string; accent?:
 }
 
 // ─── At-risk grid ────────────────────────────────────────────────
-type Tone = 'critical' | 'high' | 'green' | 'muted';
-function tierFor(row: FeedFailureRow): Tone {
+// Exported so VerdictBand (features/admin/components/VerdictBand.tsx) can
+// reuse the exact same risk tiering for its "feeds" contributor instead of
+// re-deriving a second copy of this logic.
+export type Tone = 'critical' | 'high' | 'green' | 'muted';
+export function feedRiskTier(row: FeedFailureRow): Tone {
   if (row.paused_reason === 'auto:consecutive_failures') return 'critical';
   if (!row.enabled || row.paused_reason)                  return 'muted';
   if (row.pct_to_auto_pause >= 80)                        return 'critical';
@@ -116,7 +119,7 @@ function tierFor(row: FeedFailureRow): Tone {
   return 'green';
 }
 function isAtRisk(row: FeedFailureRow): boolean {
-  const tier = tierFor(row);
+  const tier = feedRiskTier(row);
   return tier === 'critical' || tier === 'high' || tier === 'muted';
 }
 
@@ -209,7 +212,7 @@ function FeedRiskCard({
   isSelected: boolean;
   onSelect:   () => void;
 }) {
-  const tier = tierFor(row);
+  const tier = feedRiskTier(row);
   const variant: 'elevated' | 'critical' = tier === 'critical' ? 'critical' : 'elevated';
   const barColor = tierColor(tier);
   const isPaused = !row.enabled || !!row.paused_reason;
@@ -229,6 +232,16 @@ function FeedRiskCard({
       variant={variant}
       className="p-3 cursor-pointer transition-all"
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      aria-expanded={isSelected}
+      aria-label={`${isSelected ? 'Collapse' : 'Expand'} ${row.display_name || row.feed_name} details`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">

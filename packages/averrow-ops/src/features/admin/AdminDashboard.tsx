@@ -17,9 +17,10 @@ import { useAdminAction } from '@/hooks/useAdminAction';
 import { usePushConfig } from '@/hooks/usePushAdmin';
 import { api } from '@/lib/api';
 import { SectionLabel } from '@/components/ui/SectionLabel';
-import { PageLoader } from '@/components/ui/PageLoader';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge, Button, Card, PageHeader, StatGrid, StatCard } from '@/design-system/components';
 import { DailyBriefingWidget } from '@/components/DailyBriefingWidget';
+import { VerdictBand } from './components/VerdictBand';
 
 /* ─── Style tokens (resolved once, reused below) ───────────────────────── */
 
@@ -622,10 +623,30 @@ function PushBootstrapCard() {
 /* ─── Main dashboard ───────────────────────────────────────────────────── */
 
 export function AdminDashboard() {
-  const { data, isLoading } = useSystemHealth();
+  // P1 fix: this dashboard used to gate its ENTIRE return on
+  // useSystemHealth().isLoading, which meant every other child fetch
+  // (budget, push, email, briefing) couldn't fire until system-health
+  // returned — a serial waterfall. Now only the pieces that actually need
+  // `data` (top StatGrid, 14d Activity section, Compliance & Sessions,
+  // Infrastructure tiles) are gated below; everything else (VerdictBand,
+  // PushBootstrapCard, DailyBriefingWidget, BudgetPanel,
+  // EmailSecuritySection, MaintenanceSection) mounts immediately and
+  // null-guards its own data via its own hook.
+  const { data, isLoading, isError } = useSystemHealth();
+  const healthReady = !isLoading && !isError && !!data;
 
   const [classifying, setClassifying] = useState(false);
   const [classifyResult, setClassifyResult] = useState<string | null>(null);
+
+  // VerdictBand's "AI budget" contributor deep-links to #budget-panel.
+  // React Router's <Link> intercepts the click and pushState()s instead of
+  // letting the browser do its native hash-scroll, so handle the common
+  // case (arriving at /admin fresh from another page) explicitly.
+  useEffect(() => {
+    if (window.location.hash === '#budget-panel') {
+      document.getElementById('budget-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   async function handleClassifySaasTechniques() {
     setClassifying(true);
@@ -650,8 +671,6 @@ export function AdminDashboard() {
     }
   }
 
-  if (isLoading) return <PageLoader />;
-
   const threats = data?.threats ?? { total: 0, today: 0, week: 0 };
   const agents = data?.agents ?? { total: 0, successes: 0, errors: 0 };
   const feeds = data?.feeds ?? { pulls: 0, ingested: 0 };
@@ -672,50 +691,46 @@ export function AdminDashboard() {
   const trendPeak = trend.reduce((max, t) => (t.count > max.count ? t : max), { day: '', count: 0 });
   const chartData = trend.map((t) => ({ date: shortDate(t.day), threats: t.count }));
   const dbSizePercent = Math.min((infra.mainDb.sizeMb / 500) * 100, 100);
-  const isHealthy = agents.errors === 0;
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       <PageHeader
         title="Admin Dashboard"
         subtitle="Platform health and operations"
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ ...mono, fontSize: 11, ...textSecondary }}>System Health</span>
-            <span
-              style={{
-                ...mono, fontSize: 10, fontWeight: 700, padding: '4px 10px',
-                borderRadius: 999, letterSpacing: '0.16em',
-                border: `1px solid ${isHealthy ? 'var(--green)' : 'var(--sev-high)'}`,
-                color: isHealthy ? 'var(--green)' : 'var(--sev-high)',
-                background: isHealthy ? 'rgba(60,184,120,0.10)' : 'rgba(251,146,60,0.10)',
-              }}
-            >
-              {isHealthy ? 'OPERATIONAL' : 'DEGRADED'}
-            </span>
-          </div>
-        }
       />
+
+      {/* Single honest health verdict — worst-of across agents, AI budget,
+          feeds, and pipelines. Replaces the old agents-errors-only pill. */}
+      <VerdictBand />
 
       <PushBootstrapCard />
 
-      {/* TOP STAT ROW */}
-      <StatGrid cols={4}>
-        <StatCard label="Threats Today" value={fmt(threats.today)} accentColor="var(--red)" sublabel={`${fmt(threats.total)} total`} />
-        <StatCard label="Feed Ingestion" value={fmt(feeds.ingested)} accentColor="var(--amber)" sublabel="records (24h)" />
-        <StatCard label="Agent Runs" value={fmt(agents.total)} accentColor="var(--blue)" sublabel={`${fmt(agents.successes)} success / ${agents.errors} errors`} />
-        <StatCard label="Active Sessions" value={fmt(sessions.count)} accentColor="var(--green)" sublabel="authenticated" />
-      </StatGrid>
+      {/* TOP STAT ROW — needs system-health `data`, so it's the one piece
+          still gated on that hook (everything below it isn't). */}
+      {healthReady ? (
+        <StatGrid cols={4}>
+          <StatCard label="Threats Today" value={fmt(threats.today)} accentColor="var(--red)" sublabel={`${fmt(threats.total)} total`} />
+          <StatCard label="Feed Ingestion" value={fmt(feeds.ingested)} accentColor="var(--amber)" sublabel="records (24h)" />
+          <StatCard label="Agent Runs" value={fmt(agents.total)} accentColor="var(--blue)" sublabel={`${fmt(agents.successes)} success / ${agents.errors} errors`} />
+          <StatCard label="Active Sessions" value={fmt(sessions.count)} accentColor="var(--green)" sublabel="authenticated" />
+        </StatGrid>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+      )}
 
-      {/* DAILY BRIEFING */}
+      {/* DAILY BRIEFING — its own hook, mounts immediately */}
       <section>
         <SectionLabel label="Daily Briefing" attribution="Generated by the briefing agent" />
         <DailyBriefingWidget />
       </section>
 
-      {/* ACTIVITY ROW — chart spans 2/3, agent perf 1/3 */}
+      {/* ACTIVITY ROW — chart spans 2/3, agent perf 1/3. Both derive from
+          system-health `data`, so both stay gated together. */}
       <section>
         <SectionLabel label="Activity (14d)" />
+        {healthReady ? (
         <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
           <div style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-8">
             <Card padding="20px" style={{ height: '100%' }}>
@@ -803,16 +818,29 @@ export function AdminDashboard() {
             </Card>
           </div>
         </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
+            <div style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-8">
+              <Skeleton className="h-64 rounded-xl" />
+            </div>
+            <div style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-4">
+              <Skeleton className="h-64 rounded-xl" />
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* SECURITY ROW — Budget + Compliance */}
+      {/* SECURITY ROW — Budget + Compliance. BudgetPanel owns its own hook
+          and mounts immediately; Compliance & Sessions reads system-health
+          `data`, so only that half is gated. */}
       <section>
         <SectionLabel label="Security &amp; Spend" />
         <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(12, minmax(0, 1fr))' }}>
-          <div style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-5">
+          <div id="budget-panel" style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-5">
             <BudgetPanel />
           </div>
           <div style={{ gridColumn: 'span 12', minWidth: 0 }} className="lg:col-span-7">
+            {healthReady ? (
             <Card padding="20px" style={{ height: '100%' }}>
               <CardEyebrow
                 icon={Shield}
@@ -856,6 +884,9 @@ export function AdminDashboard() {
                 </Link>
               </div>
             </Card>
+            ) : (
+              <Skeleton className="h-64 rounded-xl" />
+            )}
           </div>
         </div>
       </section>
@@ -863,6 +894,7 @@ export function AdminDashboard() {
       {/* INFRASTRUCTURE — single compact row instead of an endless column */}
       <section>
         <SectionLabel label="Infrastructure" />
+        {healthReady ? (
         <Card padding="20px">
           <div
             style={{
@@ -921,6 +953,9 @@ export function AdminDashboard() {
             />
           </div>
         </Card>
+        ) : (
+          <Skeleton className="h-40 rounded-xl" />
+        )}
       </section>
 
       {/* EMAIL SECURITY */}
