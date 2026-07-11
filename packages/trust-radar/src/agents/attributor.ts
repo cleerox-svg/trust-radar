@@ -37,6 +37,7 @@ import {
   recordAttribution,
   canonicalActorName,
 } from "../lib/otx-attribution";
+import { inheritOtxActorsToClusters } from "../lib/cluster-attribution-inherit";
 
 const CLUSTER_BATCH = 25;
 const RETRY_COOLDOWN_DAYS = 7;
@@ -234,11 +235,16 @@ export const attributorAgent: AgentModule = {
 
     const clusters = pending.results ?? [];
     if (clusters.length === 0) {
+      // No clusters need Haiku classification, but the OTX -> cluster
+      // inheritance post-pass is pure SQL and independent of the Haiku
+      // queue, so it still runs to propagate named actors onto
+      // un-attributed cluster siblings.
+      const inherited = await inheritOtxActorsToClusters(env.DB);
       return {
-        itemsProcessed: 0,
-        itemsCreated: 0,
-        itemsUpdated: 0,
-        output: { pending_clusters: 0 },
+        itemsProcessed: inherited.members_attributed,
+        itemsCreated: inherited.members_attributed,
+        itemsUpdated: inherited.clusters_actor_set,
+        output: { pending_clusters: 0, otx_inheritance: inherited },
       };
     }
 
@@ -356,10 +362,16 @@ export const attributorAgent: AgentModule = {
       }
     }
 
+    // Post-pass: propagate OTX-named actors from attributed cluster
+    // members onto their un-attributed siblings (pure SQL, no AI). Runs
+    // after the Haiku work so this run's fresh cluster actor stamps are
+    // already in place; the pass is idempotent, so re-runs write 0 rows.
+    const inherited = await inheritOtxActorsToClusters(env.DB);
+
     return {
       itemsProcessed: clusters.length,
-      itemsCreated: attributionRowsWritten,
-      itemsUpdated: attributed,
+      itemsCreated: attributionRowsWritten + inherited.members_attributed,
+      itemsUpdated: attributed + inherited.clusters_actor_set,
       output: {
         attributed_clusters: attributed,
         unresolved_clusters: unresolved,
@@ -367,6 +379,7 @@ export const attributorAgent: AgentModule = {
         errors,
         attribution_rows_written: attributionRowsWritten,
         actor_needles: actorNeedles.length,
+        otx_inheritance: inherited,
       },
     };
   },
