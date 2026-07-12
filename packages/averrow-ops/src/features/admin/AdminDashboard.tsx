@@ -1,5 +1,4 @@
 import { useState, useEffect, type CSSProperties } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -107,12 +106,12 @@ function ThrottleBadge({ level }: { level: BudgetStatus['throttle_level'] }) {
 
 function BudgetPanel() {
   // Tier 2a: reads the `budget` slice off the shared dashboard snapshot
-  // instead of its own useBudgetStatus/useBudgetBreakdown fetches. Those
-  // hooks stay available (see useBudget.ts) for any other consumer — this
-  // is only a data-source swap for AdminDashboard's panel. Because
-  // useDashboardSnapshot shares one TanStack Query cache entry with
-  // VerdictBand (and AdminDashboard itself), mounting all three together
-  // still costs a single network request, not three.
+  // instead of a standalone budget-status/breakdown fetch (the old
+  // useBudgetStatus/useBudgetBreakdown hooks had no other consumers and
+  // were removed — see useBudget.ts). Because useDashboardSnapshot shares
+  // one TanStack Query cache entry with VerdictBand (and AdminDashboard
+  // itself), mounting all three together still costs a single network
+  // request, not three.
   const { data: snapshot } = useDashboardSnapshot();
   const budgetSlice = snapshot?.budget;
   const mutation = useBudgetConfigMutation();
@@ -264,14 +263,6 @@ function KvRow({ label, value, danger }: { label: string; value: string; danger?
 
 /* ─── Email Security Section ──────────────────────────────────────────── */
 
-interface EmailSecurityStats {
-  scanned: number;
-  pending: number;
-  avg_score: number;
-  total_brands: number;
-  grades: { grade: string; count: number }[];
-}
-
 const GRADE_COLORS: Record<string, string> = {
   'A+': '#4ade80',
   'A':  '#2dd4bf',
@@ -282,21 +273,22 @@ const GRADE_COLORS: Record<string, string> = {
 };
 
 function EmailSecuritySection() {
-  const { data: stats } = useQuery({
-    queryKey: ['email-security-stats'],
-    queryFn: async () => {
-      const res = await api.get<EmailSecurityStats>('/api/email-security/stats');
-      return res.data ?? null;
-    },
-  });
+  // Tier 2a fix pass: reads the `email_security` slice off the shared
+  // dashboard snapshot instead of its own useQuery(['email-security-stats'])
+  // — the slice already covers everything this section renders, so this
+  // drops a request from the /admin landing rather than duplicating one
+  // the snapshot already fetches. Shares the same query cache entry as
+  // VerdictBand/BudgetPanel/MaintenanceSection via useDashboardSnapshot.
+  const { data: snapshot } = useDashboardSnapshot();
+  const emailSecurity = snapshot?.email_security;
 
   const scanAction = useAdminAction('/api/email-security/scan-all');
 
-  const scanned = stats?.scanned ?? 0;
-  const pending = stats?.pending ?? 0;
-  const avgScore = stats?.avg_score ?? 0;
-  const total = stats?.total_brands ?? (scanned + pending);
-  const grades = stats?.grades ?? [];
+  const scanned = emailSecurity?.total_scanned ?? 0;
+  const pending = emailSecurity?.total_unscanned ?? 0;
+  const avgScore = emailSecurity?.average_score ?? 0;
+  const total = scanned + pending;
+  const grades = emailSecurity?.grade_distribution ?? [];
   const coveragePct = total > 0 ? (scanned / total) * 100 : 0;
   const maxGradeCount = Math.max(...grades.map((g) => g.count ?? 0), 1);
 
@@ -514,17 +506,15 @@ function MaintenanceSection() {
     catch { /* noop */ }
   }, [expanded]);
 
-  const { data: emailStats } = useQuery({
-    queryKey: ['email-security-stats'],
-    queryFn: async () => {
-      const res = await api.get<EmailSecurityStats>('/api/email-security/stats');
-      return res.data ?? null;
-    },
-  });
-
+  // Same rationale as EmailSecuritySection above — reuse the snapshot's
+  // `email_security` slice instead of a second independent
+  // ['email-security-stats'] fetch (this was the OTHER consumer of that
+  // query; without this the "drops one request" win above wouldn't
+  // materialize, since this hook would still keep it alive).
+  const { data: snapshot } = useDashboardSnapshot();
   const { data: systemHealth } = useSystemHealth();
   const unlinkedThreats = systemHealth?.threats?.total ?? 0;
-  const pendingScans = emailStats?.pending ?? 0;
+  const pendingScans = snapshot?.email_security?.total_unscanned ?? 0;
 
   return (
     <Card padding={0}>

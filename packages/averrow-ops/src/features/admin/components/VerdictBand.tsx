@@ -10,10 +10,17 @@
 // separate hooks:
 //   - snapshot.threat_health -> agents_24h.errors > 0
 //   - snapshot.budget        -> throttle level (emergency/hard/soft)
-//   - snapshot.feeds         -> at_risk_count (+ per-row verdict.label,
-//                               mirroring the exact tiering
-//                               metrics/FeedFailures.tsx's feedRiskTier used)
-//   - snapshot.pipeline      -> worst_tone (GROWING/STALE backlog signal)
+//   - snapshot.feeds         -> at_risk_count (+ per-row `severity`, stamped
+//                               by the backend directly — see feedsSeverity())
+//   - snapshot.pipeline      -> worst_tone (genuine-problem signal only;
+//                               benign states like an unconfigured GeoIP
+//                               binding are excluded server-side)
+//
+// Tier 2a fix pass (2026-07): the VerdictBand rewire had a regression where
+// an auto-paused-from-failures feed could read OPERATIONAL, because the
+// original client-side mapping matched on `verdict.label` text rather than
+// a real severity field. The backend now stamps `severity` on each at_risk
+// row directly (feedsSeverity() below reads it, no re-derivation).
 //
 // Guardrail (do not rebuild the bug this replaces): a signal whose data is
 // missing/unfetched/errored counts as 'unknown', never 'ok'. The rank order
@@ -88,20 +95,19 @@ function ContributorBadge({ c }: { c: Contributor }) {
   return <Badge status="inactive" label={text} size="xs" />;
 }
 
-// Feeds: the snapshot's `at_risk` list already only contains rows whose
-// backend verdict.label is 'AT RISK' (pct_to_auto_pause >= 80) or
-// 'CRITICAL' (failure_rate_pct >= 30) — see computeFeedVerdict in
-// handlers/admin.ts. That maps 1:1 onto the two bad tiers
-// metrics/FeedFailures.tsx's feedRiskTier used to compute client-side:
-//   'AT RISK'  (pct >= 80)        <-> feedRiskTier's 'critical'
-//   'CRITICAL' (failure rate >=30) <-> feedRiskTier's 'high'
-// so the mapping below reproduces feedRiskTier's severity split using the
-// backend's own per-row verdict instead of re-deriving it.
+// Feeds: the backend now stamps a per-row `severity` directly on each
+// `at_risk` entry (handleAdminDashboard) — 'critical' covers both
+// auto-paused-from-failures feeds AND >=80% to auto-pause / high failure
+// rate; 'high' covers 60-79% / failing. This is the fix for the regression
+// the VerdictBand rewire introduced: an auto-paused feed used to fall out
+// of the OLD label-matching logic (`verdict.label === 'AT RISK'`) because
+// its verdict label didn't say "AT RISK", so the band read OPERATIONAL
+// while a feed was dead. Reading `severity` directly closes that gap.
 function feedsSeverity(feeds: DashboardFeedsSlice): { severity: BandSeverity; detail: string } {
   if (feeds.at_risk_count === 0) {
     return { severity: 'ok', detail: 'healthy' };
   }
-  const visibleCritical = feeds.at_risk.some(f => f.verdict.label === 'AT RISK');
+  const visibleCritical = feeds.at_risk.some(f => f.severity === 'critical');
   // `at_risk` is capped to the first 20 rows server-side (see
   // handleAdminDashboard) — if the true count exceeds what we can see,
   // don't risk under-reporting: treat the hidden remainder as critical.
@@ -115,11 +121,12 @@ function feedsSeverity(feeds: DashboardFeedsSlice): { severity: BandSeverity; de
 
 // Pipelines: the snapshot pre-aggregates a worst_tone across all pipeline
 // verdicts server-side (handlePipelineStatus's GROWING/STALE/etc, rolled up
-// in handleAdminDashboard). Calibrated to match the severities the old
-// per-pipeline client-side filter used: GROWING (backend tone 'critical')
-// was 'high' here, STALE (backend tone 'warning') was 'medium'.
-// worst_tone === 'unknown' means the pipeline list itself was empty
-// (nothing to assess) — treated as unresolved, not healthy.
+// in handleAdminDashboard, with benign states like an unconfigured GeoIP
+// binding already excluded — so worst_tone only ever reflects a genuine
+// problem). Calibrated to match the severities the old per-pipeline
+// client-side filter used: worst_tone 'critical' -> 'high' here, 'warning'
+// -> 'medium'. worst_tone === 'unknown' means the pipeline list itself was
+// empty (nothing to assess) — treated as unresolved, not healthy.
 function pipelineSeverity(pipeline: DashboardPipelineSlice): { severity: BandSeverity; detail: string } {
   if (pipeline.worst_tone === 'unknown') {
     return { severity: 'unknown', detail: 'no pipelines reported' };
@@ -128,9 +135,11 @@ function pipelineSeverity(pipeline: DashboardPipelineSlice): { severity: BandSev
     pipeline.worst_tone === 'critical' ? 'high' :
     pipeline.worst_tone === 'warning'  ? 'medium' :
                                           'ok';
+  // Neutral copy — a critical row may be an EMPTY reference dataset, not a
+  // growing backlog, so don't hardcode "growing"/"stale" wording onto it.
   const detail = severity === 'ok'
     ? 'healthy'
-    : `${pipeline.growing_or_stale_count} pipeline${pipeline.growing_or_stale_count === 1 ? '' : 's'} ${severity === 'high' ? 'growing' : 'stale'}`;
+    : `${pipeline.needs_attention_count} pipeline${pipeline.needs_attention_count === 1 ? '' : 's'} need attention`;
   return { severity, detail };
 }
 

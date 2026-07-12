@@ -35,19 +35,30 @@ export interface DashboardBudgetSlice {
 export interface DashboardFeedAtRisk {
   feed_name: string;
   display_name: string;
+  /** Pre-computed by the backend (handleAdminDashboard) — 'critical' covers
+   *  auto-paused-from-failures feeds AND >=80% to auto-pause / high failure
+   *  rate; 'high' covers 60-79% / failing. Read this directly instead of
+   *  re-deriving severity from `verdict.label`. */
+  severity: 'critical' | 'high';
   verdict: { tone: string; label: string };
   failure_rate_pct: number;
   pct_to_auto_pause: number;
   enabled: boolean;
+  /** `feed_configs.paused_reason`; 'auto:consecutive_failures' marks a feed
+   *  that died from failures (distinct from an operator-initiated pause). */
+  paused_reason: string | null;
 }
 
 export interface DashboardFeedsSlice {
+  /** ALL critical+high feeds, including auto-paused ones — not just the
+   *  count of visible `at_risk` rows. See the hidden-rows guard in
+   *  VerdictBand.tsx's feedsSeverity(). */
   at_risk_count: number;
-  /** Capped to the first 20 at-risk feeds server-side — see
-   *  `handleAdminDashboard`. Consumers that need an exact severity floor
-   *  should treat `at_risk_count > at_risk.length` as "there are more
-   *  at-risk feeds than we can see" rather than trusting the visible rows
-   *  alone. */
+  /** Capped to the first 20 at-risk feeds server-side, sorted
+   *  critical-first — see `handleAdminDashboard`. Consumers that need an
+   *  exact severity floor should treat `at_risk_count > at_risk.length` as
+   *  "there are more at-risk feeds than we can see" rather than trusting
+   *  the visible rows alone. */
   at_risk: DashboardFeedAtRisk[];
   totals_24h: {
     total_pulls: number;
@@ -60,14 +71,21 @@ export interface DashboardFeedsSlice {
 export interface DashboardPipelineConcern {
   id: string;
   label: string;
+  severity: 'critical' | 'warning';
   verdict: { tone: string; label: string };
   trend_direction: string;
   count: number;
 }
 
 export interface DashboardPipelineSlice {
+  /** Reflects only genuine pipeline problems — a benign GeoIP
+   *  SETUP/unconfigured state (or other benign 'pending' tones) is excluded
+   *  server-side and never forces this away from 'ok'. */
   worst_tone: 'critical' | 'warning' | 'ok' | 'unknown';
-  growing_or_stale_count: number;
+  /** Renamed from `growing_or_stale_count` — a critical row may be an empty
+   *  reference dataset, not a growing backlog, so the count (and any UI
+   *  copy built from it) should stay neutral rather than assume "growing". */
+  needs_attention_count: number;
   total_pipelines: number;
   /** Capped to the first 20 concerning pipelines server-side. */
   concerning: DashboardPipelineConcern[];

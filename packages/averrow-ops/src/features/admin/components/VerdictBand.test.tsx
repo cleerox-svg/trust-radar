@@ -50,7 +50,7 @@ const healthySnapshot: DashboardSnapshot = {
   },
   pipeline: {
     worst_tone: 'ok',
-    growing_or_stale_count: 0,
+    needs_attention_count: 0,
     total_pipelines: 5,
     concerning: [],
   },
@@ -73,10 +73,12 @@ function makeAtRiskRow(overrides: Partial<DashboardFeedAtRisk> = {}): DashboardF
   return {
     feed_name: 'feed_a',
     display_name: 'Feed A',
+    severity: 'high',
     verdict: { tone: 'failed', label: 'CRITICAL' },
     failure_rate_pct: 35,
     pct_to_auto_pause: 40,
     enabled: true,
+    paused_reason: null,
     ...overrides,
   };
 }
@@ -179,40 +181,61 @@ describe('VerdictBand', () => {
         expectLabel: 'CRITICAL',
       },
       {
-        name: "feeds at-risk with only a 'CRITICAL'-label row -> HIGH (mirrors feedRiskTier's 'high' tier)",
-        data: { feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ verdict: { tone: 'failed', label: 'CRITICAL' } })], totals_24h: healthySnapshot.feeds!.totals_24h } },
+        name: "feeds at-risk with a backend severity:'high' row -> HIGH",
+        data: { feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ severity: 'high', verdict: { tone: 'failed', label: 'CRITICAL' } })], totals_24h: healthySnapshot.feeds!.totals_24h } },
         expectLabel: 'HIGH',
       },
       {
-        name: "feeds at-risk with an 'AT RISK'-label row -> CRITICAL (mirrors feedRiskTier's 'critical' tier)",
-        data: { feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ verdict: { tone: 'failed', label: 'AT RISK' }, pct_to_auto_pause: 85 })], totals_24h: healthySnapshot.feeds!.totals_24h } },
+        name: "feeds at-risk with a backend severity:'critical' row -> CRITICAL",
+        data: { feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ severity: 'critical', verdict: { tone: 'failed', label: 'AT RISK' }, pct_to_auto_pause: 85 })], totals_24h: healthySnapshot.feeds!.totals_24h } },
+        expectLabel: 'CRITICAL',
+      },
+      {
+        name: 'an auto-paused-from-failures feed (severity:critical, enabled:false) -> CRITICAL, never OPERATIONAL — the regression this fix pass closed',
+        data: {
+          feeds: {
+            at_risk_count: 1,
+            at_risk: [makeAtRiskRow({
+              severity: 'critical',
+              enabled: false,
+              paused_reason: 'auto:consecutive_failures',
+              verdict: { tone: 'failed', label: 'PAUSED' },
+            })],
+            totals_24h: healthySnapshot.feeds!.totals_24h,
+          },
+        },
         expectLabel: 'CRITICAL',
       },
       {
         name: 'feeds at-risk count exceeds the visible (capped) rows -> CRITICAL, never silently downgraded',
-        data: { feeds: { at_risk_count: 25, at_risk: [makeAtRiskRow()], totals_24h: healthySnapshot.feeds!.totals_24h } },
+        data: { feeds: { at_risk_count: 25, at_risk: [makeAtRiskRow({ severity: 'high' })], totals_24h: healthySnapshot.feeds!.totals_24h } },
         expectLabel: 'CRITICAL',
       },
       {
         name: "pipeline worst_tone 'warning' alone -> MEDIUM",
-        data: { pipeline: { worst_tone: 'warning', growing_or_stale_count: 2, total_pipelines: 5, concerning: [] } },
+        data: { pipeline: { worst_tone: 'warning', needs_attention_count: 2, total_pipelines: 5, concerning: [] } },
         expectLabel: 'MEDIUM',
       },
       {
         name: "pipeline worst_tone 'critical' alone -> HIGH",
-        data: { pipeline: { worst_tone: 'critical', growing_or_stale_count: 1, total_pipelines: 5, concerning: [] } },
+        data: { pipeline: { worst_tone: 'critical', needs_attention_count: 1, total_pipelines: 5, concerning: [] } },
         expectLabel: 'HIGH',
       },
       {
         name: "pipeline worst_tone 'unknown' (no pipelines reported) -> PENDING, not OPERATIONAL",
-        data: { pipeline: { worst_tone: 'unknown', growing_or_stale_count: 0, total_pipelines: 0, concerning: [] } },
+        data: { pipeline: { worst_tone: 'unknown', needs_attention_count: 0, total_pipelines: 0, concerning: [] } },
         expectLabel: 'PENDING',
+      },
+      {
+        name: "benign geoip pipeline (worst_tone:'ok', needs_attention_count:0) does NOT degrade the band",
+        data: { pipeline: { worst_tone: 'ok', needs_attention_count: 0, total_pipelines: 5, concerning: [] } },
+        expectLabel: 'OPERATIONAL',
       },
       {
         name: 'feeds critical + agent errors together -> the worse of the two (CRITICAL) wins',
         data: {
           threat_health: { ...healthySnapshot.threat_health!, agents_24h: { total: 10, successes: 8, errors: 2 } },
-          feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ verdict: { tone: 'failed', label: 'AT RISK' }, pct_to_auto_pause: 85 })], totals_24h: healthySnapshot.feeds!.totals_24h },
+          feeds: { at_risk_count: 1, at_risk: [makeAtRiskRow({ severity: 'critical', verdict: { tone: 'failed', label: 'AT RISK' }, pct_to_auto_pause: 85 })], totals_24h: healthySnapshot.feeds!.totals_24h },
         },
         expectLabel: 'CRITICAL',
       },
@@ -270,14 +293,21 @@ describe('VerdictBand', () => {
     });
   });
 
-  // ─── Feed tiering edge case: the backend's at_risk list only ever
-  // contains AT RISK / CRITICAL rows (computeFeedVerdict returns PAUSED for
-  // disabled/paused feeds before either label applies), so an at_risk_count
-  // of 0 is the only way a paused/disabled feed shows up here — and that
-  // must NOT push the band to a bad severity.
-  it('at_risk_count 0 (no feeds flagged, including any muted/paused ones) stays OPERATIONAL', () => {
+  // ─── Feed tiering edge cases ─────────────────────────────────────────
+  // Prior to the Tier 2a fix pass, an auto-paused-from-failures feed could
+  // report at_risk_count:0 (the old contract's computeFeedVerdict returned
+  // PAUSED before either AT-RISK/CRITICAL label applied, so a dead feed
+  // fell out of at_risk entirely) — the band read OPERATIONAL while a feed
+  // was dead. That was the bug. The current contract guarantees ALL
+  // critical+high feeds, including auto-paused ones, are counted in
+  // at_risk_count and appear in `at_risk` with severity:'critical', so this
+  // scenario can no longer produce at_risk_count:0 — see the
+  // 'auto-paused-from-failures feed' case in the severity matrix above,
+  // which locks the fixed behavior (CRITICAL, never OPERATIONAL).
+  it('at_risk_count 0 (genuinely no feeds flagged) stays OPERATIONAL', () => {
     mockSnapshot({ data: { feeds: { at_risk_count: 0, at_risk: [], totals_24h: healthySnapshot.feeds!.totals_24h } } });
     renderWithProviders(<VerdictBand />);
     expect(screen.getByText('OPERATIONAL')).toBeInTheDocument();
   });
+
 });

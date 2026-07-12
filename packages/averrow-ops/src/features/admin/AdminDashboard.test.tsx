@@ -77,7 +77,7 @@ const mockSnapshotData: DashboardSnapshot = {
   },
   pipeline: {
     worst_tone: 'ok',
-    growing_or_stale_count: 0,
+    needs_attention_count: 0,
     total_pipelines: 5,
     concerning: [],
   },
@@ -232,6 +232,45 @@ describe('AdminDashboard', () => {
     });
     renderWithProviders(<AdminDashboard />);
     expect(screen.getAllByText(/errors/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ─── Email Security Section — Tier 2a fix pass wired this off the ─────
+  // dashboard snapshot's `email_security` slice instead of its own
+  // useQuery(['email-security-stats']) fetch (finding #5). Confirms the
+  // section renders snapshot-derived data and that `total_brands` is
+  // computed as total_scanned + total_unscanned rather than read as a
+  // separate field (the slice doesn't carry one).
+  it('renders Email Security Coverage from the snapshot email_security slice', () => {
+    (useDashboardSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        ...mockSnapshotData,
+        email_security: {
+          total_scanned: 120,
+          total_unscanned: 30,
+          average_score: 87,
+          grade_distribution: [{ grade: 'A', count: 90 }, { grade: 'F', count: 5 }],
+          worst_count: 5,
+        },
+      },
+      isLoading: false,
+      isError: false,
+    });
+    renderWithProviders(<AdminDashboard />);
+    expect(screen.getByText('Email Security Coverage')).toBeInTheDocument();
+    expect(screen.getByText('120')).toBeInTheDocument();
+    expect(screen.getByText('30')).toBeInTheDocument();
+    // Coverage line: scanned/total where total = 120 + 30 = 150.
+    expect(screen.getByText(/120\s*\/\s*150/)).toBeInTheDocument();
+  });
+
+  it('Email Security Coverage renders zeros (not a crash) when email_security is null', () => {
+    (useDashboardSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { ...mockSnapshotData, email_security: null },
+      isLoading: false,
+      isError: false,
+    });
+    renderWithProviders(<AdminDashboard />);
+    expect(screen.getByText('Email Security Coverage')).toBeInTheDocument();
   });
 
   // ─── Gate 1: snapshot (`healthReady`) — StatGrid + 14d Activity row ────
