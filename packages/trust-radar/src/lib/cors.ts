@@ -18,25 +18,31 @@ const PRODUCTION_ORIGINS = [
   "https://www.imprsn8.com",
 ];
 
-// Local-dev origins — only allowed when NOT running in production, so a page
+// Local-dev origins — only allowed in genuine dev/test environments, so a page
 // served from localhost can never make a credentialed cross-origin request
-// against the production Worker (Access-Control-Allow-Credentials is always
-// true, which makes reflecting localhost in prod a real exposure).
+// against a public Worker (Access-Control-Allow-Credentials is always true,
+// which makes reflecting localhost a real exposure). staging is a PUBLIC domain
+// sharing the same prod D1, so it is treated exactly like production here.
 const DEV_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:5173",
 ];
 
+// Explicit allowlist of environments permitted to reflect localhost origins.
+// Anything else (production, staging, unset, or an unrecognized value) is
+// treated as public and excludes localhost.
+const LOCALHOST_ENVIRONMENTS = new Set(["development", "test"]);
+
 /**
  * Resolve the allowed-origin whitelist for the current environment.
- * localhost origins are included only outside production. When `env` is
- * omitted the safe (production) list is returned — the vast majority of
- * `json()` callers don't thread `env`, and defaulting to no-localhost keeps
- * them secure by construction.
+ * localhost origins are included only in an explicitly allowlisted dev/test
+ * environment. When `env` is omitted the safe (production) list is returned —
+ * the vast majority of `json()` callers don't thread `env`, and defaulting to
+ * no-localhost keeps them secure by construction.
  */
 function allowedOrigins(env?: CorsEnv): string[] {
-  const isProduction = !env || env.ENVIRONMENT === "production" || env.ENVIRONMENT === undefined;
-  return isProduction ? PRODUCTION_ORIGINS : [...PRODUCTION_ORIGINS, ...DEV_ORIGINS];
+  const allowLocalhost = env?.ENVIRONMENT !== undefined && LOCALHOST_ENVIRONMENTS.has(env.ENVIRONMENT);
+  return allowLocalhost ? [...PRODUCTION_ORIGINS, ...DEV_ORIGINS] : PRODUCTION_ORIGINS;
 }
 
 export function corsHeaders(origin: string | null, env?: CorsEnv): Record<string, string> {

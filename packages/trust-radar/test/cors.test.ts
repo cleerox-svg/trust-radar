@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { corsHeaders, handleOptions, json } from "../src/lib/cors";
 
 const DEV_ENV = { ENVIRONMENT: "development" };
+const TEST_ENV = { ENVIRONMENT: "test" };
+const STAGING_ENV = { ENVIRONMENT: "staging" };
 const PROD_ENV = { ENVIRONMENT: "production" };
 
 describe("corsHeaders", () => {
@@ -31,12 +33,23 @@ describe("corsHeaders", () => {
     expect(headers["Access-Control-Allow-Headers"]).toContain("Authorization");
   });
 
-  describe("localhost origin env-gating (F2 hardening)", () => {
-    it("allows localhost origins in a non-production environment", () => {
+  describe("localhost origin env-gating (F2 hardening — allowlist)", () => {
+    it("allows localhost origins in an allowlisted dev/test environment", () => {
       expect(corsHeaders("http://localhost:5173", DEV_ENV)["Access-Control-Allow-Origin"])
         .toBe("http://localhost:5173");
       expect(corsHeaders("http://localhost:3000", DEV_ENV)["Access-Control-Allow-Origin"])
         .toBe("http://localhost:3000");
+      expect(corsHeaders("http://localhost:5173", TEST_ENV)["Access-Control-Allow-Origin"])
+        .toBe("http://localhost:5173");
+      expect(corsHeaders("http://localhost:3000", TEST_ENV)["Access-Control-Allow-Origin"])
+        .toBe("http://localhost:3000");
+    });
+
+    it("does NOT reflect localhost origins on staging (public domain, shared prod D1)", () => {
+      expect(corsHeaders("http://localhost:5173", STAGING_ENV)["Access-Control-Allow-Origin"])
+        .toBe("https://averrow.com");
+      expect(corsHeaders("http://localhost:3000", STAGING_ENV)["Access-Control-Allow-Origin"])
+        .toBe("https://averrow.com");
     });
 
     it("does NOT reflect localhost origins in production (falls back to prod origin)", () => {
@@ -46,12 +59,17 @@ describe("corsHeaders", () => {
         .toBe("https://averrow.com");
     });
 
+    it("does NOT reflect localhost for an unrecognized environment value", () => {
+      expect(corsHeaders("http://localhost:5173", { ENVIRONMENT: "preview" })["Access-Control-Allow-Origin"])
+        .toBe("https://averrow.com");
+    });
+
     it("defaults to the production (no-localhost) whitelist when env is omitted", () => {
       expect(corsHeaders("http://localhost:5173")["Access-Control-Allow-Origin"])
         .toBe("https://averrow.com");
     });
 
-    it("still allows production origins in a non-production environment", () => {
+    it("still allows production origins in an allowlisted dev/test environment", () => {
       expect(corsHeaders("https://averrow.com", DEV_ENV)["Access-Control-Allow-Origin"])
         .toBe("https://averrow.com");
     });
