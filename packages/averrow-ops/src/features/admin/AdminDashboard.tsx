@@ -42,9 +42,15 @@ type AdminTabId =
   | 'cost'
   | 'geo'
   | 'email'
-  | 'operations'
+  | 'system'
   | 'briefing';
 
+// Tab id was `operations` originally; renamed to `system` (post-launch fix
+// pass) because `/admin/operations` (OperationsWorkspace) already owns the
+// "Operations" name in the top-level nav — two unrelated destinations
+// sharing a label. No external bookmarks target this brand-new tab (it
+// didn't exist before Tier 3, and no legacy `/admin/metrics?tab=` id ever
+// mapped to it — see Metrics.tsx), so the id rename is safe.
 const ADMIN_TABS: ReadonlyArray<{ id: AdminTabId; label: string }> = [
   { id: 'overview',   label: 'Overview' },
   { id: 'pipelines',  label: 'Pipelines' },
@@ -52,7 +58,7 @@ const ADMIN_TABS: ReadonlyArray<{ id: AdminTabId; label: string }> = [
   { id: 'cost',       label: 'Cost & Budget' },
   { id: 'geo',        label: 'Geo Coverage' },
   { id: 'email',      label: 'Email Security' },
-  { id: 'operations', label: 'Operations' },
+  { id: 'system',     label: 'System' },
   { id: 'briefing',   label: 'Briefing' },
 ];
 
@@ -600,6 +606,71 @@ function MaintenanceSection() {
   );
 }
 
+/* ─── Generic collapsible section — same pattern as MaintenanceSection ──
+   above (header button + chevron, localStorage-persisted expand state),
+   generalized so the Cost & Budget tab's heavier panels (D1 Budget, AI
+   Spend, Cost Optimization) can default to collapsed instead of stacking
+   three full pages under BudgetPanel. */
+
+function CollapsibleSection({
+  storageKey, icon: Icon, label, defaultExpanded, children,
+}: {
+  storageKey: string;
+  icon: LucideIcon;
+  label: string;
+  defaultExpanded: boolean;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored === null ? defaultExpanded : stored === 'true';
+    } catch { return defaultExpanded; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, String(expanded)); }
+    catch { /* noop */ }
+  }, [storageKey, expanded]);
+
+  return (
+    <Card padding={0}>
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon size={14} style={{ color: 'var(--amber)' }} />
+          <div style={sectionEyebrow}>{label}</div>
+        </div>
+        {expanded
+          ? <ChevronUp size={16} style={{ color: 'var(--text-secondary)' }} />
+          : <ChevronDown size={16} style={{ color: 'var(--text-secondary)' }} />}
+      </button>
+
+      {expanded && (
+        <div style={{ padding: '0 20px 20px' }}>
+          {children}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─── Pipelines tab — thin wrapper so useAgents() only fires when this ──
+   tab is actually mounted, instead of unconditionally at the AdminDashboard
+   top level (the only consumer is Pipelines). */
+
+function PipelinesTab() {
+  const { data: agentsList = [] } = useAgents();
+  return <Pipelines agents={agentsList} />;
+}
+
 /* ─── Push bootstrap nudge ─────────────────────────────────────────────── */
 
 function PushBootstrapCard() {
@@ -693,9 +764,10 @@ export function AdminDashboard() {
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError } = useSystemHealth();
   const systemHealthReady = !systemHealthLoading && !systemHealthError && !!systemHealth;
 
-  // Renamed to avoid colliding with `agents` below (the threat_health
-  // snapshot's agents_24h roll-up used by the top StatGrid / Activity row).
-  const { data: agentsList = [] } = useAgents();
+  // useAgents() is NOT called here — it's gated to the Pipelines tab (see
+  // PipelinesTab below) so it only fetches when that tab is actually
+  // mounted, instead of firing on every Overview landing for a hook only
+  // Pipelines consumes.
 
   const [classifying, setClassifying] = useState(false);
   const [classifyResult, setClassifyResult] = useState<string | null>(null);
@@ -812,14 +884,21 @@ export function AdminDashboard() {
         linkedPanels
       />
 
-      {/* Lazy-mount: only the active tab's body is in the DOM, so the four
-          cost/spend panels and the (heavy) Briefing widget don't fetch
-          until selected. TanStack Query keeps a visited tab's data warm. */}
+      {/* Eight PERSISTENT tabpanel shells — one per ADMIN_TABS entry, always
+          in the DOM so every `aria-controls="tabpanel-<id>"` the Tabs
+          component emits (via `linkedPanels`) resolves to a real element,
+          per Tabs.tsx's own doc-comment warning against dangling
+          aria-controls. Only the active shell is visible (`hidden` +
+          `display:none` on the rest); the actual content inside each shell
+          stays lazy (`{activeTab === id && <Body/>}`) so the four cost/spend
+          panels, Pipelines' useAgents() fetch, and the (heavy) Briefing
+          widget still don't mount/fetch until their tab is selected. */}
       <div
         role="tabpanel"
-        id={`tabpanel-${activeTab}`}
-        aria-labelledby={`tab-${activeTab}`}
-        style={{ display: 'flex', flexDirection: 'column', gap: 28 }}
+        id="tabpanel-overview"
+        aria-labelledby="tab-overview"
+        hidden={activeTab !== 'overview'}
+        style={activeTab === 'overview' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
       >
         {activeTab === 'overview' && (
           <>
@@ -944,14 +1023,42 @@ export function AdminDashboard() {
             </section>
           </>
         )}
+      </div>
 
-        {activeTab === 'pipelines' && <Pipelines agents={agentsList} />}
+      <div
+        role="tabpanel"
+        id="tabpanel-pipelines"
+        aria-labelledby="tab-pipelines"
+        hidden={activeTab !== 'pipelines'}
+        style={activeTab === 'pipelines' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
+        {activeTab === 'pipelines' && <PipelinesTab />}
+      </div>
 
+      <div
+        role="tabpanel"
+        id="tabpanel-feeds"
+        aria-labelledby="tab-feeds"
+        hidden={activeTab !== 'feeds'}
+        style={activeTab === 'feeds' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
         {activeTab === 'feeds' && <FeedFailures />}
+      </div>
 
-        {/* COST & BUDGET — the four money/quota panels stacked with their
-            own section labels. BudgetPanel keeps the `#budget-panel` anchor
-            id VerdictBand's AI-budget contributor deep-links to. */}
+      {/* COST & BUDGET — BudgetPanel stays open by default (VerdictBand's
+          AI-budget contributor deep-links to `#budget-panel`); D1 Budget /
+          AI Spend / Cost Optimization were each a full standalone page
+          before Tier 3, so they default to COLLAPSED (CollapsibleSection,
+          same localStorage-persisted pattern as MaintenanceSection) instead
+          of stacking three full pages under Budget every time this tab
+          opens. */}
+      <div
+        role="tabpanel"
+        id="tabpanel-cost"
+        aria-labelledby="tab-cost"
+        hidden={activeTab !== 'cost'}
+        style={activeTab === 'cost' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
         {activeTab === 'cost' && (
           <>
             <section id="budget-panel">
@@ -959,28 +1066,57 @@ export function AdminDashboard() {
               <BudgetPanel />
             </section>
             <section>
-              <SectionLabel label="D1 Budget" />
-              <D1Budget />
+              <CollapsibleSection storageKey="dashboard-cost-d1budget" icon={Database} label="D1 Budget" defaultExpanded={false}>
+                <D1Budget />
+              </CollapsibleSection>
             </section>
             <section>
-              <SectionLabel label="AI Spend" />
-              <AiSpend />
+              <CollapsibleSection storageKey="dashboard-cost-aispend" icon={DollarSign} label="AI Spend" defaultExpanded={false}>
+                <AiSpend />
+              </CollapsibleSection>
             </section>
             <section>
-              <SectionLabel label="Cost Optimization" />
-              <CostOptimization />
+              <CollapsibleSection storageKey="dashboard-cost-costopt" icon={Zap} label="Cost Optimization" defaultExpanded={false}>
+                <CostOptimization />
+              </CollapsibleSection>
             </section>
           </>
         )}
+      </div>
 
+      <div
+        role="tabpanel"
+        id="tabpanel-geo"
+        aria-labelledby="tab-geo"
+        hidden={activeTab !== 'geo'}
+        style={activeTab === 'geo' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
         {activeTab === 'geo' && <GeoCoverage />}
+      </div>
 
+      <div
+        role="tabpanel"
+        id="tabpanel-email"
+        aria-labelledby="tab-email"
+        hidden={activeTab !== 'email'}
+        style={activeTab === 'email' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
         {activeTab === 'email' && <EmailSecuritySection />}
+      </div>
 
-        {/* OPERATIONS — static/rarely-changing + action content, off the
-            glance path: push bootstrap nudge, maintenance triggers,
-            infrastructure tiles, compliance & sessions. */}
-        {activeTab === 'operations' && (
+      {/* SYSTEM — static/rarely-changing + action content, off the glance
+          path: push bootstrap nudge, maintenance triggers, infrastructure
+          tiles, compliance & sessions. Named `system` (not `operations`) to
+          avoid colliding with the top-level `/admin/operations`
+          (OperationsWorkspace) nav entry, which already owns "Operations". */}
+      <div
+        role="tabpanel"
+        id="tabpanel-system"
+        aria-labelledby="tab-system"
+        hidden={activeTab !== 'system'}
+        style={activeTab === 'system' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
+        {activeTab === 'system' && (
           <>
             <PushBootstrapCard />
 
@@ -1111,8 +1247,16 @@ export function AdminDashboard() {
             </section>
           </>
         )}
+      </div>
 
-        {/* BRIEFING — heavy (12-section dump), lazy on its own tab. */}
+      {/* BRIEFING — heavy (12-section dump), lazy on its own tab. */}
+      <div
+        role="tabpanel"
+        id="tabpanel-briefing"
+        aria-labelledby="tab-briefing"
+        hidden={activeTab !== 'briefing'}
+        style={activeTab === 'briefing' ? { display: 'flex', flexDirection: 'column', gap: 28 } : { display: 'none' }}
+      >
         {activeTab === 'briefing' && (
           <section>
             <SectionLabel label="Daily Briefing" attribution="Generated by the briefing agent" />

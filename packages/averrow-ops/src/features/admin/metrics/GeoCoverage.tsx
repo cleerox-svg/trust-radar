@@ -1,4 +1,6 @@
-// Geo Coverage, v3 treatment for /admin/metrics.
+// Geo Coverage — v3 treatment, now the "Geo Coverage" tab of /admin
+// (Tier 3 merged the standalone /admin/metrics page into /admin as tabs;
+// this component itself wasn't rebuilt, only re-homed).
 //
 // v2's GeoCoverageSection wraps everything in one Card: 3-up
 // window tiles, a daily trend area chart, and a flat exhausted-pile

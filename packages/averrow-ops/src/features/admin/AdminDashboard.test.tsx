@@ -23,7 +23,7 @@ import type { DashboardSnapshot } from '@/hooks/useDashboardSnapshot';
 //     dedicated worst-of coverage.
 //   - useSystemHealth(): migrations/audit/infrastructure/sessions are NOT
 //     in the snapshot contract, so Compliance & Sessions and Infrastructure
-//     (now both on the Operations tab) stay on this full endpoint.
+//     (now both on the System tab) stay on this full endpoint.
 //     MaintenanceSection also calls this hook independently for its
 //     "unlinked threats" line.
 
@@ -122,6 +122,22 @@ vi.mock('@/hooks/useBudget', async () => {
   };
 });
 
+// useAgents is mocked (importActual for the rest of the module — Pipelines.tsx
+// also imports usePipelineStatus/usePipelineDetail from the same file) so the
+// "gated to the Pipelines tab" test below can assert the hook fires only once
+// that tab is actually mounted, instead of unconditionally at the
+// AdminDashboard top level.
+const mocks = vi.hoisted(() => ({ useAgents: vi.fn() }));
+vi.mock('@/hooks/useAgents', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks/useAgents')>('@/hooks/useAgents');
+  return { ...actual, useAgents: mocks.useAgents };
+});
+
+// jsdom doesn't implement scrollIntoView; the VerdictBand-deep-link hash
+// effect calls it once the Cost tab (and its #budget-panel target) mounts
+// (see CommandPalette.test.tsx for the same stub pattern).
+Element.prototype.scrollIntoView = vi.fn();
+
 // Mock recharts to avoid canvas/SVG rendering issues in test
 vi.mock('recharts', () => ({
   AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
@@ -161,6 +177,7 @@ describe('AdminDashboard', () => {
       isLoading: false,
       isError: false,
     });
+    mocks.useAgents.mockReturnValue({ data: [], isLoading: false, isError: false });
   });
 
   it('renders page header', () => {
@@ -176,7 +193,7 @@ describe('AdminDashboard', () => {
 
   it('renders all 8 tabs', () => {
     renderWithProviders(<AdminDashboard />);
-    const labels = ['Overview', 'Pipelines', 'Feeds', 'Cost & Budget', 'Geo Coverage', 'Email Security', 'Operations', 'Briefing'];
+    const labels = ['Overview', 'Pipelines', 'Feeds', 'Cost & Budget', 'Geo Coverage', 'Email Security', 'System', 'Briefing'];
     for (const label of labels) {
       expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
     }
@@ -230,7 +247,7 @@ describe('AdminDashboard', () => {
   describe('lazy-mount', () => {
     it('does not render other tabs\' bodies while Overview is active', () => {
       renderWithProviders(<AdminDashboard />);
-      // Infrastructure + Compliance (Operations tab) are not in the DOM.
+      // Infrastructure + Compliance (System tab) are not in the DOM.
       expect(screen.queryByText('Infrastructure')).not.toBeInTheDocument();
       expect(screen.queryByText('trust-radar-v2')).not.toBeInTheDocument();
       expect(screen.queryByText('Data residency: ENAM')).not.toBeInTheDocument();
@@ -242,11 +259,11 @@ describe('AdminDashboard', () => {
       expect(screen.queryByText('AI Budget')).not.toBeInTheDocument();
     });
 
-    it('mounts the Operations tab body and unmounts Overview when switched', async () => {
+    it('mounts the System tab body and unmounts Overview when switched', async () => {
       renderWithProviders(<AdminDashboard />);
-      await switchTab('Operations');
+      await switchTab('System');
 
-      expect(screen.getByRole('tab', { name: 'Operations' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: 'System' })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByText('Infrastructure')).toBeInTheDocument();
       expect(screen.getByText('trust-radar-v2')).toBeInTheDocument();
 
@@ -258,9 +275,9 @@ describe('AdminDashboard', () => {
   // ─── ?tab= URL sync + normalize ──────────────────────────────────────
   describe('?tab= routing', () => {
     it('reads the active tab from the ?tab= query param on load', () => {
-      window.history.pushState({}, '', '/admin?tab=operations');
+      window.history.pushState({}, '', '/admin?tab=system');
       renderWithProviders(<AdminDashboard />);
-      expect(screen.getByRole('tab', { name: 'Operations' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: 'System' })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByText('Infrastructure')).toBeInTheDocument();
     });
 
@@ -284,41 +301,41 @@ describe('AdminDashboard', () => {
   });
 
   // ─── Tabs moved from the old page body ────────────────────────────────
-  it('renders database cards (system-health-derived) on the Operations tab', async () => {
+  it('renders database cards (system-health-derived) on the System tab', async () => {
     renderWithProviders(<AdminDashboard />);
-    await switchTab('Operations');
+    await switchTab('System');
     expect(screen.getByText('trust-radar-v2')).toBeInTheDocument();
     expect(screen.getByText('trust-radar-v2-audit')).toBeInTheDocument();
     expect(screen.getByText('PRIMARY')).toBeInTheDocument();
     expect(screen.getByText('AUDIT')).toBeInTheDocument();
   });
 
-  it('renders worker status on the Operations tab', async () => {
+  it('renders worker status on the System tab', async () => {
     renderWithProviders(<AdminDashboard />);
-    await switchTab('Operations');
+    await switchTab('System');
     expect(screen.getByText('trust-radar')).toBeInTheDocument();
     expect(screen.getByText('Cloudflare Workers')).toBeInTheDocument();
   });
 
-  it('renders KV namespaces on the Operations tab', async () => {
+  it('renders KV namespaces on the System tab', async () => {
     renderWithProviders(<AdminDashboard />);
-    await switchTab('Operations');
+    await switchTab('System');
     expect(screen.getByText(/trust-radar-cache/)).toBeInTheDocument();
     expect(screen.getByText(/SESSIONS/)).toBeInTheDocument();
     expect(screen.getByText(/CACHE/)).toBeInTheDocument();
   });
 
-  it('renders the compliance checklist on the Operations tab', async () => {
+  it('renders the compliance checklist on the System tab', async () => {
     renderWithProviders(<AdminDashboard />);
-    await switchTab('Operations');
+    await switchTab('System');
     expect(screen.getByText('Data residency: ENAM')).toBeInTheDocument();
     expect(screen.getByText('Audit logging: Active')).toBeInTheDocument();
     expect(screen.getByText('283 events recorded')).toBeInTheDocument();
   });
 
-  it('renders migration info on the Operations tab', async () => {
+  it('renders migration info on the System tab', async () => {
     renderWithProviders(<AdminDashboard />);
-    await switchTab('Operations');
+    await switchTab('System');
     expect(screen.getByText(/45 migrations run/)).toBeInTheDocument();
     expect(screen.getByText('0047_agent_activity_log.sql')).toBeInTheDocument();
     expect(screen.getByText(/UP TO DATE/i)).toBeInTheDocument();
@@ -385,12 +402,12 @@ describe('AdminDashboard', () => {
 
   // ─── Gate 2: full system-health (`systemHealthReady`) — Compliance & ──
   // Sessions + Infrastructure (migrations/audit/infrastructure aren't in
-  // the snapshot contract). Both now live on the Operations tab.
-  describe('gated on system-health (Compliance & Sessions + Infrastructure, Operations tab)', () => {
+  // the snapshot contract). Both now live on the System tab.
+  describe('gated on system-health (Compliance & Sessions + Infrastructure, System tab)', () => {
     it('shows skeletons instead of Infrastructure / Compliance while system-health is loading, independent of the snapshot', async () => {
       (useSystemHealth as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true, isError: false });
       const { container } = renderWithProviders(<AdminDashboard />);
-      await switchTab('Operations');
+      await switchTab('System');
 
       expect(screen.queryByText('trust-radar-v2')).not.toBeInTheDocument();
       expect(screen.queryByText('Data residency: ENAM')).not.toBeInTheDocument();
@@ -431,5 +448,116 @@ describe('AdminDashboard', () => {
     (useDashboardSnapshot as ReturnType<typeof vi.fn>).mockReturnValue({ data: null, isLoading: true, isError: false });
     renderWithProviders(<AdminDashboard />);
     expect(screen.getByText('Admin Dashboard')).toBeInTheDocument();
+  });
+
+  // ─── ARIA: linkedPanels tabpanel shells ────────────────────────────────
+  // Tabs.tsx's own doc-comment warns that `linkedPanels` must only be used
+  // when a matching `role="tabpanel" id="tabpanel-<id>"` exists for EVERY
+  // tab, not just the active one — an unmatched `aria-controls` is invalid
+  // ARIA. AdminDashboard renders all 8 persistently (hidden via
+  // `hidden`/`display:none` when inactive) so every tab's `aria-controls`
+  // resolves, even though the inner content stays lazy.
+  describe('linkedPanels ARIA correctness', () => {
+    it('every tab\'s aria-controls target exists in the DOM, even for inactive tabs', () => {
+      renderWithProviders(<AdminDashboard />);
+      const tabs = screen.getAllByRole('tab');
+      expect(tabs.length).toBe(8);
+      for (const tab of tabs) {
+        const controls = tab.getAttribute('aria-controls');
+        expect(controls).toBeTruthy();
+        // getElementById, not a testing-library query — inactive panels are
+        // legitimately hidden from the accessibility tree/queries, but the
+        // DOM node itself must still exist for aria-controls to resolve.
+        expect(document.getElementById(controls!)).not.toBeNull();
+      }
+    });
+
+    it('hides the inactive panel shells and shows only the active one', () => {
+      renderWithProviders(<AdminDashboard />);
+      expect(document.getElementById('tabpanel-overview')).not.toHaveAttribute('hidden');
+      expect(document.getElementById('tabpanel-system')).toHaveAttribute('hidden');
+      expect(document.getElementById('tabpanel-briefing')).toHaveAttribute('hidden');
+    });
+  });
+
+  // ─── useAgents() gated to the Pipelines tab ────────────────────────────
+  it('does not call useAgents() until the Pipelines tab is mounted', async () => {
+    renderWithProviders(<AdminDashboard />);
+    expect(mocks.useAgents).not.toHaveBeenCalled();
+
+    await switchTab('Pipelines');
+    expect(mocks.useAgents).toHaveBeenCalled();
+  });
+
+  // ─── Cost & Budget tab: de-walled via CollapsibleSection ───────────────
+  // BudgetPanel stays open by default (VerdictBand deep-links to
+  // #budget-panel); D1 Budget / AI Spend / Cost Optimization default to
+  // collapsed since each was a full standalone page pre-Tier-3.
+  describe('Cost & Budget tab defaults', () => {
+    it('shows BudgetPanel expanded and the other three panels collapsed by default', async () => {
+      renderWithProviders(<AdminDashboard />);
+      await switchTab('Cost & Budget');
+
+      // BudgetPanel isn't collapsible — its content is always visible.
+      expect(screen.getAllByText('AI Budget').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/% used/)).toBeInTheDocument();
+
+      // The other three are collapsed (aria-expanded="false") by default.
+      const d1Toggle = screen.getByRole('button', { name: /D1 Budget/ });
+      const aiSpendToggle = screen.getByRole('button', { name: /AI Spend/ });
+      const costOptToggle = screen.getByRole('button', { name: /Cost Optimization/ });
+      expect(d1Toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(aiSpendToggle).toHaveAttribute('aria-expanded', 'false');
+      expect(costOptToggle).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('expands a collapsed panel on click', async () => {
+      renderWithProviders(<AdminDashboard />);
+      await switchTab('Cost & Budget');
+
+      const d1Toggle = screen.getByRole('button', { name: /D1 Budget/ });
+      const user = userEvent.setup();
+      await user.click(d1Toggle);
+
+      expect(d1Toggle).toHaveAttribute('aria-expanded', 'true');
+    });
+  });
+
+  // ─── Hash-scroll: VerdictBand's #budget-panel deep-link ────────────────
+  describe('#budget-panel hash-scroll', () => {
+    it('scrolls #budget-panel into view when landing directly on /admin?tab=cost#budget-panel', () => {
+      window.history.pushState({}, '', '/admin?tab=cost#budget-panel');
+      renderWithProviders(<AdminDashboard />);
+
+      expect(screen.getByRole('tab', { name: 'Cost & Budget' })).toHaveAttribute('aria-selected', 'true');
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('does not scroll when the hash is present but the cost tab is not active', () => {
+      window.history.pushState({}, '', '/admin?tab=overview#budget-panel');
+      renderWithProviders(<AdminDashboard />);
+
+      expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it('scrolls on a same-page click of VerdictBand\'s AI-budget deep-link (tab + hash change together)', async () => {
+      // The plain Tabs click (`onTabChange` -> `setSearchParams`) only
+      // rewrites `?tab=`, so it does NOT carry the hash along — that's
+      // correct: it's not meant to replay a stale deep-link on every tab
+      // switch. The real "same-page click" case the effect comment
+      // describes is VerdictBand's own `<Link to="/admin?tab=cost#budget-panel">`
+      // (rendered inside AdminDashboard, above the tabs), which changes
+      // both search and hash atomically in one navigation.
+      window.history.pushState({}, '', '/admin?tab=pipelines');
+      renderWithProviders(<AdminDashboard />);
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('link', { name: /AI budget/i }));
+
+      expect(screen.getByRole('tab', { name: 'Cost & Budget' })).toHaveAttribute('aria-selected', 'true');
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    });
   });
 });

@@ -1,6 +1,9 @@
-// React Query hooks for the /admin/metrics page.
+// React Query hooks backing the Pipelines / Cost & Budget / Geo Coverage /
+// Feeds tabs on /admin (Tier 3 merged the standalone /admin/metrics page
+// into /admin as tabs — /admin/metrics itself is now just a redirect shim,
+// see features/admin/Metrics.tsx).
 //
-// Each section on the Metrics page fetches via its own focused
+// Each tab/panel fetches via its own focused
 // endpoint instead of the heavyweight platform-diagnostics blob,
 // so the page stays responsive and operators can refresh
 // individual sections at independent rates (D1 stats refresh every
