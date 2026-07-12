@@ -14,8 +14,6 @@ const PRODUCTION_ORIGINS = [
   "https://www.averrow.ca",
   "https://trustradar.ca",
   "https://www.trustradar.ca",
-  "https://imprsn8.com",
-  "https://www.imprsn8.com",
 ];
 
 // Local-dev origins — only allowed in genuine dev/test environments, so a page

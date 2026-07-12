@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [trust-radar, imprsn8]
+        package: [trust-radar]
     steps:
       - uses: actions/checkout@v4
 

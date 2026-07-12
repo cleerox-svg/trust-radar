@@ -2,15 +2,13 @@
   "name": "lrx-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "imprsn8 Platform Monorepo — Guard (social) & Shield (corporate) brand protection",
+  "description": "Averrow Platform Monorepo — AI-first threat intelligence & brand protection",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "deploy:guard": "turbo run deploy --filter=imprsn8",
     "deploy:shield": "turbo run deploy --filter=trust-radar",
-    "deploy:imprsn8": "turbo run deploy --filter=imprsn8",
     "deploy:radar": "turbo run deploy --filter=trust-radar"
   },
   "devDependencies": {
