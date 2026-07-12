@@ -36,6 +36,10 @@ interface MakeEnvOpts {
   dedupCount?: number;
   // when true, the threat_briefings INSERT throws (generation failure)
   failBriefingInsert?: boolean;
+  // when true, the agent_runs INSERT throws (run-start bookkeeping hiccup)
+  failAgentRunInsert?: boolean;
+  // when set, the cached-briefing SELECT returns a row (12h-window cache hit)
+  cachedRow?: Record<string, unknown> | null;
 }
 
 function makeEnv(opts: MakeEnvOpts = {}): { env: Env; rec: Recorder } {
@@ -52,6 +56,7 @@ function makeEnv(opts: MakeEnvOpts = {}): { env: Env; rec: Recorder } {
       const exec = (args: unknown[]) => ({
         run: async () => {
           if (lower.includes("insert into agent_runs")) {
+            if (opts.failAgentRunInsert) throw new Error("D1 agent_runs INSERT failed");
             rec.agentRunInserts.push({ args });
             return { meta: { last_row_id: 0 } };
           }
@@ -74,6 +79,10 @@ function makeEnv(opts: MakeEnvOpts = {}): { env: Env; rec: Recorder } {
           // Cron dedup guard: SELECT COUNT(*) ... threat_briefings
           if (lower.includes("count(*)") && lower.includes("threat_briefings")) {
             return { count: opts.dedupCount ?? 0 };
+          }
+          // On-demand cached-briefing lookup (12h window).
+          if (lower.includes("from threat_briefings") && lower.includes("-12 hours")) {
+            return opts.cachedRow ?? null;
           }
           return {};
         },
@@ -154,5 +163,42 @@ describe("daily briefing agent-run contract", () => {
     expect(rec.agentRunInserts).toHaveLength(0);
     expect(rec.briefingInserts).toBe(0);
     expect(rec.events).toHaveLength(0);
+  });
+
+  it("does NOT write an agent_runs row or event on the on-demand cached-return path", async () => {
+    const { handleGenerateBriefing } = await import("../src/handlers/briefing");
+    const { env, rec } = makeEnv({
+      cachedRow: { id: 7, type: "daily", report_date: "2026-07-12", emailed: 1 },
+    });
+
+    const request = new Request("https://x/api/admin/briefing?cached=true", {
+      headers: { Origin: "https://x" },
+    });
+    const res = await handleGenerateBriefing(request, env, "usr_1");
+    const body = (await res.json()) as { success: boolean; cached: boolean };
+
+    // Cache hit → returns the existing row, generates nothing.
+    expect(body.cached).toBe(true);
+    expect(rec.agentRunInserts).toHaveLength(0);
+    expect(rec.briefingInserts).toBe(0);
+    expect(rec.events).toHaveLength(0);
+  });
+
+  it("still generates + returns the briefing when the agent_runs INSERT throws (best-effort bookkeeping)", async () => {
+    const { generateAndEmailBriefing } = await import("../src/handlers/briefing");
+    const { env, rec } = makeEnv({ failAgentRunInsert: true });
+
+    const result = await generateAndEmailBriefing(env, "cron:daily");
+
+    // Deliverable is unaffected by the run-tracking hiccup.
+    expect(result.briefingId).toBe(42);
+    expect(result.emailSent).toBe(true);
+    expect(rec.briefingInserts).toBe(1);
+
+    // No runId was obtained → no completion/fail UPDATE attempted.
+    expect(rec.agentRunInserts).toHaveLength(0);
+    expect(rec.agentRunUpdates).toHaveLength(0);
+    // Telemetry event still emitted (independent of the run row).
+    expect(rec.events).toHaveLength(1);
   });
 });

@@ -36,41 +36,72 @@ async function withBriefingRun<T>(
   trigger: string,
   fn: () => Promise<{ result: T; briefingId: number }>,
 ): Promise<T> {
-  const runId = await createAgentRun(env, BRIEFING_AGENT_ID);
+  // Run bookkeeping is best-effort: a D1 hiccup on agent_runs must never
+  // turn a successfully generated + emailed briefing into a failure. If
+  // createAgentRun throws we proceed with generation anyway and skip the
+  // later completion/fail writes (no runId to update).
+  let runId: string | null = null;
   try {
-    const { result, briefingId } = await fn();
-    await completeAgentRun(env, runId, {
-      records_processed: 1,
-      outputs_generated: 1,
-      status: "success",
+    runId = await createAgentRun(env, BRIEFING_AGENT_ID);
+  } catch (err) {
+    logger.error("briefing_run_start_error", {
+      error: err instanceof Error ? err.message : String(err),
     });
-    // Telemetry-only completion event: target_agent = NULL means the
-    // orchestrator's agent_events consumer records it for operator
-    // traceability and marks it done without dispatching anything.
+  }
+
+  let result: T;
+  let briefingId: number;
+  try {
+    ({ result, briefingId } = await fn());
+  } catch (err) {
+    // Genuine generation failure — mark the run failed (best-effort) and
+    // re-throw so the caller's existing error handling is unchanged.
+    const message = err instanceof Error ? err.message : String(err);
+    if (runId) {
+      await failAgentRun(env, runId, message).catch(() => {
+        /* run-tracking failure must not mask the original error */
+      });
+    }
+    throw err;
+  }
+
+  // fn() succeeded: the deliverable is done. Everything below is
+  // instrumentation only and must not be able to fail the briefing.
+  if (runId) {
     try {
-      await env.DB.prepare(
-        `INSERT INTO agent_events (id, event_type, source_agent, target_agent, payload_json, priority, status)
-         VALUES (?, 'briefing_generated', ?, NULL, ?, 3, 'pending')`,
-      )
-        .bind(
-          crypto.randomUUID(),
-          BRIEFING_AGENT_ID,
-          JSON.stringify({ briefing_id: briefingId, trigger }),
-        )
-        .run();
+      await completeAgentRun(env, runId, {
+        records_processed: 1,
+        outputs_generated: 1,
+        status: "success",
+      });
     } catch (err) {
-      logger.error("briefing_event_write_error", {
+      logger.error("briefing_run_complete_error", {
         error: err instanceof Error ? err.message : String(err),
       });
     }
-    return result;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await failAgentRun(env, runId, message).catch(() => {
-      /* run-tracking failure must not mask the original error */
-    });
-    throw err;
   }
+
+  // Telemetry-only completion event: target_agent = NULL means the
+  // orchestrator's agent_events consumer records it for operator
+  // traceability and marks it done without dispatching anything.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO agent_events (id, event_type, source_agent, target_agent, payload_json, priority, status)
+       VALUES (?, 'briefing_generated', ?, NULL, ?, 3, 'pending')`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        BRIEFING_AGENT_ID,
+        JSON.stringify({ briefing_id: briefingId, trigger }),
+      )
+      .run();
+  } catch (err) {
+    logger.error("briefing_event_write_error", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  return result;
 }
 
 // ─── Briefing Data Structure ────────────────────────────────────
