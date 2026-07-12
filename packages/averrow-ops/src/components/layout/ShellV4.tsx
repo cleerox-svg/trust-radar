@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, SquareTerminal, Mail, Inbox,
-  Globe, Users, Cpu, Rss, BarChart3, ClipboardList, Bell, Target,
+  Globe, Users, Cpu, Rss, ClipboardList, Bell, Target,
   Search, Sparkles, RotateCcw, Menu, X,
   Plug, Building2, DollarSign, ListChecks, Compass, Layers,
   LogOut, UserCircle, ShieldAlert, Bug, Network, Megaphone, Server,
@@ -38,17 +38,22 @@ interface NavGroup { label: string; items: NavItem[]; }
 function buildV4Nav(opts: { isSuperAdmin: boolean; role: string | null | undefined }): NavGroup[] {
   const { isSuperAdmin, role } = opts;
 
-  // PLATFORM — consolidated to 7 rows (admin-console redesign). The four
-  // flat ops pages (Agents / Feeds / Takedown Integrations / Attribution
+  // PLATFORM — consolidated rows (admin-console redesign). The four flat
+  // ops pages (Agents / Feeds / Takedown Integrations / Attribution
   // Backlog) live inside the Operations workspace; the compliance trio
-  // (Audit / Pricing / Platform Notifications) inside Governance. Metrics,
-  // Team and Customers keep their own rows because each already has its own
-  // internal tab bar (nesting them would create tab-inside-tab). All
-  // standalone routes stay live for deep links and the ⌘K palette.
+  // (Audit / Pricing / Platform Notifications) inside Governance. Team and
+  // Customers keep their own rows because each already has its own
+  // internal tab bar (nesting them would create tab-inside-tab). Metrics
+  // was removed as a standalone nav row (Tier 3): /admin/metrics merged
+  // into /admin as tabs, so a separate "Metrics" entry pointed at the same
+  // page as "Dashboard" — a dead/confusing nav item (NavLink's
+  // pathname-only active-matching also meant the highlight always landed
+  // on Dashboard, never Metrics). The route stays live as a redirect shim
+  // for old bookmarks; it's just off the primary nav now. All standalone
+  // routes stay live for deep links and the ⌘K palette.
   const platformItems: NavItem[] = [
     { label: 'Dashboard',   to: '/admin',            icon: LayoutDashboard, end: true },
     { label: 'Operations',  to: '/admin/operations', icon: Wrench },
-    { label: 'Metrics',     to: '/admin/metrics',    icon: BarChart3 },
     // Governance is visible to all staff — its Audit Log tab is all-staff;
     // the Pricing / Platform Notifications tabs gate themselves inside the
     // workspace (view_billing / super_admin).

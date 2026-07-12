@@ -1,4 +1,6 @@
-// AI Spend, v3 treatment for /admin/metrics.
+// AI Spend — v3 treatment, now the "AI Spend" panel on the Cost & Budget
+// tab of /admin (Tier 3 merged the standalone /admin/metrics page into
+// /admin as tabs; this component itself wasn't rebuilt, only re-homed).
 //
 // v2's AiSpendSection is one Card with 4 KPI tiles + a daily-cost
 // bar chart + a flat per-agent table. The table is the part most

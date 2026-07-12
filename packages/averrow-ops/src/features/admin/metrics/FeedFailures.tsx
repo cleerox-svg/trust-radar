@@ -1,4 +1,6 @@
-// Feed Failures, v3 treatment for /admin/metrics.
+// Feed Failures — v3 treatment, now the "Feeds" tab of /admin (Tier 3
+// merged the standalone /admin/metrics page into /admin as tabs; this
+// component itself wasn't rebuilt, only re-homed).
 //
 // Significant data-shape overlap with /feeds — both render a
 // per-feed view with verdict + failure stats. Decision: keep this

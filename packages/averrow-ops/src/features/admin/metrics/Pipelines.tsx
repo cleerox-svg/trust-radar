@@ -1,4 +1,6 @@
-// Pipelines, v3 treatment for /admin/metrics.
+// Pipelines — v3 treatment, now the "Pipelines" tab of /admin (Tier 3
+// merged the standalone /admin/metrics page into /admin as tabs; this
+// component itself wasn't rebuilt, only re-homed).
 //
 // Refinement of the v2 PipelineAutomationSection — keeps the
 // verdict-tinted card grid (operators already read it well) and

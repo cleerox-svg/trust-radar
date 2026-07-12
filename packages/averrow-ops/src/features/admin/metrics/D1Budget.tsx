@@ -1,4 +1,6 @@
-// D1 Budget, v3 treatment for /admin/metrics.
+// D1 Budget — v3 treatment, now the "D1 Budget" panel on the Cost & Budget
+// tab of /admin (Tier 3 merged the standalone /admin/metrics page into
+// /admin as tabs; this component itself wasn't rebuilt, only re-homed).
 //
 // v2's D1BudgetSection is one Card with a 2-up meter row + two
 // dense lists. The data is well-organised but reads as a wall of
