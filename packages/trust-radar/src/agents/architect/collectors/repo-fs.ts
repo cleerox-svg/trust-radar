@@ -33,7 +33,7 @@ import type {
 // ─── Constants ────────────────────────────────────────────────────
 
 // ARCHITECT's inventory is scoped to the trust-radar Worker package.
-// Other packages in the monorepo (imprsn8, averrow-ops, averrow-tenant, …) are separate
+// Other packages in the monorepo (averrow-mcp, averrow-ops, averrow-tenant, …) are separate
 // products and must never appear in this bundle.
 const TRUST_RADAR_PACKAGE_SEGMENTS = ["packages", "trust-radar"];
 
@@ -89,7 +89,7 @@ export async function collectRepoInventoryFromFs(
   const collectedAt = new Date().toISOString();
 
   // All discovery is scoped to the trust-radar package tree. Other
-  // packages (e.g. imprsn8) have their own Workers, crons, and agents
+  // packages (e.g. averrow-mcp) have their own Workers, crons, and agents
   // and must not leak into the ARCHITECT bundle.
   const packageRoot = join(rootDir, ...TRUST_RADAR_PACKAGE_SEGMENTS);
 

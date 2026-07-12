@@ -199,7 +199,7 @@ function DatabaseCard({ rank, db, pctOfTotal }: { rank: number; db: D1DatabaseUs
 // database on the Cloudflare account `cleerox@gmail.com` per the
 // dashboard snapshot — `trust-radar-v2` is this Worker's primary
 // binding (DB in wrangler.toml); the others belong to sibling
-// workers (imprsn8-db, mtrade-db, farmtrack-db) or are reference
+// workers (mtrade-db, farmtrack-db) or are reference
 // databases (geoip-db).
 //
 // Anything else is genuinely external (a future worker, an orphan
@@ -213,7 +213,6 @@ function friendlyDatabaseName(id: string): string {
     'f47a6b18-b343-46d9-87e8-ef8ef4aa8521': 'geoip-db (GEOIP_DB)',
     '54ffc831-f9ff-4d24-bfbf-1b6f8f580261': 'mtrade-db',
     '57191073-aec7-4035-8cbb-689d4de647e6': 'farmtrack-db',
-    'adf45280-e596-4e44-a9c2-963342ac4596': 'imprsn8-db',
   };
   return map[id] ?? `external · ${id.slice(0, 8)}`;
 }
