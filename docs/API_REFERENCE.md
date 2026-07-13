@@ -78,7 +78,7 @@ Registration is auth-required (passkey is added to a signed-in user). Authentica
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/public/stats` | Platform statistics |
+| GET | `/api/v1/public/stats` | Platform statistics. Flat numeric fields (`total_threats`, `active_threats`, `brands_monitored` [count], `active_feeds`, `threat_campaigns`, `providers_mapped`, …) power the legacy SPA. Also returns the **marketing homepage shape** as formatted strings (consumed by `averrow-marketing/scripts/fetch-stats.mjs` at build time): `agents_deployed` (registered-agent-registry count, stable "42"), `feeds_protecting` (e.g. "45+"), `threats_detected` (e.g. "210K+"), `brands_monitored_label` (e.g. "9.6K+" — distinct from the numeric `brands_monitored`), `uptime_label`, `detection_time_label`. |
 | GET | `/api/v1/public/geo` | Geographic threat distribution |
 | GET | `/api/v1/public/feeds` | Feed status overview |
 | POST | `/api/v1/public/assess` | Domain assessment |
