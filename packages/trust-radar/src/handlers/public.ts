@@ -8,6 +8,7 @@ import { json } from "../lib/cors";
 import { runSyncAgent } from "../lib/agentRunner";
 import { publicTrustCheckAgent } from "../agents/public-trust-check";
 import type { PublicTrustCheckOutput } from "../agents/public-trust-check";
+import { getPublicStats } from "../lib/public-stats";
 import type { Env } from "../types";
 
 // ─── GET /api/v1/public/stats ────────────────────────────────────
@@ -32,6 +33,7 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
       totalThreats, activeThreats, brandsMonitored, activeFeeds,
       campaigns, countries, threatsToday,
       latestInsight, providers, typeCounts,
+      marketing,
     ] = await Promise.all([
       env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status").first<{ n: number }>(),
       env.DB.prepare("SELECT COALESCE(SUM(threat_count), 0) AS n FROM threat_cube_status WHERE status IN ('active', 'unknown')").first<{ n: number }>(),
@@ -51,6 +53,9 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
          WHERE threat_type != 'unknown'
          GROUP BY threat_type ORDER BY count DESC`
       ).all<{ threat_type: string; count: number }>(),
+      // Marketing homepage shape (formatted strings, KV-cached). Powers
+      // averrow-marketing's build-time fetch (scripts/fetch-stats.mjs).
+      getPublicStats(env),
     ]);
 
     return json({
@@ -69,6 +74,20 @@ export async function handlePublicStats(request: Request, env: Env): Promise<Res
         threat_types: typeCounts?.results ?? [],
         // Legacy aliases
         brands_tracked: brandsMonitored?.n ?? 0,
+        // ── Marketing homepage shape (formatted strings) ──
+        // Added ADDITIVELY for averrow-marketing/scripts/fetch-stats.mjs.
+        // agents_deployed is the registered-agent-registry count (stable 42),
+        // NOT the 7d-active count, so the homepage matches the "42 in the
+        // mesh" claim on /platform + /why-averrow. brands_monitored is a
+        // NUMBER above (the legacy SPA public/app.js count-up animation does
+        // arithmetic on it), so the marketing string form is exposed under
+        // the distinct key brands_monitored_label — do not merge the two.
+        agents_deployed: marketing.agents_deployed,
+        feeds_protecting: marketing.feeds_protecting,
+        threats_detected: marketing.threats_detected,
+        brands_monitored_label: marketing.brands_monitored,
+        uptime_label: marketing.uptime_label,
+        detection_time_label: marketing.detection_time_label,
       },
     }, 200, origin);
   } catch (err) {

@@ -27,8 +27,8 @@ const STATS_PATH = resolve(ROOT, "src/data/stats.json");
 const SOURCE_URL = "https://averrow.com/api/v1/public/stats";
 
 const STATIC_FALLBACK = {
-  agents_deployed: "18",
-  feeds_protecting: "33+",
+  agents_deployed: "42",
+  feeds_protecting: "45+",
   threats_detected: "210K+",
   brands_monitored: "9.6K+",
   uptime_label: "24/7",
@@ -83,7 +83,11 @@ async function main() {
       agents_deployed: live.agents_deployed,
       feeds_protecting: live.feeds_protecting,
       threats_detected: live.threats_detected,
-      brands_monitored: live.brands_monitored,
+      // The endpoint exposes the marketing brands string under
+      // `brands_monitored_label` because its flat `brands_monitored`
+      // is a NUMBER consumed by the legacy SPA's count-up animation.
+      // Fall back to `brands_monitored` for backward-compat.
+      brands_monitored: live.brands_monitored_label ?? live.brands_monitored,
       uptime_label: live.uptime_label,
       detection_time_label: live.detection_time_label,
       generated_at: new Date().toISOString(),

@@ -11,10 +11,11 @@
 
 import type { Env } from "../types";
 import { cachedCount } from "./cached-count";
+import { agentModules } from "../agents";
 
 export interface PublicStats {
-  agents_deployed: string;     // e.g. "18"
-  feeds_protecting: string;    // e.g. "33+"
+  agents_deployed: string;     // e.g. "42"
+  feeds_protecting: string;    // e.g. "45+"
   threats_detected: string;    // e.g. "210K+"
   brands_monitored: string;    // e.g. "9.6K+"
   // Static marketing claims kept here so the template doesn't hardcode them
@@ -26,9 +27,17 @@ export interface PublicStats {
 const CACHE_KEY = "public_stats:v1";
 const CACHE_TTL_S = 600; // 10 min
 
+// agents_deployed is the SIZE OF THE AGENT REGISTRY (the number of entries
+// in agentModules — currently 42), a stable platform fact. It is NOT the
+// count of agents that happened to run in the last 7 days (~18): that number
+// fluctuates and would contradict the "42 in the mesh" claim on the
+// /platform and /why-averrow marketing pages. Derived from the registry so
+// it stays correct as agents are added or retired.
+const REGISTERED_AGENT_COUNT = Object.keys(agentModules).length;
+
 const FALLBACK: PublicStats = {
-  agents_deployed: "18",
-  feeds_protecting: "33+",
+  agents_deployed: String(REGISTERED_AGENT_COUNT),
+  feeds_protecting: "45+",
   threats_detected: "210K+",
   brands_monitored: "9.6K+",
   uptime_label: "24/7",
@@ -54,17 +63,7 @@ export async function getPublicStats(env: Env): Promise<PublicStats> {
     // homepage and /api/public/stats hit the same KV entries instead
     // of each one running its own COUNT(*). TTLs tuned per CLAUDE.md:
     // threats fast (15 min), feed_configs + brands slow (1 hour).
-    const [agents, feeds, threats, brands] = await Promise.all([
-      // Agents: count distinct agent_ids that ran in the last 7 days.
-      // Better than COUNT(*) on agent_configs which can include disabled
-      // ones; this surfaces the operationally-active set.
-      cachedCount(env, 'count.agents.distinct_active_7d', 3600, async () => {
-        const r = await env.DB.prepare(`
-          SELECT COUNT(DISTINCT agent_id) AS n FROM agent_runs
-          WHERE started_at >= datetime('now', '-7 days')
-        `).first<{ n: number }>();
-        return r?.n ?? 0;
-      }).then((n) => ({ n })),
+    const [feeds, threats, brands] = await Promise.all([
       cachedCount(env, 'count.feed_configs.enabled', 3600, async () => {
         const r = await env.DB.prepare(
           "SELECT COUNT(*) AS n FROM feed_configs WHERE enabled = 1",
@@ -86,7 +85,8 @@ export async function getPublicStats(env: Env): Promise<PublicStats> {
     ]);
 
     const stats: PublicStats = {
-      agents_deployed: String(agents?.n ?? 18),
+      // Stable registry size — see REGISTERED_AGENT_COUNT above.
+      agents_deployed: String(REGISTERED_AGENT_COUNT),
       feeds_protecting: feeds?.n ? `${feeds.n}+` : FALLBACK.feeds_protecting,
       threats_detected: threats?.n ? formatBigNumber(threats.n) : FALLBACK.threats_detected,
       brands_monitored: brands?.n ? formatBigNumber(brands.n) : FALLBACK.brands_monitored,
