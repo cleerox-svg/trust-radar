@@ -8,12 +8,13 @@ compatibility_flags = ["nodejs_compat"]
 # /api/internal/auth/mint-service-jwt (30-day TTL) and re-minted only
 # when fewer than 7 days remain. Keep the binding small — single key.
 #
-# Create the namespace once with:
-#   wrangler kv namespace create MCP_TOKEN_CACHE
-# then paste the returned id below.
+# Namespace `averrow-mcp-token-cache` (created 2026-07-13, SECURITY_AUDIT O7).
+# Backs both the auto-refreshed service-account JWT cache and the /mcp
+# per-IP rate-limit counter. If this binding is ever unset, both fall back
+# safely (JWT → in-memory only; rate limiter → fail-open).
 [[kv_namespaces]]
 binding = "MCP_TOKEN_CACHE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "44e12db8feed4216996f8609187979d2"
 
 [observability]
 enabled = false
