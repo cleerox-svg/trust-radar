@@ -14,7 +14,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "astro": "^4.16.18",
+    "astro": "^4.16.19",
     "@astrojs/mdx": "^3.1.9",
     "@astrojs/react": "^3.6.3",
     "@astrojs/rss": "^4.0.10",
