@@ -852,6 +852,36 @@ async function handleMcpRequest(
   }
 }
 
+// ─── Rate limiting ──────────────────────────────────────────────
+// Fixed-window, KV-backed limiter on the /mcp entrypoint (SECURITY_AUDIT
+// O1). Keyed on CF-Connecting-IP (falls back to a fixed key when absent).
+// The bearer gate is the PRIMARY control; this only caps abuse volume, so
+// it fails OPEN on any KV error — a KV blip must never break diagnostics.
+// KV has no atomic increment; a small over-count under concurrency is
+// acceptable for a coarse ceiling this far above legitimate tool use.
+const MCP_RATE_LIMIT_PER_MIN = 120;
+
+async function isRateLimited(request: Request, env: Env): Promise<boolean> {
+  try {
+    if (!env.MCP_TOKEN_CACHE) return false;
+    const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const windowMinute = Math.floor(Date.now() / 60000);
+    const key = `ratelimit:mcp:${ip}:${windowMinute}`;
+    const raw = await env.MCP_TOKEN_CACHE.get(key);
+    const count = raw ? parseInt(raw, 10) : 0;
+    if (Number.isFinite(count) && count >= MCP_RATE_LIMIT_PER_MIN) {
+      return true;
+    }
+    // Bump the counter. TTL of 120s covers the 60s window plus clock skew;
+    // stale windows self-evict.
+    await env.MCP_TOKEN_CACHE.put(key, String(count + 1), { expirationTtl: 120 });
+    return false;
+  } catch {
+    // Fail open — the bearer check already rejected unauthenticated callers.
+    return false;
+  }
+}
+
 // ─── Worker Entry Point ─────────────────────────────────────────
 
 export default {
@@ -877,6 +907,15 @@ export default {
       const authHeader = request.headers.get("Authorization");
       if (!timingSafeBearerEq(authHeader, env.MCP_AUTH_TOKEN)) {
         return new Response("Unauthorized", { status: 401, headers: corsHeaders() });
+      }
+
+      // Rate-limit AFTER the bearer check (unauthenticated noise is rejected
+      // first) but before dispatching the tool. SECURITY_AUDIT O1.
+      if (await isRateLimited(request, env)) {
+        return Response.json(
+          jsonRpcError(null, -32000, "Rate limit exceeded"),
+          { status: 429, headers: corsHeaders() },
+        );
       }
 
       // Parse JSON-RPC
