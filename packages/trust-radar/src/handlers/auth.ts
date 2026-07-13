@@ -907,25 +907,50 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 //
 // Service user is identified by a fixed ID ("service_account_mcp") so
 // the row is created once and reused. INSERT OR IGNORE keeps the call
-// idempotent. Role is super_admin so the JWT can hit admin endpoints
-// the smoke check covers.
+// idempotent. The JWT carries the read-only `auditor` role (SECURITY_AUDIT
+// O1) — a global-read seat that satisfies requireStaff/requireOrgMember but
+// FAILS requireAdmin/requireSuperAdmin. That is sufficient for the GET-only
+// smoke_test + assert_endpoint probes and denies the service token any
+// super_admin-gated surface if it leaks. `auditor` isn't permitted by the
+// users.role CHECK constraint, so the DB row stores a CHECK-valid staff
+// placeholder while the minted JWT carries the real role (same discipline as
+// the UI-preview path — see uiPreviewDbRole).
 
 const SERVICE_ACCOUNT_ID = "service_account_mcp";
 const SERVICE_ACCOUNT_EMAIL = "service-mcp@averrow.local";
 const SERVICE_ACCOUNT_NAME = "MCP Service Account";
-/** 90 days — long enough that re-mint is rarely needed but short enough
- *  that a leaked token expires before becoming a long-running risk. */
-const SERVICE_JWT_TTL_SECONDS = 60 * 60 * 24 * 90;
+/** 30 days — short enough that a leaked token expires before becoming a
+ *  long-running risk (tightened from 90d in SECURITY_AUDIT O1). The MCP
+ *  re-mints when <7 days remain, so this re-mints roughly every ~23 days;
+ *  on-demand minting means no operator burden. */
+const SERVICE_JWT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export async function handleMintServiceJwt(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
     // Ensure the service-account user row exists. Idempotent on
-    // repeated calls — INSERT OR IGNORE keys on the primary id.
+    // repeated calls — INSERT OR IGNORE keys on the primary id. The row
+    // stores a CHECK-valid staff placeholder ('analyst', via uiPreviewDbRole)
+    // while the minted JWT carries the real `auditor` role — the row's role is
+    // cosmetic for authz (requireAuth trusts the JWT claim, not the DB).
+    // WARNING: never authorize on THIS row's DB role. The 'analyst' placeholder
+    // carries edit_alerts + manage_takedowns; any future gate that reads the DB
+    // role (roleHasPermission(dbRow.role, …) / role==='analyst') would silently
+    // hand this service account mutation rights the read-only `auditor` JWT is
+    // designed to deny. Authorize on ctx.role (JWT-derived) only. (appsec O1/F1)
+    const serviceDbRole = uiPreviewDbRole("auditor"); // -> 'analyst'
     await env.DB.prepare(
       `INSERT OR IGNORE INTO users (id, email, name, role, status, created_at)
-       VALUES (?, ?, ?, 'super_admin', 'active', datetime('now'))`,
-    ).bind(SERVICE_ACCOUNT_ID, SERVICE_ACCOUNT_EMAIL, SERVICE_ACCOUNT_NAME).run();
+       VALUES (?, ?, ?, ?, 'active', datetime('now'))`,
+    ).bind(SERVICE_ACCOUNT_ID, SERVICE_ACCOUNT_EMAIL, SERVICE_ACCOUNT_NAME, serviceDbRole).run();
+
+    // One-time idempotent normalization: an EXISTING prod service row was
+    // created with role='super_admin' before O1. The row role is cosmetic for
+    // authz, but leaving a stored super_admin row is a latent risk, so
+    // downgrade it to the placeholder. Row UPDATE, not a schema change.
+    await env.DB.prepare(
+      "UPDATE users SET role = ? WHERE id = ? AND role != ?",
+    ).bind(serviceDbRole, SERVICE_ACCOUNT_ID, serviceDbRole).run();
 
     // Verify the user is active in case it was suspended manually after
     // creation. We don't want to hand out a JWT for a non-active user
@@ -941,13 +966,13 @@ export async function handleMintServiceJwt(request: Request, env: Env): Promise<
       );
     }
 
-    // Mint a 90-day JWT. embeddedScope is omitted (super_admin role
-    // bypasses org scope in middleware/auth.ts).
+    // Mint a 30-day JWT. embeddedScope/org_scope is omitted — the `auditor`
+    // role bypasses org scope via hasGlobalReadScope in middleware/auth.ts.
     const jwt = await signJWT(
       {
         sub: SERVICE_ACCOUNT_ID,
         email: SERVICE_ACCOUNT_EMAIL,
-        role: "super_admin",
+        role: "auditor",
       },
       env.JWT_SECRET,
       SERVICE_JWT_TTL_SECONDS,

@@ -658,8 +658,8 @@ export default {
 
       // Mint a service-account JWT for averrow-mcp UI verification tools.
       // Internal secret authenticates the caller; the response carries a
-      // 90-day user JWT for SERVICE_ACCOUNT_ID. See handleMintServiceJwt
-      // for the rationale.
+      // 30-day, read-only `auditor` user JWT for SERVICE_ACCOUNT_ID
+      // (SECURITY_AUDIT O1). See handleMintServiceJwt for the rationale.
       if (url.pathname === '/api/internal/auth/mint-service-jwt' && request.method === 'POST') {
         const internalSecret = (env as unknown as Record<string, unknown>).AVERROW_INTERNAL_SECRET as string | undefined;
         const authHeader = request.headers.get('Authorization');

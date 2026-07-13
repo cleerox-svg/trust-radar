@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # KV cache for the auto-refreshed service-account JWT used by the
 # verify_ui_smoke + assert_endpoint tools. The JWT is minted once via
-# /api/internal/auth/mint-service-jwt (90-day TTL) and re-minted only
+# /api/internal/auth/mint-service-jwt (30-day TTL) and re-minted only
 # when fewer than 7 days remain. Keep the binding small — single key.
 #
 # Create the namespace once with:
@@ -35,7 +35,7 @@ head_sampling_rate = 1
 #   MCP_AUTH_TOKEN            — bearer token Claude Code sends to authenticate with this MCP server
 #
 # UI verification tools (verify_ui_smoke + assert_endpoint) auto-mint a
-# 90-day service-account JWT via /api/internal/auth/mint-service-jwt and
+# 30-day read-only (auditor) service-account JWT via /api/internal/auth/mint-service-jwt and
 # cache it in MCP_TOKEN_CACHE KV — no manual JWT secret needed.
 
 # Deploy:
