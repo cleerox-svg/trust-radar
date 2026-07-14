@@ -2,7 +2,7 @@
 title: "When AI Finds Vulnerabilities Faster Than Humans Can Patch Them"
 excerpt: "Anthropic's Project Glasswing changes the math of vulnerability discovery. Here's why the demand-side of cybersecurity matters more than ever."
 category: "Threat Intel"
-author: "Claude Leroux"
+author: "Averrow Research"
 publishedAt: "2026-06-05"
 readingMinutes: 7
 draft: true
@@ -30,7 +30,7 @@ Now imagine the same capability available outside coordinated disclosure program
 
 ### What attackers do when code gets harder
 
-This is where the conversation usually stops, with software developers debating patch cadences and signature databases. But there's another half to the picture that I think about every day.
+This is where the conversation usually stops, with software developers debating patch cadences and signature databases. But there's another half to the picture that matters just as much.
 
 When code attacks get harder, attackers don't stop attacking. They move.
 
@@ -40,7 +40,7 @@ These attacks don't appear in CVE databases. They don't get fixed by patches. An
 
 ### What we see from the demand side
 
-I've spent years thinking about this side of the problem. While Project Glasswing focuses on the supply side of cybersecurity — finding vulnerabilities before attackers can exploit them — Averrow exists to handle the demand side: catching attacks already in motion against brands and the people who trust them.
+We've spent years thinking about this side of the problem. While Project Glasswing focuses on the supply side of cybersecurity — finding vulnerabilities before attackers can exploit them — Averrow exists to handle the demand side: catching attacks already in motion against brands and the people who trust them.
 
 Our intelligence comes from several categories of sources. None of them, individually, is novel. The advantage is in the way they combine.
 
@@ -54,11 +54,11 @@ Our intelligence comes from several categories of sources. None of them, individ
 
 What turns this into intelligence isn't the data. It's the correlation. When a domain forwarded by a customer matches a hosting provider already flagged for targeting the same brand in our feeds, and the same brand has a known DKIM gap that makes spoofing easier — that's a narrative, not an alert. When three social profiles registered the same week share visual elements with each other and with a previously-taken-down impersonation account, that's a campaign, not a coincidence. The signal lives in the joins, not the columns.
 
-I won't go further than that on the specifics. The exact correlation logic, the classifiers, the dedup heuristics, the prioritization weights — those stay in the codebase. Anthropic's Glasswing post does the same thing when it withholds vulnerability details under coordinated disclosure embargos. There's a version of openness that's principled and a version that's reckless; the line is whether transparency makes attackers' jobs easier.
+We won't go further than that on the specifics. The exact correlation logic, the classifiers, the dedup heuristics, the prioritization weights — those stay in the codebase. Anthropic's Glasswing post does the same thing when it withholds vulnerability details under coordinated disclosure embargos. There's a version of openness that's principled and a version that's reckless; the line is whether transparency makes attackers' jobs easier.
 
 ### What this means going forward
 
-A few practical things follow from where I think the threat landscape is heading.
+A few practical things follow from where the threat landscape is heading.
 
 **Patch cycles will get faster — and that's good.** Vendors are going to push patches more aggressively. The article notes Palo Alto Networks released five times the usual number of patches in their latest update. Microsoft is warning that patch volume will continue to grow. Software is going to get more secure faster than it ever has.
 
@@ -66,7 +66,7 @@ A few practical things follow from where I think the threat landscape is heading
 
 **Detection that matches attacker speed becomes table stakes.** The same AI acceleration helping defenders find vulnerabilities is helping attackers run impersonation campaigns at scale. Manual brand protection workflows — quarterly takedown reviews, weekly domain checks, monthly social media audits — were already too slow. They'll be uncompetitive within a year.
 
-**The "so what" matters more than the alert.** When AI can generate noise as fast as it generates signal, raw alert counts mean nothing. What matters is the narrative — what happened, who's behind it, what's at risk, what to do about it. We've been building toward this for a year because we saw it coming. The Glasswing post is a useful confirmation that the rest of the industry sees it too.
+**The "so what" matters more than the alert.** When AI can generate noise as fast as it generates signal, raw alert counts mean nothing. What matters is the narrative — what happened, who's behind it, what's at risk, what to do about it. That's what we've been building toward. The Glasswing post is a useful confirmation that the rest of the industry sees it too.
 
 ### A useful asymmetry
 
