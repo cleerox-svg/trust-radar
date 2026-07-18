@@ -9,8 +9,10 @@ import {
   parsePagination, parseFilters, buildWhereClause,
   parseBody, success, error, paginatedResponse, requireFields,
 } from "../lib/handler-utils";
+import { requireAuthorizationForModule, TakedownNotAuthorizedError } from "../lib/takedown-authorizations";
 import type { Env, CreateTakedownBody, UpdateTakedownBody } from "../types";
 import type { AuthContext } from "../middleware/auth";
+import type { ModuleKey } from "../lib/entitlements";
 
 // ─── Platform Abuse Contacts ─────────────────────────────────
 
@@ -459,7 +461,11 @@ export const handleAdminTakedownIntegrations = handler(async (request, env, ctx)
   return success(report, ctx.origin);
 });
 
-// ─── PATCH /api/admin/takedowns/:id (superadmin) ─────────────
+// ─── PATCH /api/admin/takedowns/:id ──────────────────────────
+// Route gate: requirePermission("manage_takedowns") — held by
+// super_admin, admin, AND analyst (see lib/role-permissions.ts), so
+// this is analyst-reachable, NOT super_admin-only. The →submitted
+// transition additionally enforces legal standing below (TK1).
 
 export async function handleAdminUpdateTakedown(
   request: Request, env: Env, takedownId: string, ctx: AuthContext,
@@ -470,8 +476,11 @@ export async function handleAdminUpdateTakedown(
     const body = await parseBody<UpdateTakedownBody>(request);
 
     const takedown = await env.DB.prepare(
-      "SELECT id, status FROM takedown_requests WHERE id = ?"
-    ).bind(takedownId).first<{ id: string; status: string }>();
+      "SELECT id, status, org_id, brand_id, module_key FROM takedown_requests WHERE id = ?"
+    ).bind(takedownId).first<{
+      id: string; status: string;
+      org_id: number | null; brand_id: string | null; module_key: string | null;
+    }>();
 
     if (!takedown) return error("Takedown request not found", 404, origin);
 
@@ -486,6 +495,52 @@ export async function handleAdminUpdateTakedown(
       const allowed = ADMIN_ALLOWED_TRANSITIONS[takedown.status];
       if (allowed && !allowed.includes(body.status)) {
         return error(`Cannot transition from '${takedown.status}' to '${body.status}'`, 400, origin);
+      }
+
+      // TK1 (Phase 1 PR-B) — legal-standing gate on the →submitted edge.
+      // Stamping status='submitted' asserts "Averrow sent this" in the
+      // audit trail. The admin state machine only reaches the external-
+      // action lifecycle (submitted → pending_response/taken_down/failed/
+      // expired) THROUGH 'submitted', so gating this one edge transitively
+      // protects the whole lifecycle. Enforce the SAME standing Sparrow
+      // Phase G requires before any real dispatch (agents/sparrow.ts):
+      // an owning org that owns the brand and holds an active takedown
+      // authorization covering the module. This does NOT dispatch — it
+      // only decides whether the status flip is permitted. Actual outbound
+      // submission stays in Sparrow Phase G / the future hand-submit path.
+      if (body.status === "submitted") {
+        if (takedown.org_id === null || takedown.org_id === undefined) {
+          return error(
+            "Cannot mark this takedown 'submitted' without an owning org — no legal standing to assert an external submission on an orgless (prospect) draft.",
+            422, origin,
+          );
+        }
+        const ownsBrand = await env.DB.prepare(
+          "SELECT 1 FROM org_brands WHERE org_id = ? AND brand_id = ?"
+        ).bind(takedown.org_id, takedown.brand_id).first();
+        if (!ownsBrand) {
+          return error(
+            "Owning org does not own the target brand — no legal standing to mark 'submitted'.",
+            403, origin,
+          );
+        }
+        if (!takedown.module_key) {
+          return error(
+            "Takedown has no module_key — cannot verify takedown authorization to mark 'submitted'.",
+            422, origin,
+          );
+        }
+        try {
+          await requireAuthorizationForModule(env, takedown.org_id, takedown.module_key as ModuleKey);
+        } catch (authErr) {
+          if (authErr instanceof TakedownNotAuthorizedError) {
+            return error(
+              `Org lacks an active takedown authorization covering module '${takedown.module_key}' — cannot mark 'submitted'.`,
+              403, origin,
+            );
+          }
+          throw authErr;
+        }
       }
 
       updates.push("status = ?");
@@ -543,11 +598,10 @@ export async function handleAdminUpdateTakedown(
     });
 
     if (typeof body.status === "string" && body.status !== takedown.status) {
-      const tdOrg = await env.DB.prepare(
-        "SELECT org_id FROM takedown_requests WHERE id = ?",
-      ).bind(takedownId).first<{ org_id: number | null }>();
-      if (tdOrg?.org_id) {
-        emitOrgEvent(env, tdOrg.org_id, "takedown.status_changed", {
+      // takedown.org_id is loaded in the primary SELECT above and no UPDATE
+      // here mutates org_id, so reuse it instead of a redundant re-query.
+      if (takedown.org_id) {
+        emitOrgEvent(env, takedown.org_id, "takedown.status_changed", {
           takedown_id: takedownId,
           previous_status: takedown.status,
           new_status: body.status,
