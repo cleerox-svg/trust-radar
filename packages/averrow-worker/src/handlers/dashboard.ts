@@ -255,49 +255,104 @@ export async function handleDashboardProviders(request: Request, env: Env): Prom
     const sort = url.searchParams.get("sort") ?? "worst";
 
     if (sort === "improving") {
-      // Return providers with decreasing threat counts (recent < previous period)
-      const rows = await session.prepare(`
-        SELECT t.hosting_provider_id AS provider_id,
-               COALESCE(hp.name, t.hosting_provider_id) AS name,
-               hp.asn,
-               SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS threat_count,
-               SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS recent,
-               SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END) AS previous,
-               ROUND(
-                 (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
-                  NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
-               , 1) AS trend_7d_pct
-        FROM threats t
-        LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
-        WHERE t.hosting_provider_id IS NOT NULL AND t.created_at >= datetime('now', '-14 days')
-        GROUP BY t.hosting_provider_id
+      // CLAUDE.md §8 hot-path (T1): was a full-table GROUP BY
+      // hosting_provider_id over the raw threats table. Mirrors
+      // providers.ts handleImprovingProviders — the 7d-vs-prior-7d
+      // inflow delta comes from threat_cube_provider (active-only,
+      // created_at hour buckets; the 14-day window is well inside
+      // cube retention). hosting_providers is joined for name/asn only.
+      const cubeRows = await session.prepare(`
+        SELECT hosting_provider_id,
+               SUM(CASE WHEN hour_bucket >= datetime('now', '-7 days') THEN threat_count ELSE 0 END) AS recent,
+               SUM(CASE WHEN hour_bucket >= datetime('now', '-14 days') AND hour_bucket < datetime('now', '-7 days') THEN threat_count ELSE 0 END) AS previous
+        FROM threat_cube_provider
+        WHERE hour_bucket >= datetime('now', '-14 days')
+        GROUP BY hosting_provider_id
         HAVING previous > 0 AND recent < previous
         ORDER BY (CAST(recent AS REAL) / previous) ASC
         LIMIT ?
-      `).bind(limit).all();
+      `).bind(limit).all<{ hosting_provider_id: string; recent: number; previous: number }>();
 
-      return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
+      const provIds = cubeRows.results.map(r => r.hosting_provider_id);
+      const nameMap = new Map<string, { name: string | null; asn: string | null }>();
+      if (provIds.length > 0) {
+        const ph = provIds.map(() => "?").join(",");
+        const meta = await session.prepare(
+          `SELECT id, name, asn FROM hosting_providers WHERE id IN (${ph})`,
+        ).bind(...provIds).all<{ id: string; name: string | null; asn: string | null }>();
+        for (const m of meta.results) nameMap.set(m.id, { name: m.name, asn: m.asn });
+      }
+
+      const data = cubeRows.results.map(r => {
+        const m = nameMap.get(r.hosting_provider_id);
+        const trend = r.previous > 0 ? Math.round(((r.recent / r.previous) - 1) * 1000) / 10 : 0;
+        return {
+          provider_id: r.hosting_provider_id,
+          name: m?.name ?? r.hosting_provider_id,
+          asn: m?.asn ?? null,
+          threat_count: r.recent,
+          recent: r.recent,
+          previous: r.previous,
+          trend_7d_pct: trend,
+        };
+      });
+
+      return attachBookmark(json({ success: true, data }, 200, origin), session);
     }
 
-    // Default: worst actors (highest threat count)
-    const rows = await session.prepare(`
-      SELECT t.hosting_provider_id AS provider_id,
-             COALESCE(hp.name, t.hosting_provider_id) AS name,
+    // Default: worst actors (highest all-time threat count).
+    // CLAUDE.md §8 hot-path (T1): was a full-table GROUP BY
+    // hosting_provider_id over the raw threats table. `threat_count`
+    // now reads the pre-computed hosting_providers.total_threat_count
+    // (all-time, all-status — the exact intent of the old COUNT(*)).
+    // trend_7d_pct is recomputed from threat_cube_provider for the
+    // top-N rows only (a bounded cube read, not a full-table scan) so
+    // it stays a genuine percentage — hosting_providers.trend_7d holds
+    // a raw 7d COUNT, not a pct, so it can't be aliased directly.
+    const worst = await session.prepare(`
+      SELECT hp.id AS provider_id,
+             COALESCE(hp.name, hp.id) AS name,
              hp.asn,
-             COUNT(*) AS threat_count,
-             ROUND(
-               (CAST(SUM(CASE WHEN t.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS REAL) /
-                NULLIF(SUM(CASE WHEN t.created_at >= datetime('now', '-14 days') AND t.created_at < datetime('now', '-7 days') THEN 1 ELSE 0 END), 0) - 1) * 100
-             , 1) AS trend_7d_pct
-      FROM threats t
-      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
-      WHERE t.hosting_provider_id IS NOT NULL
-      GROUP BY t.hosting_provider_id
-      ORDER BY threat_count DESC
+             hp.total_threat_count AS threat_count
+      FROM hosting_providers hp
+      WHERE hp.total_threat_count > 0
+      ORDER BY hp.total_threat_count DESC
       LIMIT ?
-    `).bind(limit).all();
+    `).bind(limit).all<{ provider_id: string; name: string; asn: string | null; threat_count: number }>();
 
-    return attachBookmark(json({ success: true, data: rows.results }, 200, origin), session);
+    const worstIds = worst.results.map(r => r.provider_id);
+    const trendMap = new Map<string, { recent: number; previous: number }>();
+    if (worstIds.length > 0) {
+      const ph = worstIds.map(() => "?").join(",");
+      const trendRows = await session.prepare(`
+        SELECT hosting_provider_id,
+               SUM(CASE WHEN hour_bucket >= datetime('now', '-7 days') THEN threat_count ELSE 0 END) AS recent,
+               SUM(CASE WHEN hour_bucket >= datetime('now', '-14 days') AND hour_bucket < datetime('now', '-7 days') THEN threat_count ELSE 0 END) AS previous
+        FROM threat_cube_provider
+        WHERE hour_bucket >= datetime('now', '-14 days')
+          AND hosting_provider_id IN (${ph})
+        GROUP BY hosting_provider_id
+      `).bind(...worstIds).all<{ hosting_provider_id: string; recent: number; previous: number }>();
+      for (const r of trendRows.results) {
+        trendMap.set(r.hosting_provider_id, { recent: r.recent, previous: r.previous });
+      }
+    }
+
+    const worstData = worst.results.map(r => {
+      const t = trendMap.get(r.provider_id);
+      const trend = t && t.previous > 0
+        ? Math.round(((t.recent / t.previous) - 1) * 1000) / 10
+        : null;
+      return {
+        provider_id: r.provider_id,
+        name: r.name,
+        asn: r.asn,
+        threat_count: r.threat_count,
+        trend_7d_pct: trend,
+      };
+    });
+
+    return attachBookmark(json({ success: true, data: worstData }, 200, origin), session);
   } catch (err) {
     return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
   }

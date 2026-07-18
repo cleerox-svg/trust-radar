@@ -783,6 +783,10 @@ export async function handleGetBrand(request: Request, env: Env, brandId: string
                COUNT(DISTINCT hosting_provider_id) AS provider_count
         FROM threats WHERE target_brand_id = ?
       `).bind(brandId).first(),
+      // NOT cube-swappable (CLAUDE.md §8 T1 audit): this is a brand ×
+      // provider cross — no cube carries both target_brand_id AND
+      // hosting_provider_id. Bounded by target_brand_id (indexed), so
+      // it scans one brand's threats, not the full table. Leave as-is.
       session.prepare(`
         SELECT hosting_provider_id AS provider_id, COUNT(*) AS count
         FROM threats WHERE target_brand_id = ? AND hosting_provider_id IS NOT NULL
@@ -1114,6 +1118,11 @@ export async function handleBrandProviders(request: Request, env: Env, brandId: 
   const ctx = getDbContext(request);
   const session = getReadSession(env, ctx);
   try {
+    // NOT cube-swappable (CLAUDE.md §8 T1 audit): brand × provider
+    // cross — no cube carries both target_brand_id and
+    // hosting_provider_id, and this also needs the per-provider
+    // active_count split. Bounded by target_brand_id (indexed), so it
+    // scans one brand's threats, not the full table. Leave as-is.
     const rows = await session.prepare(`
       SELECT t.hosting_provider_id AS provider_id,
              COALESCE(hp.name, t.hosting_provider_id) AS name,
@@ -1196,6 +1205,10 @@ export async function handleGenerateBrandAnalysis(request: Request, env: Env, br
                SUM(CASE WHEN threat_type = 'malware_distribution' THEN 1 ELSE 0 END) AS malware
         FROM threats WHERE target_brand_id = ?
       `).bind(brandId).first<Record<string, number>>(),
+      // NOT cube-swappable (CLAUDE.md §8 T1 audit): brand × provider
+      // cross with no matching cube dimension. Bounded by
+      // target_brand_id; also a POST/AI-generation path (not a hot
+      // page load). Leave as-is.
       env.DB.prepare(`
         SELECT COALESCE(hp.name, t.hosting_provider_id) AS name
         FROM threats t LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
