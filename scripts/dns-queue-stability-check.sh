@@ -83,7 +83,7 @@ d = resp.get("data", {})
 gen = d.get("_meta", {}).get("generated_at", "?")
 
 # Signal sources
-parity     = d.get("enrichment_pipeline", {}).get("dns_queue_parity") or {}
+parity     = d.get("dns_queue_parity") or {}
 stability  = d.get("dns_queue_stability") or {}
 alerts     = d.get("recent_platform_alerts", {}).get("items", []) or []
 top_q      = d.get("d1_top_queries_24h") or []

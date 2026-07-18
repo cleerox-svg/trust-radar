@@ -312,6 +312,69 @@ export async function fetchD1EndpointAttribution(env: Env): Promise<{
   }
 }
 
+// ── DNS-queue parity: threats-side candidate count ──────────────────
+// The REAL "how many domains still need DNS resolution" number. Its
+// predicate is the same candidate set that FC's `platform_dns_queue_drift`
+// alert gates on (`agents/flightControl.ts` count.threats.dns_drainable),
+// that `lib/dns-queue-reconciler.ts` enqueues from, and that
+// `lib/dns-queue-reaper.ts` reaps against. This — NOT the cooldown-filtered
+// dns_queue "drainable right now" count — is the correct parity partner for
+// dns_queue's row count: |queue_size - candidatesInThreats| ≈ 0 in the
+// healthy steady state (matches the reaper's observed scanned≈candidates
+// parity). Cooldown-independent: a domain mid-retry-cooldown is still a
+// candidate that needs resolving, so it counts here.
+//
+// (The cooldown-filtered "how many can I try THIS tick" count is a
+// different, still-useful metric — it stays under its honest name
+// `enrichment_pipeline.domain_geo_drainable`.)
+//
+// NOTE: this re-states flightControl's predicate rather than importing a
+// shared constant. flightControl's read-path copy IS byte-identical (and
+// this call reuses its `count.threats.dns_drainable` cache key), but the
+// reconciler/reaper wrap the same core conditions in load-bearing,
+// non-identical SQL (distinct `INDEXED BY` hints, a cursor `created_at >= ?`
+// predicate, an `IN (...)` existence check), so there's no single fragment
+// to extract across all four call sites without touching write-path SQL.
+// Keep this in sync with flightControl's count.threats.dns_drainable
+// predicate if that ever changes.
+export async function countDnsCandidatesInThreats(db: D1Database): Promise<number> {
+  const row = await db.prepare(`
+    SELECT COUNT(DISTINCT malicious_domain) AS n
+    FROM threats
+    WHERE ip_address IS NULL
+      AND status = 'active'
+      AND dns_exhausted_at IS NULL
+      AND malicious_domain IS NOT NULL
+      AND malicious_domain != ''
+      AND malicious_domain NOT LIKE '*%'
+      AND malicious_domain LIKE '%.%'
+  `).first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/** Build the `dns_queue_parity` diagnostics block. `drainable_in_threats`
+ *  is the threats-side candidate count (cooldown-independent); `delta`
+ *  is queue_size minus that count, ≈ 0 when the queue mirrors threats and
+ *  growing only on a real enqueue/dequeue gap. `delta` is null when
+ *  DNS_QUEUE_DB is unbound (nothing to compare). */
+export function buildDnsQueueParity(opts: {
+  bound: boolean;
+  queueSize: number;
+  candidatesInThreats: number;
+}): {
+  bound: boolean;
+  queue_size: number;
+  drainable_in_threats: number;
+  delta: number | null;
+} {
+  return {
+    bound: opts.bound,
+    queue_size: opts.queueSize,
+    drainable_in_threats: opts.candidatesInThreats,
+    delta: opts.bound ? opts.queueSize - opts.candidatesInThreats : null,
+  };
+}
+
 /** GET /api/admin/platform-diagnostics  (JWT admin auth)
  *  GET /api/internal/platform-diagnostics (AVERROW_INTERNAL_SECRET auth) */
 export async function handlePlatformDiagnostics(request: Request, env: Env): Promise<Response> {
@@ -346,10 +409,15 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       needs_dns: number;
     }>();
 
-    // ── DNS-queue parity (PR-2 of DNS-queue split) ──
-    // Counts the dns_queue side-DB so operators can verify the
-    // reconciler is converging before PR-3 flips dns-backfill reads.
-    // |queueSize - domain_geo_drainable| ≈ 0 means parity is healthy.
+    // ── DNS-queue parity ──
+    // Counts the dns_queue side-DB row total so operators can verify the
+    // reconciler/reaper are keeping it in sync with the threats-side
+    // candidate set. Parity is healthy when
+    // |queue_size - candidatesInThreats| ≈ 0, where candidatesInThreats
+    // is `countDnsCandidatesInThreats` (the FC-drift predicate), NOT the
+    // cooldown-filtered `domain_geo_drainable`. Comparing against the
+    // cooldown-filtered count made this look like a huge phantom drift in
+    // normal operation (most rows are mid-cooldown) — fixed in S0.2.
     // Skipped cleanly if DNS_QUEUE_DB isn't bound (dev environments).
     const dnsQueueSizeP: Promise<{ n: number; bound: boolean }> = (async () => {
       if (!env.DNS_QUEUE_DB) return { n: 0, bound: false };
@@ -553,6 +621,17 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
         return 0;
       }
     }).then((n) => ({ n }));
+
+    // Threats-side DNS candidate count — the REAL parity partner for
+    // dns_queue's row total (see countDnsCandidatesInThreats). Distinct
+    // from domainGeoDrainable above, which is cooldown-filtered.
+    // Reuse flightControl's cache key (same predicate + TTL) so this
+    // piggybacks on its periodically-warmed count instead of running its
+    // own full-table COUNT(DISTINCT) scan on every diagnostics call.
+    const dnsCandidatesInThreatsP = cachedCount(
+      env, 'count.threats.dns_drainable', 300,
+      () => countDnsCandidatesInThreats(env.DB),
+    ).then((n) => ({ n }));
 
     // Cartographer queue — matches actual Phase 0 query (private IPs and
     // attempts-exhausted threats excluded — see migration 0110).
@@ -976,6 +1055,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       moduleEntitlements,
       alertsByTier,
       dnsQueueSize,
+      dnsCandidatesInThreats,
       dnsQueueStability,
     ] = await Promise.all([
       clockP, enrichmentP, cartoQueueP, cartoQueueRawP, cartoExhaustedP, cartoExhaustedByFeedP, domainGeoDrainableP,
@@ -988,6 +1068,7 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
       moduleEntitlementsP,
       alertsByTierP,
       dnsQueueSizeP,
+      dnsCandidatesInThreatsP,
       dnsQueueStabilityP,
     ]);
 
@@ -1326,18 +1407,27 @@ export async function handlePlatformDiagnostics(request: Request, env: Env): Pro
           private_ip_inflation: (cartoQueueRaw?.n ?? 0) - (cartoQueue?.n ?? 0),
         },
 
-        // DNS-queue parity (PR-2 of DNS-queue split). Mirrors the
-        // dns-backfill working set into DNS_QUEUE_DB. Healthy state:
-        // |delta| ≈ 0 after one Navigator tick. Persistent positive
-        // delta = stale rows not being dequeued; persistent negative
-        // delta = enqueue lagging behind threats. Use this as the
-        // green-light check before merging PR-3 (the read flip).
-        dns_queue_parity: {
+        // DNS-queue parity. Compares the dns_queue row total against the
+        // threats-side DNS candidate count (countDnsCandidatesInThreats —
+        // the same predicate FC's platform_dns_queue_drift alert gates on
+        // and the reconciler/reaper converge to). Healthy state: |delta|
+        // ≈ 0. Persistent positive delta = stale rows the reaper hasn't
+        // dequeued; persistent negative delta = reconciler enqueue lagging
+        // behind threats.
+        //
+        // S0.2 fix: `drainable_in_threats` previously read the
+        // COOLDOWN-FILTERED dns_queue count (domain_geo_drainable), a
+        // different concept — most rows sit mid-6h-cooldown, so the delta
+        // always looked like a huge phantom drift (the mislabeled "R3
+        // 9,091-row drift" was this artifact, not a real backlog). It now
+        // reads the true threats-side candidate count, so delta tracks the
+        // reaper's observed parity (~0). The cooldown metric is unchanged
+        // and still exposed under enrichment_pipeline.domain_geo_drainable.
+        dns_queue_parity: buildDnsQueueParity({
           bound: dnsQueueSize.bound,
-          queue_size: dnsQueueSize.n,
-          drainable_in_threats: domainGeoDrainable?.n ?? 0,
-          delta: dnsQueueSize.bound ? dnsQueueSize.n - (domainGeoDrainable?.n ?? 0) : null,
-        },
+          queueSize: dnsQueueSize.n,
+          candidatesInThreats: dnsCandidatesInThreats?.n ?? 0,
+        }),
 
         // PR-3 → PR-4 gate: aggregated stability signals over the
         // requested window. Consumed by `scripts/dns-queue-stability-
