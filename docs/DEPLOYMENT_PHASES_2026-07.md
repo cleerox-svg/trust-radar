@@ -117,6 +117,17 @@ check rejects unauthorized flips; appsec sign-off recorded.
 trademark; wrap `runCTMonitor` in `executeAgent`) and **S0.2** (DNS-queue drift root-cause +
 fix). Owner: backend-engineer / platform-sre → qa-verifier.
 
+> **S0.2 scope correction (2026-07-18):** the live investigation found the
+> "R3 DNS-queue drift = 9,091" finding was a **phantom** — a mislabeled
+> diagnostics metric, not a real backlog. `dns_queue_parity.drainable_in_threats`
+> was built from the cooldown-filtered `dns_queue` count instead of the
+> threats-side candidate count, so it always looked ~18× over threshold in
+> normal operation while FC's real drift alert stayed correctly silent. S0.2
+> therefore became a **metric-correctness fix** (read-path only, no reaper/
+> notification change, no migration): repoint `drainable_in_threats` at the
+> true threats-side candidate count. See the corrected R3 note in
+> `docs/deploy-baselines/phase-0-baseline-2026-07-17.md`.
+
 **Why second:** it's live-firing (dropping ~67% of 3 scanners' runs) but, unlike Phase 1,
 a regression is *observable in diagnostics* rather than a silent lockout — so it deploys
 straight to prod behind the standard gate.
@@ -134,8 +145,14 @@ a 22-hour mesh outage. `qa-verifier` must confirm the new crons' minutes match t
    after a **full day**:
    - lookalike + trademark scans show **24/24** (was 8/24).
    - `ct_monitor` now has `agent_runs` rows and appears in `agent_mesh.per_agent[]`.
-   - `dns_queue` drift delta back under the 500 threshold; `platform_dns_queue_drift`
-     either fires or is provably deduped, not blind.
+   - **(revised)** `dns_queue_parity.delta` now tracks the reaper's *true*
+     queue-vs-reality parity (~0) instead of the phantom cooldown gap. The
+     real verification is that `drainable_in_threats` equals the threats-side
+     `COUNT(DISTINCT malicious_domain)` candidate count and `delta` matches
+     the reaper's `scanned - candidatesInThreats` (~0). The original
+     "drift delta back under 500" target was based on the bogus metric.
+     `platform_dns_queue_drift` was never blind — it already gated on the
+     real predicate and stayed correctly silent.
 
 **Rollback:** `wrangler rollback`. Cron changes revert cleanly; the wrapped
 `executeAgent` telemetry is additive.
@@ -283,7 +300,7 @@ internal surface). No dark flags, no time-delayed verification beyond the standa
 |---|---|---|---|---|
 | 0 | baseline | none | — | capture diagnostics + prove staging/rollback |
 | 1 | S0.3, S0.5 (S1/S2/TK1) | **staging → prod** | 6-persona auth drive + appsec | roles behave; unauthorized flip rejected |
-| 2 | S0.1, S0.2 (R1/R2/R3) | prod | **cron-audit rule** | 24h diff: scanners 24/24, `ct_monitor` visible |
+| 2 | S0.1, S0.2 (R1/R2/R3) | prod | **cron-audit rule** | 24h diff: scanners 24/24, `ct_monitor` visible; `dns_queue_parity.delta` ~0 vs reaper parity (R3 was a metric artifact, not a real drift) |
 | 3 | S0.4 (T1) | prod | row-count parity | pages identical; D1 budget trends down |
 | 4 | S1.0–S1.6 | prod | **rename-safety protocol** | no code names on customer surfaces |
 | 5 | S2.1–S2.4 | prod (+ **dark** S2.2) | metrics-before-marketing; TK1 first | hand-submit dark-verified; real metric |

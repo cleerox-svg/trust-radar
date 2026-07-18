@@ -44,6 +44,20 @@ rows, so Flight Control's stall watchdog structurally cannot see it. Confirmed.
 assessment's 8,851, i.e. not self-correcting. `enrichment_pipeline.needs_dns`
 = 22,191.
 
+> **CORRECTED (S0.2, 2026-07-18):** This R3 drift was a **measurement
+> artifact, not a real backlog.** `dns_queue_parity.drainable_in_threats`
+> was built from the COOLDOWN-FILTERED `dns_queue` count
+> (`domain_geo_drainable`), which reports 0 when every queued row is
+> mid-6h-retry-cooldown — a different concept from "threats still needing
+> resolution." Comparing it against `queue_size` manufactured a phantom
+> `delta` equal to the whole queue. Live proof: triggering the reaper
+> returned `scanned:9145, candidatesInThreats:9145, staleRemoved:0` — true
+> queue-vs-reality parity was ~0, and FC's `platform_dns_queue_drift` alert
+> was correctly silent the whole time (it already gates on the real
+> predicate). S0.2 repoints `drainable_in_threats` at the true threats-side
+> candidate count, so `delta` now tracks that ~0 parity. The **9091 number
+> above is retained for the record but is not a real drift.**
+
 ### R4 — D1 read budget (target: trend DOWN after Phase 3 / S0.4)
 - `d1_budget_state`: **91.7%** of daily budget, `threshold_state` **"warn"**,
   **51 read-skips in the last 24h** (last skip `13:35`) — the budget guard is
