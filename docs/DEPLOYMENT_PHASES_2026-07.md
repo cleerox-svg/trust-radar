@@ -162,10 +162,24 @@ cadence and `ct_monitor` visible to Flight Control.
 
 ---
 
-## Phase 3 — D1 hot-path discipline (budget headroom) ⬜
+## Phase 3 — D1 hot-path discipline (budget headroom) 🟡
 
 **Ships:** **S0.4** (T1 — swap 9 page-load `GROUP BY`-over-`threats` aggregates to the
 matching cube / pre-computed column). Owner: backend-engineer → qa-verifier.
+
+> **S0.4 scope correction (2026-07-18):** of the 9 cited sites, only **4 were
+> genuinely swappable** while preserving parity — `dashboard.ts`
+> handleDashboardProviders (worst + improving) and `trends.ts` brand + provider
+> momentum. The worst-providers *count* now reads `hosting_providers.total_threat_count`
+> (all-status all-time — **exact** parity); the other three read `threat_cube_provider`/
+> `threat_cube_brand` (**approximate**: active-only + created_at buckets), each matching
+> an already-shipped sibling handler (`handleWorstProviders`/`handleImprovingProviders`/
+> `handleBrandMovers`/`handleProviderMovers`) so the approximation is pre-existing platform
+> behavior, not a new divergence. The other **5 sites were left as-is** with guard comments:
+> they cross brand×provider or are campaign-scoped/all-status-1y (no cube carries those
+> dimensions) — and, like T1's own framing, they are **entity-bounded** (indexed by
+> `target_brand_id`/`campaign_id`), not the full-table scans the line-item implied. A wrong
+> count is worse than a slow one, so they were not forced.
 
 **Why here:** low code risk (read-only query swaps) but high operational value — it buys
 back D1 read budget (live at **92.9%**). Sequenced right after the P0s so later,

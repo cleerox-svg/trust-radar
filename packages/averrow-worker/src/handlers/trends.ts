@@ -107,6 +107,12 @@ export async function handleTrendProviders(request: Request, env: Env): Promise<
     const { since, bucket } = periodClause(url.searchParams.get("period") ?? "30d");
     const limit = Math.min(10, parseInt(url.searchParams.get("limit") ?? "5", 10));
 
+    // NOT cube-swappable (CLAUDE.md §8 T1 audit): this is an all-status
+    // provider × time-bucket series that supports periods up to 1y.
+    // threat_cube_provider is active-only and rebuilt over a ~30-day
+    // window (Navigator current+prev-hour + 6h cube-healer 30-day
+    // rebuild), so the 90d/1y periods would silently under-count the
+    // tail — a correctness break, not just lag. Leave as-is.
     const rows = await env.DB.prepare(`
       SELECT COALESCE(hp.name, t.hosting_provider_id) AS name,
              ${bucket} AS period, COUNT(*) AS count
@@ -243,20 +249,35 @@ export async function handleTrendThreatVolume(request: Request, env: Env): Promi
 export async function handleTrendBrandMomentum(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // CLAUDE.md §8 hot-path (T1): was a full-table GROUP BY
+    // target_brand_id over the raw threats table. Sources the
+    // this_week/last_week inflow from threat_cube_brand — the same
+    // cube-inflow pattern shipped by handleBrandMovers. The cube's
+    // threat_count is new active threats per created_at hour bucket, so
+    // SUM over a window IS the inflow; the 14-day window is well inside
+    // cube retention. Approximate vs the old query on two axes (cube is
+    // active-only, and buckets by created_at rather than first_seen) —
+    // both are immaterial to a top-10 momentum ranking of recent
+    // inflow, where newly-created threats are effectively all active.
     const rows = await env.DB.prepare(`
-      SELECT t.target_brand_id, b.name as brand_name,
+      WITH inflow AS (
+        SELECT target_brand_id,
+          SUM(CASE WHEN hour_bucket >= datetime('now','-7 days')
+              THEN threat_count ELSE 0 END) as this_week,
+          SUM(CASE WHEN hour_bucket >= datetime('now','-14 days')
+               AND hour_bucket < datetime('now','-7 days')
+              THEN threat_count ELSE 0 END) as last_week
+        FROM threat_cube_brand
+        WHERE hour_bucket >= datetime('now','-14 days')
+        GROUP BY target_brand_id
+      )
+      SELECT i.target_brand_id, b.name as brand_name,
         b.canonical_domain,
-        SUM(CASE WHEN t.first_seen >= datetime('now','-7 days')
-            THEN 1 ELSE 0 END) as this_week,
-        SUM(CASE WHEN t.first_seen >= datetime('now','-14 days')
-             AND t.first_seen < datetime('now','-7 days')
-            THEN 1 ELSE 0 END) as last_week
-      FROM threats t
-      LEFT JOIN brands b ON b.id = t.target_brand_id
-      WHERE t.target_brand_id IS NOT NULL
-      GROUP BY t.target_brand_id
-      HAVING this_week > 0
-      ORDER BY this_week DESC LIMIT 10
+        i.this_week, i.last_week
+      FROM inflow i
+      LEFT JOIN brands b ON b.id = i.target_brand_id
+      WHERE i.this_week > 0
+      ORDER BY i.this_week DESC LIMIT 10
     `).all<{ target_brand_id: string; brand_name: string; canonical_domain: string; this_week: number; last_week: number }>();
 
     return json({ success: true, data: rows.results }, 200, origin);
@@ -269,17 +290,27 @@ export async function handleTrendBrandMomentum(request: Request, env: Env): Prom
 export async function handleTrendProviderMomentum(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
   try {
+    // CLAUDE.md §8 hot-path (T1): was a full-table GROUP BY
+    // hosting_provider_id over the raw threats table. Sources the 7d
+    // inflow from threat_cube_provider — the same cube-inflow pattern
+    // shipped by handleProviderMovers. Approximate vs the old query on
+    // two axes (cube is active-only, and buckets by created_at rather
+    // than first_seen); immaterial to a top-8 recent-inflow ranking.
     const rows = await env.DB.prepare(`
-      SELECT t.hosting_provider_id AS provider_id,
-        COALESCE(hp.name, t.hosting_provider_id) AS provider,
-        COUNT(CASE WHEN t.first_seen >= datetime('now', '-7 days') THEN 1 END) AS count
-      FROM threats t
-      LEFT JOIN hosting_providers hp ON hp.id = t.hosting_provider_id
-      WHERE t.hosting_provider_id IS NOT NULL
-        AND t.first_seen >= datetime('now', '-7 days')
-      GROUP BY t.hosting_provider_id
-      HAVING count > 0
-      ORDER BY count DESC LIMIT 8
+      WITH inflow AS (
+        SELECT hosting_provider_id,
+          SUM(CASE WHEN hour_bucket >= datetime('now', '-7 days') THEN threat_count ELSE 0 END) AS count
+        FROM threat_cube_provider
+        WHERE hour_bucket >= datetime('now', '-7 days')
+        GROUP BY hosting_provider_id
+      )
+      SELECT i.hosting_provider_id AS provider_id,
+        COALESCE(hp.name, i.hosting_provider_id) AS provider,
+        i.count AS count
+      FROM inflow i
+      LEFT JOIN hosting_providers hp ON hp.id = i.hosting_provider_id
+      WHERE i.count > 0
+      ORDER BY i.count DESC LIMIT 8
     `).all<{ provider_id: string; provider: string; count: number }>();
 
     return json({ success: true, data: rows.results }, 200, origin);

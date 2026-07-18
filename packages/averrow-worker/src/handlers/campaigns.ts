@@ -74,6 +74,12 @@ export async function handleGetCampaign(request: Request, env: Env, campaignId: 
     if (!campaign) return json({ success: false, error: "Campaign not found" }, 404, origin);
 
     const [brandBreakdown, providerBreakdown, liveStats] = await Promise.all([
+      // NOT cube-swappable (CLAUDE.md §8 T1 audit): both breakdowns are
+      // campaign-scoped — no cube carries campaign_id, and campaigns has
+      // only scalar pre-computed counts (brand_count/provider_count), not
+      // per-brand/per-provider breakdowns. Bounded by campaign_id
+      // (indexed), so each scans one campaign's threats, not the full
+      // table. Leave as-is.
       env.DB.prepare(`
         SELECT target_brand_id AS brand_id, b.name AS brand_name, COUNT(*) AS count
         FROM threats t LEFT JOIN brands b ON b.id = t.target_brand_id
