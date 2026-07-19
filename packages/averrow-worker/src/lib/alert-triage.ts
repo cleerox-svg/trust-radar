@@ -31,6 +31,7 @@
 // noise.
 
 import type { D1Database } from '@cloudflare/workers-types';
+import { isNewlyRegistered, NRD_MAX_AGE_DAYS } from './domain-age';
 
 export type AutoTriageDecision =
   | { action: 'dismiss'; reason: string }
@@ -46,6 +47,9 @@ export interface ThreatTriageSnapshot {
   greynoise_classification: string | null;
   seclookup_risk_score: number | null;
   ip_address: string | null;
+  /** Domain age in whole days at detection time (D4 / NRD signal).
+   *  NULL when VT had no WHOIS creation date. See lib/domain-age.ts. */
+  domain_age_days: number | null;
 }
 
 /**
@@ -59,6 +63,7 @@ export interface ThreatTriageSnapshot {
  *   - GSB consulted AND not flagged
  *   - GreyNoise either 'benign' or NULL (only checked when IP is set)
  *   - SecLookup risk score either NULL or below 30 (low band)
+ *   - Domain is NOT newly registered (D4 / NRD guard, below)
  */
 export function decideThreatAutoTriage(snapshot: ThreatTriageSnapshot): AutoTriageDecision {
   if (snapshot.vt_checked !== 1) return { action: 'keep', reason: 'vt_not_checked' };
@@ -77,6 +82,24 @@ export function decideThreatAutoTriage(snapshot: ThreatTriageSnapshot): AutoTria
     return { action: 'keep', reason: 'seclookup_risk_score_high' };
   }
 
+  // NRD guard (D4 / S2.4). A domain that every reputation feed cleared
+  // but that was registered within NRD_MAX_AGE_DAYS of detection is the
+  // classic false-negative: brand-new phishing infrastructure has no
+  // reputation history yet, so VT/GSB/GreyNoise/SecLookup all read
+  // "clean" precisely because the domain is too new to have been
+  // reported. Withhold auto-dismissal and keep it for a human rather
+  // than silently clearing a fresh impersonation domain. NULL age (VT
+  // had no creation date) is NOT treated as an NRD — absence of
+  // evidence, not evidence of youth. This only ever flips a would-be
+  // dismissal to 'keep'; it never escalates severity, so the downside
+  // of a false NRD flag is one extra alert in the human queue.
+  if (isNewlyRegistered(snapshot.domain_age_days)) {
+    return {
+      action: 'keep',
+      reason: `newly_registered_domain (age ${snapshot.domain_age_days}d <= ${NRD_MAX_AGE_DAYS}d)`,
+    };
+  }
+
   return { action: 'dismiss', reason: 'auto: clean enrichment (vt+gsb+greynoise+seclookup)' };
 }
 
@@ -93,7 +116,8 @@ export async function loadThreatSnapshotForAlert(
            gsb_checked, gsb_flagged,
            greynoise_classification,
            seclookup_risk_score,
-           ip_address
+           ip_address,
+           domain_age_days
     FROM threats
     WHERE id = ?
   `).bind(sourceId).first<ThreatTriageSnapshot>();
