@@ -31,6 +31,7 @@ import {
 } from "../handlers/organizations";
 import {
   handleAdminListTakedowns, handleAdminUpdateTakedown, handleAdminTakedownIntegrations,
+  handleAdminTakedownMetrics,
 } from "../handlers/takedowns";
 import {
   handleGenerateVapidKeys, handleGetPushConfig, handleUpdatePushConfig, handlePushTest,
@@ -612,6 +613,14 @@ export function registerAdminRoutes(router: RouterType<IRequest>): void {
     const ctx = await requirePermission("manage_takedowns")(request, env);
     if (!isAuthContext(ctx)) return ctx;
     return handleAdminTakedownIntegrations(request, env);
+  });
+  // S2.1 — takedown-effectiveness metrics (resolution time / monthly
+  // volume / success rate). OPS-ONLY; distinct GET path, no collision
+  // with the :id PATCH below.
+  router.get("/api/admin/takedowns/metrics", async (request: Request, env: Env) => {
+    const ctx = await requirePermission("manage_takedowns")(request, env);
+    if (!isAuthContext(ctx)) return ctx;
+    return handleAdminTakedownMetrics(request, env);
   });
   router.patch("/api/admin/takedowns/:id", async (request: Request & { params: Record<string, string> }, env: Env) => {
     const ctx = await requirePermission("manage_takedowns")(request, env);
