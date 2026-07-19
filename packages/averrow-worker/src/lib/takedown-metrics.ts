@@ -25,12 +25,15 @@
 //     in-flight (resolved_at NULL) is EXCLUDED — it has no elapsed time
 //     yet. Rows with resolved_at < submitted_at (clock/data anomalies)
 //     are excluded from percentiles and counted separately.
-//   * Headline success-rate denominator: RESOLVED-ONLY, i.e. requests
-//     with `resolution IS NOT NULL`. Still-in-flight takedowns
-//     (resolution NULL: draft/requested/submitted/pending_response) are
-//     NOT in the denominator — the rate answers "of the takedowns that
-//     reached a terminal outcome, how many succeeded", not "of all
-//     takedowns ever opened". This is the honest, defensible figure.
+//   * Headline success-rate (TRUE-REMOVAL): taken_down / (taken_down +
+//     refused + expired) — only provider-ADJUDICATED outcomes. `withdrawn`
+//     (we/the customer pulled the request) and unrecognized `other` are
+//     excluded from the rate: a withdrawal isn't a failure to remove.
+//     Still-in-flight takedowns (resolution NULL) are excluded by
+//     construction. The separate `denominator` (all resolved terminals) is
+//     kept for volume + the per-provider floor. Metrics INCLUDE
+//     SOC-initiated (org_id NULL) takedowns platform-wide (owner decision,
+//     Wave 2). This is the honest, defensible figure.
 //   * Dispatch-success denominator: takedown_submissions rows with a
 //     terminal outcome (submitted + queued + failed + rejected). Success
 //     = submitted + queued (the report was accepted for delivery).
@@ -70,7 +73,13 @@ export interface SuccessRateStats {
   withdrawn: number;
   /** Any resolution value outside the four known terminals (defensive). */
   other: number;
-  /** taken_down / denominator, as a percentage 0-100 (null when denominator=0). */
+  /**
+   * True-removal denominator: taken_down + refused + expired — the
+   * provider-adjudicated outcomes. Excludes `withdrawn` (we/the customer
+   * pulled the request, not a provider decision) and `other` (unrecognized).
+   */
+  effective_denominator: number;
+  /** taken_down / effective_denominator (true-removal rate), 0-100 (null when effective_denominator=0). */
   success_rate_pct: number | null;
 }
 
@@ -171,16 +180,24 @@ export function computeSuccessRate(counts: Map<string, number>): SuccessRateStat
   let denominator = 0;
   for (const n of counts.values()) denominator += n;
   const other = denominator - taken_down - refused - expired - withdrawn;
+  // True-removal rate: of the provider-ADJUDICATED outcomes, how many came
+  // down. `withdrawn` (we/the customer cancelled) and `other` (unrecognized)
+  // are not provider decisions, so they're excluded from the rate denominator.
+  // `denominator` (all resolved) is retained for volume + the provider floor.
+  const effective_denominator = taken_down + refused + expired;
   return {
     denominator,
     denominator_definition:
-      "resolved-only: requests with resolution IS NOT NULL (excludes still-in-flight takedowns)",
+      "true-removal: taken_down / (taken_down + refused + expired) — provider-adjudicated outcomes only; " +
+      "withdrawn + other excluded. `denominator` is resolved-only volume (all terminal resolutions). " +
+      "Includes SOC-initiated (org_id NULL) takedowns platform-wide.",
     taken_down,
     refused,
     expired,
     withdrawn,
     other,
-    success_rate_pct: denominator === 0 ? null : round2((taken_down / denominator) * 100),
+    effective_denominator,
+    success_rate_pct: effective_denominator === 0 ? null : round2((taken_down / effective_denominator) * 100),
   };
 }
 
