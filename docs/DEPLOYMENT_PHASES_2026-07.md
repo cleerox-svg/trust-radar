@@ -13,28 +13,36 @@ verification, and rollback for each phase.
 
 ---
 
-## Current status & session handoff (updated 2026-07-18)
+## Current status & session handoff (updated 2026-07-19)
 
-**Phases 0–3 are done and deployed to prod.** A new session should resume at **Phase 4
-(terminology re-anchor), starting with session S1.0** (the naming occurrence map /
-rename-safety review — a hard prerequisite for S1.1–S1.6).
+**Phases 0–3 are done and deployed to prod; the 24h post-deploy verification has run.** A new
+session should resume at **Phase 4 (terminology re-anchor), starting with session S1.0** (the
+naming occurrence map / rename-safety review — a hard prerequisite for S1.1–S1.6).
 
 | Phase | Sessions | Merged PRs | State |
 |---|---|---|---|
 | 0 Baseline | — | #1633 (plan), #1634 (baseline) | ✅ done |
 | 1 Security P0 | S0.3 (S1+S2), S0.5 (TK1) | #1635, #1636 | ✅ live |
-| 2 Ops P0 | S0.1, S0.2 | #1637, #1638 | ✅ live · 24h verify pending |
-| 3 D1 hot-path | S0.4 | #1639 | ✅ live · 24h verify pending |
+| 2 Ops P0 | S0.1, S0.2 | #1637, #1638, #1641 (ct_monitor fix) | ✅ live · scanners ✅ verified; ct_monitor fixed (0238), re-verify pending |
+| 3 D1 hot-path | S0.4 | #1639 | ✅ live · 24h verify ✅ pass (89.7%, trending down) |
 | 4 Terminology | S1.0–S1.6 | — | ⬜ **next** |
 | 5 Takedown + differentiator | S2.1–S2.4 | — | ⬜ |
 | 6 Debt & hardening | S3.1–S3.6 | — | ⬜ |
 
-**Open action — the pending 24h verification** (do this once a full day of prod data since
-2026-07-18 has accumulated): run `./scripts/platform-diagnostics.sh 24` and diff against
-`docs/deploy-baselines/phase-0-baseline-2026-07-17.md`. Confirm: **S0.1** — lookalike +
-trademark scanners at 24/24 (was 9/24) and `ct_monitor` present in `agent_mesh.per_agent[]`;
-**S0.2** — `dns_queue_parity.delta` ~0 (was a phantom 9091); **S0.4** — `d1_budget_state`
-trending down from 91.7%.
+**24h post-deploy verification — DONE (2026-07-19).** Full record:
+`docs/deploy-baselines/phase-2-3-verify-2026-07-19.md`. Summary: **S0.2** — `dns_queue_parity.delta`
+✅ (`-138`, phantom 9091 gone); **S0.4** — `d1_budget_state` ✅ (91.7% → 89.7%, still "warn" but
+trending down); **S0.1** scanner cadence ✅ (`lookalike_scanner`/`trademark_monitor` 17/24, a
+mid-window-deploy artifact — hourly post-deploy, reads 24/24 on a clean day); **S0.1** `ct_monitor`
+telemetry ❌ **regression** — `pollCertificates` wasn't writing `agent_runs` because the S0.1 PR
+omitted `ct_monitor`'s `agent_approvals` grandfather row, so `executeAgent`'s deployment-approval
+gate blocked every tick. Fixed by `migrations/0238_ct_monitor_approval.sql` (PR #1641, merged into
+master).
+
+**Open action — post-merge ct_monitor re-verification.** Once 0238 has deployed to prod, re-run
+`./scripts/platform-diagnostics.sh 24` and confirm `ct_monitor` appears in
+`agent_mesh.per_agent[]` with `agent_runs` accruing hourly (the Phase 2 go/no-go — scanners ✅,
+ct_monitor's "visible to Flight Control" bullet — isn't fully met until this re-verify passes).
 
 **Scope corrections landed during execution** (a new session should trust these over the
 original assessment line-items): **S0.2/R3** was a phantom metric, not a backlog — became a
