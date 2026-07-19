@@ -29,14 +29,17 @@ identically-named row in the assessment's §3.**
 ## Wave 0 — Urgent / live / security-material (days, high certainty) — ✅ COMPLETE (all 5 sessions live 2026-07-18; Deployment Phases 0–3)
 
 > **Resume point for a new session:** Wave 0 is fully shipped. Start next at **Wave 1 /
-> S1.0** (naming occurrence map — prerequisite for S1.1–S1.6). Pending: the 24h post-deploy
-> diagnostics verification for S0.1/S0.2/S0.4 — see the handoff block in
-> `docs/DEPLOYMENT_PHASES_2026-07.md`.
+> S1.0** (naming occurrence map — prerequisite for S1.1–S1.6). The 24h post-deploy
+> diagnostics verification for S0.1/S0.2/S0.4 has run (2026-07-19) — see
+> `docs/deploy-baselines/phase-2-3-verify-2026-07-19.md` and the handoff block in
+> `docs/DEPLOYMENT_PHASES_2026-07.md`. S0.2/S0.4 passed; S0.1's scanner cadence passed;
+> S0.1's `ct_monitor` telemetry regressed (fixed in migration 0238 / PR #1641, merged) and
+> still needs a post-merge re-verification.
 
 The assessment surfaced live-firing and security-material issues that are small, bounded,
 and high-confidence. These go first.
 
-### S0.1 — Kill the live agent starvation (R1 + R2) ✅ *(PR #1637, live 2026-07-18; 24h verify pending)*
+### S0.1 — Kill the live agent starvation (R1 + R2) ✅ *(PR #1637, live 2026-07-18; 24h verified 2026-07-19)*
 **Owner:** backend-engineer → qa-verifier. CT monitor, lookalike scanner, and trademark
 scan run inline at the tail of the hourly orchestrator tick and drop ~67% of runs.
 - Give each a **dedicated cron** using the exact `event.cron`-match template already used
@@ -46,6 +49,13 @@ scan run inline at the tail of the hourly orchestrator tick and drop ~67% of run
   visible to Flight Control's stall watchdog (`scanners/ct-monitor.ts`).
 - **Verify:** re-run `./scripts/platform-diagnostics.sh 24` after a full day; lookalike +
   trademark should show 24/24, `ct_monitor` should have `agent_runs` rows.
+- **Result (2026-07-19):** scanner cadence ✅ — lookalike/trademark at 17/24 in the
+  straddled deploy window (a mid-window-deploy artifact; hourly post-deploy, 24/24 on a
+  clean day). `ct_monitor` telemetry ❌ regressed — the PR omitted `ct_monitor`'s
+  `agent_approvals` grandfather row, so `executeAgent`'s deployment-approval gate blocked
+  every tick and `pollCertificates` never ran in prod. Fixed by
+  `migrations/0238_ct_monitor_approval.sql` (PR #1641, merged); post-merge re-verification
+  still outstanding. Full record: `docs/deploy-baselines/phase-2-3-verify-2026-07-19.md`.
 
 ### S0.2 — DNS-queue drift root-cause + fix (R3) ✅ *(PR #1638, live 2026-07-18 — root cause was a phantom diagnostics metric, not a backlog; became a metric-correctness fix)*
 **Owner:** backend-engineer / platform-sre. Live delta 8,851 rows (18× the FC alert

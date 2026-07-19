@@ -510,6 +510,10 @@ Always (every tick):  Flight Control, Incident recovery sweep, CertStream health
                       (Enricher moved to its own `8 * * * *` cron — see schedule above)
                       (Cartographer's baseline maintenance moved to its own `9 * * * *` cron in PR-F.
                        FC scaleAgents still fires additional cart instances for backlog drain.)
+                      (CT monitor, lookalike check, and trademark scan moved OFF this hourly
+                       tick to dedicated crons `18 * * * *` / `22 * * * *` / `23 * * * *` in
+                       S0.1 — see schedule above. Each now runs via `executeAgent` so it
+                       writes `agent_runs`; no more inline tail dispatch / bare `runJob`.)
 Always (every tick):  Feed ingestion, brand match, email security, Cartographer, Analyst
 Sentinel:             after feed ingestion if totalNew > 0 (inline await)
 Cartographer:         after Sentinel OR as fallback (dispatched as Workflow)
@@ -526,9 +530,6 @@ Notification digest:  hour === 13 (executeAgent, agent 'notification_narrator' �
                        envelopes; the daily platform-ops briefing itself moved OFF this hourly
                        gate to its own dedicated `13 13 * * *` cron, see schedule above, because
                        fetchComprehensiveBriefing's ~40 parallel queries exhausted the tick budget)
-CT monitor:           every tick (inline await, in handleScheduled)
-Lookalike check:      every tick (inline await, in handleScheduled)
-Trademark scan:       every tick (runJob, agent 'trademark_monitor' — Phase 1 internal correlation, no external cost; see docs/TRADEMARK_MONITORING.md)
 Social discovery:     hour % 6 === 0 (in handleScheduled)
 Social monitor:       hour % 6 === 0 (in handleScheduled)
 Daily snapshots:      hour === 0, or if none exist today (inline await)
