@@ -13,6 +13,43 @@ verification, and rollback for each phase.
 
 ---
 
+## Current status & session handoff (updated 2026-07-18)
+
+**Phases 0–3 are done and deployed to prod.** A new session should resume at **Phase 4
+(terminology re-anchor), starting with session S1.0** (the naming occurrence map /
+rename-safety review — a hard prerequisite for S1.1–S1.6).
+
+| Phase | Sessions | Merged PRs | State |
+|---|---|---|---|
+| 0 Baseline | — | #1633 (plan), #1634 (baseline) | ✅ done |
+| 1 Security P0 | S0.3 (S1+S2), S0.5 (TK1) | #1635, #1636 | ✅ live |
+| 2 Ops P0 | S0.1, S0.2 | #1637, #1638 | ✅ live · 24h verify pending |
+| 3 D1 hot-path | S0.4 | #1639 | ✅ live · 24h verify pending |
+| 4 Terminology | S1.0–S1.6 | — | ⬜ **next** |
+| 5 Takedown + differentiator | S2.1–S2.4 | — | ⬜ |
+| 6 Debt & hardening | S3.1–S3.6 | — | ⬜ |
+
+**Open action — the pending 24h verification** (do this once a full day of prod data since
+2026-07-18 has accumulated): run `./scripts/platform-diagnostics.sh 24` and diff against
+`docs/deploy-baselines/phase-0-baseline-2026-07-17.md`. Confirm: **S0.1** — lookalike +
+trademark scanners at 24/24 (was 9/24) and `ct_monitor` present in `agent_mesh.per_agent[]`;
+**S0.2** — `dns_queue_parity.delta` ~0 (was a phantom 9091); **S0.4** — `d1_budget_state`
+trending down from 91.7%.
+
+**Scope corrections landed during execution** (a new session should trust these over the
+original assessment line-items): **S0.2/R3** was a phantom metric, not a backlog — became a
+diagnostics-metric fix. **S0.4/T1** was 4 genuinely-swappable sites + 5 entity-bounded
+(not full-table) sites left as-is, not 9 uniform full-table scans. See each phase's inline
+correction note.
+
+**Deferred follow-ups logged during Phases 1–3** (candidates for Phase 6): the sub-role
+write matrix (`support`/`sales`/`billing` reach generic mutation routes); the takedown
+terminal-state transition-table gap (flips *out of* terminal states are unrestricted); the
+DNS candidate-predicate consolidation across reconciler/reaper; and a pre-existing **local**
+D1 migration-replay break (`cf_scan_id` in migrations 0016/0017/0086/0198 — prod unaffected).
+
+---
+
 ## 0. The governing deployment fact
 
 **Every merge to `master` is a live production deploy.** `deploy-radar.yml` fires on push
@@ -59,7 +96,7 @@ Phase 0**.
 
 ---
 
-## Phase 0 — Pre-flight baseline (no code) ⬜
+## Phase 0 — Pre-flight baseline (no code) ✅
 
 Establish the "before" picture so every later phase has something to diff against, and
 confirm the release machinery is healthy before loading it.
@@ -78,7 +115,7 @@ confirm the release machinery is healthy before loading it.
 
 ---
 
-## Phase 1 — Security P0 hardening (highest blast radius → goes first, via staging) ⬜
+## Phase 1 — Security P0 hardening (highest blast radius → goes first, via staging) ✅
 
 **Ships:** improvement-plan **S0.3** (S1 internal-secret escalation + S2 auditor read-only
 bypass) and **S0.5** (TK1 takedown status-flip integrity). Owner: backend-engineer →
@@ -111,7 +148,7 @@ check rejects unauthorized flips; appsec sign-off recorded.
 
 ---
 
-## Phase 2 — Live ops / reliability P0 (cron surgery) ⬜
+## Phase 2 — Live ops / reliability P0 (cron surgery) ✅ *(deployed; 24h diagnostics verify pending)*
 
 **Ships:** **S0.1** (kill agent starvation — dedicated crons for CT monitor / lookalike /
 trademark; wrap `runCTMonitor` in `executeAgent`) and **S0.2** (DNS-queue drift root-cause +
@@ -162,7 +199,7 @@ cadence and `ct_monitor` visible to Flight Control.
 
 ---
 
-## Phase 3 — D1 hot-path discipline (budget headroom) 🟡
+## Phase 3 — D1 hot-path discipline (budget headroom) ✅ *(deployed; 24h D1-budget verify pending)*
 
 **Ships:** **S0.4** (T1 — swap 9 page-load `GROUP BY`-over-`threats` aggregates to the
 matching cube / pre-computed column). Owner: backend-engineer → qa-verifier.

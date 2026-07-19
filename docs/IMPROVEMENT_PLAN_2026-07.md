@@ -26,12 +26,17 @@ identically-named row in the assessment's §3.**
 
 ---
 
-## Wave 0 — Urgent / live / security-material (days, high certainty)
+## Wave 0 — Urgent / live / security-material (days, high certainty) — ✅ COMPLETE (all 5 sessions live 2026-07-18; Deployment Phases 0–3)
+
+> **Resume point for a new session:** Wave 0 is fully shipped. Start next at **Wave 1 /
+> S1.0** (naming occurrence map — prerequisite for S1.1–S1.6). Pending: the 24h post-deploy
+> diagnostics verification for S0.1/S0.2/S0.4 — see the handoff block in
+> `docs/DEPLOYMENT_PHASES_2026-07.md`.
 
 The assessment surfaced live-firing and security-material issues that are small, bounded,
 and high-confidence. These go first.
 
-### S0.1 — Kill the live agent starvation (R1 + R2) ⬜
+### S0.1 — Kill the live agent starvation (R1 + R2) ✅ *(PR #1637, live 2026-07-18; 24h verify pending)*
 **Owner:** backend-engineer → qa-verifier. CT monitor, lookalike scanner, and trademark
 scan run inline at the tail of the hourly orchestrator tick and drop ~67% of runs.
 - Give each a **dedicated cron** using the exact `event.cron`-match template already used
@@ -42,7 +47,7 @@ scan run inline at the tail of the hourly orchestrator tick and drop ~67% of run
 - **Verify:** re-run `./scripts/platform-diagnostics.sh 24` after a full day; lookalike +
   trademark should show 24/24, `ct_monitor` should have `agent_runs` rows.
 
-### S0.2 — DNS-queue drift root-cause + fix (R3) ⬜
+### S0.2 — DNS-queue drift root-cause + fix (R3) ✅ *(PR #1638, live 2026-07-18 — root cause was a phantom diagnostics metric, not a backlog; became a metric-correctness fix)*
 **Owner:** backend-engineer / platform-sre. Live delta 8,851 rows (18× the FC alert
 threshold) with no visible `platform_dns_queue_drift` notification.
 - Trigger `POST /api/internal/dns-queue/reap`, inspect the `ReaperResult`
@@ -51,7 +56,7 @@ threshold) with no visible `platform_dns_queue_drift` notification.
 - Confirm whether `platform_dns_queue_drift` is firing-but-deduped (`todayKey()` group
   key) or genuinely never firing despite the crossed threshold (`flightControl.ts:749-849`).
 
-### S0.3 — Security P0: decouple the internal-secret escalation (S1 + S2) ⬜
+### S0.3 — Security P0: decouple the internal-secret escalation (S1 + S2) ✅ *(PR #1635, live 2026-07-18 — auditor-only preview mint + AVERROW_PREVIEW_SECRET split; requireStaffMutation on 37 mutation routes)*
 **Owner:** backend-engineer → appsec-reviewer. Two convergent findings, one root area.
 - **S1:** drop `admin` from `UI_PREVIEW_STAFF_ROLES` (`handlers/auth.ts:1047`; default is
   already read-only `auditor`), and/or gate the two mint endpoints behind a **separate,
@@ -63,13 +68,13 @@ threshold) with no visible `platform_dns_queue_drift` notification.
   convert `requireStaff` to a role-set membership test. Audit
   `routes/brands.ts`/`investigations.ts`/`email-security.ts`/`scan.ts`.
 
-### S0.4 — D1 hot-path discipline (T1) ⬜
+### S0.4 — D1 hot-path discipline (T1) ✅ *(PR #1639, live 2026-07-18 — 4 of 9 sites swapped to cubes/pre-computed columns; the other 5 are entity-bounded, not full-table scans, left as-is with guard comments; 24h D1-budget verify pending)*
 **Owner:** backend-engineer → qa-verifier. Swap the 9 page-load `GROUP BY`-over-threats
 aggregates to the matching cube / pre-computed column (`providers.ts` already does it
 right): `dashboard.ts:273/295`, `brands.ts:789/1125/1203`, `campaigns.ts:81/91`,
 `trends.ts:116/257/280`. **Verify** row counts match the old queries before/after.
 
-### S0.5 — Takedown status-flip integrity fix (TK1) ⬜
+### S0.5 — Takedown status-flip integrity fix (TK1) ✅ *(PR #1636, live 2026-07-18 — →submitted gated on owning-org + authorization, reusing Sparrow Phase G predicates)*
 **Owner:** backend-engineer → appsec-reviewer. `handleAdminUpdateTakedown`
 (`handlers/takedowns.ts:464-563`) can stamp *any* takedown — including orgless/unauthorized —
 as `submitted` with no standing check. Gate the `draft→submitted` transition on an owning
