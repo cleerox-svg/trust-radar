@@ -71,7 +71,7 @@ export function StatGrid() {
           onClick={() => navigate('/threats')}
         />
         <StatTile
-          label="Signals"
+          label="Alerts"
           value={alertPending ? null : (alertStats?.total ?? 0)}
           sub={alertPending ? '—' : `${criticalCount} critical · ${alertStats?.new_count ?? 0} new`}
           accent={M.RED}

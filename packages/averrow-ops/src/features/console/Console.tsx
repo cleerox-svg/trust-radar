@@ -8,7 +8,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import CountUp from 'react-countup';
-import { Radar, Crosshair, Siren, Gavel } from 'lucide-react';
+import { AlertTriangle, Crosshair, Siren, Gavel } from 'lucide-react';
 import { Button } from '@averrow/shared/ui';
 import { api } from '@/lib/api';
 import { useIncidents } from '@/features/admin-incidents/useIncidents';
@@ -17,9 +17,9 @@ import './console.css';
 
 type ConsoleTab = 'signals' | 'threats' | 'incidents' | 'takedowns';
 
-const TABS: { id: ConsoleTab; label: string; icon: typeof Radar; def: string }[] = [
+const TABS: { id: ConsoleTab; label: string; icon: typeof AlertTriangle; def: string }[] = [
   {
-    id: 'signals', label: 'Signals', icon: Radar,
+    id: 'signals', label: 'Alerts', icon: AlertTriangle,
     def: 'Auto-triaged alerts that need a human look — suspected impersonations (social & app-store), phishing domains, and brand lookalikes surfaced from detections.',
   },
   {
@@ -82,7 +82,7 @@ export function Console() {
 
       {/* KPI hero — glowing count-up numbers; each tile jumps to its queue. */}
       <div className="kpi-grid">
-        <KpiTile tone="amber" label="Open signals"       value={openSignals}       sub="awaiting triage" onClick={() => selectTab('signals')} />
+        <KpiTile tone="amber" label="Open alerts"        value={openSignals}       sub="awaiting triage" onClick={() => selectTab('signals')} />
         <KpiTile tone="red"   label="Critical incidents" value={criticalIncidents} sub="need eyes now"    onClick={() => selectTab('incidents')} />
         <KpiTile tone="blue"  label="Open incidents"     value={openIncidents}     sub="platform & ops"   onClick={() => selectTab('incidents')} />
       </div>

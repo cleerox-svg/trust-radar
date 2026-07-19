@@ -92,7 +92,7 @@ describe('StatGrid — loading vs settled value propagation', () => {
     renderWithProviders(<StatGrid />);
 
     expect(screen.getByText('120')).toBeInTheDocument(); // Mapped · 7d
-    expect(screen.getByText('17')).toBeInTheDocument();  // Signals (alerts total)
+    expect(screen.getByText('17')).toBeInTheDocument();  // Alerts (alerts total)
     expect(screen.getByText('8')).toBeInTheDocument();   // Campaigns
     expect(screen.getByText('250')).toBeInTheDocument(); // Brands
     // Agents online: 3 agents, 1 'error' -> 2 online (isAgentOnline excludes 'error' only).
@@ -101,7 +101,7 @@ describe('StatGrid — loading vs settled value propagation', () => {
     expect(screen.queryByText('—')).not.toBeInTheDocument();
   });
 
-  it('a genuine 0 (alerts total=0) renders "0" on the Signals tile, not the loading placeholder', () => {
+  it('a genuine 0 (alerts total=0) renders "0" on the Alerts tile, not the loading placeholder', () => {
     mockAllSettled({ alertTotal: 0 });
     renderWithProviders(<StatGrid />);
 

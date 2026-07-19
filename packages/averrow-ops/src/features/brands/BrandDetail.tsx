@@ -67,7 +67,7 @@ const V3_TABS = [
   // NX3: Signals tab gives SOC analysts a brand-scoped view of every
   // alert (impersonation, typosquat, BIMI/DMARC drift, dark-web, etc.)
   // for this brand — same data the tenant sees on /alerts, scoped here.
-  { id: 'signals',  label: 'Signals',  hint: "Every brand signal for this brand (what tenants see on /alerts)" },
+  { id: 'signals',  label: 'Alerts',   hint: "Every brand alert for this brand (what tenants see on /alerts)" },
   { id: 'workflow', label: 'Workflow', hint: 'What needs your action' },
 ] as const;
 
@@ -502,9 +502,9 @@ function SignalsTab({ signals, brandId }: { signals: any[]; brandId: string }) {
       <DeepCard padding="lg">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <div className="text-sm font-semibold text-[var(--text-primary)]">Signals</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">Alerts</div>
             <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-              {signals.length} total · brand signals (impersonation, typosquat, BIMI/DMARC drift, dark-web mentions)
+              {signals.length} total · brand alerts (impersonation, typosquat, BIMI/DMARC drift, dark-web mentions)
             </div>
           </div>
           <a

@@ -78,7 +78,7 @@ function V4Hero() {
         <span className="console-live"><span className="dot" />LIVE</span>
       </div>
       <div className="kpi-grid">
-        <KpiTile tone="amber" label="Open signals"       value={openSignals}       sub="awaiting triage" to="/alerts" />
+        <KpiTile tone="amber" label="Open alerts"         value={openSignals}       sub="awaiting triage" to="/alerts" />
         <KpiTile tone="red"   label="Critical incidents" value={criticalIncidents} sub="need eyes now"    to="/admin/incidents" />
         <KpiTile tone="blue"  label="Open incidents"     value={openIncidents}     sub="platform & ops"   to="/admin/incidents" />
       </div>

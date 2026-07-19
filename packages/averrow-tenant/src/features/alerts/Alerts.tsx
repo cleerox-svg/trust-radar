@@ -1,12 +1,11 @@
-// Tenant Signals inbox.
+// Tenant Alerts inbox.
 //
-// NX3: this page was previously labelled "Alerts". The underlying
-// table is still `alerts` (rename deferred to NXF1) and the API path
-// is still `/api/orgs/:orgId/alerts` — only the user-facing language
-// is "Signals" on the tenant side, reflecting the conceptual model
-// that these are brand-signals belonging to the tenant, not ops alerts.
+// Labelled "Alerts" platform-wide (owner decision, 2026-07). The
+// underlying table is still `alerts` and the API path is still
+// `/api/orgs/:orgId/alerts` — those are structural identifiers and
+// stay as-is; only the display label changed.
 //
-// Shows brand signals across the org's brands with severity + status
+// Shows brand alerts across the org's brands with severity + status
 // pills. Backed by GET /api/orgs/:orgId/alerts.
 //
 // Analysts (org role analyst+) can drive the status lifecycle inline —
@@ -78,9 +77,9 @@ export function Alerts() {
   return (
     <div className="max-w-6xl space-y-6">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Signals</h1>
+        <h1 className="text-[28px] font-bold text-white tracking-tight">Alerts</h1>
         <p className="mt-1 text-sm text-white/55">
-          Brand signals — impersonations, typosquats, email security drift, dark-web mentions. Sorted by severity, then recency.
+          Brand alerts — impersonations, typosquats, email security drift, dark-web mentions. Sorted by severity, then recency.
         </p>
       </header>
 
