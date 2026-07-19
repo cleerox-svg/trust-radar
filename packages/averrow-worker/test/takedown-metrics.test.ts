@@ -74,7 +74,7 @@ describe("computeResolutionTimeStats", () => {
 // ─── computeSuccessRate ──────────────────────────────────────────
 
 describe("computeSuccessRate", () => {
-  it("uses resolved-only denominator and computes taken_down %", () => {
+  it("true-removal rate = taken_down / (taken_down + refused + expired)", () => {
     const s = computeSuccessRate(
       new Map([
         ["taken_down", 7],
@@ -82,32 +82,50 @@ describe("computeSuccessRate", () => {
         ["expired", 1],
       ]),
     );
-    expect(s.denominator).toBe(10); // resolved-only, excludes in-flight by construction
+    expect(s.denominator).toBe(10); // all resolved (volume/floor)
+    expect(s.effective_denominator).toBe(10); // adjudicated set (no withdrawn/other here)
     expect(s.taken_down).toBe(7);
     expect(s.refused).toBe(2);
     expect(s.expired).toBe(1);
     expect(s.withdrawn).toBe(0);
     expect(s.other).toBe(0);
     expect(s.success_rate_pct).toBe(70);
-    expect(s.denominator_definition).toContain("resolved-only");
+    expect(s.denominator_definition).toContain("true-removal");
   });
 
-  it("returns null rate with a zero denominator", () => {
+  it("EXCLUDES withdrawn from the rate denominator (a withdrawal is not a removal failure)", () => {
+    const s = computeSuccessRate(
+      new Map([
+        ["taken_down", 7],
+        ["refused", 2],
+        ["expired", 1],
+        ["withdrawn", 10],
+      ]),
+    );
+    expect(s.denominator).toBe(20); // all resolved incl. withdrawn (volume)
+    expect(s.effective_denominator).toBe(10); // withdrawn excluded
+    expect(s.withdrawn).toBe(10);
+    expect(s.success_rate_pct).toBe(70); // NOT 35 (7/20)
+  });
+
+  it("returns null rate with a zero effective denominator", () => {
     const s = computeSuccessRate(new Map());
     expect(s.denominator).toBe(0);
+    expect(s.effective_denominator).toBe(0);
     expect(s.success_rate_pct).toBeNull();
   });
 
-  it("counts unknown resolution values under `other`", () => {
+  it("counts unknown resolution values under `other` but excludes them from the rate", () => {
     const s = computeSuccessRate(
       new Map([
         ["taken_down", 1],
         ["mystery", 3],
       ]),
     );
-    expect(s.denominator).toBe(4);
+    expect(s.denominator).toBe(4); // all resolved (volume)
     expect(s.other).toBe(3);
-    expect(s.success_rate_pct).toBe(25);
+    expect(s.effective_denominator).toBe(1); // only taken_down is adjudicated
+    expect(s.success_rate_pct).toBe(100); // 1/1 adjudicated, NOT 25 (1/4)
   });
 });
 
