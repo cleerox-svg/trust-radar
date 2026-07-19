@@ -461,6 +461,36 @@ export const handleAdminTakedownIntegrations = handler(async (request, env, ctx)
   return success(report, ctx.origin);
 });
 
+// ─── GET /api/admin/takedowns/metrics ────────────────────────
+// S2.1 — real takedown-effectiveness metrics (submission→resolution
+// time p50/p90/avg, monthly submitted-vs-resolved volume, and the
+// resolved-only success rate with auditable raw counts) for the Ops
+// takedown console. Route gate: requirePermission("manage_takedowns")
+// (analyst + admin/super_admin), matching the rest of the admin
+// takedown surface.
+//
+// OPS-ONLY: these figures are deliberately NOT wired to the public /
+// marketing site. Surfacing any of them as a customer-facing claim is
+// gated behind owner sign-off (improvement-plan S1.5).
+//
+// Reads via a read-replica session; the aggregate result is wrapped in
+// cachedValue (300s) to keep the ~6 GROUP-BY reads off D1 on repeat loads.
+
+export const handleAdminTakedownMetrics = handler(async (request, env, ctx) => {
+  const { getDbContext, getReadSession, attachBookmark } = await import("../lib/db");
+  const { cachedValue } = await import("../lib/cached-value");
+  const { getTakedownMetrics } = await import("../lib/takedown-metrics");
+
+  const dbCtx = getDbContext(request);
+  const session = getReadSession(env, dbCtx);
+
+  const metrics = await cachedValue(env, "takedowns.metrics.overall", 300, () =>
+    getTakedownMetrics(session),
+  );
+
+  return attachBookmark(success(metrics, ctx.origin), session);
+});
+
 // ─── PATCH /api/admin/takedowns/:id ──────────────────────────
 // Route gate: requirePermission("manage_takedowns") — held by
 // super_admin, admin, AND analyst (see lib/role-permissions.ts), so
