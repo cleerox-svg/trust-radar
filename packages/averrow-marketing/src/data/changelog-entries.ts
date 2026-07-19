@@ -72,7 +72,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
     kind: "Feature",
     title: "AI Threat Narratives",
     description:
-      "ASTRA agent now generates multi-signal threat narratives connecting email, domain, and social findings.",
+      "The scoring & triage engine now generates multi-signal threat narratives connecting email, domain, and social findings.",
   },
   {
     version: "v2.1.0",

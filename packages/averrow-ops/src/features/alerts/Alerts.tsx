@@ -893,11 +893,11 @@ export function Alerts() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Signals" subtitle="Brand signals across all monitored brands — SOC triage view" />
+      <PageHeader title="Alerts" subtitle="Brand alerts across all monitored brands — SOC triage view" />
 
       <StatGrid cols={4}>
         <StatCard
-          label="Total Signals"
+          label="Total Alerts"
           value={statsLoading ? '...' : (stats?.total ?? 0)}
           accentColor="var(--red)"
         />

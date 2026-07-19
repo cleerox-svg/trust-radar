@@ -12,40 +12,40 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const coreAgents = [
   {
-    name: "Sentinel",
+    name: "Threat Detection",
     color: "#C83C3C",
-    role: "Threat Detection",
+    role: "Feed & certificate monitoring",
     desc: "Watches the open feed network around the clock — phishing databases, malware URL lists, Certificate Transparency logs, DNS intelligence — and hands every new hit to the mesh for scoring the moment it appears.",
   },
   {
-    name: "ASTRA",
+    name: "Scoring & Triage",
     color: "#E5A832",
-    role: "Scoring & Triage",
-    desc: "Takes what Sentinel finds and everything else the mesh already knows about a brand, and decides how much it actually matters — folding email posture, social findings, and infrastructure signals into a single composite score.",
+    role: "Composite exposure scoring",
+    desc: "Takes every new detection and everything else the mesh already knows about a brand, and decides how much it actually matters — folding email posture, social findings, and infrastructure signals into a single composite score.",
   },
   {
-    name: "Observer",
+    name: "Strategic Intel",
     color: "#0A8AB5",
-    role: "Strategic Intel",
+    role: "Daily intelligence briefings",
     desc: "Steps back from individual threats to look at trend lines — grade changes, new campaign patterns, exposure moving up or down over time — and writes the daily intelligence briefing your team actually reads.",
   },
   {
-    name: "Navigator",
+    name: "DNS Resolution",
     color: "#065A78",
-    role: "Geo Mapping",
-    desc: "Resolves and plots the infrastructure behind every threat — where a domain is hosted, which provider, which region — so a pattern of attacks from the same infrastructure is visible, not just a list of isolated incidents.",
+    role: "Infrastructure resolution",
+    desc: "Resolves the domains and hostnames behind every threat down to live IP addresses in real time, keeping the platform's infrastructure data current as attackers rotate hosting — the foundation the geo and provider mapping layer builds on.",
   },
   {
-    name: "Blackbox",
-    color: "#8A8F9C",
-    role: "Timeline & Narrative",
-    desc: "Reconstructs how a threat unfolded — first seen, what changed, what else co-occurred — and writes it up in plain language a human can act on without reading raw log lines.",
-  },
-  {
-    name: "Pathfinder",
+    name: "Geo & Provider Mapping",
     color: "#3CB878",
-    role: "Prospect Intelligence",
-    desc: "Applies the same correlation the mesh runs for active protection to forward-looking signal — surfacing where exposure is rising before an incident forces the question.",
+    role: "Hosting & regional mapping",
+    desc: "Maps resolved infrastructure to where it's actually hosted — provider, region, network — so a pattern of attacks from the same infrastructure is visible as one picture, not a list of isolated incidents.",
+  },
+  {
+    name: "Timeline & Narrative",
+    color: "#8A8F9C",
+    role: "Plain-language incident writeups",
+    desc: "Reconstructs how a threat unfolded — first seen, what changed, what else co-occurred — and writes it up in plain language a human can act on without reading raw log lines.",
   },
 ];
 
@@ -53,7 +53,7 @@ const siblingLinks = [
   {
     href: "/platform/threat-detection",
     title: "Threat Detection",
-    desc: "How Sentinel and the feed network find phishing, lookalikes, and malicious infrastructure.",
+    desc: "How the detection engine and the feed network find phishing, lookalikes, and malicious infrastructure.",
   },
   {
     href: "/platform/email-security",
@@ -70,7 +70,7 @@ const siblingLinks = [
 
 <Layout
   title="The Agent Mesh — Averrow"
-  description="Inside Averrow's 42-agent AI mesh — Sentinel, ASTRA, Observer, Navigator, Blackbox, and Pathfinder — fusing threat, email, and social signal into one Brand Exposure Score."
+  description="Inside Averrow's 42-agent AI mesh — threat detection, scoring & triage, strategic intel, and infrastructure mapping — fusing threat, email, and social signal into one Brand Exposure Score."
 >
   <section class="dd-ai-hero">
     <div class="container">
@@ -269,11 +269,11 @@ const siblingLinks = [
       <h2>What a fused narrative looks like</h2>
       <p class="dd-ai-body">
         The example below is illustrative &mdash; a representative sample of
-        the kind of narrative Blackbox generates once ASTRA has scored a
-        situation as worth explaining, not a live customer report.
+        the kind of narrative the mesh generates once a situation has been
+        scored as worth explaining, not a live customer report.
       </p>
       <div class="narrative-block">
-        <div class="narrative-label"><span class="narrative-dot"></span> Blackbox &mdash; Timeline &amp; Narrative <span class="dd-ai-illustrative">Illustrative example</span></div>
+        <div class="narrative-label"><span class="narrative-dot"></span> Timeline &amp; Narrative <span class="dd-ai-illustrative">Illustrative example</span></div>
         &ldquo;A phishing domain matching your brand was registered 48 hours
         ago with active MX records, combined with your current DKIM gap on
         the proofpoint selector. This creates a HIGH-severity compound risk

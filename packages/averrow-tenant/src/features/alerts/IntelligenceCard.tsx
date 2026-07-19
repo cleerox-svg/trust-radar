@@ -316,7 +316,7 @@ function ReputationGrid({ threat: t }: { threat: ThreatRow }) {
 function BackLink() {
   return (
     <Link to="/alerts" className="inline-flex items-center gap-1.5 text-[12px] font-mono text-white/50 hover:text-white/85 transition-colors">
-      <ArrowLeft size={14} /> Signals
+      <ArrowLeft size={14} /> Alerts
     </Link>
   );
 }

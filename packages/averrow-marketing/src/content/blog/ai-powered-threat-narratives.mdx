@@ -23,13 +23,13 @@ Even enterprise organizations with dedicated identity and security teams struggl
 
 ### How Threat Narratives Change the Model
 
-Averrow's ASTRA agent doesn't work in the traditional alert pipeline. It receives signals from across the platform — email security posture analysis, threat feed matches, lookalike domain monitoring, social platform scanning, certificate transparency data — and synthesizes them into narratives.
+Averrow's scoring & triage agent doesn't work in the traditional alert pipeline. It receives signals from across the platform — email security posture analysis, threat feed matches, lookalike domain monitoring, social platform scanning, certificate transparency data — and synthesizes them into narratives.
 
 Here's a concrete example.
 
 On a Tuesday morning, three domains are registered: acme-login.net, acme-portal.com, and acmecorp-secure.net. In a traditional monitoring tool, each might generate a low or medium-severity alert — new domains containing a brand name aren't automatically malicious. Plenty of them are parked, abandoned, or legitimate.
 
-But ASTRA sees the broader picture. All three domains were registered within 48 hours. They share a hosting provider. That provider's IP range includes an address flagged in a phishing intelligence database for targeting the same brand. And two of the three domains have MX records configured — meaning they're set up to send and receive email, not just serve web pages.
+But the scoring & triage agent sees the broader picture. All three domains were registered within 48 hours. They share a hosting provider. That provider's IP range includes an address flagged in a phishing intelligence database for targeting the same brand. And two of the three domains have MX records configured — meaning they're set up to send and receive email, not just serve web pages.
 
 The agent then pulls the brand's email security posture into the analysis. It finds DKIM is only partially deployed — two of five enterprise selectors are active — which means spoofed emails from these new domains have a higher probability of passing recipient filters.
 
@@ -37,11 +37,11 @@ The resulting narrative connects everything: three coordinated domains, shared i
 
 No individual alert would have produced this picture. The intelligence comes from correlation — the same kind of cross-signal analysis that a senior security analyst would perform, but running continuously across every monitored brand.
 
-### Daily Briefings from the Observer
+### Daily Briefings from Strategic Intel
 
-ASTRA handles active threats. Averrow's Observer agent handles the rhythm of ongoing monitoring.
+Scoring & triage handles active threats. Averrow's strategic intel agent handles the rhythm of ongoing monitoring.
 
-Every day, the Observer generates an intelligence briefing summarizing the last 24 hours: new findings across all monitored brands, changes in email security grades, social monitoring updates, threat volume trends, and anything that warrants attention. Think of it as a morning brief from an analyst who processes every data point and never takes a day off.
+Every day, the strategic intel agent generates an intelligence briefing summarizing the last 24 hours: new findings across all monitored brands, changes in email security grades, social monitoring updates, threat volume trends, and anything that warrants attention. Think of it as a morning brief from an analyst who processes every data point and never takes a day off.
 
 For someone managing security alongside other responsibilities — which describes most people outside of large enterprise SOCs — this is the difference between logging into a dashboard hoping nothing bad happened and starting the day with a clear picture of where things stand.
 

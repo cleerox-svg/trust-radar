@@ -147,7 +147,7 @@ function buildPaletteCommands(
       ? [{ label: 'Platform Notifications', to: '/admin/notifications', group: 'PLATFORM', icon: Bell, keywords: 'mutes system alerts volume' } as PaletteCommand]
       : []),
     // Console tabs (deep-linked routes that don't have their own nav row)
-    { label: 'Signals',   to: '/alerts',           group: 'SOC CONSOLE', icon: ShieldAlert, keywords: 'alerts queue triage' },
+    { label: 'Alerts',    to: '/alerts',           group: 'SOC CONSOLE', icon: ShieldAlert, keywords: 'alerts queue triage signals' },
     { label: 'Threats',   to: '/threats',          group: 'SOC CONSOLE', icon: Bug, keywords: 'iocs indicators' },
     { label: 'Incidents', to: '/admin/incidents',  group: 'SOC CONSOLE', icon: ShieldAlert, keywords: 'cases' },
     { label: 'Takedowns', to: '/admin/takedowns',  group: 'SOC CONSOLE', icon: Target, keywords: 'sparrow disruption removal' },
