@@ -1,6 +1,7 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import type { Env } from "../types";
 import { logger } from "../lib/logger";
+import { deriveDomainAge } from "../lib/domain-age";
 
 /**
  * VirusTotal — Domain reputation enrichment for high-severity threats.
@@ -18,6 +19,10 @@ export interface VTResult {
   suspicious_count: number;
   reputation: number;
   categories: Record<string, string>;
+  /** WHOIS domain registration date (unix SECONDS), or null when VT has
+   *  none. Consumed by deriveDomainAge() for the NRD signal — see
+   *  lib/domain-age.ts. */
+  creation_date: number | null;
 }
 
 /**
@@ -37,7 +42,7 @@ export async function enrichWithVirusTotal(domain: string, env: Env): Promise<VT
   }
   if (res.status === 404) {
     // Domain not found in VT — return zeroed result
-    return { malicious_count: 0, suspicious_count: 0, reputation: 0, categories: {} };
+    return { malicious_count: 0, suspicious_count: 0, reputation: 0, categories: {}, creation_date: null };
   }
   if (!res.ok) {
     throw new Error(`VirusTotal HTTP ${res.status}`);
@@ -68,6 +73,7 @@ export async function enrichWithVirusTotal(domain: string, env: Env): Promise<VT
     suspicious_count: stats?.suspicious ?? 0,
     reputation: attrs.reputation ?? 0,
     categories: attrs.categories ?? {},
+    creation_date: attrs.creation_date ?? null,
   };
 }
 
@@ -159,6 +165,14 @@ export const virustotal: FeedModule = {
         const result = await enrichWithVirusTotal(row.malicious_domain, env);
         await incrementDailyCallCount(env);
 
+        // NRD signal (D4): capture the domain's registration date and
+        // its age-at-detection. `age` is null (→ NULL columns) when VT
+        // has no creation date or returned a garbage/sentinel value —
+        // never write a bogus age. See lib/domain-age.ts.
+        const age = deriveDomainAge(result.creation_date);
+        const domainCreatedAt = age?.domainCreatedAt ?? null;
+        const domainAgeDays = age?.domainAgeDays ?? null;
+
         if (result.malicious_count > 0) {
           // Determine severity escalation and confidence boost
           const shouldEscalate = result.malicious_count > 5;
@@ -169,6 +183,8 @@ export const virustotal: FeedModule = {
               vt_checked = 1,
               vt_malicious = ?,
               vt_reputation = ?,
+              domain_created_at = ?,
+              domain_age_days = ?,
               confidence_score = MIN(100, COALESCE(confidence_score, 60) + ?),
               severity = CASE
                 WHEN ? = 1 AND severity != 'critical' THEN 'critical'
@@ -178,6 +194,8 @@ export const virustotal: FeedModule = {
           `).bind(
             result.malicious_count,
             result.reputation,
+            domainCreatedAt,
+            domainAgeDays,
             confidenceBoost,
             shouldEscalate ? 1 : 0,
             row.malicious_domain,
@@ -201,9 +219,11 @@ export const virustotal: FeedModule = {
             UPDATE threats SET
               vt_checked = 1,
               vt_malicious = 0,
-              vt_reputation = ?
+              vt_reputation = ?,
+              domain_created_at = ?,
+              domain_age_days = ?
             WHERE malicious_domain = ?
-          `).bind(result.reputation, row.malicious_domain).run();
+          `).bind(result.reputation, domainCreatedAt, domainAgeDays, row.malicious_domain).run();
 
           itemsDuplicate++;
         }

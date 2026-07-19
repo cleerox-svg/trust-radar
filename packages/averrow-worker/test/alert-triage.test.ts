@@ -20,6 +20,7 @@ const cleanIpSnapshot: ThreatTriageSnapshot = {
   greynoise_classification: 'benign',
   seclookup_risk_score: 5,
   ip_address: '1.2.3.4',
+  domain_age_days: null, // unknown age (VT had no creation date) — not an NRD
 };
 
 const cleanDomainSnapshot: ThreatTriageSnapshot = {
@@ -30,6 +31,7 @@ const cleanDomainSnapshot: ThreatTriageSnapshot = {
   greynoise_classification: null, // can't check GN without IP
   seclookup_risk_score: null,
   ip_address: null,
+  domain_age_days: null,
 };
 
 describe("decideAutoTriage — clean cases dismiss", () => {
@@ -107,6 +109,56 @@ describe("decideAutoTriage — any single signal keeps open", () => {
   it("keeps when seclookup risk score is well above the cutoff", () => {
     const d = decideAutoTriage({ ...cleanIpSnapshot, seclookup_risk_score: 85 });
     expect(d.action).toBe('keep');
+  });
+});
+
+describe("decideAutoTriage — NRD guard (D4) withholds dismissal", () => {
+  // The whole point of D4: a domain that every reputation feed cleared
+  // but is only days old must NOT be auto-dismissed — brand-new phishing
+  // infra has no reputation yet, so a "clean" reading is expected, not
+  // reassuring.
+  it("keeps an otherwise-clean IP alert when the domain is a fresh NRD (5d)", () => {
+    const d = decideAutoTriage({ ...cleanIpSnapshot, domain_age_days: 5 });
+    expect(d.action).toBe('keep');
+    expect(d.reason).toContain('newly_registered_domain');
+    expect(d.reason).toContain('5d');
+  });
+
+  it("keeps an otherwise-clean domain-only alert when the domain is a fresh NRD", () => {
+    const d = decideAutoTriage({ ...cleanDomainSnapshot, domain_age_days: 0 });
+    expect(d.action).toBe('keep');
+    expect(d.reason).toContain('newly_registered_domain');
+  });
+
+  it("keeps at the NRD boundary (exactly 30d)", () => {
+    const d = decideAutoTriage({ ...cleanIpSnapshot, domain_age_days: 30 });
+    expect(d.action).toBe('keep');
+    expect(d.reason).toContain('newly_registered_domain');
+  });
+
+  it("still dismisses a clean, well-aged domain (31d — just past the window)", () => {
+    const d = decideAutoTriage({ ...cleanIpSnapshot, domain_age_days: 31 });
+    expect(d.action).toBe('dismiss');
+    expect(d.reason).toContain('clean enrichment');
+  });
+
+  it("still dismisses when age is unknown (NULL — absence of evidence, not youth)", () => {
+    const d = decideAutoTriage({ ...cleanIpSnapshot, domain_age_days: null });
+    expect(d.action).toBe('dismiss');
+  });
+
+  it("dismisses a long-established clean domain (365d)", () => {
+    const d = decideAutoTriage({ ...cleanIpSnapshot, domain_age_days: 365 });
+    expect(d.action).toBe('dismiss');
+  });
+
+  it("prioritizes a hard reputation signal over the NRD note (VT-flagged NRD keeps as vt_flagged)", () => {
+    // A flagged domain should keep for the strongest/earliest reason;
+    // the NRD gate is the last resort before dismissal, so it never
+    // masks a real reputation hit.
+    const d = decideAutoTriage({ ...cleanIpSnapshot, vt_malicious: 4, domain_age_days: 3 });
+    expect(d.action).toBe('keep');
+    expect(d.reason).toBe('vt_flagged');
   });
 });
 
