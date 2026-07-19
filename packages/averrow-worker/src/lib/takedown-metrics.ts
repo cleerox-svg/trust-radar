@@ -50,7 +50,7 @@ export interface D1Like {
 export interface ResolutionTimeStats {
   /** Requests counted (submitted_at & resolved_at both present, non-negative elapsed). */
   count: number;
-  /** Rows excluded because resolved_at < submitted_at (data/clock anomaly). */
+  /** Rows excluded: negative elapsed (resolved before submitted) or an unparseable/null timestamp. */
   anomalies_excluded: number;
   p50_hours: number | null;
   p90_hours: number | null;
@@ -139,10 +139,14 @@ export function percentile(values: number[], p: number): number | null {
  * Negative samples (resolved before submitted) are treated as anomalies:
  * excluded from percentiles/avg and counted.
  */
-export function computeResolutionTimeStats(hours: number[]): ResolutionTimeStats {
-  const anomalies = hours.filter(h => h < 0).length;
-  const clean = hours.filter(h => h >= 0);
+export function computeResolutionTimeStats(hours: Array<number | null>): ResolutionTimeStats {
+  // Keep only finite, non-negative elapsed hours. Everything else — negative
+  // (resolved before submitted) or null/NaN (a non-datetime timestamp that
+  // julianday() couldn't parse) — is excluded and surfaced in anomalies_excluded
+  // rather than silently coerced to a 0-hour resolution (null >= 0 is true in JS).
+  const clean = hours.filter((h): h is number => h !== null && Number.isFinite(h) && h >= 0);
   const count = clean.length;
+  const anomalies = hours.length - count;
   const avg = count === 0 ? null : round2(clean.reduce((s, h) => s + h, 0) / count);
   const p50 = percentile(clean, 0.5);
   const p90 = percentile(clean, 0.9);
@@ -180,7 +184,14 @@ export function computeSuccessRate(counts: Map<string, number>): SuccessRateStat
   };
 }
 
-/** Build the secondary dispatch-success stats from outcome→count. */
+/**
+ * Build the secondary dispatch-success stats from outcome→count. Unlike
+ * computeSuccessRate (which folds any unexpected value into `other` + the
+ * denominator), the denominator here counts only the four schema-constrained
+ * outcomes (takedown_submissions.outcome CHECK). An unexpected value would be
+ * dropped rather than counted — acceptable because the column is constrained;
+ * kept explicit so the asymmetry reads as intentional, not a bug.
+ */
 export function computeDispatchStats(counts: Map<string, number>): DispatchStats {
   const submitted = counts.get("submitted") ?? 0;
   const queued = counts.get("queued") ?? 0;
@@ -242,7 +253,7 @@ export async function getTakedownMetrics(db: D1Like): Promise<TakedownMetrics> {
       (julianday(resolved_at) - julianday(submitted_at)) * 24.0 AS hours
     FROM takedown_requests
     WHERE resolved_at IS NOT NULL AND submitted_at IS NOT NULL
-  `).all<{ provider_name: string; hours: number }>();
+  `).all<{ provider_name: string; hours: number | null }>();
 
   const durations = durationRows.results ?? [];
   const overallHours = durations.map(r => r.hours);
@@ -296,7 +307,7 @@ export async function getTakedownMetrics(db: D1Like): Promise<TakedownMetrics> {
 
   // Assemble per-provider segments (duration + success rate), keeping only
   // providers with a meaningful number of resolved rows.
-  const providerHours = new Map<string, number[]>();
+  const providerHours = new Map<string, Array<number | null>>();
   for (const r of durations) {
     const arr = providerHours.get(r.provider_name) ?? [];
     arr.push(r.hours);

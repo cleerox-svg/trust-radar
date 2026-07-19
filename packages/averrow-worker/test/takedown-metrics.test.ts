@@ -58,6 +58,17 @@ describe("computeResolutionTimeStats", () => {
     expect(s.anomalies_excluded).toBe(1);
     expect(s.avg_hours).toBe(36);
   });
+
+  it("excludes null/NaN durations (unparseable timestamp) instead of counting them as 0h", () => {
+    // A non-datetime timestamp makes julianday() return NULL -> hours null.
+    // null >= 0 is true in JS, so without the finite guard this would sneak in
+    // as a 0-hour resolution, deflating avg/p50 and inflating count.
+    const s = computeResolutionTimeStats([24, null, 48, NaN, -3]);
+    expect(s.count).toBe(2); // only 24 and 48 are usable
+    expect(s.anomalies_excluded).toBe(3); // null, NaN, and -3
+    expect(s.avg_hours).toBe(36); // NOT 24 (which is what (24+0+48+0)/? would give)
+    expect(s.p50_hours).toBe(36);
+  });
 });
 
 // ─── computeSuccessRate ──────────────────────────────────────────
