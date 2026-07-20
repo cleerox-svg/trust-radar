@@ -32,7 +32,7 @@ const RUN_BUDGET_MS = 120_000;
 
 const LEVEL_ORDER: Record<PageThreatLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
 
-interface PageAnalysisRow {
+export interface PageAnalysisRow {
   id: string;
   brand_id: string;
   domain: string;
@@ -78,22 +78,38 @@ export async function runPageAnalysisForDomain(
     });
   }
 
-  await env.DB.prepare(
-    `UPDATE lookalike_domains
-     SET page_fetched_at = datetime('now'),
-         page_http_status = ?,
-         page_phishing_score = ?,
-         page_signals = ?,
-         page_content_hash = ?,
-         updated_at = datetime('now')
-     WHERE id = ?`,
-  ).bind(
-    result.httpStatus ?? null,
-    phishing ? phishing.score : null,
-    phishing ? JSON.stringify(phishing.signals) : null,
-    result.contentHash ?? null,
-    row.id,
-  ).run();
+  if (phishing) {
+    // Successful analysis — overwrite the full verdict + change-detection
+    // hash.
+    await env.DB.prepare(
+      `UPDATE lookalike_domains
+       SET page_fetched_at = datetime('now'),
+           page_http_status = ?,
+           page_phishing_score = ?,
+           page_signals = ?,
+           page_content_hash = ?,
+           updated_at = datetime('now')
+       WHERE id = ?`,
+    ).bind(
+      result.httpStatus ?? null,
+      phishing.score,
+      JSON.stringify(phishing.signals),
+      result.contentHash ?? null,
+      row.id,
+    ).run();
+  } else {
+    // Failed / blocked / non-HTML / oversize fetch. Advance the 24h
+    // cooldown (page_fetched_at) and record any status, but do NOT wipe a
+    // prior successful verdict or its content-hash baseline — leave
+    // page_phishing_score / page_signals / page_content_hash intact.
+    await env.DB.prepare(
+      `UPDATE lookalike_domains
+       SET page_fetched_at = datetime('now'),
+           page_http_status = ?,
+           updated_at = datetime('now')
+       WHERE id = ?`,
+    ).bind(result.httpStatus ?? null, row.id).run();
+  }
 
   return { result, phishing };
 }
@@ -103,7 +119,7 @@ export async function runPageAnalysisForDomain(
  * and, when the level rises and a live alert is linked, bump the alert's
  * severity. Never downgrades. Returns true if anything escalated.
  */
-async function applyEscalation(
+export async function applyEscalation(
   env: Env,
   row: PageAnalysisRow,
   phishing: PagePhishingResult,
@@ -119,15 +135,25 @@ async function applyEscalation(
   ).bind(next, row.id).run();
 
   if (row.alert_id) {
-    // Raise the operator-facing alert severity too, but only for still-
-    // open alerts (never resurrect a resolved/dismissed one). Severity
-    // is stored lowercase (migration 0121 CHECK).
+    // Raise the operator-facing alert severity too, but MONOTONICALLY —
+    // only ever up, never down. The CASE ranks the alert's CURRENT
+    // (lowercase, migration 0121 CHECK) severity and the WHERE only
+    // fires when it sits below the new level, so an analyst's manual
+    // escalation (e.g. critical) is never silently downgraded by a lower
+    // page verdict. Scoped to still-open alerts (never resurrect a
+    // resolved/dismissed one).
     await env.DB.prepare(
       `UPDATE alerts
        SET severity = ?, updated_at = datetime('now')
        WHERE id = ?
-         AND status IN ('new','acknowledged','investigating')`,
-    ).bind(next.toLowerCase(), row.alert_id).run();
+         AND status IN ('new','acknowledged','investigating')
+         AND (CASE severity
+                WHEN 'critical' THEN 3
+                WHEN 'high' THEN 2
+                WHEN 'medium' THEN 1
+                ELSE 0
+              END) < ?`,
+    ).bind(next.toLowerCase(), row.alert_id, LEVEL_ORDER[next]).run();
   }
   return true;
 }

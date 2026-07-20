@@ -90,6 +90,18 @@ describe("scorePagePhishing — individual signals", () => {
     expect(r.signals).toContain("favicon_clone");
   });
 
+  it("a lone brand favicon scores favicon_clone ONLY, not also brand_asset_hotlink (no double-count)", () => {
+    // The fixed extractor routes icon hrefs to iconHrefs only, never
+    // resourceUrls — so one favicon <link> must not fire both signals.
+    const r = scorePagePhishing(
+      { ...emptySignals, iconHrefs: ["https://acme.com/favicon.ico"], resourceUrls: [] },
+      ctx,
+    );
+    expect(r.signals).toEqual(["favicon_clone"]);
+    expect(r.signals).not.toContain("brand_asset_hotlink");
+    expect(r.score).toBe(SIGNAL_WEIGHTS.favicon_clone);
+  });
+
   it("title_keyword_density fires when the brand name is in the title on a non-brand host", () => {
     const r = scorePagePhishing(
       { ...emptySignals, title: "Acme Account Login" },

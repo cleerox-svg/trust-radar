@@ -38,6 +38,11 @@ export function ipv4BlockReason(host: string): string | null {
   if (o[0] === 192 && o[1] === 168) return "Private address range (192.168.0.0/16) is not allowed";
   if (o[0] === 169 && o[1] === 254) return "Link-local address range (169.254.0.0/16) is not allowed";
   if (o[0] === 100 && o[1]! >= 64 && o[1]! <= 127) return "Carrier-grade NAT range (100.64.0.0/10) is not allowed";
+  // Additive non-routable blocks (never valid public destinations).
+  if (o[0] === 192 && o[1] === 0 && o[2] === 0) return "IETF protocol assignments (192.0.0.0/24) is not allowed";
+  if (o[0] === 198 && (o[1] === 18 || o[1] === 19)) return "Benchmarking range (198.18.0.0/15) is not allowed";
+  if (o[0]! >= 224 && o[0]! <= 239) return "Multicast address range (224.0.0.0/4) is not allowed";
+  if (o[0]! >= 240) return "Reserved/broadcast address range (240.0.0.0/4) is not allowed";
   return null;
 }
 
@@ -52,6 +57,26 @@ export function ipv6BlockReason(host: string): string | null {
   if (mapped) {
     const reason = ipv4BlockReason(mapped[1]!);
     return reason ?? "IPv4-mapped IPv6 addresses are not allowed";
+  }
+
+  // NAT64 well-known prefix 64:ff9b::/96 — the low 32 bits embed an
+  // IPv4 address; validate that tail through the IPv4 rules. Anything
+  // we can't cleanly decode is blocked conservatively (a NAT64 address
+  // is never a legitimate public destination).
+  if (addr.startsWith("64:ff9b:")) {
+    const nat64Msg = "NAT64 prefix (64:ff9b::/96) is not allowed";
+    const dotted = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(addr);
+    if (dotted) return ipv4BlockReason(dotted[1]!) ?? nat64Msg;
+    const groups = addr.split(":").filter((g) => g.length > 0);
+    if (groups.length >= 4) {
+      const hi = parseInt(groups[groups.length - 2]!, 16);
+      const lo = parseInt(groups[groups.length - 1]!, 16);
+      if (!Number.isNaN(hi) && !Number.isNaN(lo)) {
+        const ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+        return ipv4BlockReason(ipv4) ?? nat64Msg;
+      }
+    }
+    return nat64Msg;
   }
 
   // First hextet checks (fc00::/7 ULA, fe80::/10 link-local).

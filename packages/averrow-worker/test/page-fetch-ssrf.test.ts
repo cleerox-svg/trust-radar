@@ -53,8 +53,26 @@ describe("url-guard page-fetch block helpers", () => {
     expect(resolvedIpBlockReason("fd00::1")).not.toBeNull();
     expect(resolvedIpBlockReason("::ffff:10.0.0.1")).not.toBeNull();
   });
-  it("resolvedIpBlockReason allows a public IP", () => {
+  it("resolvedIpBlockReason blocks the additive non-routable IPv4 ranges", () => {
+    expect(resolvedIpBlockReason("192.0.0.1")).not.toBeNull();     // 192.0.0.0/24 IETF
+    expect(resolvedIpBlockReason("198.18.0.1")).not.toBeNull();    // 198.18.0.0/15 benchmarking
+    expect(resolvedIpBlockReason("198.19.255.1")).not.toBeNull();  // 198.18.0.0/15 upper half
+    expect(resolvedIpBlockReason("224.0.0.1")).not.toBeNull();     // 224.0.0.0/4 multicast
+    expect(resolvedIpBlockReason("239.255.255.250")).not.toBeNull(); // multicast (SSDP)
+    expect(resolvedIpBlockReason("240.0.0.1")).not.toBeNull();     // 240.0.0.0/4 reserved
+    expect(resolvedIpBlockReason("255.255.255.255")).not.toBeNull(); // broadcast
+  });
+  it("resolvedIpBlockReason blocks the NAT64 well-known prefix (dotted + hex tail)", () => {
+    expect(resolvedIpBlockReason("64:ff9b::10.0.0.1")).not.toBeNull();     // embedded private, dotted
+    expect(resolvedIpBlockReason("64:ff9b::c0a8:1")).not.toBeNull();       // embedded 192.168.0.1, hex
+    expect(resolvedIpBlockReason("64:ff9b::169.254.169.254")).not.toBeNull(); // embedded metadata
+    expect(resolvedIpBlockReason("64:ff9b::")).not.toBeNull();             // undecodable → blocked
+  });
+  it("resolvedIpBlockReason still allows normal public IPv4 (no over-block)", () => {
     expect(resolvedIpBlockReason("93.184.216.34")).toBeNull();
+    expect(resolvedIpBlockReason("198.20.0.1")).toBeNull();  // just outside 198.18/15
+    expect(resolvedIpBlockReason("223.255.255.255")).toBeNull(); // just below 224/4
+    expect(resolvedIpBlockReason("192.0.1.1")).toBeNull();   // just outside 192.0.0/24
   });
   it("pageFetchHostStaticBlockReason rejects IP-literal + localhost + internal suffixes", () => {
     expect(pageFetchHostStaticBlockReason("127.0.0.1")).not.toBeNull();

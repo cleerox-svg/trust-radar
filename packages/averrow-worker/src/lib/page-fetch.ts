@@ -381,9 +381,15 @@ export async function parseSuspectHtml(bytes: Uint8Array): Promise<ParsedPageSig
     .on('link', {
       element(el) {
         const href = el.getAttribute('href');
-        pushBounded(resourceUrls, href, MAX_RESOURCE_URLS);
         const rel = (el.getAttribute('rel') ?? '').toLowerCase();
-        if (href && rel.includes('icon')) pushBounded(iconHrefs, href, MAX_ICON_HREFS);
+        // An icon link belongs ONLY to the favicon-clone signal — do NOT
+        // also count it as a hotlinked resource, or a single brand favicon
+        // would double-fire brand_asset_hotlink + favicon_clone.
+        if (href && rel.includes('icon')) {
+          pushBounded(iconHrefs, href, MAX_ICON_HREFS);
+        } else {
+          pushBounded(resourceUrls, href, MAX_RESOURCE_URLS);
+        }
       },
     })
     .on('meta', {
