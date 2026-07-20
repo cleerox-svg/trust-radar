@@ -225,6 +225,17 @@ After restructure: everything imports from `@/design-system/components`.
 --sev-low:             #60a5fa
 --sev-low-bg:          rgba(59,130,246,0.07)
 
+/* Severity badge TEXT — theme-aware. Dark values below; the
+   [data-theme="light"] block overrides each to an AA-contrast
+   darker variant. Badge/GradeBadge/SeverityPill/PlatformAlertBanner
+   read these, NOT the raw hexes — see AVERROW_UI_STANDARD.md. */
+--sev-critical-text:   #fca5a5
+--sev-high-text:       #fdba74
+--sev-medium-text:     #fcd34d
+--sev-low-text:        #93c5fd
+--sev-info-text:       #86efac
+--cyan-text:           #7aeaff   /* NEXUS/STABLE tags — decoupled from reserved --thrust */
+
 /* RESERVED — Observatory WebGL only */
 --orbital-teal: #00d4ff
 ```

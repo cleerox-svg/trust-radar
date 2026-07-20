@@ -54,32 +54,36 @@ interface PaletteEntry {
   glow: string;
 }
 
+// Text values are var(--sev-*-text) tokens (dark-mode value identical
+// to the hexes this table hardcoded before — S2.3 follow-up), so light
+// mode gets AA contrast instead of pale-on-white on the loudest
+// in-app channel.
 const PALETTE: Record<Notification['severity'], PaletteEntry> = {
   critical: {
     bg: 'rgba(239,68,68,0.10)',
     border: 'rgba(239,68,68,0.35)',
-    text: '#fca5a5',
+    text: 'var(--sev-critical-text)',
     dot: '#f87171',
     glow: 'rgba(248,113,113,0.9)',
   },
   high: {
     bg: 'rgba(249,115,22,0.10)',
     border: 'rgba(249,115,22,0.30)',
-    text: '#fdba74',
+    text: 'var(--sev-high-text)',
     dot: '#fb923c',
     glow: 'rgba(251,146,60,0.9)',
   },
   medium: {
     bg: 'rgba(229,168,50,0.10)',
     border: 'rgba(229,168,50,0.30)',
-    text: '#fcd34d',
+    text: 'var(--sev-medium-text)',
     dot: '#fbbf24',
     glow: 'rgba(251,191,36,0.9)',
   },
   low: {
     bg: 'rgba(59,130,246,0.10)',
     border: 'rgba(59,130,246,0.30)',
-    text: '#93c5fd',
+    text: 'var(--sev-low-text)',
     dot: '#60a5fa',
     glow: 'rgba(96,165,250,0.9)',
   },

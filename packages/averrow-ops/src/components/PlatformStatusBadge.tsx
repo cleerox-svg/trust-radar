@@ -41,13 +41,18 @@ const PALETTE: Record<CategoryStatus | 'loading', PaletteEntry> = {
     label: 'DEGRADED',
     dot: '#fbbf24',
     glow: 'rgba(251,191,36,0.9)',
-    text: '#fcd34d',
+    // var(--sev-medium-text) — dark-mode value identical to the old
+    // hardcoded hex; light mode now gets AA contrast (S2.3 follow-up).
+    text: 'var(--sev-medium-text)',
   },
   outage: {
     label: 'OUTAGE',
     dot: '#f87171',
     glow: 'rgba(248,113,113,0.9)',
-    text: '#fca5a5',
+    // var(--sev-critical-text) — same rationale as `degraded` above.
+    // `operational` (#4ade80) and `loading` (#9ca3af) are left as-is:
+    // neither is byte-identical to any --sev-*-text token.
+    text: 'var(--sev-critical-text)',
   },
   loading: {
     label: 'CHECKING…',

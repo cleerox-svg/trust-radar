@@ -74,35 +74,35 @@ const SEV: Record<Severity, {
     dot:    'var(--sev-critical)',
     bg:     'var(--sev-critical-bg)',
     border: 'var(--sev-critical-border)',
-    text:   '#fca5a5',
+    text:   'var(--sev-critical-text)',
     label:  'Critical',
   },
   high: {
     dot:    'var(--sev-high)',
     bg:     'var(--sev-high-bg)',
     border: 'var(--sev-high-border)',
-    text:   '#fdba74',
+    text:   'var(--sev-high-text)',
     label:  'High',
   },
   medium: {
     dot:    'var(--sev-medium)',
     bg:     'var(--sev-medium-bg)',
     border: 'var(--sev-medium-border)',
-    text:   '#fcd34d',
+    text:   'var(--sev-medium-text)',
     label:  'Medium',
   },
   low: {
     dot:    'var(--sev-low)',
     bg:     'var(--sev-low-bg)',
     border: 'var(--sev-low-border)',
-    text:   '#93c5fd',
+    text:   'var(--sev-low-text)',
     label:  'Low',
   },
   info: {
     dot:    'var(--sev-info)',
     bg:     'var(--sev-info-bg)',
     border: 'var(--sev-info-border)',
-    text:   '#86efac',
+    text:   'var(--sev-info-text)',
     label:  'Info',
   },
 };
@@ -114,7 +114,7 @@ const CTX: Record<ContextTag, {
     // Cyan — correlated with NEXUS infrastructure cluster.
     bg:     'rgba(0,212,255,0.10)',
     border: 'rgba(0,212,255,0.30)',
-    text:   '#7aeaff',
+    text:   'var(--cyan-text)',
     dot:    '#00d4ff',
     label:  'NEXUS',
   },
@@ -123,7 +123,7 @@ const CTX: Record<ContextTag, {
     // claiming severity.
     bg:     'var(--sev-critical-bg)',
     border: 'var(--sev-critical-border)',
-    text:   '#fca5a5',
+    text:   'var(--sev-critical-text)',
     dot:    'var(--sev-critical)',
     label:  'PIVOT',
   },
@@ -131,7 +131,7 @@ const CTX: Record<ContextTag, {
     // Amber — high activity vs. baseline.
     bg:     'var(--sev-medium-bg)',
     border: 'var(--sev-medium-border)',
-    text:   '#fcd34d',
+    text:   'var(--sev-medium-text)',
     dot:    'var(--sev-medium)',
     label:  'ACCEL',
   },
@@ -145,14 +145,14 @@ const CTX: Record<ContextTag, {
   worsening: {
     bg:     'var(--sev-critical-bg)',
     border: 'var(--sev-critical-border)',
-    text:   '#fca5a5',
+    text:   'var(--sev-critical-text)',
     dot:    'var(--sev-critical)',
     label:  'WORSENING',
   },
   improving: {
     bg:     'var(--sev-info-bg)',
     border: 'var(--sev-info-border)',
-    text:   '#86efac',
+    text:   'var(--sev-info-text)',
     dot:    'var(--sev-info)',
     label:  'IMPROVING',
   },
@@ -164,40 +164,42 @@ const VERDICT: Record<VerdictTag, {
   clear: {
     bg:     'var(--sev-info-bg)',
     border: 'var(--sev-info-border)',
-    text:   '#86efac',
+    text:   'var(--sev-info-text)',
     label:  'CLEAR',
   },
   draining: {
     bg:     'var(--sev-info-bg)',
     border: 'var(--sev-info-border)',
-    text:   '#86efac',
+    text:   'var(--sev-info-text)',
     dot:    'var(--sev-info)',
     label:  'DRAINING',
   },
   steady: {
     bg:     'var(--sev-medium-bg)',
     border: 'var(--sev-medium-border)',
-    text:   '#fcd34d',
+    text:   'var(--sev-medium-text)',
     label:  'STEADY',
   },
   growing: {
     bg:     'var(--sev-critical-bg)',
     border: 'var(--sev-critical-border)',
-    text:   '#fca5a5',
+    text:   'var(--sev-critical-text)',
     dot:    'var(--sev-critical)',
     label:  'GROWING',
   },
   stale: {
     bg:     'var(--sev-medium-bg)',
     border: 'var(--sev-medium-border)',
-    text:   '#fcd34d',
+    text:   'var(--sev-medium-text)',
     label:  'STALE',
   },
   updated: {
     // Blue — reference data refreshed (informational, not severity).
+    // Reuses --sev-low-text: the same blue hue Badge already used here
+    // (#93c5fd in dark mode) before this token existed.
     bg:     'var(--blue-glow)',
     border: 'var(--blue-border)',
-    text:   '#93c5fd',
+    text:   'var(--sev-low-text)',
     dot:    'var(--blue)',
     label:  'UPDATED',
   },
@@ -205,7 +207,7 @@ const VERDICT: Record<VerdictTag, {
     // Cyan — loaded and unchanged. Calmer than blue/updated.
     bg:     'rgba(0,212,255,0.07)',
     border: 'rgba(0,212,255,0.20)',
-    text:   '#7aeaff',
+    text:   'var(--cyan-text)',
     label:  'STABLE',
   },
 };
@@ -213,16 +215,16 @@ const VERDICT: Record<VerdictTag, {
 const STATUS: Record<BadgeStatus, {
   bg: string; border: string; text: string; dot?: string;
 }> = {
-  active:   { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: '#86efac', dot: 'var(--sev-info)' },
-  healthy:  { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: '#86efac', dot: 'var(--sev-info)' },
-  running:  { bg: 'var(--blue-glow)',        border: 'var(--blue-border)',         text: '#93c5fd', dot: 'var(--blue)' },
-  pending:  { bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.25)',      text: '#fcd34d' },
+  active:   { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: 'var(--sev-info-text)',     dot: 'var(--sev-info)' },
+  healthy:  { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: 'var(--sev-info-text)',     dot: 'var(--sev-info)' },
+  running:  { bg: 'var(--blue-glow)',        border: 'var(--blue-border)',         text: 'var(--sev-low-text)',      dot: 'var(--blue)' },
+  pending:  { bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.25)',      text: 'var(--sev-medium-text)' },
   draft:    { bg: 'var(--border-base)',  border: 'var(--border-base)',         text: 'var(--text-tertiary)' },
   inactive: { bg: 'var(--border-base)',  border: 'var(--border-base)',         text: 'var(--text-muted)' },
-  degraded: { bg: 'var(--sev-high-bg)',      border: 'var(--sev-high-border)',     text: '#fdba74', dot: 'var(--sev-high)' },
-  failed:   { bg: 'var(--sev-critical-bg)',  border: 'var(--sev-critical-border)', text: '#fca5a5', dot: 'var(--sev-critical)' },
-  success:  { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: '#86efac' },
-  warning:  { bg: 'var(--sev-medium-bg)',    border: 'var(--sev-medium-border)',   text: '#fcd34d' },
+  degraded: { bg: 'var(--sev-high-bg)',      border: 'var(--sev-high-border)',     text: 'var(--sev-high-text)',     dot: 'var(--sev-high)' },
+  failed:   { bg: 'var(--sev-critical-bg)',  border: 'var(--sev-critical-border)', text: 'var(--sev-critical-text)', dot: 'var(--sev-critical)' },
+  success:  { bg: 'var(--sev-info-bg)',      border: 'var(--sev-info-border)',     text: 'var(--sev-info-text)' },
+  warning:  { bg: 'var(--sev-medium-bg)',    border: 'var(--sev-medium-border)',   text: 'var(--sev-medium-text)' },
 };
 
 const LEGACY_MAP: Record<LegacyVariant, Severity | 'default'> = {
@@ -313,8 +315,14 @@ export function Badge({
         border:        `1px solid ${cfg.border}`,
         color:         cfg.text,
         whiteSpace:    'nowrap',
+        // cfg.dot is a color token (var(--sev-*)) for most configs, but a
+        // raw hex for a few (e.g. CTX.nexus.dot = '#00d4ff') — either way,
+        // the old `${cfg.dot}30` concat produced invalid CSS for the
+        // var() case (e.g. `var(--sev-critical)30`), so the glow never
+        // rendered for those. color-mix() handles both forms correctly;
+        // don't "simplify" this back to plain string concatenation.
         boxShadow:     cfg.dot
-          ? `inset 0 1px 0 ${cfg.dot}30, 0 2px 8px ${cfg.dot}20`
+          ? `inset 0 1px 0 color-mix(in srgb, ${cfg.dot} 19%, transparent), 0 2px 8px color-mix(in srgb, ${cfg.dot} 12%, transparent)`
           : 'none',
       }}
     >
