@@ -26,7 +26,7 @@ const PLATFORM_HOSTS = ["averrow.com", "averrow.ca"];
 const BLOCKED_SUFFIXES = [".local", ".internal", ".workers.dev"];
 
 /** Returns a rejection reason if the IPv4 address is non-public, else null. */
-function ipv4BlockReason(host: string): string | null {
+export function ipv4BlockReason(host: string): string | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!m) return null; // not an IPv4 literal
   const o = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
@@ -38,11 +38,16 @@ function ipv4BlockReason(host: string): string | null {
   if (o[0] === 192 && o[1] === 168) return "Private address range (192.168.0.0/16) is not allowed";
   if (o[0] === 169 && o[1] === 254) return "Link-local address range (169.254.0.0/16) is not allowed";
   if (o[0] === 100 && o[1]! >= 64 && o[1]! <= 127) return "Carrier-grade NAT range (100.64.0.0/10) is not allowed";
+  // Additive non-routable blocks (never valid public destinations).
+  if (o[0] === 192 && o[1] === 0 && o[2] === 0) return "IETF protocol assignments (192.0.0.0/24) is not allowed";
+  if (o[0] === 198 && (o[1] === 18 || o[1] === 19)) return "Benchmarking range (198.18.0.0/15) is not allowed";
+  if (o[0]! >= 224 && o[0]! <= 239) return "Multicast address range (224.0.0.0/4) is not allowed";
+  if (o[0]! >= 240) return "Reserved/broadcast address range (240.0.0.0/4) is not allowed";
   return null;
 }
 
 /** Returns a rejection reason if the IPv6 address is non-public, else null. */
-function ipv6BlockReason(host: string): string | null {
+export function ipv6BlockReason(host: string): string | null {
   const addr = host.toLowerCase();
   if (addr === "::" || addr === "0:0:0:0:0:0:0:0") return "Unspecified IPv6 address is not allowed";
   if (addr === "::1" || addr === "0:0:0:0:0:0:0:1") return "Loopback IPv6 address is not allowed";
@@ -52,6 +57,26 @@ function ipv6BlockReason(host: string): string | null {
   if (mapped) {
     const reason = ipv4BlockReason(mapped[1]!);
     return reason ?? "IPv4-mapped IPv6 addresses are not allowed";
+  }
+
+  // NAT64 well-known prefix 64:ff9b::/96 — the low 32 bits embed an
+  // IPv4 address; validate that tail through the IPv4 rules. Anything
+  // we can't cleanly decode is blocked conservatively (a NAT64 address
+  // is never a legitimate public destination).
+  if (addr.startsWith("64:ff9b:")) {
+    const nat64Msg = "NAT64 prefix (64:ff9b::/96) is not allowed";
+    const dotted = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(addr);
+    if (dotted) return ipv4BlockReason(dotted[1]!) ?? nat64Msg;
+    const groups = addr.split(":").filter((g) => g.length > 0);
+    if (groups.length >= 4) {
+      const hi = parseInt(groups[groups.length - 2]!, 16);
+      const lo = parseInt(groups[groups.length - 1]!, 16);
+      if (!Number.isNaN(hi) && !Number.isNaN(lo)) {
+        const ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+        return ipv4BlockReason(ipv4) ?? nat64Msg;
+      }
+    }
+    return nat64Msg;
   }
 
   // First hextet checks (fc00::/7 ULA, fe80::/10 link-local).
@@ -115,4 +140,70 @@ export function validateOutboundWebhookUrl(url: string): UrlGuardResult {
   }
 
   return { ok: true };
+}
+
+/**
+ * Return a rejection reason if a resolved IP literal (v4 or v6) falls
+ * in any private / loopback / link-local / CGNAT / metadata range,
+ * else null. Thin dispatcher over the shared block helpers so the
+ * SSRF page-fetcher (lib/page-fetch.ts) validates *resolved* IPs with
+ * exactly the same range logic used for static webhook-URL checks —
+ * no re-implementation of IP-range math. `169.254.169.254` (the cloud
+ * metadata endpoint) is covered by the 169.254.0.0/16 link-local rule.
+ */
+export function resolvedIpBlockReason(ip: string): string | null {
+  const trimmed = ip.trim().toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
+  if (!trimmed) return 'Empty IP address';
+  if (trimmed.includes(':')) {
+    return ipv6BlockReason(trimmed) ?? null;
+  }
+  return ipv4BlockReason(trimmed);
+}
+
+/**
+ * Static (pre-resolution) host block check for the SSRF page-fetcher.
+ *
+ * Unlike `validateOutboundWebhookUrl` this operates on a *bare
+ * hostname* (not a full URL) and does NOT enforce a scheme — the
+ * page-fetcher allows both http and https (phishing pages are
+ * frequently plain http). Everything else is identical: reject IP
+ * literals in non-public ranges (so a hostname that IS an IP literal
+ * can't slip past), localhost, *.local / *.internal / *.workers.dev,
+ * and the platform's own hosts.
+ *
+ * This is only the FIRST gate. The fetcher MUST still resolve the host
+ * via DoH and run every resolved IP through `resolvedIpBlockReason`
+ * before connecting (DNS-rebinding defense) — a public hostname can
+ * still resolve to a private IP, which this static check cannot see.
+ */
+export function pageFetchHostStaticBlockReason(rawHost: string): string | null {
+  const host = rawHost.trim().toLowerCase().replace(/\.$/, '');
+  if (!host) return 'Empty host';
+  if (host.includes(' ') || host.includes('/')) return 'Malformed host';
+
+  // Bracketed IPv6 literal.
+  if (host.startsWith('[') && host.endsWith(']')) {
+    return ipv6BlockReason(host.slice(1, -1)) ?? null;
+  }
+  // Bare IPv6 literal (contains a colon and isn't host:port — page
+  // hosts here never carry a port).
+  if (host.includes(':')) {
+    return ipv6BlockReason(host) ?? 'IPv6 host not allowed';
+  }
+
+  const v4Reason = ipv4BlockReason(host);
+  if (v4Reason) return v4Reason;
+
+  if (host === 'localhost' || host.endsWith('.localhost')) {
+    return 'localhost is not allowed';
+  }
+  for (const suffix of BLOCKED_SUFFIXES) {
+    if (host.endsWith(suffix)) return `Hostnames ending in ${suffix} are not allowed`;
+  }
+  for (const platformHost of PLATFORM_HOSTS) {
+    if (host === platformHost || host.endsWith(`.${platformHost}`)) {
+      return "Cannot fetch the platform's own hosts";
+    }
+  }
+  return null;
 }
