@@ -39,9 +39,9 @@ export interface SocialMonitorResult {
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
-const SUPPORTED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'github', 'youtube'] as const;
+export const SUPPORTED_PLATFORMS = ['twitter', 'linkedin', 'instagram', 'tiktok', 'github', 'youtube'] as const;
 
-const PLATFORM_URL_TEMPLATES: Record<string, (handle: string) => string> = {
+export const PLATFORM_URL_TEMPLATES: Record<string, (handle: string) => string> = {
   twitter: (h) => `https://x.com/${h}`,
   instagram: (h) => `https://www.instagram.com/${h}/`,
   linkedin: (h) => `https://www.linkedin.com/company/${h}`,

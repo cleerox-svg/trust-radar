@@ -65,7 +65,16 @@ const PLATFORMS: PlatformConfig[] = [
 
 // ─── Normalize brand name to a likely social handle ─────────────
 
-function toHandle(brandName: string): string {
+/**
+ * Normalize an arbitrary input into the exact handle string this checker
+ * actually queries. Strips everything except [a-z0-9_-] — notably DROPS
+ * dots — lowercases, and caps at 30 chars. Exported so callers that build
+ * candidate handles (e.g. the executive-impersonation scanner) can apply
+ * the SAME transform BEFORE they dedup / key / compare, so what they think
+ * they probed matches what this function really requests. See the FIX 1
+ * consistency note in scanners/executive-monitor.ts.
+ */
+export function toHandle(brandName: string): string {
   return brandName
     .toLowerCase()
     .replace(/[^a-z0-9_-]/g, '')
