@@ -38,9 +38,9 @@ export async function generateAndStoreLookalikes(
     const stmts = batch.map((perm) => {
       const id = crypto.randomUUID();
       return env.DB.prepare(
-        `INSERT OR IGNORE INTO lookalike_domains (id, brand_id, domain, permutation_type)
-         VALUES (?, ?, ?, ?)`,
-      ).bind(id, brandId, perm.domain, perm.type);
+        `INSERT OR IGNORE INTO lookalike_domains (id, brand_id, domain, permutation_type, unicode_domain)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).bind(id, brandId, perm.domain, perm.type, perm.display ?? null);
     });
 
     const results = await env.DB.batch(stmts);
@@ -109,7 +109,7 @@ export async function seedLookalikesForOrgBrands(
  */
 export async function checkLookalikeBatch(env: Env): Promise<void> {
   const rows = await env.DB.prepare(
-    `SELECT ld.id, ld.brand_id, ld.domain, ld.permutation_type, ld.registered
+    `SELECT ld.id, ld.brand_id, ld.domain, ld.permutation_type, ld.registered, ld.unicode_domain
      FROM lookalike_domains ld
      WHERE ld.last_checked IS NULL
         OR ld.last_checked < datetime('now', '-24 hours')
@@ -121,6 +121,7 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
     domain: string;
     permutation_type: string;
     registered: number;
+    unicode_domain: string | null;
   }>();
 
   if (rows.results.length === 0) {
@@ -251,17 +252,21 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
            WHERE id = ?`,
         ).bind(threatLevel, aiAssessment, row.id).run();
 
-        // Create alert via alerts pipeline
+        // Create alert via alerts pipeline. For IDN homoglyph variants the
+        // stored `domain` is punycode (xn--…); surface the human-readable
+        // unicode form (`аpple.com`) in the title so alerts aren't hostile.
+        const displayDomain = row.unicode_domain ?? row.domain;
         const severity = threatLevel as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
         const alertId = await createAlert(env.DB, {
           brandId: row.brand_id,
           userId: brand.user_id,
           alertType: 'lookalike_domain_active',
           severity,
-          title: `Lookalike domain registered: ${row.domain}`,
+          title: `Lookalike domain registered: ${displayDomain}`,
           summary: `A domain similar to ${brand.domain} (${row.permutation_type} variant) has been registered and is now active. ${result.hasWeb ? 'It has a web server.' : ''} ${result.hasMx ? 'It has MX records configured for email.' : ''}`.trim(),
           details: {
             lookalike_domain: row.domain,
+            unicode_domain: row.unicode_domain ?? undefined,
             original_domain: brand.domain,
             permutation_type: row.permutation_type,
             resolves_to: result.ip,
@@ -296,8 +301,8 @@ export async function checkLookalikeBatch(env: Env): Promise<void> {
             userId: brand.user_id,
             alertType: 'typosquat_bimi',
             severity: 'HIGH',
-            title: `Lookalike domain has BIMI record: ${row.domain}`,
-            summary: `The lookalike domain ${row.domain} has published a BIMI ` +
+            title: `Lookalike domain has BIMI record: ${displayDomain}`,
+            summary: `The lookalike domain ${displayDomain} has published a BIMI ` +
               `record, suggesting it is attempting to display a trusted logo in email clients. ` +
               `This indicates a sophisticated phishing operation.`,
             details: {

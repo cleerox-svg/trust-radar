@@ -174,7 +174,7 @@ this one needs a human" case. Ships dark behind the existing `TAKEDOWN_SEND_MODE
    (`takedowns.ts:419-429`), BrandDetail's Risk tab, and the exposure-scan/qualified-report
    engines. Mostly composition — no new detection. This is the sales-demonstration artifact.
 
-### S2.4 — Detection depth, ROI order (D4 → D2/D3/D5 → D6 → C5/D7) ⬜ *(D4 + D5a + D5b shipped; D2/D3 deferred, D6 + C5/D7 remaining — see below)*
+### S2.4 — Detection depth, ROI order (D4 → D2/D3/D5 → D6 → C5/D7) ⬜ *(D4 + D5a + D5b + C5/D7-IDN shipped; D2/D3 deferred, D6 held for AI-cost decision, rest of C5/D7 remaining — see below)*
 **Owner:** threat-intel-analyst + backend-engineer. Sequenced:
 1. **D4 — "newly registered domain" signal** from the VirusTotal `creation_date` already
    on the wire (`feeds/virustotal.ts:58`). Cheapest, highest-ROI. ✅
@@ -203,6 +203,16 @@ this one needs a human" case. Ships dark behind the existing `TAKEDOWN_SEND_MODE
 3. **D6** — page-content/visual phishing analysis.
 4. **C5/D7** — breadth: Google Play parity, IDN/punycode homoglyphs, WHOIS registrant/NS,
    forum/Telegram dark-web.
+   - ✅ **IDN/punycode homoglyph generation** shipped: `dnstwist.ts` now emits
+     single-substitution Cyrillic/Greek confusable variants (curated `CONFUSABLES`
+     map, punycode via the runtime `URL` API, bounded to ≤8/domain with reserved
+     `typeOrder` slots), stored as `idn_homoglyph` with a readable `unicode_domain`
+     (migration 0242) that drives alert titles. Deterministic, no AI, no new dep.
+   - ⬜ Deferred (each its own increment, with a dependency): **WHOIS registrant/NS**
+     (needs a per-domain RDAP enrichment + schema; registrant usually GDPR-redacted
+     so NS/registrar is the key), **Google Play parity** (no free apps-by-developer
+     API — needs a scraping/data-source decision), **forum/Telegram dark-web**
+     (needs bot/API credentials + access infra).
 
 ---
 
