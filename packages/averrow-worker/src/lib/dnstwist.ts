@@ -7,8 +7,13 @@
  */
 
 export interface DomainPermutation {
+  // For 'idn_homoglyph' this is the punycode (xn--…) ToASCII form, so
+  // DoH / checkDomain can resolve it. `display` carries the human-readable
+  // unicode form for that case.
   domain: string;
-  type: 'typosquat' | 'homoglyph' | 'tld_swap' | 'hyphenation' | 'keyword';
+  type: 'typosquat' | 'homoglyph' | 'idn_homoglyph' | 'tld_swap' | 'hyphenation' | 'keyword';
+  /** Human-readable unicode label.tld for idn_homoglyph variants (e.g. `аpple.com`). */
+  display?: string;
 }
 
 // ─── Homoglyph map ──────────────────────────────────────────────
@@ -42,6 +47,70 @@ const HOMOGLYPHS: Record<string, string[]> = {
   z: ['s', '2'],
 };
 
+// ─── IDN / punycode homoglyph confusables (S2.4 / C5-D7) ────────
+//
+// Latin base char → high-confidence, near-identical Unicode visual
+// confusables, used to proactively hunt IDN homoglyph lookalikes
+// (e.g. `аpple.com` with a Cyrillic а). This is a NEW, additive map,
+// deliberately kept SEPARATE from the ASCII `HOMOGLYPHS` block above
+// (which stays ASCII-gated and byte-for-byte unchanged). A future PR
+// (`lib/homoglyphs.ts`) may consolidate the two — accept the small
+// duplication for now.
+//
+// Curated for PRECISION, not recall. Only whole-script confusables that
+// are visually near-indistinguishable from the Latin base in a common
+// sans-serif font are included — predominantly Cyrillic (which shares a
+// large identical-glyph set with Latin), plus the two strongest Greek
+// lookalikes. The broad accented-Latin set (à/ä/ç…) is intentionally
+// EXCLUDED: the diacritic is visible, so it is a weaker impersonation
+// signal and a higher false-positive risk. Each entry is a genuine
+// UTS-39 confusable:
+//
+//   a → а U+0430 CYRILLIC SMALL A   (identical)
+//       α U+03B1 GREEK SMALL ALPHA  (strong; slightly softer tail — the
+//                                    one lower-precision entry, see report)
+//   c → с U+0441 CYRILLIC SMALL ES   (identical)
+//   e → е U+0435 CYRILLIC SMALL IE   (identical)
+//   i → і U+0456 CYRILLIC SMALL BYELORUSSIAN-UKRAINIAN I (identical, dotted)
+//   j → ј U+0458 CYRILLIC SMALL JE   (identical)
+//   o → о U+043E CYRILLIC SMALL O    (identical)
+//       ο U+03BF GREEK SMALL OMICRON (identical)
+//   p → р U+0440 CYRILLIC SMALL ER   (identical)
+//   s → ѕ U+0455 CYRILLIC SMALL DZE  (identical; a truer homoglyph than
+//                                     sentinel's ś/ş/ș comma-below set)
+//   x → х U+0445 CYRILLIC SMALL HA   (identical)
+//   y → у U+0443 CYRILLIC SMALL U    (identical lowercase form)
+export const CONFUSABLES: Record<string, string[]> = {
+  a: ['а', 'α'],
+  c: ['с'],
+  e: ['е'],
+  i: ['і'],
+  j: ['ј'],
+  o: ['о', 'ο'],
+  p: ['р'],
+  s: ['ѕ'],
+  x: ['х'],
+  y: ['у'],
+};
+
+// Bounding — prevents IDN candidate blow-up (detection-quality core).
+export const IDN_PER_CHAR_CAP = 2; // max confusables tried per base char
+export const IDN_GLOBAL_QUOTA = 8; // max idn variants generated per domain
+
+/**
+ * ToASCII (IDNA/UTS-46) via the V8 `URL` API — no npm dependency. Returns
+ * the punycode `xn--…` hostname, or null if the runtime rejects the label
+ * (IDNA-disallowed codepoints throw or yield an empty hostname).
+ */
+export function encodeIdnHost(unicodeName: string, tld: string): string | null {
+  try {
+    const host = new URL(`http://${unicodeName}.${tld}`).hostname;
+    return host ? host : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── TLD alternatives ───────────────────────────────────────────
 
 const ALT_TLDS = ['com', 'net', 'org', 'co', 'io', 'app', 'xyz', 'info', 'biz', 'site', 'online', 'us', 'ca'];
@@ -62,15 +131,16 @@ export function generatePermutations(domain: string): DomainPermutation[] {
   const seen = new Set<string>();
   const results: DomainPermutation[] = [];
 
-  function add(d: string, type: DomainPermutation['type']): void {
+  function add(d: string, type: DomainPermutation['type'], display?: string): boolean {
     const lower = d.toLowerCase();
     // Skip the original domain and duplicates
-    if (lower === domain || seen.has(lower)) return;
+    if (lower === domain || seen.has(lower)) return false;
     // Basic validity: must have at least 2 chars in name, only ascii-safe for DNS
     const namePart = lower.split('.')[0] ?? '';
-    if (namePart.length < 2) return;
+    if (namePart.length < 2) return false;
     seen.add(lower);
-    results.push({ domain: lower, type });
+    results.push(display ? { domain: lower, type, display } : { domain: lower, type });
+    return true;
   }
 
   // 1. Character omission: remove each character
@@ -127,6 +197,37 @@ export function generatePermutations(domain: string): DomainPermutation[] {
     }
   }
 
+  // 5b. IDN / punycode homoglyph substitution (S2.4 / C5-D7).
+  //     Single substitution only, first occurrence per base char (mirrors
+  //     the ASCII homoglyph discipline above), per-char + global caps.
+  //     The `domain` we store is the xn-- ToASCII form (so DoH resolves
+  //     it); `display` carries the unicode form for human-readable alerts.
+  let idnCount = 0;
+  idn: for (const [base, confs] of Object.entries(CONFUSABLES)) {
+    const idx = name.indexOf(base);
+    if (idx < 0) continue;
+    let perChar = 0;
+    for (const conf of confs) {
+      if (perChar >= IDN_PER_CHAR_CAP) break;
+      if (idnCount >= IDN_GLOBAL_QUOTA) break idn;
+      const unicodeName = name.slice(0, idx) + conf + name.slice(idx + 1);
+      const asciiHost = encodeIdnHost(unicodeName, tld);
+      // IDNA-disallowed codepoint → skip without throwing.
+      if (!asciiHost) continue;
+      // No-op guards: a substitution that ToASCII-collapses back to the
+      // original, or NFC-folds to the ASCII label, is not a real variant.
+      if (asciiHost === domain.toLowerCase()) continue;
+      if (unicodeName.normalize('NFC') === name.toLowerCase()) continue;
+      // add() lowercases + dedups against the seen set, so an xn-- host
+      // can never collide with an existing ASCII variant.
+      const display = `${unicodeName}.${tld}`.toLowerCase();
+      if (add(asciiHost, 'idn_homoglyph', display)) {
+        perChar++;
+        idnCount++;
+      }
+    }
+  }
+
   // 6. TLD swap
   for (const alt of ALT_TLDS) {
     if (alt !== tld) {
@@ -149,16 +250,36 @@ export function generatePermutations(domain: string): DomainPermutation[] {
     add(`${name}${s}.${tld}`, 'keyword');
   }
 
-  // Return top 30 most likely permutations (prioritize by type relevance)
+  // Return top 30 most likely permutations (prioritize by type relevance).
+  // idn_homoglyph slots between homoglyph and tld_swap; the ASCII types keep
+  // their existing relative order (typosquat < homoglyph < tld_swap <
+  // keyword < hyphenation), so ASCII ordering is unchanged.
   const typeOrder: Record<string, number> = {
     typosquat: 0,
     homoglyph: 1,
-    tld_swap: 2,
-    keyword: 3,
-    hyphenation: 4,
+    idn_homoglyph: 2,
+    tld_swap: 3,
+    keyword: 4,
+    hyphenation: 5,
   };
-  results.sort((a, b) => (typeOrder[a.type] ?? 9) - (typeOrder[b.type] ?? 9));
-  return results.slice(0, 30);
+  const byType = (a: DomainPermutation, b: DomainPermutation): number =>
+    (typeOrder[a.type] ?? 9) - (typeOrder[b.type] ?? 9);
+
+  // Reserved quota: the 30-cap is dominated by typosquat, so a pure
+  // sort+slice would starve IDN variants. Reserve the generated idn set
+  // (already bounded to IDN_GLOBAL_QUOTA) inside the cap; ASCII fills the
+  // remainder by type priority. Note: for confusable-dense names whose ASCII
+  // permutations already exceed CAP-idnCount, the reserved idn slots displace
+  // the lowest-priority ASCII *survivors* (down to the homoglyph tier for very
+  // dense names) — the intended anti-starvation tradeoff, since idn_homoglyph
+  // is ~equivalent in value to homoglyph. Short names see no displacement.
+  const CAP = 30;
+  const idnPicks = results.filter((r) => r.type === 'idn_homoglyph');
+  const asciiPicks = results
+    .filter((r) => r.type !== 'idn_homoglyph')
+    .sort(byType)
+    .slice(0, CAP - idnPicks.length);
+  return [...asciiPicks, ...idnPicks].sort(byType);
 }
 
 // ─── DNS resolution check via Cloudflare DoH ────────────────────
