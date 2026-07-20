@@ -68,6 +68,7 @@ export function Tabs({
               aria-selected={active}
               aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
               onClick={() => onChange(tab.id)}
+              className={cn('ds-focusable', active && 'ds-focusable-on-amber')}
               style={{
                 flex:          1,
                 padding:       '7px 0',
@@ -77,7 +78,6 @@ export function Tabs({
                 fontFamily:    'var(--font-mono)',
                 letterSpacing: '0.08em',
                 cursor:        'pointer',
-                outline:       'none',
                 border:        `1px solid ${active ? 'var(--amber-border)' : 'transparent'}`,
                 background:    active
                   ? 'linear-gradient(135deg, var(--amber-glow), rgba(229,168,50,0.08))'
@@ -111,6 +111,7 @@ export function Tabs({
             aria-selected={active}
             aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
             onClick={() => onChange(tab.id)}
+            className={cn('ds-focusable', active && 'ds-focusable-on-amber')}
             style={{
               fontSize:      10,
               fontWeight:    700,
@@ -120,7 +121,6 @@ export function Tabs({
               padding:       '5px 14px',
               borderRadius:  99,
               cursor:        'pointer',
-              outline:       'none',
               border:        `1px solid ${active ? 'var(--amber-border)' : 'var(--border-base)'}`,
               background:    active
                 ? 'linear-gradient(135deg, rgba(229,168,50,0.15), rgba(229,168,50,0.06))'
@@ -233,6 +233,7 @@ function UnderlineTabs({
               aria-selected={active}
               aria-controls={linkedPanels ? `tabpanel-${tab.id}` : undefined}
               onClick={() => onChange(tab.id)}
+              className="ds-focusable"
               style={{
                 flexShrink:    0,
                 padding:       '12px 16px',
@@ -244,7 +245,6 @@ function UnderlineTabs({
                 borderBottom:  `2px solid ${active ? 'var(--amber)' : 'transparent'}`,
                 color:         active ? 'var(--amber)' : 'var(--text-tertiary)',
                 cursor:        'pointer',
-                outline:       'none',
                 transition:    'var(--transition-fast)',
                 textShadow:    active ? '0 0 10px var(--amber-glow)' : 'none',
                 whiteSpace:    'nowrap',

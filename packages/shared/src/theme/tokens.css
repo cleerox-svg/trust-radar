@@ -65,6 +65,21 @@
   --sev-info-border: rgba(74, 222, 128, 0.15);
   --sev-info-glow:   rgba(74, 222, 128, 0.40);
 
+  /* ── Severity text (S2.3 design review — Badge.tsx text color)
+     These match the hexes Badge.tsx used to hardcode inline, so dark
+     mode is pixel-identical. The [data-theme="light"] block below
+     overrides them with darker, AA-passing variants — the pale
+     dark-mode hexes fail contrast on a white card. `--cyan-text`
+     covers the cyan tone used by the NEXUS context tag and the
+     "stable" verdict tag (distinct hue from the blue "updated"/
+     "running" tag, which reuses --sev-low-text). ── */
+  --sev-critical-text: #fca5a5;
+  --sev-high-text:     #fdba74;
+  --sev-medium-text:   #fcd34d;
+  --sev-low-text:      #93c5fd;
+  --sev-info-text:     #86efac;
+  --cyan-text:         #7aeaff;
+
   /* ── Text ── */
   --text-primary:   rgba(255, 255, 255, 0.92);
   --text-secondary: rgba(255, 255, 255, 0.60);
@@ -82,6 +97,18 @@
   --card-rim:    inset 0 1px 0 var(--border-strong), inset 0 -1px 0 rgba(0, 0, 0, 0.40);
   --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.60);
   --card-radius: 16px;
+
+  /* ── Card active-variant accent mix (S2.3 follow-up, MED) ──
+     Card.tsx mixes the caller's `accent` into these three surfaces via
+     color-mix(). Dark-mode percentages (unchanged from the original
+     fix). The [data-theme="light"] block below boosts them ~1.55x —
+     matching the boost --border-base/--border-strong already get in
+     light mode (0.09->0.14 / 0.14->0.22, ~1.56-1.57x) — so an accent
+     border reads with the same relative weight on a white card as it
+     does on the dark page. */
+  --card-accent-border-pct: 19%;
+  --card-accent-rim-pct:    25%;
+  --card-accent-glow-pct:   9%;
 
   /* ── Typography ── */
   --font-sans: system-ui, -apple-system, sans-serif;
@@ -132,6 +159,77 @@
   --card-bg:     linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-deep) 100%);
   --card-rim:    inset 0 1px 0 rgba(255, 255, 255, 0.90), inset 0 -1px 0 rgba(15, 20, 35, 0.08);
   --card-shadow: 0 6px 24px rgba(15, 20, 35, 0.10);
+
+  /* ~1.56x boost, matching --border-base/--border-strong's light-mode
+     ratio (see :root comment above). Dark-mode output stays 19/25/9. */
+  --card-accent-border-pct: 30%;
+  --card-accent-rim-pct:    39%;
+  --card-accent-glow-pct:   14%;
+
+  /* ── Severity text — AA contrast on the COMPOSITED badge fill, not
+     raw #FFFFFF. Badge.tsx never paints text on a bare white card —
+     it paints on `cfg.bg`, a low-alpha sev color over the card
+     (e.g. --sev-high-bg: rgba(249,115,22,0.08)). Composited over
+     #FFFFFF and checked against these exact text values:
+       critical (bg rgba(239,68,68,.10))  -> 5.68:1
+       high     (bg rgba(249,115,22,.08)) -> 6.74:1  (was #c2410c at
+                 4.78:1 — thin margin over AA's 4.5:1 — darkened to
+                 #9a3412 for headroom)
+       medium   (bg rgba(229,168,50,.08)) -> 6.70:1
+       low      (bg rgba(59,130,246,.07)) -> 6.19:1
+       info     (bg rgba(74,222,128,.07)) -> 6.84:1
+       cyan     (bg rgba(0,212,255,.07-.10), nexus/stable) -> 6.77-6.91:1
+     All ≥4.5:1 with comfortable margin; recompute against the actual
+     `cfg.bg`/PALETTE.bg alpha in use if a new severity-tinted
+     background is ever introduced at a different alpha. */
+  --sev-critical-text: #b91c1c;
+  --sev-high-text:     #9a3412;
+  --sev-medium-text:   #92400e;
+  --sev-low-text:      #1d4ed8;
+  --sev-info-text:     #166534;
+  --cyan-text:         #155e75;
+}
+
+/* ============================================================
+   Shared keyboard focus ring (S2.3 design review).
+   Button/Tabs previously set inline `outline: 'none'` with no
+   `:focus-visible` replacement, so keyboard users got no focus
+   indicator at all — and an inline outline beats any stylesheet
+   rule on specificity, so the inline declaration must be removed
+   at the call site, not just overridden here. Any interactive
+   element that removes its native outline should carry the
+   `ds-focusable` class instead.
+   `:focus:not(:focus-visible)` intentionally has no ring so mouse
+   clicks stay ring-free; only keyboard focus shows it.
+   ============================================================ */
+.ds-focusable:focus {
+  outline: none;
+}
+.ds-focusable:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+/* Amber ring is invisible against an amber-filled surface (e.g. the
+   active pill/bar Tab, which has an amber gradient background) — swap
+   to a high-contrast text-primary ring there instead. */
+.ds-focusable-on-amber:focus-visible {
+  outline-color: var(--text-primary);
+}
+/* S2.3 follow-up (design review, HIGH): amber #E5A832 on the light
+   page/card (#FFFFFF/#EFF2F7) is only ~2.10:1 — under the WCAG 1.4.11
+   3:1 non-text-contrast minimum. --amber-dim only reaches ~3.36:1,
+   still too close to the line. var(--text-primary) resolves to
+   rgba(15,20,35,0.96) in light mode, ~16.7:1 against white — a wide
+   margin. This selector is `[data-theme="light"] .ds-focusable`, one
+   level more specific than both `.ds-focusable:focus-visible` and
+   `.ds-focusable-on-amber:focus-visible` (2 vs 3 class-level
+   selectors), so it wins for every focusable element in light mode —
+   including the active-amber-tab case, where it agrees with
+   `.ds-focusable-on-amber` (both resolve to var(--text-primary)), so
+   there's no light-mode regression on that path either. */
+[data-theme="light"] .ds-focusable:focus-visible {
+  outline-color: var(--text-primary);
 }
 
 /* ── DetailStatCard layout (used by Brand Detail hero) ───────────────

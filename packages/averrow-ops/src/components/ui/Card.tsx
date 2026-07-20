@@ -78,10 +78,29 @@ export function Card({
 }: CardProps) {
   const v = VARIANT_STYLES[variant];
 
-  const border = accent && variant === 'active' ? `${accent}30` : v.border;
-  const rim    = accent && variant === 'active' ? `${accent}40` : v.rim;
+  // Accent tints previously used raw hex-alpha concatenation
+  // (`${accent}30`), which only produces valid CSS when `accent` is a
+  // 6-digit hex string. The design system's own guidance is to pass CSS
+  // custom properties (`accent="var(--blue)"`), and `var(--blue)30` is
+  // invalid CSS — the accent silently no-ops. color-mix() works for both
+  // raw hex and var() tokens.
+  //
+  // The mix percentages are theme-aware CSS vars (tokens.css
+  // --card-accent-*-pct), not hardcoded numbers: dark mode stays at the
+  // original 19%/25%/9% (matching the visual weight of the old
+  // hex-alpha suffixes — 0x30/255≈18.8%, 0x40/255≈25.1%, 0x18/255≈9.4%),
+  // but light mode boosts them ~1.56x so an accent border doesn't read
+  // weaker on a white card than it does on the dark page — the same
+  // boost --border-base/--border-strong already get in light mode
+  // (S2.3 follow-up, design review MED).
+  const border = accent && variant === 'active'
+    ? `color-mix(in srgb, ${accent} var(--card-accent-border-pct), transparent)`
+    : v.border;
+  const rim    = accent && variant === 'active'
+    ? `color-mix(in srgb, ${accent} var(--card-accent-rim-pct), transparent)`
+    : v.rim;
   const shadow = accent && variant === 'active'
-    ? `var(--card-shadow), 0 0 20px ${accent}18`
+    ? `var(--card-shadow), 0 0 20px color-mix(in srgb, ${accent} var(--card-accent-glow-pct), transparent)`
     : v.shadow;
 
   return (

@@ -92,7 +92,7 @@ export function Button({
   return (
     <button
       disabled={disabled || loading}
-      className={cn(className)}
+      className={cn('ds-focusable', className)}
       style={{
         display:        'inline-flex',
         alignItems:     'center',
@@ -105,7 +105,6 @@ export function Button({
         textTransform:  'uppercase',
         cursor:         disabled || loading ? 'not-allowed' : 'pointer',
         opacity:        disabled ? 0.4 : 1,
-        outline:        'none',
         transition:     'var(--transition-fast)',
         userSelect:     'none',
         ...v,

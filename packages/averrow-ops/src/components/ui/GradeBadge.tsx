@@ -16,15 +16,20 @@ export interface GradeBadgeProps {
   grade?: string | null;
 }
 
+// B/C/D/F `text` values are var(--sev-*-text) tokens — dark-mode value
+// identical to the hexes previously hardcoded here, so light mode gets
+// AA contrast instead of pale-on-white (S2.3 follow-up). A+/A keep
+// their literal #6ee7b7: it doesn't byte-match any --sev-*-text token
+// (a distinct, brighter green than --sev-info-text's #86efac).
 const GRADE_CFG: Record<Grade, {
   bg: string; border: string; text: string; glow: string;
 }> = {
   'A+': { bg: 'linear-gradient(135deg,rgba(16,185,129,0.25),rgba(16,185,129,0.10))', border: 'rgba(16,185,129,0.50)', text: '#6ee7b7', glow: 'rgba(16,185,129,0.30)' },
   'A':  { bg: 'linear-gradient(135deg,rgba(16,185,129,0.20),rgba(16,185,129,0.08))', border: 'rgba(16,185,129,0.40)', text: '#6ee7b7', glow: 'rgba(16,185,129,0.25)' },
-  'B':  { bg: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.07))', border: 'rgba(59,130,246,0.35)', text: '#93c5fd', glow: 'rgba(59,130,246,0.25)' },
-  'C':  { bg: 'linear-gradient(135deg,rgba(229,168,50,0.18),rgba(229,168,50,0.07))', border: 'rgba(229,168,50,0.35)', text: '#fcd34d', glow: 'rgba(229,168,50,0.25)' },
-  'D':  { bg: 'linear-gradient(135deg,rgba(249,115,22,0.18),rgba(249,115,22,0.07))', border: 'rgba(249,115,22,0.35)', text: '#fdba74', glow: 'rgba(249,115,22,0.25)' },
-  'F':  { bg: 'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(239,68,68,0.08))',   border: 'rgba(239,68,68,0.45)',  text: '#fca5a5', glow: 'rgba(239,68,68,0.30)' },
+  'B':  { bg: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.07))', border: 'rgba(59,130,246,0.35)', text: 'var(--sev-low-text)', glow: 'rgba(59,130,246,0.25)' },
+  'C':  { bg: 'linear-gradient(135deg,rgba(229,168,50,0.18),rgba(229,168,50,0.07))', border: 'rgba(229,168,50,0.35)', text: 'var(--sev-medium-text)', glow: 'rgba(229,168,50,0.25)' },
+  'D':  { bg: 'linear-gradient(135deg,rgba(249,115,22,0.18),rgba(249,115,22,0.07))', border: 'rgba(249,115,22,0.35)', text: 'var(--sev-high-text)', glow: 'rgba(249,115,22,0.25)' },
+  'F':  { bg: 'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(239,68,68,0.08))',   border: 'rgba(239,68,68,0.45)',  text: 'var(--sev-critical-text)', glow: 'rgba(239,68,68,0.30)' },
 };
 
 export function GradeBadge({ grade }: GradeBadgeProps) {

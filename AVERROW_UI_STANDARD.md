@@ -93,13 +93,19 @@ TEXT_ACCENT    = [accent color]          // Live numbers, CTAs, active states
 
 ## SEVERITY SYSTEM
 
+`text` is `var(--sev-*-text)` (tokens.css), not a literal hex — it
+resolves to the same hex shown for `dot`'s sibling values in dark mode,
+and to a darker, AA-contrast-checked hex in `[data-theme="light"]`.
+Never hardcode the dark-mode hex directly; that's exactly the drift
+this table used to have (S2.3 design review, 2026-07).
+
 ```typescript
 const SEV = {
   critical: {
     dot:    '#f87171',
     bg:     'rgba(239,68,68,0.10)',
     border: 'rgba(239,68,68,0.30)',
-    text:   '#fca5a5',
+    text:   'var(--sev-critical-text)',
     glow:   'rgba(239,68,68,0.50)',
     dim:    '#7f1d1d',
   },
@@ -107,7 +113,7 @@ const SEV = {
     dot:    '#fb923c',
     bg:     'rgba(249,115,22,0.08)',
     border: 'rgba(249,115,22,0.25)',
-    text:   '#fdba74',
+    text:   'var(--sev-high-text)',
     glow:   'rgba(249,115,22,0.50)',
     dim:    '#7c2d12',
   },
@@ -115,7 +121,7 @@ const SEV = {
     dot:    '#fbbf24',
     bg:     'rgba(229,168,50,0.08)',
     border: 'rgba(229,168,50,0.22)',
-    text:   '#fcd34d',
+    text:   'var(--sev-medium-text)',
     glow:   'rgba(229,168,50,0.50)',
     dim:    '#78350f',
   },
@@ -123,7 +129,7 @@ const SEV = {
     dot:    '#60a5fa',
     bg:     'rgba(59,130,246,0.07)',
     border: 'rgba(59,130,246,0.20)',
-    text:   '#93c5fd',
+    text:   'var(--sev-low-text)',
     glow:   'rgba(59,130,246,0.40)',
     dim:    '#1e3a5f',
   },
@@ -131,7 +137,7 @@ const SEV = {
     dot:    '#4ade80',
     bg:     'rgba(74,222,128,0.07)',
     border: 'rgba(74,222,128,0.15)',
-    text:   '#86efac',
+    text:   'var(--sev-info-text)',
     glow:   'rgba(74,222,128,0.40)',
     dim:    '#14532d',
   },
@@ -142,14 +148,18 @@ const SEV = {
 
 ## EMAIL GRADE SYSTEM
 
+B/C/D/F `text` values are `var(--sev-*-text)` for the same reason as
+above. A+/A keep their literal `#6ee7b7` — it's a distinct, brighter
+green than `--sev-info-text` and doesn't byte-match any severity token.
+
 ```typescript
 const GRADE = {
   'A+': { bg: 'linear-gradient(135deg,rgba(16,185,129,0.25),rgba(16,185,129,0.10))', border: 'rgba(16,185,129,0.50)', text: '#6ee7b7', glow: 'rgba(16,185,129,0.30)' },
   'A':  { bg: 'linear-gradient(135deg,rgba(16,185,129,0.20),rgba(16,185,129,0.08))', border: 'rgba(16,185,129,0.40)', text: '#6ee7b7', glow: 'rgba(16,185,129,0.25)' },
-  'B':  { bg: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.07))', border: 'rgba(59,130,246,0.35)', text: '#93c5fd', glow: 'rgba(59,130,246,0.25)' },
-  'C':  { bg: 'linear-gradient(135deg,rgba(229,168,50,0.18),rgba(229,168,50,0.07))',  border: 'rgba(229,168,50,0.35)',  text: '#fcd34d', glow: 'rgba(229,168,50,0.25)' },
-  'D':  { bg: 'linear-gradient(135deg,rgba(249,115,22,0.18),rgba(249,115,22,0.07))',  border: 'rgba(249,115,22,0.35)',  text: '#fdba74', glow: 'rgba(249,115,22,0.25)' },
-  'F':  { bg: 'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(239,68,68,0.08))',    border: 'rgba(239,68,68,0.45)',   text: '#fca5a5', glow: 'rgba(239,68,68,0.30)' },
+  'B':  { bg: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(59,130,246,0.07))', border: 'rgba(59,130,246,0.35)', text: 'var(--sev-low-text)', glow: 'rgba(59,130,246,0.25)' },
+  'C':  { bg: 'linear-gradient(135deg,rgba(229,168,50,0.18),rgba(229,168,50,0.07))',  border: 'rgba(229,168,50,0.35)',  text: 'var(--sev-medium-text)', glow: 'rgba(229,168,50,0.25)' },
+  'D':  { bg: 'linear-gradient(135deg,rgba(249,115,22,0.18),rgba(249,115,22,0.07))',  border: 'rgba(249,115,22,0.35)',  text: 'var(--sev-high-text)', glow: 'rgba(249,115,22,0.25)' },
+  'F':  { bg: 'linear-gradient(135deg,rgba(239,68,68,0.22),rgba(239,68,68,0.08))',    border: 'rgba(239,68,68,0.45)',   text: 'var(--sev-critical-text)', glow: 'rgba(239,68,68,0.30)' },
 };
 ```
 
@@ -341,58 +351,29 @@ export function DimensionalAvatar({
 
 ---
 
-### 3. SeverityChip — Dimensional severity badge
+### 3. SeverityChip — legacy alias for Badge
 
-Replaces all flat severity badges platform-wide.
+Superseded by `Badge` (§ CORE COMPONENTS). `SeverityChip.tsx` is now a
+12-line compatibility wrapper that renders `<Badge severity={...} />` —
+it no longer owns its own SEV_CONFIG, sizing, or JSX; that logic lives
+in `Badge.tsx` (see the canonical `SEV` config under SEVERITY SYSTEM
+above, whose `text` values are `var(--sev-*-text)` tokens, not literal
+hex). Existing call sites keep working unchanged; **new code should
+import `Badge` directly** (`@/design-system/components`).
 
 ```tsx
 // packages/averrow-ops/src/components/ui/SeverityChip.tsx
+import { Badge } from './Badge';
+import type { Severity, BadgeSize } from './Badge';
 
-type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
-
-interface SeverityChipProps {
+export interface SeverityChipProps {
   severity: Severity;
-  size?: 'xs' | 'sm' | 'md';
-  pulse?: boolean;  // adds pulsing dot for live/active items
+  size?:    BadgeSize;
+  pulse?:   boolean;
 }
 
-const SEV_CONFIG = {
-  critical: { dot:'#f87171', bg:'rgba(239,68,68,0.10)', border:'rgba(239,68,68,0.30)', text:'#fca5a5' },
-  high:     { dot:'#fb923c', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', text:'#fdba74' },
-  medium:   { dot:'#fbbf24', bg:'rgba(229,168,50,0.08)', border:'rgba(229,168,50,0.22)', text:'#fcd34d' },
-  low:      { dot:'#60a5fa', bg:'rgba(59,130,246,0.07)', border:'rgba(59,130,246,0.20)', text:'#93c5fd' },
-  info:     { dot:'#4ade80', bg:'rgba(74,222,128,0.07)', border:'rgba(74,222,128,0.15)', text:'#86efac' },
-};
-
-const SIZE_CONFIG = {
-  xs: { fontSize:  8, padding: '2px 6px',  radius:  6 },
-  sm: { fontSize:  9, padding: '3px 8px',  radius:  99 },
-  md: { fontSize: 10, padding: '4px 10px', radius:  99 },
-};
-
 export function SeverityChip({ severity, size = 'sm', pulse = false }: SeverityChipProps) {
-  const s = SEV_CONFIG[severity] ?? SEV_CONFIG.low;
-  const z = SIZE_CONFIG[size];
-
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      fontSize: z.fontSize, fontFamily: 'monospace', fontWeight: 800,
-      textTransform: 'uppercase', letterSpacing: '0.12em',
-      padding: z.padding, borderRadius: z.radius,
-      background: s.bg, border: `1px solid ${s.border}`, color: s.text,
-      boxShadow: `inset 0 1px 0 ${s.dot}30, 0 2px 8px ${s.dot}20`,
-      whiteSpace: 'nowrap',
-    }}>
-      {pulse && (
-        <span style={{ position:'relative', display:'inline-flex', width:6, height:6 }}>
-          <span style={{ position:'absolute', inset:0, borderRadius:'50%', background:s.dot, opacity:0.7, animation:'chip-ping 1.5s ease-in-out infinite' }} />
-          <span style={{ position:'relative', width:6, height:6, borderRadius:'50%', background:s.dot, boxShadow:`0 0 6px ${s.dot}` }} />
-        </span>
-      )}
-      {severity}
-    </span>
-  );
+  return <Badge severity={severity} size={size} pulse={pulse} />;
 }
 ```
 
@@ -827,7 +808,7 @@ Every future UI session starts with:
 ```bash
 cat packages/averrow-ops/src/components/ui/DeepCard.tsx
 cat packages/averrow-ops/src/components/ui/DimensionalAvatar.tsx
-cat packages/averrow-ops/src/components/ui/SeverityChip.tsx
+cat packages/averrow-ops/src/components/ui/Badge.tsx
 cat packages/averrow-ops/src/components/ui/DimensionalButton.tsx
 ```
 

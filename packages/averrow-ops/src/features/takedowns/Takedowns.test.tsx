@@ -291,15 +291,17 @@ describe('Takedowns — prospect brand grouping', () => {
   it('gives each severity badge its own distinct color — no tier-shifting (D1)', () => {
     renderTakedownsAt('/takedowns?scope=prospect');
 
-    // Badge's SEV config (components/ui/Badge.tsx): critical=#fca5a5,
-    // high=#fdba74, low=#93c5fd. Before D1, SEVERITY_TO_BADGE shifted a
-    // tier — HIGH mapped to 'critical' (rendering #fca5a5, the CRITICAL
-    // color) and MEDIUM mapped to 'high' — so this pins each label to its
-    // OWN color and specifically rules out the old critical-red bleed onto
-    // HIGH.
-    expect(screen.getByText('1 CRITICAL')).toHaveStyle({ color: '#fca5a5' });
-    expect(screen.getByText('1 HIGH')).toHaveStyle({ color: '#fdba74' });
-    expect(screen.getByText('1 LOW')).toHaveStyle({ color: '#93c5fd' });
+    // Badge's SEV config (components/ui/Badge.tsx): critical=var(--sev-critical-text),
+    // high=var(--sev-high-text), low=var(--sev-low-text) (S2.3 design review —
+    // these were hardcoded hex critical=#fca5a5/high=#fdba74/low=#93c5fd until
+    // they were swapped for theme-aware tokens so light mode passes contrast).
+    // Before D1, SEVERITY_TO_BADGE shifted a tier — HIGH mapped to 'critical'
+    // (rendering the CRITICAL color) and MEDIUM mapped to 'high' — so this
+    // pins each label to its OWN color token and specifically rules out the
+    // old critical-red bleed onto HIGH.
+    expect(screen.getByText('1 CRITICAL')).toHaveStyle({ color: 'var(--sev-critical-text)' });
+    expect(screen.getByText('1 HIGH')).toHaveStyle({ color: 'var(--sev-high-text)' });
+    expect(screen.getByText('1 LOW')).toHaveStyle({ color: 'var(--sev-low-text)' });
   });
 
   it('sorts brand groups by peak priority descending', () => {
