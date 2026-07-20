@@ -367,6 +367,78 @@ export function decideAppStoreImpersonationTriage(
   return { action: 'keep', reason: 'high_impersonation_score' };
 }
 
+// ─── Executive impersonation alerts (Tier 1.5) ───────────────────
+
+/** Details carried on an `executive_impersonation` alert. Mirrors the
+ *  social-impersonation shape (the detector is HEAD-only, so the same
+ *  three fields drive triage). */
+export interface ExecutiveImpersonationDetails {
+  /** Lower-cased platform string ('twitter', 'instagram', etc.). */
+  platform?: string;
+  /** Handle as observed; may include a leading '@'. */
+  handle?: string;
+  /** Impersonation score 0.0-1.0 — higher = more likely impersonation. */
+  score?: number;
+  // Other fields (url, signals) ignored by the triage rule.
+}
+
+/**
+ * Allowlist for executive-impersonation triage — the EXECUTIVE's own
+ * official handles (from the `org_executives` row), NOT the brand's.
+ * A fake profile impersonating a named exec is safe to dismiss only
+ * when it IS that exec's real, registered account.
+ */
+export interface ExecutiveAllowlist {
+  /** org_executives.full_name. Reserved for a future name-match
+   *  shortcut; unused by the current rules (kept for parity with
+   *  BrandAllowlist and to avoid a signature change later). */
+  full_name: string | null;
+  /** org_executives.official_handles parsed:
+   *  {"twitter":"@janedoe","linkedin":"jane-doe",...} */
+  official_handles: Record<string, string> | null;
+}
+
+/**
+ * Decide auto-triage for an `executive_impersonation` alert. Exact
+ * structural mirror of `decideSocialImpersonationTriage`, but the
+ * allowlist is the executive's official_handles rather than the
+ * brand's.
+ *
+ *   Rule B (always-safe): handle matches the exec's official_handles
+ *     entry for the same platform → dismiss.
+ *   Rule A (low-confidence): impersonation score below threshold →
+ *     dismiss.
+ *
+ * Otherwise keep open for human review. Both rules are independent;
+ * either passing is sufficient to dismiss. Pure — no DB/env.
+ */
+export function decideExecutiveImpersonationTriage(
+  details: ExecutiveImpersonationDetails | null,
+  allowlist: ExecutiveAllowlist,
+  threshold = DEFAULT_IMPERSONATION_DISMISS_THRESHOLD,
+): AutoTriageDecision {
+  if (!details) return { action: 'keep', reason: 'executive_details_missing' };
+
+  // Rule B — official handle match.
+  if (allowlist.official_handles && details.platform && details.handle) {
+    const platformKey = details.platform.toLowerCase();
+    const officialRaw = allowlist.official_handles[platformKey];
+    if (officialRaw) {
+      if (normalizeHandle(officialRaw) === normalizeHandle(details.handle)) {
+        return { action: 'dismiss', reason: 'auto: matches executive official handle' };
+      }
+    }
+  }
+
+  // Rule A — score below the dismiss threshold.
+  const score = typeof details.score === 'number' ? details.score : 1;
+  if (score < threshold) {
+    return { action: 'dismiss', reason: `auto: low impersonation score (${score.toFixed(2)} < ${threshold})` };
+  }
+
+  return { action: 'keep', reason: 'high_impersonation_score' };
+}
+
 // ─── Brand allowlist loading ─────────────────────────────────────
 
 /**

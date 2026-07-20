@@ -3,10 +3,12 @@ import {
   decideAutoTriage,
   decideSocialImpersonationTriage,
   decideAppStoreImpersonationTriage,
+  decideExecutiveImpersonationTriage,
   normalizeHandle,
   normalizeCompanyName,
   type ThreatTriageSnapshot,
   type BrandAllowlist,
+  type ExecutiveAllowlist,
 } from "../src/lib/alert-triage";
 
 // Default snapshot — passes every gate. Each test mutates one field
@@ -507,6 +509,131 @@ describe("decideAppStoreImpersonationTriage — Rule B+ (brand-name developer ma
       allow,
     );
     expect(d.action).toBe('keep');
+  });
+});
+
+// ─── Tier 1.5: Executive impersonation ───────────────────────────
+
+const emptyExecAllowlist: ExecutiveAllowlist = { full_name: null, official_handles: null };
+
+describe("decideExecutiveImpersonationTriage — Rule B (exec official-handle match)", () => {
+  it("dismisses when handle matches the exec's official handle for the platform", () => {
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { twitter: '@janedoe' },
+    };
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'janedoe', score: 0.95 },
+      allow,
+    );
+    expect(d.action).toBe('dismiss');
+    expect(d.reason).toBe('auto: matches executive official handle');
+  });
+
+  it("matches case-insensitively + tolerates @ prefix variations", () => {
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { linkedin: 'Jane-Doe' },
+    };
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'LINKEDIN', handle: '@jane-doe', score: 0.99 },
+      allow,
+    );
+    expect(d.action).toBe('dismiss');
+  });
+
+  it("does NOT dismiss when handle differs from the exec's official handle", () => {
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { twitter: '@janedoe' },
+    };
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'realjanedoe', score: 0.9 },
+      allow,
+    );
+    expect(d.action).toBe('keep');
+    expect(d.reason).toBe('high_impersonation_score');
+  });
+
+  it("does NOT match an official handle across platforms", () => {
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { twitter: '@janedoe' },
+    };
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'instagram', handle: 'janedoe', score: 0.9 },
+      allow,
+    );
+    expect(d.action).toBe('keep');
+  });
+
+  it("uses the EXEC allowlist, not a brand allowlist — brand handles are irrelevant", () => {
+    // No official handle for the exec on this platform → Rule B can't fire;
+    // high score → keep. (Ensures we don't accidentally read brand handles.)
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { linkedin: 'jane-doe' },
+    };
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'janedoe', score: 0.85 },
+      allow,
+    );
+    expect(d.action).toBe('keep');
+  });
+});
+
+describe("decideExecutiveImpersonationTriage — Rule A (low score)", () => {
+  it("dismisses when score is below the default 0.5 threshold", () => {
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'someone_else', score: 0.42 },
+      emptyExecAllowlist,
+    );
+    expect(d.action).toBe('dismiss');
+    expect(d.reason).toContain('low impersonation score');
+  });
+
+  it("keeps when score is at or above the threshold", () => {
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'x', score: 0.5 },
+      emptyExecAllowlist,
+    );
+    expect(d.action).toBe('keep');
+  });
+
+  it("respects a custom (tighter) threshold", () => {
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'x', score: 0.65 },
+      emptyExecAllowlist,
+      0.7,
+    );
+    expect(d.action).toBe('dismiss');
+  });
+
+  it("treats missing score as 1.0 (max suspicion) — keep", () => {
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: 'x' },
+      emptyExecAllowlist,
+    );
+    expect(d.action).toBe('keep');
+  });
+
+  it("keeps when details are missing entirely", () => {
+    const d = decideExecutiveImpersonationTriage(null, emptyExecAllowlist);
+    expect(d.action).toBe('keep');
+    expect(d.reason).toBe('executive_details_missing');
+  });
+
+  it("Rule B wins over a high score (dismiss beats keep)", () => {
+    const allow: ExecutiveAllowlist = {
+      full_name: 'Jane Doe',
+      official_handles: { twitter: '@janedoe' },
+    };
+    // Score alone would keep, but the official-handle match dismisses.
+    const d = decideExecutiveImpersonationTriage(
+      { platform: 'twitter', handle: '@JaneDoe', score: 0.99 },
+      allow,
+    );
+    expect(d.action).toBe('dismiss');
   });
 });
 
