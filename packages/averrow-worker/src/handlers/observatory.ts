@@ -713,6 +713,69 @@ export async function handleObservatoryStats(request: Request, env: Env): Promis
   }
 }
 
+// ── GET /api/observatory/heatmap ───────────────────────────────────────────
+// Public global threat heatmap points for the v3 Observatory heatmap layer.
+//
+// Mirrors the staff-gated /api/threats/heatmap query (global geo scan, NOT
+// org-scoped) but is UNauthenticated like the rest of the observatory surface
+// and returns the standard { success, data } envelope the observatory hooks
+// consume. Only lat/lng/severity/threat_type are exposed — no domains/PII.
+export async function handleObservatoryHeatmap(request: Request, env: Env): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  const ctx = getDbContext(request);
+  const session = getReadSession(env, ctx);
+  const url = new URL(request.url);
+
+  // F1: clamp limit on BOTH ends + reject NaN. Bare Math.min doesn't clamp the
+  // lower bound, so ?limit=-1 → LIMIT -1 = unbounded full-window scan on a
+  // public raw-threats endpoint.
+  const rawLimit = Number(url.searchParams.get("limit") ?? "10000");
+  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.floor(rawLimit), 10000)) : 10000;
+
+  // F2: canonicalize period against the dayMap whitelist so unknown values
+  // collapse to the default '7d' KV key instead of minting a distinct cache
+  // entry per garbage param (?period=a1&period=a2… cache-busting the raw scan).
+  const dayMap: Record<string, string> = {
+    "24h": "-1 days", "7d": "-7 days", "30d": "-30 days", "90d": "-90 days",
+  };
+  const rawPeriod = url.searchParams.get("period") || "7d";
+  const period = dayMap[rawPeriod] ? rawPeriod : "7d";
+  const interval = dayMap[period];
+
+  try {
+    // KV cache: heatmap returns up to 10K rows from raw threats — cache for
+    // 5 min. Distinct key namespace from the staff route's `threats_heatmap:`.
+    // Key is built from the CANONICAL period + clamped limit so out-of-range
+    // params can't amplify cache misses.
+    const cacheKey = `observatory_heatmap:${period}:${limit}`;
+    const cached = await env.CACHE.get(cacheKey);
+    if (cached) {
+      recordD1Reads(env, "observatory_heatmap", newTally());
+      return attachBookmark(json(JSON.parse(cached), 200, origin), session);
+    }
+
+    const tally = newTally();
+    const rows = await session.prepare(`
+      SELECT lat, lng, severity, threat_type
+      FROM threats
+      WHERE lat IS NOT NULL AND lng IS NOT NULL
+        AND lat != 0 AND lng != 0
+        AND created_at >= datetime('now', ?)
+      LIMIT ?
+    `).bind(interval, limit).all<{
+      lat: number; lng: number; severity: string | null; threat_type: string | null;
+    }>();
+    addToTally(tally, rows.meta);
+
+    const data = { success: true, data: rows.results ?? [] };
+    await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 300 });
+    recordD1Reads(env, "observatory_heatmap", tally);
+    return attachBookmark(json(data, 200, origin), session);
+  } catch (err) {
+    return attachBookmark(json({ success: false, error: "An internal error occurred" }, 500, origin), session);
+  }
+}
+
 // ── GET /api/observatory/operations ─────────────────────────────────────────
 // Lightweight unauthenticated operations list for the Observatory sidebar
 export async function handleObservatoryOperations(request: Request, env: Env): Promise<Response> {
