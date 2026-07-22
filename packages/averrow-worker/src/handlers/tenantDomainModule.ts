@@ -22,6 +22,7 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { requireModule, ModuleNotEntitledError } from "../lib/entitlements";
 
@@ -32,12 +33,6 @@ const DOMAIN_THREAT_TYPES =
   "'phishing','typosquatting','impersonation','malware_distribution','credential_harvesting','c2'";
 
 // ─── Tenant org-access guard ────────────────────────────────────
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
-
 interface BrandSummary {
   brand_id:                string;
   brand_name:              string;

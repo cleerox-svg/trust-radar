@@ -153,6 +153,47 @@ export function hasGlobalReadScope(role: UserRole): boolean {
   return role === "super_admin" || role === "auditor";
 }
 
+/** Global-scope roles that have visibility but NO write authority — currently
+ *  just the minted `auditor` seat (AUTH_AUDIT_2026-06 / requireStaffMutation).
+ *  A WRITE handler whose ONLY org gate is `verifyOrgAccess` must reject these
+ *  before mutating: `verifyOrgAccess` now exempts every `hasGlobalReadScope`
+ *  role (S3.1), so without this block a read-only auditor would sail past the
+ *  org check into the mutation. `super_admin` is deliberately NOT here — it is
+ *  a full-privilege seat and keeps its write access. */
+export function isReadOnlyGlobalRole(role: UserRole): boolean {
+  return role === "auditor";
+}
+
+/**
+ * Per-handler org-isolation check — the INNER net behind `requireOrgMember`
+ * (S3.1: collapsed from 14 verbatim copies across the tenant handlers).
+ *
+ * Returns `null` when the caller may act on `orgId`, or a human-readable
+ * error string (which the caller renders as a 403) when they may not.
+ *
+ * Exemption uses the single canonical global-read predicate
+ * (`hasGlobalReadScope`) — super_admin AND the read-only auditor seat — so
+ * the inner net honors auditor exactly as the outer `requireOrgMember` does.
+ * Previously each copy exempted only `super_admin`, which 403'd auditor at the
+ * handler and contradicted CLAUDE.md §7 ("auditor sees ALL … tenant data").
+ *
+ * For every non-global role the membership rule is unchanged, byte-for-byte:
+ * the caller's JWT-derived active-org scope (`ctx.orgId`) must equal the
+ * route's `orgId`; a caller with no org (`orgId === null`) never matches.
+ *
+ * READ-GUARD SEMANTICS: this exempts read-only auditor into the handler.
+ * Handlers that WRITE and whose only org gate is this function must ALSO call
+ * `isReadOnlyGlobalRole(ctx.role)` and 403 before mutating (see the abuse-
+ * mailbox status updaters). Most write handlers already carry a stricter
+ * org-role gate (canPerformHITL / canManageAssets / requireOrgAdmin /
+ * canMutateAuthorization) that blocks auditor's null org-role independently.
+ */
+export function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
+  if (hasGlobalReadScope(ctx.role)) return null;
+  if (ctx.orgId !== orgId) return "Not a member of this organization";
+  return null;
+}
+
 /**
  * Require a minimum role level. Roles are hierarchical —
  * super_admin can access admin routes, admin can access analyst routes, etc.
@@ -437,11 +478,16 @@ export function buildBrandFilter(
  * disagrees with the handler on the common path.
  *
  * Global-read roles (super_admin, auditor — `hasGlobalReadScope`) bypass
- * the membership check; they are cross-tenant seats by design. Note the
- * handlers' own `verifyOrgAccess` only exempts `super_admin`, so an
- * `auditor` that passes this guard is still gated at the handler — the
- * guard is deliberately no stricter than the inner check for real
- * members, and no looser for the global seats it recognizes.
+ * the membership check; they are cross-tenant seats by design. Since S3.1
+ * the handlers' own `verifyOrgAccess` shares this same `hasGlobalReadScope`
+ * exemption, so an `auditor` that passes this guard also passes the inner
+ * net on READS — the two layers agree. WRITES stay closed to auditor: each
+ * mutation handler either carries a stricter org-role gate auditor fails
+ * (canPerformHITL / canManageAssets / canMutateAuthorization /
+ * requireOrgAdmin) or, for the two abuse-mailbox status writers whose only
+ * org gate is `verifyOrgAccess`, an explicit `isReadOnlyGlobalRole` 403
+ * block. The guard is deliberately no stricter than the inner check for
+ * real members, and no looser for the global seats it recognizes.
  */
 export async function requireOrgMember(
   request: Request & { params?: Record<string, string> },

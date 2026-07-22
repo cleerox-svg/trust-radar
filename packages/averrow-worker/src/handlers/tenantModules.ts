@@ -15,6 +15,7 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import {
   MODULE_KEYS,
@@ -36,12 +37,6 @@ import { getActiveAuthorization } from "../lib/takedown-authorizations";
 
 // ─── Shared org-access guard ──────────────────────────────────
 // Super-admins bypass; members must belong to the org id in the URL.
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
-
 // ─── GET /api/orgs/:orgId/modules ─────────────────────────────
 
 export interface TenantModuleSurface {
