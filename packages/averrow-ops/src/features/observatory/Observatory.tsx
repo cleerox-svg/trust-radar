@@ -15,7 +15,7 @@ import { cn } from '@/lib/cn';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { ObservatoryVersionToggle } from '@/components/ui/ObservatoryVersionToggle';
 import { X, ChevronDown, Activity, Loader2, RefreshCw } from 'lucide-react';
-import { ObservatoryOverlay } from './components/ObservatoryOverlay';
+import { ObservatoryOverlay } from '@/components/observatory/ObservatoryOverlay';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';

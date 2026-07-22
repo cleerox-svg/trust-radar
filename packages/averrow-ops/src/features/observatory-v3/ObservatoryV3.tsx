@@ -21,7 +21,7 @@ import { EventTicker } from '@/features/observatory/components/EventTicker';
 import { cn } from '@/lib/cn';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { RefreshCw, PanelRightOpen, PanelRightClose } from 'lucide-react';
-import { ObservatoryOverlay } from '@/features/observatory/components/ObservatoryOverlay';
+import { ObservatoryOverlay } from '@/components/observatory/ObservatoryOverlay';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 const PERIODS = [
