@@ -88,7 +88,7 @@ export function useObservatoryHeatmap(
   const { period = '7d', limit = 10000 } = options || {};
 
   return useObservatoryQuery<HeatmapPoint[]>(
-    '/api/threats/heatmap',
+    '/api/observatory/heatmap',
     { period, limit },
     { refetchInterval: 300_000 },
   );
