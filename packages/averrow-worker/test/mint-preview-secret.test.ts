@@ -196,20 +196,64 @@ describe("S1(b) — index.ts wiring pin", () => {
     expect(gates.length).toBeGreaterThanOrEqual(10);
   });
 
-  it("the two mint endpoints do NOT authenticate on the internal-secret bearer gate", () => {
-    // The mint routes must be reachable ONLY through isPreviewMintAuthorized.
-    // Confirm neither mint pathname sits adjacent to a timingSafeBearerEq(...,
-    // internalSecret) internal-secret check (i.e. no fallback path snuck back).
+  // Extracts the `if (...) { ... }` block whose condition contains `marker`,
+  // by locating `marker` and then brace-matching from the first `{` that
+  // follows it. This is robust to comment/prose length changes above or
+  // below the block — unlike a fixed-size char slice, which is exactly what
+  // broke here: S3.2 added a blanket internal-secret guard above the mint
+  // handlers whose EXCLUSION conjuncts legitimately mention both mint
+  // pathnames, so `indexOf(mintPath)` started landing on the guard instead
+  // of the handler, and a 400-char slice from there covered the guard body
+  // (which DOES call timingSafeBearerEq) instead of the handler.
+  function extractBlockContaining(marker: string, label: string): string {
+    const idx = src.indexOf(marker);
+    expect(idx, `${label}: marker not found in index.ts: ${marker}`).toBeGreaterThan(-1);
+    const openBrace = src.indexOf("{", idx);
+    expect(openBrace, `${label}: no opening brace found after marker`).toBeGreaterThan(-1);
+    let depth = 0;
+    for (let i = openBrace; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") {
+        depth--;
+        if (depth === 0) return src.slice(idx, i + 1);
+      }
+    }
+    throw new Error(`${label}: unbalanced braces while scanning from marker`);
+  }
+
+  it("the S3.2 blanket internal-secret POST guard explicitly excludes both mint paths", () => {
+    // Pins the S3.2 addition itself: the guard that gates every OTHER POST
+    // /api/internal/* route on the internal secret must carry BOTH mint
+    // pathnames as `!==` exclusion conjuncts (so the mint routes fall
+    // through it unauthenticated-by-this-guard), and the guard must still
+    // run its real runtime check for everything it doesn't exclude. If a
+    // future edit drops either exclusion, the mint route would be folded
+    // back under the internal-secret gate — this fails loudly.
+    const guardBlock = extractBlockContaining(
+      "Blanket internal POST guard (S3.2)",
+      "blanket internal POST guard",
+    );
+    expect(guardBlock).toContain("url.pathname !== '/api/internal/auth/mint-service-jwt'");
+    expect(guardBlock).toContain("url.pathname !== '/api/internal/auth/mint-ui-preview-jwt'");
+    expect(guardBlock).toContain("timingSafeBearerEq(authHeader, internalSecret)");
+  });
+
+  it("each mint route HANDLER authenticates via isPreviewMintAuthorized and NOT the internal-secret bearer gate", () => {
+    // Unlike the guard above (which legitimately mentions both mint
+    // pathnames in its exclusion conjuncts), the actual route handlers
+    // dispatch on `url.pathname === '<mintPath>'` — the `===` (not `!==`)
+    // form only appears at the real handler, never in the guard's exclusion
+    // list — so brace-matching from that exact occurrence isolates
+    // precisely the handler block regardless of how much prose sits above
+    // or below it. Assert it authenticates via isPreviewMintAuthorized with
+    // NO fallback to the internal-secret bearer gate.
     for (const mintPath of [
       "/api/internal/auth/mint-service-jwt",
       "/api/internal/auth/mint-ui-preview-jwt",
     ]) {
-      const idx = src.indexOf(mintPath);
-      expect(idx, `${mintPath} not found in index.ts`).toBeGreaterThan(-1);
-      // Look at the route block that follows the pathname guard (bounded slice).
-      const block = src.slice(idx, idx + 400);
-      expect(block).toContain("isPreviewMintAuthorized(request, env)");
-      expect(block).not.toContain("timingSafeBearerEq(authHeader, internalSecret)");
+      const handlerBlock = extractBlockContaining(`url.pathname === '${mintPath}'`, mintPath);
+      expect(handlerBlock, mintPath).toContain("isPreviewMintAuthorized(request, env)");
+      expect(handlerBlock, mintPath).not.toContain("timingSafeBearerEq(authHeader, internalSecret)");
     }
   });
 });
