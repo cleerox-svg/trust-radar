@@ -545,11 +545,27 @@ Always (every tick):  Feed ingestion, brand match, email security, Cartographer,
 Sentinel:             after feed ingestion if totalNew > 0 (inline await)
 Cartographer:         after Sentinel OR as fallback (dispatched as Workflow)
 Analyst:              every tick (ctx.waitUntil)
-Strategist:           hour % 6 === 0 (ctx.waitUntil)
 NEXUS:                hour % 4 === 0 (dispatched as Workflow)
-Sparrow:              hour % 6 === 0 (ctx.waitUntil)
+Attributor:           hour % 4 === 1 (executeAgent — one tick after NEXUS's hour % 4 === 0
+                       cluster writes, giving new clusters a settling window before
+                       classification; orchestrator.ts:1247)
+News Watcher:         hour % 6 === 2 (executeAgent — jittered off NEXUS (%4===0) /
+                       Attributor (%4===1) / Sparrow+Strategist (%6===0) so Haiku load
+                       doesn't stack on one tick; orchestrator.ts:1268)
+Strategist:           NOT dispatched on this hourly tick — relocated to dedicated
+                       `10 */6 * * *` cron in PR-Q (see schedule above); the
+                       hour % 6 === 0 inline-await gate no longer exists in
+                       runThreatFeedScan (orchestrator.ts:346)
+Sparrow:              NOT dispatched on this hourly tick — relocated to dedicated
+                       `11 */6 * * *` cron in PR-Q (see schedule above), same
+                       rationale as Strategist (orchestrator.ts:358)
 Observer:             hour === 0 (inline await)
-Pathfinder:           hour === 3 (inline await, KV throttle ensures once per 7 days)
+Pathfinder:           NOT dispatched on this hourly tick — demoted to manual
+                       trigger 2026-04-29 (orchestrator.ts:1307; prior daily
+                       hour === 3 dispatch produced 1 run/24h, 0 records/7d).
+                       Call `POST /api/agents/pathfinder/trigger`; the weekly
+                       KV throttle on Phase 1 lead creation still lives inside
+                       the handler regardless of trigger path.
 GeoIP Refresh:        Sunday hour === 2 (ctx.waitUntil, polls MaxMind sha256 — no-op when current; FC supervises stuck workflows hourly per §15)
 Observer briefing:    hour === 6 (inline await — also runs Seed Strategist)
 Narrator:             hour === 6 (executeAgent, after Observer briefing)
@@ -557,8 +573,11 @@ Notification digest:  hour === 13 (executeAgent, agent 'notification_narrator' �
                        envelopes; the daily platform-ops briefing itself moved OFF this hourly
                        gate to its own dedicated `13 13 * * *` cron, see schedule above, because
                        fetchComprehensiveBriefing's ~40 parallel queries exhausted the tick budget)
-Social discovery:     hour % 6 === 0 (in handleScheduled)
-Social monitor:       hour % 6 === 0 (in handleScheduled)
+Social discovery:     NOT dispatched on this hourly tick — relocated (paired with
+                       Social monitor) to dedicated `15 */6 * * *` cron in PR-Q
+                       (see schedule above); the hour % 6 === 0 handleScheduled
+                       gate no longer exists (orchestrator.ts:388)
+Social monitor:       NOT dispatched on this hourly tick — see Social discovery above
 Daily snapshots:      hour === 0, or if none exist today (inline await)
 ```
 
@@ -575,8 +594,11 @@ scheduling is needed, use Navigator (`*/5`) or add a dedicated cron trigger.
 
 ### Execution patterns:
 - **Workflow dispatch:** NEXUS runs as a Cloudflare Workflow (`NEXUS_RUN`), dispatched from the orchestrator cron at `hour % 4 === 0` via `dispatchWorkflow()` in `lib/workflow-dispatch.ts` (KV cooldown on platform errors, FC supervisor watches the last-dispatch stamp). The agent module (`agents/nexus.ts`) stays available as the manual trigger fallback at `/api/internal/agents/nexus/run`. Cartographer still runs as the agent module via FC's `scaleAgents` (workflow path exists but is enrichment-only — see `docs/runbooks/workflow-dispatch.md`). Both NEXUS paths finish with a connected-components post-pass (`lib/cluster-components.ts`, S2.4/D5a) that groups the six lanes' per-key `infrastructure_clusters` rows into `component_id`s via specific-evidence bridges only — additive, doesn't touch `threats.cluster_id` or attribution.
-- **ctx.waitUntil:** Analyst, Strategist, Sparrow run in parallel without blocking the cron mesh
-- **Inline await:** Observer, Pathfinder run sequentially (quiet times, fast execution)
+- **ctx.waitUntil:** Analyst runs in parallel without blocking the cron mesh (Strategist and
+  Sparrow no longer share this mesh — both moved to dedicated `*/6` crons, see Agent
+  dispatch table above)
+- **Inline await:** Observer runs sequentially (quiet times, fast execution). Pathfinder is
+  no longer dispatched from this mesh — demoted to manual trigger, see Agent dispatch table above.
 
 ### Feed circuit breaker (`lib/feedRunner.ts:computeFeedRetryAt`)
 
