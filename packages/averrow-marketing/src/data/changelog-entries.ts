@@ -1,8 +1,8 @@
 /*
- * Changelog manifest — canonical source after R6 cutover. Mirrors
- * packages/averrow-worker/src/templates/changelog-entries.ts during the
- * migration window. Keep both files in sync until R6 drops the
- * averrow-worker copy.
+ * Changelog manifest — canonical source after R6 cutover. R6 has landed
+ * (see RESTRUCTURE_SPEC.md) and packages/averrow-worker/src/templates/
+ * changelog-entries.ts no longer exists — this file is the sole source
+ * of truth, no mirror to keep in sync.
  */
 
 export type ChangelogKind = "Feature" | "Improvement" | "Fix" | "Security";
@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v4.2.1",
+    publishedAt: "2026-07-22",
+    kind: "Fix",
+    title: "Light theme readability improvements",
+    description:
+      "Improved text and badge contrast in light theme across the platform for easier reading. No changes to dark theme.",
+  },
   {
     version: "v4.2.0",
     publishedAt: "2026-07-20",

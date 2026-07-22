@@ -4,6 +4,46 @@ All notable changes to the Averrow platform are documented here.
 
 ---
 
+## [v4.2.1] — 2026-07-22
+
+Light-theme ("lite mode") readability fix across all three surfaces —
+staff ops, tenant, and marketing. Internal/staff register (detailed; the
+public + tenant registers carry a generic, non-proprietary summary).
+
+### Light-theme readability & contrast fix
+- Legacy dark-hardcoded colors, `.glass-card` / `.glass-input` / `.glass-btn`
+  utilities, `.badge-*` classes, and `text-white/NN` opacity utilities were
+  tuned only for the dark canvas and read as low-contrast or illegible under
+  `[data-theme="light"]`. Added `[data-theme="light"]` parity blocks —
+  additive only, dark stays byte-identical everywhere an exact CSS-var
+  equivalent doesn't already exist — in `packages/shared/src/theme/tokens.css`
+  (the shared token file consumed by both `averrow-ops` and `averrow-tenant`)
+  and `packages/averrow-ops/src/index.css` (`.glass-card`, `.glass-input`,
+  `::selection`).
+- Badge/severity text was migrated off "dot" hex values (`--sev-critical`,
+  `--amber`, etc. — used directly as `color:`, flagged by
+  `AVERROW_UI_STANDARD.md` as a contrast risk) onto the dedicated `-text`
+  token family (`--sev-critical-text`, `--sev-high-text`, `--amber-text`,
+  `--nexus-text`, etc.), each of which carries its own light-theme
+  AA-contrast override. `.badge-low` / `.badge-nexus` (legacy gauge-gray /
+  one-off nexus violet, no existing dot-var) got computed AA-safe light
+  values instead.
+- **Frozen-component-via-stylesheet technique**: components on the CLAUDE.md
+  §4 frozen list (e.g. `PortfolioHealthCard.tsx`, a `.glass-card` consumer)
+  are never edited directly. The fix lives entirely in the `[data-theme=
+  "light"]` parity block on the class definition itself, so the frozen
+  component renders correctly in light mode with zero changes to its source
+  — the same pattern used platform-wide anywhere a frozen file consumes a
+  legacy utility class.
+- Marketing site (`packages/averrow-marketing/src/styles/tokens.css`) got
+  the matching `[data-theme="light"]` treatment for its own token set (an
+  aligned/ported copy of the platform tokens per that file's header, not
+  literally shared code with `packages/shared`).
+- Dark mode is unaffected end to end — every parity rule is additive and
+  scoped under `[data-theme="light"]`.
+
+PR #1682. Bump: `fix` — PATCH (`4.2.0` → `4.2.1`).
+
 ## [v4.2.0] — 2026-07-20
 
 Executive social-impersonation monitoring (`EXEC_IMPERSONATION_2026-07`,
