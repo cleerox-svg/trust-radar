@@ -35,7 +35,7 @@ export function Billing() {
 
       <header>
         <div className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/40">Settings</div>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Billing</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Billing</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           Your current plan, monthly total, and active modules.
         </p>
@@ -184,7 +184,7 @@ function StatusCard({ summary }: { summary: BillingSummary }) {
           <div className="text-[10px] uppercase tracking-widest font-mono text-white/40 mb-1">
             Effective monthly total
           </div>
-          <div className="text-[36px] font-bold text-white tabular-nums">
+          <div className="text-[36px] font-bold text-[var(--text-primary)] tabular-nums">
             {formatCents(summary.effective_monthly_total_cents)}
           </div>
           {summary.active_overrides.length > 0 && (
@@ -263,10 +263,10 @@ function PlanCard({ summary }: { summary: BillingSummary }) {
             {isOverridden ? (
               <>
                 <span className="line-through text-white/35 text-sm mr-2">{formatCents(baseline)}</span>
-                <span className="text-white font-semibold text-base">{formatCents(overridden)}</span>
+                <span className="text-[var(--text-primary)] font-semibold text-base">{formatCents(overridden)}</span>
               </>
             ) : (
-              <span className="text-white font-semibold text-base">{formatCents(baseline)}</span>
+              <span className="text-[var(--text-primary)] font-semibold text-base">{formatCents(baseline)}</span>
             )}
           </div>
         </div>
@@ -324,10 +324,10 @@ function ModulesCard({ summary }: { summary: BillingSummary }) {
                 {isOverridden ? (
                   <>
                     <span className="line-through text-white/35 text-xs mr-2">{formatCents(m.price_cents)}</span>
-                    <span className="text-white">{formatCents(effective)}</span>
+                    <span className="text-[var(--text-primary)]">{formatCents(effective)}</span>
                   </>
                 ) : (
-                  <span className="text-white">{formatCents(m.price_cents)}</span>
+                  <span className="text-[var(--text-primary)]">{formatCents(m.price_cents)}</span>
                 )}
               </div>
             </div>

@@ -75,7 +75,7 @@ export function IntelligenceCard() {
             {alert.alert_type.replace(/_/g, ' ')}
           </span>
         </div>
-        <h1 className="text-[22px] font-bold text-white tracking-tight mt-2 leading-snug">{alert.title}</h1>
+        <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight mt-2 leading-snug">{alert.title}</h1>
         <div className="mt-1 text-[12px] text-white/45 font-mono flex items-center gap-2 flex-wrap">
           <span className="text-white/65">{alert.brand_name}</span>
           {alert.brand_domain && <span>· {alert.brand_domain}</span>}

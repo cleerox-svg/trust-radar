@@ -16,7 +16,7 @@ export function Notifications() {
   return (
     <div className="max-w-4xl space-y-6">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Notifications</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Notifications</h1>
         <p className="mt-1 text-sm text-white/55">
           Personal feed: alert digests, briefings, and platform updates for your account.
         </p>

@@ -37,7 +37,7 @@ export function Console() {
   return (
     <div className="max-w-5xl space-y-6">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Console</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Console</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           Your supervision console — what needs a human, and what the platform handled on its own. Averrow runs autonomously by default; this is where you step in.
         </p>

@@ -58,7 +58,7 @@ export function Modules() {
   return (
     <div className="space-y-8 max-w-6xl">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Workspace overview</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Workspace overview</h1>
         <p className="mt-1 text-sm text-white/55">
           {user.organization?.name ?? 'Your organization'} — {active.length} module{active.length === 1 ? '' : 's'} active
         </p>
@@ -436,7 +436,7 @@ function Loading() {
 function NotAuthenticated() {
   return (
     <div className="max-w-md mx-auto py-16 text-center">
-      <h1 className="text-xl font-semibold text-white mb-2">Sign in required</h1>
+      <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Sign in required</h1>
       <p className="text-sm text-white/55">
         Your session has expired. <a href="/v2/login" className="text-amber hover:underline">Sign in to continue</a>.
       </p>
@@ -447,7 +447,7 @@ function NotAuthenticated() {
 function NoOrg() {
   return (
     <div className="max-w-md mx-auto py-16 text-center">
-      <h1 className="text-xl font-semibold text-white mb-2">No organization yet</h1>
+      <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">No organization yet</h1>
       <p className="text-sm text-white/55">
         Your account isn't bound to an organization. Contact your admin or{' '}
         <a href="mailto:support@averrow.com" className="text-amber hover:underline">support@averrow.com</a>.
@@ -459,7 +459,7 @@ function NoOrg() {
 function ErrorState({ error }: { error: string }) {
   return (
     <div className="max-w-md mx-auto py-16 text-center">
-      <h1 className="text-xl font-semibold text-white mb-2">Couldn't load your workspace</h1>
+      <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Couldn't load your workspace</h1>
       <p className="text-sm text-white/55">{error}</p>
     </div>
   );

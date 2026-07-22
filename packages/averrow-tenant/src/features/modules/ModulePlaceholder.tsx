@@ -22,7 +22,7 @@ export function ModulePlaceholder({ moduleKey }: { moduleKey: ModuleKey }) {
       </Link>
 
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">{MODULE_LABELS[moduleKey]}</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">{MODULE_LABELS[moduleKey]}</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">{MODULE_DESCRIPTIONS[moduleKey]}</p>
         <div className="mt-2">
           {isLoading ? (

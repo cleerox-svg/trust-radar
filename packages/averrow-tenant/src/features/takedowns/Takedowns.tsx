@@ -38,7 +38,7 @@ export function Takedowns() {
 
       <header>
         <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-[28px] font-bold text-white tracking-tight">Takedowns</h1>
+          <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Takedowns</h1>
         </div>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           Submission requests issued to providers on your behalf. Drafts await analyst approval; approved requests are submitted under your signed authorization. Status, provider, and response audit trail per request.

@@ -46,7 +46,7 @@ export function AbuseMailbox() {
 
       <header>
         <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-[28px] font-bold text-white tracking-tight">Abuse Mailbox</h1>
+          <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Abuse Mailbox</h1>
           <span className="inline-flex items-center text-[10px] uppercase tracking-widest font-mono text-amber bg-amber/[0.10] border border-amber/[0.20] rounded px-2 py-1">
             Active
           </span>
@@ -415,7 +415,7 @@ function TenantMessageDetail({ message: m }: { message: AbuseInboxMessageRow }) 
     <article className="rounded-xl border bg-bg-card p-5 -mt-1 border-amber/30">
       <div className="mb-4">
         <div className="text-[9px] font-mono uppercase tracking-widest text-white/55 mb-1">Subject</div>
-        <div className="text-[14px] text-white font-medium">
+        <div className="text-[14px] text-white/95 font-medium">
           {m.original_subject ?? <span className="italic text-white/45">(no subject)</span>}
         </div>
       </div>
@@ -1185,10 +1185,10 @@ function TenantStatusActions({ message }: { message: AbuseInboxMessageRow }) {
       type="button"
       onClick={() => next(target)}
       disabled={cur === target || mutate.isPending}
-      className="text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-default"
+      className={`text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-default ${cur === target ? '' : 'bg-black/30'}`}
       style={{
         color,
-        background: cur === target ? `${color}22` : 'rgba(0,0,0,0.30)',
+        background: cur === target ? `${color}22` : undefined,
         border: `1px solid ${color}55`,
       }}
     >

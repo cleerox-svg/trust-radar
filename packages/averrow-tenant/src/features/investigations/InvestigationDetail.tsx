@@ -60,7 +60,7 @@ export function InvestigationDetail() {
             </span>
           )}
         </div>
-        <h1 className="text-[22px] font-bold text-white tracking-tight mt-2 leading-snug">{inv.title}</h1>
+        <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight mt-2 leading-snug">{inv.title}</h1>
         {inv.description && <p className="text-[13px] text-white/60 mt-1 leading-relaxed">{inv.description}</p>}
         <div className="mt-1 text-[11px] font-mono text-white/40">
           opened {new Date(inv.created_at).toLocaleString()}{inv.created_by_name ? ` · by ${inv.created_by_name}` : ''}

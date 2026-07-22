@@ -60,7 +60,7 @@ function Header({ takedown: t }: { takedown: TakedownDetailRow }) {
   return (
     <header className="rounded-xl border border-white/[0.10] bg-bg-card p-5">
       <div className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/40">Takedown · {t.target_type}</div>
-      <h1 className="text-[22px] font-bold text-white tracking-tight mt-0.5 truncate font-mono">{t.target_value}</h1>
+      <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight mt-0.5 truncate font-mono">{t.target_value}</h1>
 
       <div className="flex items-center gap-2 flex-wrap mt-3">
         <SeverityPill level={t.severity} />

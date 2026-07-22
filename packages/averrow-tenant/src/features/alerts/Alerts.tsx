@@ -93,7 +93,7 @@ export function Alerts() {
   return (
     <div className="max-w-6xl space-y-6">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Alerts</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Alerts</h1>
         <p className="mt-1 text-sm text-white/55">
           Brand alerts — impersonations, typosquats, email security drift, dark-web mentions. Sorted by severity, then recency.
         </p>
