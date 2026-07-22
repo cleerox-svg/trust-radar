@@ -17,18 +17,26 @@
  *   3. Hosting Providers (7d trend — structurally fixed)
  *   4. Active Operations
  *   5. Geopolitical Campaigns (30d)
+ *   6. Agent Intelligence         — v2 parity (observatory-v2 retirement)
+ *   7. Live Feed                  — v2 parity (observatory-v2 retirement)
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useObservatoryThreats, useObservatoryStats } from '@/hooks/useObservatory';
 import { useBrands } from '@/hooks/useBrands';
 import { useDashboardProviders } from '@/hooks/useProviders';
 import type { DashboardProvider } from '@/hooks/useProviders';
 import { useOperations } from '@/hooks/useOperations';
 import { useGeopoliticalCampaigns } from '@/hooks/useGeopoliticalCampaign';
+import { useAgents } from '@/hooks/useAgents';
+import { Card } from '@/components/ui/Card';
 import { DimensionalAvatar } from '@/components/ui/DimensionalAvatar';
 import { Badge } from '@/components/ui/Badge';
+import { AgentAttribution } from '@/components/ui/AgentAttribution';
+import { relativeTime } from '@/lib/time';
 
 // ─── Helpers ────────────────────────────────────────────────
 function fmtPeriod(p: string): string {
@@ -42,27 +50,46 @@ function countryFlag(code: string | null): string {
   );
 }
 
-function SectionDivider({ label }: { label: string }) {
+function parseJsonArray(val: string | null): string[] {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// Per-widget header row, rendered INSIDE each Card (replaces the old
+// hairline SectionDivider that used to separate flat, un-carded sections —
+// the Card border + the `gap-3` between cards now does that job). Deliberately
+// not Card.tsx's exported `CardHeader` — that hardcodes amber, which reads
+// fine for a single section title but is too loud repeated across 8 stacked
+// widget headers in one panel.
+function WidgetHeader({ label, count }: { label: string; count?: number }) {
   return (
-    <div className="px-4 py-2 flex items-center gap-2">
-      <div className="h-px flex-1 bg-white/[0.08]" />
-      <span className="text-[9px] font-mono tracking-[0.2em] uppercase shrink-0" style={{ color: 'var(--text-muted)' }}>
+    <div className="flex items-center justify-between mb-2">
+      <span
+        className="text-[9px] font-mono font-bold uppercase tracking-[0.20em]"
+        style={{ color: 'var(--text-tertiary)' }}
+      >
         {label}
       </span>
-      <div className="h-px flex-1 bg-white/[0.08]" />
+      {count !== undefined && (
+        <span className="text-[9px] font-mono tabular-nums" style={{ color: 'var(--text-muted)' }}>
+          {count}
+        </span>
+      )}
     </div>
   );
 }
 
-function Divider() {
-  return <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-4 my-2" />;
-}
-
 // ─── Summary header ─────────────────────────────────────────
 const SummaryHeader = memo(function SummaryHeader({ period }: { period: string }) {
-  const { data: stats } = useObservatoryStats({ period });
-  const { data: nodesData } = useObservatoryThreats({ period });
+  const { data: stats, error: statsError, refetch: refetchStats } = useObservatoryStats({ period });
+  const { data: nodesData, error: nodesError, refetch: refetchNodes } = useObservatoryThreats({ period });
   const nodes = nodesData ?? [];
+  const summaryError = statsError || nodesError;
 
   const sev = nodes.reduce(
     (a, n) => ({
@@ -92,7 +119,25 @@ const SummaryHeader = memo(function SummaryHeader({ period }: { period: string }
   );
 
   return (
-    <div className="px-4 pt-3 pb-1">
+    <div>
+      <WidgetHeader label={`Overview · ${fmtPeriod(period)}`} />
+      {summaryError && (
+        <div
+          className="flex items-center justify-between gap-2 mb-2 px-2 py-1.5 rounded"
+          style={{ background: 'var(--sev-critical-bg)', border: '1px solid var(--sev-critical-border)' }}
+        >
+          <span className="text-[9px] font-mono" style={{ color: 'var(--sev-critical-text)' }}>
+            Summary failed to load
+          </span>
+          <button
+            onClick={() => { if (statsError) refetchStats(); if (nodesError) refetchNodes(); }}
+            className="ds-focusable text-[9px] font-mono font-bold uppercase tracking-wide shrink-0"
+            style={{ color: 'var(--sev-critical-text)', background: 'none', border: 'none', borderRadius: 4, cursor: 'pointer', padding: 0 }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2 mb-2">
         <Stat label="Threats" value={stats?.threats_mapped} />
         <Stat label="Countries" value={stats?.countries} />
@@ -132,7 +177,8 @@ const TopOriginsWidget = memo(function TopOriginsWidget({ period }: { period: st
   const max = top[0]?.[1] ?? 1;
 
   return (
-    <div className="px-4 pb-2">
+    <div>
+      <WidgetHeader label={`Top Threat Origins · ${fmtPeriod(period)}`} />
       {top.length === 0 ? (
         <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>No geolocated threats in this period</div>
       ) : (
@@ -191,7 +237,8 @@ const TopBrandsWidget = memo(function TopBrandsWidget({ period }: { period: stri
   const { data: brands = [] } = useBrands({ view: 'top', limit: 8, timeRange: period });
 
   return (
-    <div className="px-4 pb-2">
+    <div>
+      <WidgetHeader label={`Top Targeted Brands · ${fmtPeriod(period)}`} count={brands.length} />
       {brands.length === 0 ? (
         <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>No targeted brands in this period</div>
       ) : (
@@ -230,7 +277,8 @@ const ProvidersWidget = memo(function ProvidersWidget() {
   const { data: improving = [] } = useDashboardProviders('improving', 3);
 
   return (
-    <div className="px-4 pb-2">
+    <div>
+      <WidgetHeader label="Hosting Providers · 7d trend" />
       <div className="mb-2">
         <div className="flex items-center gap-1.5 mb-1">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--sev-critical)' }} />
@@ -263,12 +311,14 @@ const OperationsWidget = memo(function OperationsWidget() {
   const { data: operations = [] } = useOperations({ status: 'active', limit: 4 });
 
   return (
-    <div className="px-4 pb-2">
+    <div>
+      <WidgetHeader label="Active Operations" count={operations.length} />
       {operations.length === 0 ? (
         <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>No active operations</div>
       ) : (
         operations.map((op) => {
           const countries = op.countries ? JSON.parse(op.countries) as string[] : [];
+          const asns = parseJsonArray(op.asns);
           const isAccelerating = op.agent_notes?.includes('ACCELERATING');
           return (
             <div
@@ -286,6 +336,18 @@ const OperationsWidget = memo(function OperationsWidget() {
                 <span>{op.threat_count.toLocaleString()} threats</span>
                 {countries.length > 0 && <span>{countries.slice(0, 3).join(', ')}</span>}
               </div>
+              {(asns.length > 0 || op.confidence_score != null) && (
+                <div className="flex items-center gap-3 text-[9px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {asns.length > 0 && (
+                    <span className="truncate">{asns.slice(0, 2).join(', ')}</span>
+                  )}
+                  {op.confidence_score != null && (
+                    <span className="shrink-0 ml-auto tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      {op.confidence_score}% conf
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })
@@ -307,7 +369,8 @@ const GeoCampaignsWidget = memo(function GeoCampaignsWidget() {
   });
 
   return (
-    <div className="px-4 pb-2">
+    <div>
+      <WidgetHeader label="Geopolitical Campaigns · 30d" />
       {recent.length === 0 ? (
         <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>No active campaigns</div>
       ) : (
@@ -338,51 +401,219 @@ const GeoCampaignsWidget = memo(function GeoCampaignsWidget() {
   );
 });
 
+// ─── Agent Intelligence (v2 parity) ─────────────────────────
+const AgentIntelWidget = memo(function AgentIntelWidget() {
+  const { data: agents, error, refetch } = useAgents();
+  const recentOutputs = useMemo(
+    () =>
+      (agents ?? [])
+        .filter(a => a.last_output_at)
+        .sort((a, b) => new Date(b.last_output_at!).getTime() - new Date(a.last_output_at!).getTime())
+        .slice(0, 5),
+    [agents],
+  );
+
+  return (
+    <div>
+      <WidgetHeader label="Agent Intelligence" />
+      <AgentAttribution agent="Observer + Sentinel" />
+      {error ? (
+        <div
+          className="flex items-center justify-between gap-2 mt-2 px-2 py-1.5 rounded"
+          style={{ background: 'var(--sev-critical-bg)', border: '1px solid var(--sev-critical-border)' }}
+        >
+          <span className="text-[9px] font-mono" style={{ color: 'var(--sev-critical-text)' }}>
+            Agent feed failed to load
+          </span>
+          <button
+            onClick={() => refetch()}
+            className="ds-focusable text-[9px] font-mono font-bold uppercase tracking-wide shrink-0"
+            style={{ color: 'var(--sev-critical-text)', background: 'none', border: 'none', borderRadius: 4, cursor: 'pointer', padding: 0 }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : recentOutputs.length === 0 ? (
+        <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>No recent agent output</div>
+      ) : (
+        <div className="mt-2 space-y-1.5">
+          {recentOutputs.map(agent => (
+            <div key={agent.agent_id} className="flex items-center gap-2 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: agent.color }} />
+              <span className="text-[10px] font-mono font-bold uppercase truncate flex-1" style={{ color: agent.color }}>
+                {agent.display_name}
+              </span>
+              <span className="text-[9px] font-mono shrink-0" style={{ color: 'var(--text-muted)' }}>
+                {agent.outputs_24h} out &middot; {relativeTime(agent.last_output_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ─── Live Feed (v2 parity) ───────────────────────────────────
+interface LiveThreatEntry {
+  id: string;
+  threat_type: string;
+  severity: string | null;
+  country_code: string | null;
+  created_at: string;
+  malicious_domain: string | null;
+}
+
+const LIVE_SEVERITY_COLOR: Record<string, string> = {
+  critical: 'var(--sev-critical)',
+  high: 'var(--sev-high)',
+  medium: 'var(--sev-medium)',
+  low: 'var(--sev-low)',
+};
+
+const LiveFeedWidget = memo(function LiveFeedWidget() {
+  // NOTE: the SidePanel doesn't currently receive the map's `source` filter
+  // (SidePanelProps only carries `period` + `visible`, and ObservatoryV3.tsx
+  // is owned by a sibling change) — this defaults to `all`, matching the
+  // current app state where source selection isn't wired to the panel yet.
+  const { data: entries = [], error, refetch } = useQuery({
+    queryKey: ['observatory-live-feed'],
+    queryFn: async () => {
+      const res = await api.get<LiveThreatEntry[]>('/api/observatory/live?limit=8');
+      if (!res.success) throw new Error(res.error || 'Live feed failed to load');
+      return res.data ?? [];
+    },
+    refetchInterval: 15_000,
+  });
+
+  return (
+    <div>
+      <WidgetHeader label="Live Feed" />
+      {error ? (
+        <div
+          className="flex items-center justify-between gap-2 px-2 py-1.5 rounded"
+          style={{ background: 'var(--sev-critical-bg)', border: '1px solid var(--sev-critical-border)' }}
+        >
+          <span className="text-[9px] font-mono" style={{ color: 'var(--sev-critical-text)' }}>
+            Live feed failed to load
+          </span>
+          <button
+            onClick={() => refetch()}
+            className="ds-focusable text-[9px] font-mono font-bold uppercase tracking-wide shrink-0"
+            style={{ color: 'var(--sev-critical-text)', background: 'none', border: 'none', borderRadius: 4, cursor: 'pointer', padding: 0 }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="text-[10px] font-mono py-2" style={{ color: 'var(--text-muted)' }}>Waiting for threats...</div>
+      ) : (
+        <div className="space-y-1">
+          {entries.slice(0, 8).map(entry => (
+            <div key={entry.id} className="flex items-center gap-2 py-0.5">
+              <span
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: LIVE_SEVERITY_COLOR[entry.severity?.toLowerCase() ?? ''] ?? 'var(--sev-low)' }}
+                aria-label={entry.severity ?? 'unknown severity'}
+                title={entry.severity ?? undefined}
+              />
+              <span className="text-[10px] font-mono truncate flex-1" style={{ color: 'var(--text-primary)' }}>
+                {entry.threat_type?.replace(/_/g, ' ')}
+              </span>
+              {entry.country_code && (
+                <span className="text-[9px] font-mono shrink-0" style={{ color: 'var(--text-secondary)' }}>{entry.country_code}</span>
+              )}
+              <span className="text-[9px] font-mono shrink-0" style={{ color: 'var(--text-muted)' }}>
+                {relativeTime(entry.created_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ─── Main SidePanel ─────────────────────────────────────────
 interface SidePanelProps {
   period: string;
   visible: boolean;
+  /**
+   * R10 mobile chrome (C2): when true, renders full-width and in-flow
+   * (no fixed w-80 / absolute right-dock chrome) so the SAME widget set
+   * can be embedded inside a mobile bottom-sheet drawer instead of the
+   * desktop right-docked panel. The caller supplies the sheet's own
+   * background/scroll container — see ObservatoryV3.tsx. Desktop
+   * (`mobile` omitted/false) is unchanged.
+   */
+  mobile?: boolean;
 }
 
-export function SidePanel({ period, visible }: SidePanelProps) {
+export function SidePanel({ period, visible, mobile = false }: SidePanelProps) {
   if (!visible) return null;
-  const P = fmtPeriod(period);
+
+  // Desktop keeps its own scroll container (`flex-1 overflow-y-auto`); the
+  // mobile variant renders inside the BottomSheet, which already owns the
+  // single scroll container for its content — a second one here would
+  // double-scroll.
+  const widgets = (
+    <div className={mobile ? 'flex flex-col gap-3 p-3' : 'flex flex-col gap-3 p-3 flex-1 overflow-y-auto'}>
+      <Card variant="active" padding="16px">
+        <SummaryHeader period={period} />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <TopOriginsWidget period={period} />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <TopBrandsWidget period={period} />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <ProvidersWidget />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <OperationsWidget />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <GeoCampaignsWidget />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <AgentIntelWidget />
+      </Card>
+
+      <Card variant="base" padding="16px">
+        <LiveFeedWidget />
+      </Card>
+    </div>
+  );
+
+  if (mobile) {
+    // Full-width, in-flow — the drawer shell (ObservatoryV3.tsx) owns
+    // background, border, positioning and the scrollable container.
+    return <div className="w-full">{widgets}</div>;
+  }
 
   return (
+    // bottom-[76px] reserves the same stats-bar (36) + ticker (40) band as
+    // ObservatoryV3.tsx's map container and stats bar (desktop-only — this
+    // branch never renders on mobile), so the panel's own bottom edge stays
+    // flush with the top of that chrome strip.
     <div
-      className="absolute top-0 right-0 bottom-[84px] z-20 w-80 flex flex-col overflow-hidden"
+      className="absolute top-0 right-0 bottom-[76px] z-20 w-80 flex flex-col overflow-hidden"
       style={{
-        background: 'rgba(6,10,20,0.88)',
+        background: 'var(--bg-card-deep)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderLeft: '1px solid var(--border-base)',
         boxShadow: '-8px 0 40px rgba(0,0,0,0.5), inset 1px 0 0 var(--border-base)',
       }}
     >
-      <div className="flex-1 overflow-y-auto">
-        <SectionDivider label={`Overview · ${P}`} />
-        <SummaryHeader period={period} />
-
-        <Divider />
-        <SectionDivider label={`Top Threat Origins · ${P}`} />
-        <TopOriginsWidget period={period} />
-
-        <Divider />
-        <SectionDivider label={`Top Targeted Brands · ${P}`} />
-        <TopBrandsWidget period={period} />
-
-        <Divider />
-        <SectionDivider label={"Hosting Providers · 7d trend"} />
-        <ProvidersWidget />
-
-        <Divider />
-        <SectionDivider label="Active Operations" />
-        <OperationsWidget />
-
-        <Divider />
-        <SectionDivider label={"Geopolitical Campaigns · 30d"} />
-        <GeoCampaignsWidget />
-      </div>
+      {widgets}
     </div>
   );
 }

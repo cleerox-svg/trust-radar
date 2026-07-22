@@ -58,6 +58,7 @@ Registration is auth-required (passkey is added to a signed-in user). Authentica
 | GET | `/api/observatory/live` | Live observatory feed |
 | GET | `/api/observatory/brand-arcs` | Brand-specific arcs |
 | GET | `/api/observatory/stats` | Observatory statistics |
+| GET | `/api/observatory/heatmap` | Observatory global threat heatmap points (lat/lng/severity/threat_type) |
 | GET | `/api/observatory/operations` | Observatory operations (active NEXUS clusters feed) |
 | POST | `/api/scan/public` | Public domain scan (rate-limited) |
 | POST | `/api/scan/report` | Generate brand exposure report |
