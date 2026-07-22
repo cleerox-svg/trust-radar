@@ -322,17 +322,32 @@
    the rules below, the entire ops UI renders white-on-white
    under the light theme.
 
-   Set is exhaustive against grep across packages/averrow-ops/src/.
-   New opacity values added later need a matching rule here.
-   The averrow-tenant package carries an analogous block in
-   src/index.css (Phase D D1) — keep them in sync.
+   Set is exhaustive against grep across BOTH packages/averrow-ops/src/
+   and packages/averrow-tenant/src/ (re-audited 2026-07-22 — tenant
+   uses opacity values ops never did: text-white/75, text-white/92,
+   bg-black/20, bg-white/[0.025], and a border-white/[0.15..0.25]
+   hover-variant set — see below). New opacity values added later in
+   EITHER package need a matching rule here. averrow-tenant's
+   src/index.css carries NO light-theme block of its own — this file
+   is tenant's only light-mode parity layer; there is nothing else to
+   keep in sync against.
+
+   Strategic direction (2026-07-22): new component code should prefer
+   semantic vars (--bg-card, --text-primary, etc., defined above) that
+   auto-flip on their own, over reaching for a raw text-white/N or
+   bg-black/N utility that needs a bespoke parity rule here. This
+   block exists for the utilities already in the codebase that can't
+   be swapped to a var without a broader refactor — keep it minimal
+   going forward rather than growing it as the default fix.
    ============================================================ */
 
 /* text-white/X */
 [data-theme="light"] .text-white\/95         { color: rgba(15,20,35,0.95); }
+[data-theme="light"] .text-white\/92         { color: rgba(15,20,35,0.92); }
 [data-theme="light"] .text-white\/90         { color: rgba(15,20,35,0.90); }
 [data-theme="light"] .text-white\/85         { color: rgba(15,20,35,0.85); }
 [data-theme="light"] .text-white\/80         { color: rgba(15,20,35,0.80); }
+[data-theme="light"] .text-white\/75         { color: rgba(15,20,35,0.75); }
 [data-theme="light"] .text-white\/70         { color: rgba(15,20,35,0.70); }
 [data-theme="light"] .text-white\/65         { color: rgba(15,20,35,0.65); }
 [data-theme="light"] .text-white\/60         { color: rgba(15,20,35,0.60); }
@@ -385,6 +400,7 @@
 [data-theme="light"] .bg-white\/\[0\.05\]    { background-color: rgba(15,20,35,0.04); }
 [data-theme="light"] .bg-white\/\[0\.04\]    { background-color: rgba(15,20,35,0.04); }
 [data-theme="light"] .bg-white\/\[0\.03\]    { background-color: rgba(15,20,35,0.03); }
+[data-theme="light"] .bg-white\/\[0\.025\]   { background-color: rgba(15,20,35,0.025); }
 [data-theme="light"] .bg-white\/\[0\.02\]    { background-color: rgba(15,20,35,0.02); }
 [data-theme="light"] .bg-white\/\[0\.015\]   { background-color: rgba(15,20,35,0.02); }
 
@@ -394,6 +410,7 @@
 [data-theme="light"] .bg-black\/80           { background-color: rgba(15,20,35,0.10); }
 [data-theme="light"] .bg-black\/60           { background-color: rgba(15,20,35,0.07); }
 [data-theme="light"] .bg-black\/30           { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .bg-black\/20           { background-color: rgba(15,20,35,0.03); }
 
 /* border-white/X */
 [data-theme="light"] .border-white\/30          { border-color: rgba(15,20,35,0.20); }
@@ -509,3 +526,65 @@
 [data-theme="light"] .focus\:outline-none.focus\:outline-none:focus-visible {
   outline-color: var(--text-primary);
 }
+
+/* ============================================================
+   hover: / group-hover: parity (2026-07-22 tenant re-audit).
+
+   Before this pass, zero :hover or :group-hover variants of
+   text-white/N, bg-white/N, or border-white/N had ANY light-theme
+   override in this file, in either package — a pre-existing gap
+   independent of (and larger than) the base-class gap above. E.g.
+   Members.tsx's "Copy" invite-link button (text-white/65
+   hover:text-white) went white-text-on-white-background on hover in
+   light mode. Grep-verified: border-white/[0.15..0.25] in particular
+   appear ONLY as hover: variants in both packages (never as a bare
+   class), so a bare `.border-white\/\[0.16\]` rule would be dead CSS —
+   these target the actual compiled selector.
+
+   Same strategic note as above: this is scoped to utilities already
+   in the codebase; new interactive-state styling should reach for a
+   semantic var (e.g. `hover:text-[var(--text-primary)]`) instead of
+   growing this list.
+
+   Specificity: attribute selector + class + pseudo-class = (0,3,0),
+   which beats Tailwind's native `:hover`/`:group-hover` utility at
+   (0,2,0) regardless of stylesheet order — same technique as the
+   :focus-visible override immediately above. */
+
+/* hover:border-white/[…] — border-white/[0.10] included because it's
+   the immediate neighbor already paired with these at the same call
+   sites (e.g. `border-white/[0.08] hover:border-white/[0.20]`
+   chip buttons). Values match the existing bare border-white scale. */
+[data-theme="light"] .hover\:border-white\/\[0\.10\]:hover { border-color: rgba(15,20,35,0.12); }
+[data-theme="light"] .hover\:border-white\/\[0\.15\]:hover { border-color: rgba(15,20,35,0.14); }
+[data-theme="light"] .hover\:border-white\/\[0\.16\]:hover { border-color: rgba(15,20,35,0.15); }
+[data-theme="light"] .hover\:border-white\/\[0\.18\]:hover { border-color: rgba(15,20,35,0.16); }
+[data-theme="light"] .hover\:border-white\/\[0\.20\]:hover { border-color: rgba(15,20,35,0.18); }
+[data-theme="light"] .hover\:border-white\/\[0\.25\]:hover { border-color: rgba(15,20,35,0.19); }
+
+/* hover:text-white/N + bare hover:text-white */
+[data-theme="light"] .hover\:text-white:hover      { color: rgba(15,20,35,0.92); }
+[data-theme="light"] .hover\:text-white\/55:hover   { color: rgba(15,20,35,0.62); }
+[data-theme="light"] .hover\:text-white\/60:hover   { color: rgba(15,20,35,0.60); }
+[data-theme="light"] .hover\:text-white\/70:hover   { color: rgba(15,20,35,0.70); }
+[data-theme="light"] .hover\:text-white\/75:hover   { color: rgba(15,20,35,0.75); }
+[data-theme="light"] .hover\:text-white\/80:hover   { color: rgba(15,20,35,0.80); }
+[data-theme="light"] .hover\:text-white\/85:hover   { color: rgba(15,20,35,0.85); }
+[data-theme="light"] .hover\:text-white\/90:hover   { color: rgba(15,20,35,0.90); }
+[data-theme="light"] .hover\:text-white\/95:hover   { color: rgba(15,20,35,0.95); }
+
+/* group-hover:text-white/50 — Tailwind's real selector is
+   `.group:hover .group-hover\:text-white\/50`, not a self-:hover. */
+[data-theme="light"] .group:hover .group-hover\:text-white\/50 { color: rgba(15,20,35,0.55); }
+
+/* hover:bg-white/N */
+[data-theme="light"] .hover\:bg-white\/10:hover          { background-color: rgba(15,20,35,0.06); }
+[data-theme="light"] .hover\:bg-white\/5:hover           { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .hover\:bg-white\/\[0\.1\]:hover    { background-color: rgba(15,20,35,0.07); }
+[data-theme="light"] .hover\:bg-white\/\[0\.08\]:hover   { background-color: rgba(15,20,35,0.06); }
+[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover   { background-color: rgba(15,20,35,0.05); }
+[data-theme="light"] .hover\:bg-white\/\[0\.05\]:hover   { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover   { background-color: rgba(15,20,35,0.04); }
+[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover   { background-color: rgba(15,20,35,0.03); }
+[data-theme="light"] .hover\:bg-white\/\[0\.025\]:hover  { background-color: rgba(15,20,35,0.025); }
+[data-theme="light"] .hover\:bg-white\/\[0\.02\]:hover   { background-color: rgba(15,20,35,0.02); }

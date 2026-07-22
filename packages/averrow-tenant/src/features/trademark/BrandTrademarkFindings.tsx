@@ -20,6 +20,7 @@ import {
   type TrademarkFindingRow,
 } from '@/lib/trademarkModule';
 import { getToken } from '@/lib/api';
+import { useTheme } from '@/lib/useTheme';
 
 export function BrandTrademarkFindings() {
   const { brandId } = useParams<{ brandId: string }>();
@@ -36,7 +37,7 @@ export function BrandTrademarkFindings() {
 
       <header>
         <div className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/40">Trademark Infringement · Brand</div>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">{brand?.brand_name ?? brandId}</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">{brand?.brand_name ?? brandId}</h1>
         <p className="mt-1 text-sm text-white/55 font-mono">{brand?.canonical_domain ?? ''}</p>
       </header>
 
@@ -91,6 +92,7 @@ function AssetsSection({ assets, brandId }: { assets: TrademarkAssetRow[]; brand
 // File picker → base64 → upload mutation. 2 MB cap (matches the server).
 function AssetUploader({ brandId }: { brandId: string }) {
   const upload = useUploadTrademarkAsset();
+  const { resolvedTheme } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
   const [assetType, setAssetType] = useState<'logo' | 'wordmark' | 'combined'>('logo');
   const [name, setName] = useState('');
@@ -125,12 +127,12 @@ function AssetUploader({ brandId }: { brandId: string }) {
       <select
         value={assetType}
         onChange={(e) => setAssetType(e.target.value as 'logo' | 'wordmark' | 'combined')}
-        style={{ colorScheme: 'dark' }}
+        style={{ colorScheme: resolvedTheme }}
         className="rounded-lg bg-white/[0.03] border border-white/[0.08] focus:border-amber/[0.40] focus:outline-none px-2.5 py-1.5 text-[12px] text-white/90 font-mono"
       >
-        <option value="logo" className="bg-[#0d1320] text-white">Logo</option>
-        <option value="wordmark" className="bg-[#0d1320] text-white">Wordmark</option>
-        <option value="combined" className="bg-[#0d1320] text-white">Combined</option>
+        <option value="logo" className="bg-bg-card">Logo</option>
+        <option value="wordmark" className="bg-bg-card">Wordmark</option>
+        <option value="combined" className="bg-bg-card">Combined</option>
       </select>
       <input
         value={name}

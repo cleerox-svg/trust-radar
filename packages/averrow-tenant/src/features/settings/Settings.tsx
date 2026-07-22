@@ -51,7 +51,7 @@ export function Settings() {
   return (
     <div className="max-w-4xl space-y-6">
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Settings</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-white/55">{user?.organization?.name ?? 'Your organization'}</p>
       </header>
 
@@ -145,7 +145,7 @@ export function TakedownAuthorizationPage() {
 
       <header>
         <div className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/40">Settings</div>
-        <h1 className="text-[24px] font-bold text-white tracking-tight">Takedown Authorization</h1>
+        <h1 className="text-[24px] font-bold text-[var(--text-primary)] tracking-tight">Takedown Authorization</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           One signed authorization lets Averrow submit takedown requests on your behalf — DNS, hosting, app stores, social. Scope and limits are recorded per-org.
         </p>

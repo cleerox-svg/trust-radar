@@ -25,7 +25,7 @@ export function MonitoringRules() {
     <div className="max-w-3xl space-y-6">
       <header>
         <div className="text-[11px] uppercase tracking-[0.18em] font-mono text-white/40">Account</div>
-        <h1 className="text-[24px] font-bold text-white tracking-tight">Monitoring Rules</h1>
+        <h1 className="text-[24px] font-bold text-[var(--text-primary)] tracking-tight">Monitoring Rules</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           Per-brand controls over what generates a signal — a watchlist of extra keywords, domains to suppress, the severity floor, and how you're notified.
         </p>

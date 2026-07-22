@@ -42,7 +42,7 @@ export function Threats() {
       </Link>
 
       <header>
-        <h1 className="text-[28px] font-bold text-white tracking-tight">Threats</h1>
+        <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">Threats</h1>
         <p className="mt-1 text-sm text-white/55 max-w-2xl">
           Every malicious domain, URL, and host attributed to your brands. Click a row for the evidence behind the verdict.
         </p>
