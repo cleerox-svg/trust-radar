@@ -20,17 +20,12 @@ import {
   buildExecutiveUpdate,
 } from "../lib/executive-registry";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 
 // ─── Inner-net read gate (mirrors tenantInvestigations) ──────
 // Only super_admin bypasses; auditor is deliberately NOT exempt here —
 // same asymmetry as the other tenant handlers (see CLAUDE.md §7).
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
-
 // An exec may only link to a brand the org owns (org_brands is the
 // ownership table). Value-equality join matches how tenantInvestigations
 // verifies item ownership.

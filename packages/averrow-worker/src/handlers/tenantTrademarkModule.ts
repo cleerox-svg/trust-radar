@@ -19,14 +19,9 @@
 
 import { json, corsHeaders } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { requireModule, ModuleNotEntitledError } from "../lib/entitlements";
-
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
 
 // Asset management (upload/delete) requires an org analyst+ role.
 const ORG_ROLE_HIERARCHY: Record<string, number> = { viewer: 1, analyst: 2, admin: 3, owner: 4 };

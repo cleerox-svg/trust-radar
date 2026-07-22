@@ -702,10 +702,18 @@ in `lib/role-permissions.ts` and is the single source of truth.
   net — per-handler `verifyOrgAccess` / `requireOrgAdmin` checks stay
   in place as the inner net (same `ctx.orgId !== orgId` comparison),
   so a handler that forgets its own check can't leak cross-org data.
-  Note the asymmetry: handlers' own `verifyOrgAccess` only exempts
-  `super_admin`, not `auditor`, so an `auditor` that passes this
-  guard can still be blocked at the handler — the outer guard is
-  deliberately no looser than the inner check for real members.
+  As of S3.1, handlers' own `verifyOrgAccess` shares the same
+  `hasGlobalReadScope` exemption as this outer guard, so an `auditor`
+  that passes `requireOrgMember` also passes the inner net on READS —
+  the two layers agree, consistent with auditor's global read-only
+  scope described above. WRITES still fail: `auditor` holds no org
+  role, so every mutation is blocked by its handler's stricter
+  org-role gate (`canPerformHITL` / `canManageAssets` /
+  `canMutateAuthorization` / `requireOrgAdmin`), and the two
+  abuse-mailbox status writers whose only org gate is
+  `verifyOrgAccess` carry an explicit `isReadOnlyGlobalRole` 403
+  block. The outer guard remains no looser than the inner check for
+  real (non-global) members.
   `requireOrgAdmin` (`handlers/organizations.ts`) is the org-admin+
   variant used by mutation endpoints (e.g. billing checkout/portal).
 

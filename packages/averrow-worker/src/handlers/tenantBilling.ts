@@ -12,6 +12,7 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { requireOrgAdmin } from "./organizations";
 import { getOrgPricingSummary, getPricingPlan } from "../lib/pricing";
@@ -20,12 +21,6 @@ import {
   createPortalSession,
   StripeApiError,
 } from "../lib/stripe-api";
-
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
 
 export async function handleGetTenantBilling(
   request: Request,

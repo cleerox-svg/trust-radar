@@ -18,6 +18,7 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { MODULE_KEYS, type ModuleKey } from "../lib/entitlements";
 import {
@@ -35,12 +36,6 @@ import {
 } from "../lib/takedown-policy";
 
 // ─── Org-access guard ──────────────────────────────────────────
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
-
 // Members must be admin/owner to revoke; analyst/viewer are read-only.
 const ADMIN_ROLES = new Set(["admin", "owner"]);
 

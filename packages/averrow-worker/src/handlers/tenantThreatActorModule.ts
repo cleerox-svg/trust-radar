@@ -18,14 +18,9 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { requireModule, ModuleNotEntitledError } from "../lib/entitlements";
-
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
 
 interface ActorSummaryRow {
   actor_id:                string;

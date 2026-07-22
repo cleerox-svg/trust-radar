@@ -19,14 +19,9 @@
 
 import { json } from "../lib/cors";
 import type { Env } from "../types";
+import { verifyOrgAccess, isReadOnlyGlobalRole } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 import { requireModule, ModuleNotEntitledError } from "../lib/entitlements";
-
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
 
 interface AbuseMailboxBrandSummary {
   brand_id:                string;
@@ -436,6 +431,11 @@ export async function handleUpdateAbuseInboxMessageStatus(
   const origin = request.headers.get("Origin");
   const accessError = verifyOrgAccess(ctx, orgId);
   if (accessError) return json({ success: false, error: accessError }, 403, origin);
+  // verifyOrgAccess exempts read-only global seats (auditor); this is a WRITE
+  // and has no org-role gate below, so block them here (S3.1 write-guard).
+  if (isReadOnlyGlobalRole(ctx.role)) {
+    return json({ success: false, error: "Forbidden: read-only role" }, 403, origin);
+  }
 
   const orgIdNum = Number(orgId);
   if (!Number.isFinite(orgIdNum)) {
@@ -503,6 +503,11 @@ export async function handleBulkUpdateAbuseInboxMessageStatus(
   const origin = request.headers.get("Origin");
   const accessError = verifyOrgAccess(ctx, orgId);
   if (accessError) return json({ success: false, error: accessError }, 403, origin);
+  // verifyOrgAccess exempts read-only global seats (auditor); this is a WRITE
+  // and has no org-role gate below, so block them here (S3.1 write-guard).
+  if (isReadOnlyGlobalRole(ctx.role)) {
+    return json({ success: false, error: "Forbidden: read-only role" }, 403, origin);
+  }
 
   const orgIdNum = Number(orgId);
   if (!Number.isFinite(orgIdNum)) {

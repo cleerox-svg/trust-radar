@@ -10,6 +10,7 @@
 import { json } from "../lib/cors";
 import { audit } from "../lib/audit";
 import type { Env } from "../types";
+import { verifyOrgAccess } from "../middleware/auth";
 import type { AuthContext } from "../middleware/auth";
 
 // ─── Helpers (local — mirror tenantData.ts's private gates) ──
@@ -17,12 +18,6 @@ import type { AuthContext } from "../middleware/auth";
 const ORG_ROLE_HIERARCHY: Record<string, number> = {
   viewer: 1, analyst: 2, admin: 3, owner: 4,
 };
-
-function verifyOrgAccess(ctx: AuthContext, orgId: string): string | null {
-  if (ctx.role === "super_admin") return null;
-  if (ctx.orgId !== orgId) return "Not a member of this organization";
-  return null;
-}
 
 function canPerformHITL(ctx: AuthContext): boolean {
   if (ctx.role === "super_admin") return true;
