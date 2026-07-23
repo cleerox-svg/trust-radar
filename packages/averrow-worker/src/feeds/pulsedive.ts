@@ -50,13 +50,25 @@ export async function checkPulsedive(indicator: string, env: Env): Promise<Pulse
   }
 
   const body = (await res.json()) as { risk?: string; error?: string };
-  // Unknown-to-Pulsedive indicators come back with an error field — that's
-  // a valid "no risk data" answer, not a failure. Cache as "unknown".
-  const risk: PulsediveRisk = body.error
-    ? "unknown"
-    : VALID_RISK.has((body.risk ?? "") as PulsediveRisk)
-      ? (body.risk as PulsediveRisk)
-      : "unknown";
+
+  if (body.error) {
+    // Only "Indicator not found." is a valid "no risk data" answer → cache
+    // it as unknown. ANY OTHER error (invalid key, quota exhausted, etc.,
+    // which Pulsedive can return as HTTP 200 + {error}) is a real failure:
+    // return null so it is retryable, uncached, and does NOT stamp the
+    // threat checked — otherwise a bad key silently marks a whole day's
+    // batch checked=unknown with no operator signal.
+    if (/not\s*found/i.test(body.error)) {
+      await env.CACHE.put(cacheKey, "unknown", { expirationTtl: 172800 });
+      return "unknown";
+    }
+    logger.error("pulsedive_error_body", { indicator, error: body.error });
+    return null;
+  }
+
+  const risk: PulsediveRisk = VALID_RISK.has((body.risk ?? "") as PulsediveRisk)
+    ? (body.risk as PulsediveRisk)
+    : "unknown";
 
   await env.CACHE.put(cacheKey, risk, { expirationTtl: 172800 });
   return risk;
@@ -133,11 +145,14 @@ export const pulsedive: FeedModule = {
           `).bind(risk, threat.id).run();
           itemsNew++;
         } else if (risk === "none") {
-          // Pulsedive knows it and rates it not-risky — flag likely-FP + downgrade.
+          // Pulsedive knows it and explicitly rates it not-risky — strong
+          // FP signal. Downgrade to low + flag (matches greynoise's riot
+          // path). NB: this feed only selects critical/high rows, so the
+          // downgrade must be unconditional, not medium-gated.
           await env.DB.prepare(`
             UPDATE threats SET
               pulsedive_checked = 1, pulsedive_risk = 'none', pulsedive_checked_at = datetime('now'),
-              severity = CASE WHEN severity = 'medium' THEN 'low' ELSE severity END,
+              severity = 'low',
               tags = CASE
                 WHEN tags IS NULL OR tags = '' THEN 'likely_false_positive'
                 WHEN tags NOT LIKE '%likely_false_positive%' THEN tags || ',likely_false_positive'
@@ -146,10 +161,12 @@ export const pulsedive: FeedModule = {
           `).bind(threat.id).run();
           itemsNew++;
         } else if (risk === "low") {
+          // Mild not-risky signal — drop one severity notch (critical→high,
+          // high→medium) rather than a full downgrade.
           await env.DB.prepare(`
             UPDATE threats SET
               pulsedive_checked = 1, pulsedive_risk = 'low', pulsedive_checked_at = datetime('now'),
-              severity = CASE WHEN severity = 'medium' THEN 'low' ELSE severity END
+              severity = CASE severity WHEN 'critical' THEN 'high' WHEN 'high' THEN 'medium' ELSE severity END
             WHERE id = ?
           `).bind(threat.id).run();
           itemsNew++;
@@ -169,7 +186,16 @@ export const pulsedive: FeedModule = {
       }
     }
 
+    // Every attempt consumed quota, so count them all before deciding.
     if (itemsFetched > 0) await incrementDailyCount(env, itemsFetched);
+
+    // If EVERY lookup failed (invalid key / sustained upstream outage),
+    // throw so runFeed marks the pull failed and the per-feed circuit
+    // breaker backs off — instead of reporting success and re-hammering
+    // the full budget every run with no signal.
+    if (itemsFetched > 0 && itemsError === itemsFetched) {
+      throw new Error(`pulsedive: all ${itemsFetched} lookups failed — check PULSEDIVE_API_KEY / upstream`);
+    }
 
     return { itemsFetched, itemsNew, itemsDuplicate, itemsError };
   },
