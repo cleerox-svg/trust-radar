@@ -122,6 +122,19 @@ describe("ipsum", () => {
     expect(captured.threatBinds[1]![COL_SEVERITY]).toBe("high");     // score 5
     expect(captured.threatBinds[2]![COL_SEVERITY]).toBe("medium");   // score 3
   });
+
+  it("caps work at MAX_ITEMS (1000) so a large list can't overrun the worker budget", async () => {
+    const lines = ["# IPsum header"];
+    for (let i = 0; i < 1500; i++) lines.push(`10.0.${Math.floor(i / 256)}.${i % 256}\t5`);
+    mockTextResponse(lines.join("\n"));
+    const { env, captured } = makeEnv();
+
+    const result = await ipsum.ingest({ env, feedName: "ipsum", feedUrl: "https://x/ipsum.txt" });
+
+    expect(result.itemsFetched).toBe(1000);
+    expect(result.itemsNew).toBe(1000);
+    expect(captured.threatBinds).toHaveLength(1000);
+  });
 });
 
 describe("phishing_database", () => {

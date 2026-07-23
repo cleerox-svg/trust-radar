@@ -22,6 +22,7 @@ const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])
  */
 export const scam_blocklist: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    if (!ctx.feedUrl) throw new Error("Scam-Blocklist: feed_configs.source_url is empty");
     const res = await fetch(ctx.feedUrl, {
       signal: AbortSignal.timeout(30_000),
       headers: { "User-Agent": "Averrow-ThreatIntel/1.0" },

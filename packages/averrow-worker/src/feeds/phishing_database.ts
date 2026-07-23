@@ -24,6 +24,7 @@ const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])
  */
 export const phishing_database: FeedModule = {
   async ingest(ctx: FeedContext): Promise<FeedResult> {
+    if (!ctx.feedUrl) throw new Error("Phishing.Database: feed_configs.source_url is empty");
     const res = await fetch(ctx.feedUrl, {
       signal: AbortSignal.timeout(30_000),
       headers: { "User-Agent": "Averrow-ThreatIntel/1.0" },
