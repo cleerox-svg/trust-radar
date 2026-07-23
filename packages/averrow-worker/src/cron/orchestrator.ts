@@ -233,6 +233,20 @@ export async function handleScheduled(event: ScheduledEvent, env: Env, ctx: Exec
     return;
   }
 
+  // Pulsedive risk-scoring enrichment — dedicated cron for the same reason
+  // (free-tier rate limit → per-IOC sleeps would starve the shared chain).
+  // Minute 27 is off the */5 Navigator grid and distinct from every other
+  // dedicated cron. Self-gates to a no-op when PULSEDIVE_API_KEY is unset.
+  if (event.cron === '27 */4 * * *') {
+    try {
+      const { dispatchEnrichmentFeed } = await import('../lib/feedRunner');
+      await dispatchEnrichmentFeed(env, 'pulsedive', enrichmentModules['pulsedive']!);
+    } catch (err) {
+      logger.error('pulsedive_dispatch_error', { error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+
   // ─── Detection scanners on dedicated crons (S0.1 — CT / lookalike / trademark) ───
   //
   // Assessment 2026-07 §3.4 R1/R2. These three ran inline at the tail of the
