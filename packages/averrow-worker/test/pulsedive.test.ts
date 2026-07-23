@@ -24,7 +24,11 @@ function makeEnv(
     const m = url.match(/indicator=([^&]+)/);
     const ind = m ? decodeURIComponent(m[1]!) : "";
     const risk = riskByIndicator[ind];
-    const body = risk === "ERROR" ? { error: "Indicator not found." } : { risk };
+    if (risk === "HTTP429") return { ok: false, status: 429, async json() { return {}; } } as unknown as Response;
+    const body =
+      risk === "ERROR" ? { error: "Indicator not found." } :        // valid "no data"
+      risk === "ERROR_OTHER" ? { error: "Invalid API key." } :      // hard failure
+      { risk };
     return { ok: true, status: 200, async json() { return body; } } as unknown as Response;
   }) as unknown as typeof fetch;
 
@@ -39,7 +43,8 @@ function makeEnv(
         return {
           bind(...args: unknown[]) {
             return {
-              async all() { return { results: threats }; },
+              // Respect the SELECT's LIMIT ? bind so the daily-budget clamp is testable.
+              async all() { const lim = typeof args[0] === "number" ? args[0] : threats.length; return { results: threats.slice(0, lim) }; },
               async run() { if (/UPDATE\s+threats/i.test(sql)) updates.push({ sql, args }); return { meta: { changes: 1 } }; },
               async first() { return null; },
             };
@@ -98,8 +103,41 @@ describe("pulsedive enrichment", () => {
     const byId = (id: string) => updates.find((u) => u.args[u.args.length - 1] === id)!;
     expect(byId("crit").sql).toMatch(/confidence_score = MIN\(100/);
     expect(byId("none").sql).toMatch(/likely_false_positive/);
-    expect(byId("low").sql).toMatch(/severity = CASE WHEN severity = 'medium' THEN 'low'/);
+    expect(byId("low").sql).toMatch(/severity = CASE severity WHEN 'critical' THEN 'high'/);
+    expect(byId("none").sql).toMatch(/severity = 'low'/);
     expect(byId("unk").sql).toMatch(/pulsedive_checked = 1, pulsedive_risk = \?/);
+  });
+
+  it("throws (trips the circuit breaker) when every lookup fails, and stamps nothing checked", async () => {
+    const { env, updates } = makeEnv([{ id: "t1", indicator: "a.com" }], { "a.com": "ERROR_OTHER" });
+    await expect(pulsedive.ingest({ env, ...CTX })).rejects.toThrow(/lookups failed/);
+    expect(updates).toEqual([]); // a hard error must not mark the threat checked
+  });
+
+  it("does NOT mark checked on a non-'not found' error (retryable) but keeps processing others", async () => {
+    const { env, updates } = makeEnv(
+      [{ id: "ok", indicator: "ok.com" }, { id: "bad", indicator: "bad.com" }],
+      { "ok.com": "high", "bad.com": "ERROR_OTHER" },
+    );
+    const r = await pulsedive.ingest({ env, ...CTX });
+    expect(r.itemsNew).toBe(1);
+    expect(r.itemsError).toBe(1);
+    // only the good indicator got a pulsedive_checked stamp; the errored one is left for retry
+    expect(updates.map((u) => u.args[u.args.length - 1])).toEqual(["ok"]);
+  });
+
+  it("returns null (itemsError) on a 429 without stamping checked", async () => {
+    const { env, updates } = makeEnv([{ id: "t1", indicator: "a.com" }], { "a.com": "HTTP429" });
+    await expect(pulsedive.ingest({ env, ...CTX })).rejects.toThrow(/lookups failed/); // all failed → throw
+    expect(updates).toEqual([]);
+  });
+
+  it("clamps the batch to the remaining daily budget", async () => {
+    const threats = Array.from({ length: 5 }, (_, i) => ({ id: `t${i}`, indicator: `d${i}.com` }));
+    const risks = Object.fromEntries(threats.map((t) => [t.indicator, "unknown"]));
+    const { env } = makeEnv(threats, risks, { dailyCount: 89 }); // 90 - 89 = 1 remaining
+    const r = await pulsedive.ingest({ env, ...CTX });
+    expect(r.itemsFetched).toBe(1);
   });
 
   it("treats an {error} response (unknown to Pulsedive) as risk=unknown, not a failure", async () => {
