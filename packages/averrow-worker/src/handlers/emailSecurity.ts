@@ -14,6 +14,7 @@ import { json } from '../lib/cors';
 import { runEmailSecurityScan, saveEmailSecurityScan } from '../email-security';
 import type { BIMIResult } from '../email-security';
 import { createAlert } from '../lib/alerts';
+import { cachedValue } from '../lib/cached-value';
 import type { EmailSecurityScan, Env } from '../types';
 
 // ─── GET /api/email-security/:brandId ─────────────────────────────────────
@@ -349,68 +350,90 @@ export async function handleEmailSecurityStats(
 ): Promise<Response> {
   const origin = request.headers.get('Origin');
   try {
-    const [gradeRows, totalRow, unscannedRow, worstBrands] = await Promise.all([
-      // Grade distribution
-      env.DB.prepare(`
-        SELECT email_security_grade AS grade, COUNT(*) AS count
-        FROM brands
-        WHERE email_security_grade IS NOT NULL
-        GROUP BY email_security_grade
-        ORDER BY CASE grade
-          WHEN 'A+' THEN 1 WHEN 'A' THEN 2 WHEN 'B' THEN 3
-          WHEN 'C' THEN 4 WHEN 'D' THEN 5 WHEN 'F' THEN 6 ELSE 7 END
-      `).all<{ grade: string; count: number }>(),
-
-      // Scanned total
-      env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NOT NULL"
-      ).first<{ n: number }>(),
-
-      // Unscanned count
-      env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NULL"
-      ).first<{ n: number }>(),
-
-      // Worst-protected brands (all F/D/C grades, up to 200)
-      env.DB.prepare(`
-        SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade,
-               b.active_threat_count AS active_threats
-        FROM brands b
-        WHERE b.email_security_score IS NOT NULL AND b.email_security_grade IN ('F', 'D', 'C')
-        ORDER BY b.email_security_score ASC
-        LIMIT 200
-      `).all<{
+    // D1 spend fix: this stats page is prewarmed by Navigator every
+    // 5 min (Phase C "Email Auth") and every one of its subqueries
+    // scans brands or email_security_scans — the DMARC distribution
+    // in particular runs a correlated `id IN (SELECT MAX(id) ...
+    // GROUP BY brand_id)` over the full scan history (25.6M rows/24h
+    // in the 2026-07 budget blowout). Wrap the whole computed payload
+    // in cachedValue (300s, the §8 page-load TTL): the response is
+    // deterministic given DB state and a 5-min lag on a posture panel
+    // is invisible. KV reads don't count against the D1 budget, so
+    // every hit removes all of these scans from plan.
+    const data = await cachedValue<{
+      grade_distribution: Array<{ grade: string; count: number }>;
+      dmarc_distribution: Array<{ dmarc_policy: string | null; count: number }>;
+      total_scanned: number;
+      total_unscanned: number;
+      average_score: number;
+      worst_brands: Array<{
         id: string; name: string; canonical_domain: string;
         email_security_score: number; email_security_grade: string;
         active_threats: number;
-      }>(),
-    ]);
+      }>;
+    }>(env, 'email_security_stats', 300, async () => {
+      const [gradeRows, totalRow, unscannedRow, worstBrands] = await Promise.all([
+        // Grade distribution
+        env.DB.prepare(`
+          SELECT email_security_grade AS grade, COUNT(*) AS count
+          FROM brands
+          WHERE email_security_grade IS NOT NULL
+          GROUP BY email_security_grade
+          ORDER BY CASE grade
+            WHEN 'A+' THEN 1 WHEN 'A' THEN 2 WHEN 'B' THEN 3
+            WHEN 'C' THEN 4 WHEN 'D' THEN 5 WHEN 'F' THEN 6 ELSE 7 END
+        `).all<{ grade: string; count: number }>(),
 
-    // DMARC policy distribution (from latest scans)
-    const dmarcRows = await env.DB.prepare(`
-      SELECT dmarc_policy, COUNT(*) AS count
-      FROM email_security_scans ess
-      WHERE ess.id IN (
-        SELECT MAX(id) FROM email_security_scans GROUP BY brand_id
-      )
-      GROUP BY dmarc_policy
-    `).all<{ dmarc_policy: string | null; count: number }>();
+        // Scanned total
+        env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NOT NULL"
+        ).first<{ n: number }>(),
 
-    const avgRow = await env.DB.prepare(
-      "SELECT AVG(email_security_score) AS avg FROM brands WHERE email_security_score IS NOT NULL"
-    ).first<{ avg: number | null }>();
+        // Unscanned count
+        env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM brands WHERE email_security_score IS NULL"
+        ).first<{ n: number }>(),
 
-    return json({
-      success: true,
-      data: {
+        // Worst-protected brands (all F/D/C grades, up to 200)
+        env.DB.prepare(`
+          SELECT b.id, b.name, b.canonical_domain, b.email_security_score, b.email_security_grade,
+                 b.active_threat_count AS active_threats
+          FROM brands b
+          WHERE b.email_security_score IS NOT NULL AND b.email_security_grade IN ('F', 'D', 'C')
+          ORDER BY b.email_security_score ASC
+          LIMIT 200
+        `).all<{
+          id: string; name: string; canonical_domain: string;
+          email_security_score: number; email_security_grade: string;
+          active_threats: number;
+        }>(),
+      ]);
+
+      // DMARC policy distribution (from latest scans)
+      const dmarcRows = await env.DB.prepare(`
+        SELECT dmarc_policy, COUNT(*) AS count
+        FROM email_security_scans ess
+        WHERE ess.id IN (
+          SELECT MAX(id) FROM email_security_scans GROUP BY brand_id
+        )
+        GROUP BY dmarc_policy
+      `).all<{ dmarc_policy: string | null; count: number }>();
+
+      const avgRow = await env.DB.prepare(
+        "SELECT AVG(email_security_score) AS avg FROM brands WHERE email_security_score IS NOT NULL"
+      ).first<{ avg: number | null }>();
+
+      return {
         grade_distribution: gradeRows.results,
         dmarc_distribution: dmarcRows.results,
         total_scanned: totalRow?.n ?? 0,
         total_unscanned: unscannedRow?.n ?? 0,
         average_score: Math.round(avgRow?.avg ?? 0),
         worst_brands: worstBrands.results,
-      },
-    }, 200, origin);
+      };
+    });
+
+    return json({ success: true, data }, 200, origin);
   } catch (err) {
     return json({ success: false, error: "An internal error occurred" }, 500, origin);
   }

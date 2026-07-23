@@ -229,13 +229,18 @@ export const observerAgent: AgentModule = {
       ORDER BY count DESC
     `).all<{ grade: string; count: number }>();
 
+    // D1 spend fix (CLAUDE.md §8): read the pre-computed
+    // `brands.active_threat_count` column instead of JOIN-ing +
+    // GROUP BY-ing the full threats table (was a 41.5M-rows/24h
+    // full scan). `active_threat_count > 0` reproduces the INNER
+    // JOIN's implicit "has ≥1 active threat" filter, and the column
+    // equals COUNT(active threats) per brand — same result, no scan.
     const emailAtRiskBrands = await env.DB.prepare(`
-      SELECT b.name, b.email_security_grade, COUNT(t.id) AS threat_count
+      SELECT b.name, b.email_security_grade, b.active_threat_count AS threat_count
       FROM brands b
-      JOIN threats t ON t.target_brand_id = b.id AND t.status = 'active'
       WHERE b.email_security_grade IN ('F', 'D')
-      GROUP BY b.id
-      ORDER BY threat_count DESC
+        AND b.active_threat_count > 0
+      ORDER BY b.active_threat_count DESC
       LIMIT 5
     `).all<{ name: string; email_security_grade: string; threat_count: number }>();
 

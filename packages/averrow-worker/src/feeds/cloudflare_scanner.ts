@@ -1,5 +1,6 @@
 import type { FeedModule, FeedContext, FeedResult } from "./types";
 import { loadSafeDomainSet, isSafeDomain } from "../lib/safeDomains";
+import { cachedCount } from "../lib/cached-count";
 
 /**
  * Cloudflare Radar URL Scanner — Two-phase feed.
@@ -120,11 +121,29 @@ export const cloudflare_scanner: FeedModule = {
        LIMIT 50`,
     ).all<{ id: string; malicious_url: string }>();
 
-    // Diagnostic: log how many the query found
+    // Diagnostic: log how many the query found.
+    //
+    // D1 spend fix: `cf_scan_id IS NULL AND malicious_url IS NOT NULL`
+    // matches no index, so this was a full threats scan on every
+    // 30-min cf_scanner run (52M rows/24h, the platform's #1 D1
+    // query in the 2026-07 budget blowout). It only feeds a log
+    // string, so an hour-stale value is fine — wrap in cachedCount
+    // (3600s), mirroring the enrichment.ts diagnostic-counter
+    // precedent. KV reads don't count against the D1 budget, so
+    // every hit shaves a full scan off plan.
     try {
-      const eligible = await ctx.env.DB.prepare(
-        `SELECT COUNT(*) as c FROM threats WHERE cf_scan_id IS NULL AND malicious_url IS NOT NULL`
-      ).first<{ c: number }>();
+      const eligibleCount = await cachedCount(
+        ctx.env,
+        'count.threats.cf_scan_pending',
+        3600,
+        async () => {
+          const r = await ctx.env.DB.prepare(
+            `SELECT COUNT(*) as c FROM threats WHERE cf_scan_id IS NULL AND malicious_url IS NOT NULL`,
+          ).first<{ c: number }>();
+          return r?.c ?? 0;
+        },
+      );
+      const eligible = { c: eligibleCount };
       await ctx.env.DB.prepare(
         "INSERT INTO agent_outputs (id, agent_id, type, summary, created_at) VALUES (?, 'sentinel', 'diagnostic', ?, datetime('now'))"
       ).bind(
