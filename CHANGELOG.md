@@ -4,6 +4,42 @@ All notable changes to the Averrow platform are documented here.
 
 ---
 
+## [v4.2.2] — 2026-07-22
+
+Follow-on light-theme ("lite mode") polish pass for the staff ops app,
+closing the gaps left after the 4.2.1 sweep. Internal/staff register
+(detailed; the public register carries a generic, non-proprietary
+summary).
+
+### Remaining dark panels + contrast fixes (ops-only)
+- Fixed remaining hardcoded-dark panels/cards that stayed unreadable under
+  `[data-theme="light"]` after the 4.2.1 pass: Abuse Mailbox, Spam Trap,
+  Admin Pipelines, Explorer's accelerating-provider cards, and the
+  Overview "burst" banner. Root cause was inline literal background
+  colors (dark-canvas `rgba(...)` values baked directly into component
+  style props/classNames) that bypassed the token system entirely —
+  migrated each to `var(--bg-card)` (plus `var(--card-critical-bg)` where
+  the panel carries a critical/alert accent) so they inherit the
+  theme-aware value instead of a hardcoded dark literal.
+- Fixed titles/labels that were previously invisible or near-invisible in
+  light theme (dark-on-dark text color left over from the pre-token era)
+  across the same five surfaces.
+- Sharpened the selected-state highlight on the sidebar nav and on filter
+  pills/tabs so the active item is visibly distinguishable in light
+  theme — added dedicated `--nav-active-bg` / `--nav-active-text` and
+  `--pill-active-bg` / `--pill-active-text` tokens (light-theme values
+  tuned for AA contrast against `--bg-card`) instead of reusing the
+  dark-theme active-state values, which read as too low-contrast on a
+  light canvas.
+- Dark theme is unchanged end to end — every fix is either an additive
+  `[data-theme="light"]` override or a swap onto a token whose dark-mode
+  value is unchanged from the previous literal.
+- Screenshot-verified across all five affected surfaces (Abuse Mailbox,
+  Spam Trap, Admin Pipelines, Explorer, Overview) in both themes before
+  merge.
+
+PR #1684. Bump: `fix` — PATCH (`4.2.1` → `4.2.2`).
+
 ## [v4.2.1] — 2026-07-22
 
 Light-theme ("lite mode") readability fix across all three surfaces —

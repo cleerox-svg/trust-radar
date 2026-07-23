@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    version: "v4.2.2",
+    publishedAt: "2026-07-22",
+    kind: "Fix",
+    title: "More light-theme polish",
+    description:
+      "Fixed remaining dark panels and improved contrast in light theme, and made selected menu items and filters stand out more. No changes to dark theme.",
+  },
+  {
     version: "v4.2.1",
     publishedAt: "2026-07-22",
     kind: "Fix",

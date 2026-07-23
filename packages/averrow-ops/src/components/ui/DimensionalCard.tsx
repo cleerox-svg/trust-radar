@@ -50,7 +50,7 @@ export function DimensionalCard({
       inner:  `inset 0 1px 0 ${accentColor ? accentColor + '30' : 'var(--border-strong)'},inset 0 -1px 0 var(--border-base)`,
     },
     critical: {
-      bg: 'linear-gradient(150deg,rgba(40,12,12,0.95),rgba(15,8,8,0.98))',
+      bg: 'var(--card-critical-bg)',
       border: 'rgba(239,68,68,0.35)',
       rim: 'rgba(239,68,68,0.45)',
       shadow: '0 8px 32px rgba(0,0,0,0.30),0 0 24px rgba(239,68,68,0.15)',
