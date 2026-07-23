@@ -1,6 +1,6 @@
 # Threat Feed Integrations
 
-Averrow ingests threat intelligence from ~53 external feeds split across three categories: **ingest feeds** (40) that create new threat records (three of these — CISA KEV, NVD CVE, and EPSS — write aggregated insight digests to `agent_outputs` instead, see below), **social feeds** (4) that populate `social_mentions`, and **enrichment feeds** (9) that annotate existing threats. This document covers the feed architecture, individual feed integrations, and operational patterns.
+Averrow ingests threat intelligence from ~54 external feeds split across three categories: **ingest feeds** (40) that create new threat records (three of these — CISA KEV, NVD CVE, and EPSS — write aggregated insight digests to `agent_outputs` instead, see below), **social feeds** (4) that populate `social_mentions`, and **enrichment feeds** (10) that annotate existing threats. This document covers the feed architecture, individual feed integrations, and operational patterns.
 
 ## Source Files
 
@@ -79,9 +79,9 @@ Each ingested threat is classified into one of these types:
 
 ## Feed Registry
 
-All feeds are registered in `packages/averrow-worker/src/feeds/index.ts` into one of three maps: `feedModules` (ingest — 40 entries), `socialModules` (4 entries), or `enrichmentModules` (9 entries). The `feed_name` key must match the `feed_configs.feed_name` column.
+All feeds are registered in `packages/averrow-worker/src/feeds/index.ts` into one of three maps: `feedModules` (ingest — 40 entries), `socialModules` (4 entries), or `enrichmentModules` (10 entries). The `feed_name` key must match the `feed_configs.feed_name` column.
 
-**Cadence:** every ingest/social feed and 7 of the 9 enrichment feeds run inside the hourly orchestrator tick (`7 * * * *` in `wrangler.toml`) via `runAllFeeds` / `runAllSocialFeeds` / `runAllEnrichmentFeeds` — each feed's actual per-tick eligibility is gated by its own `feed_configs.interval_minutes` row in D1, not by a static per-feed cron. Two enrichment feeds are the exception: **GreyNoise** (`19 */4 * * *`, every 4h) and **SecLookup** (`21 * * * *`, hourly) run on dedicated crons (`DEDICATED_ENRICHMENT_FEEDS` in `lib/feedRunner.ts:164`, skipped by `runAllEnrichmentFeeds` inside the orchestrator tick) — see `CLAUDE.md §6` for the full rationale and cron table.
+**Cadence:** every ingest/social feed and 7 of the 10 enrichment feeds run inside the hourly orchestrator tick (`7 * * * *` in `wrangler.toml`) via `runAllFeeds` / `runAllSocialFeeds` / `runAllEnrichmentFeeds` — each feed's actual per-tick eligibility is gated by its own `feed_configs.interval_minutes` row in D1, not by a static per-feed cron. Three enrichment feeds are the exception: **GreyNoise** (`19 */4 * * *`, every 4h), **SecLookup** (`21 * * * *`, hourly), and **Pulsedive** (`27 */4 * * *`, every 4h) run on dedicated crons (`DEDICATED_ENRICHMENT_FEEDS` in `lib/feedRunner.ts`, skipped by `runAllEnrichmentFeeds` inside the orchestrator tick) because their per-IOC rate-limit sleeps would starve the shared enrichment chain — see `CLAUDE.md §6` for the full rationale and cron table.
 
 ### Ingest Feeds — Phishing
 
@@ -197,6 +197,7 @@ Enrichment feeds run **after** ingest. They query existing threats and annotate 
 | **CIRCL Passive DNS** | `circlPassiveDns.ts` | CIRCL | Historical DNS records for pivot analysis |
 | **GreyNoise** | `greynoise.ts` | GreyNoise | Internet-wide scanner / noise classification |
 | **SecLookup** | `seclookup.ts` | SecLookup | Domain / IP threat intelligence lookup |
+| **Pulsedive** | `pulsedive.ts` | Pulsedive | IOC risk scoring (domain/ip) via the free REST API — calibrates confidence/severity from Pulsedive's risk level. Dedicated cron (`27 */4 * * *`); self-gates when `PULSEDIVE_API_KEY` is unset. Pulsedive's STIX/TAXII export is paid, so this is REST enrichment, not a TAXII ingest (migration 0250) |
 
 ## Circuit Breaker Pattern
 

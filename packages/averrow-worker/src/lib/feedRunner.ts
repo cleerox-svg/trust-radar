@@ -165,7 +165,7 @@ export function computeFeedRetryAt(consecutiveFailures: number, now: Date = new 
 // with a fresh per-invocation budget (same escape-hatch pattern as
 // enricher/cartographer/strategist). runAllEnrichmentFeeds SKIPS them so
 // they don't also run inline and re-create the starvation.
-export const DEDICATED_ENRICHMENT_FEEDS = new Set<string>(["greynoise", "seclookup"]);
+export const DEDICATED_ENRICHMENT_FEEDS = new Set<string>(["greynoise", "seclookup", "pulsedive"]);
 
 /**
  * Dispatch a single enrichment feed by name from its dedicated cron.

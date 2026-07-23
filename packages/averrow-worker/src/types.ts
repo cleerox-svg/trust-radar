@@ -107,6 +107,8 @@ export interface Env {
   GREYNOISE_API_KEY?: string;
   // SecLookup domain + IP intelligence
   SECLOOKUP_API_KEY?: string;
+  // Pulsedive IOC risk scoring (free REST tier)
+  PULSEDIVE_API_KEY?: string;
   // Anthropic Admin API (optional — budget verification)
   ANTHROPIC_ADMIN_KEY?: string;
   // Resend email API (briefing delivery)

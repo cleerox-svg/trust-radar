@@ -44,6 +44,7 @@ import { abuseipdb } from "./abuseipdb";
 import { circl_pdns } from "./circlPassiveDns";
 import { greynoise } from "./greynoise";
 import { seclookup } from "./seclookup";
+import { pulsedive } from "./pulsedive";
 
 // ─── Additional Ingest Feed Modules ────────────────────────────
 import { c2_intel_feeds } from "./c2intelfeeds";
@@ -189,4 +190,5 @@ export const enrichmentModules: Record<string, FeedModule> = {
   circl_pdns,
   greynoise,
   seclookup,
+  pulsedive,
 };

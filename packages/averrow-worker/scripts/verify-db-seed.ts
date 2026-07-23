@@ -72,6 +72,12 @@ const ASSERTIONS: Assertion[] = [
     min: 1,
     source: "0249_circl_osint_feed.sql",
   },
+  {
+    label: "Pulsedive enrichment feed seeded (pulsedive)",
+    query: "SELECT COUNT(*) AS n FROM feed_configs WHERE feed_name = 'pulsedive' AND feed_type = 'enrichment'",
+    min: 1,
+    source: "0250_pulsedive_enrichment.sql",
+  },
 ];
 
 interface D1Row { n: number }
