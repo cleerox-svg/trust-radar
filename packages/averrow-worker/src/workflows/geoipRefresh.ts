@@ -529,12 +529,46 @@ export class GeoipRefreshWorkflow extends WorkflowEntrypoint<GeoipRefreshEnv, Ge
       // retry — only NEW work hits D1).
       const importResult = await step.do(
         'import',
-        { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '2 hours' },
+        // Retries here ARE the resume mechanism's re-entry points, not
+        // just error backoff: the Workflows runtime re-invokes this
+        // callback whenever an attempt ends early (step timeout, a
+        // transient D1 error, or the underlying Worker invocation being
+        // evicted mid-stream). Because the callback now resumes from the
+        // committed high-water (below), each retry makes NET forward
+        // progress instead of restarting — so we allow MORE of them with
+        // a short CONSTANT delay rather than an exponential backoff that
+        // would balloon to tens of minutes between attempts. limit 8 ≈
+        // enough segments to cover the full 3.76M-row rebuild even if
+        // each attempt only lands a few hundred K rows before ending.
+        { retries: { limit: 8, delay: '15 seconds', backoff: 'constant' }, timeout: '2 hours' },
         async () => {
+          // ── Resume-on-retry ──
+          // `resumeState.resumeFromRow` was resolved ONCE in the
+          // check-resume step (0 on a fresh dispatch) and is frozen for
+          // the life of this closure — so on a step RETRY it would send
+          // the loader back to row 0, re-streaming the entire CSV and
+          // re-INSERT-OR-IGNORE'ing every already-written row. That
+          // defeats migration 0002's resume design and is exactly what
+          // let the full rebuild oscillate (last_committed_row seen
+          // dropping 455K→108K in prod 2026-07-24) and blow past Flight
+          // Control's 180-min backstop, failing every attempt with
+          // rows_written=0. Re-read the live checkpoint at the top of
+          // each attempt instead: the shadow table (prepared in an
+          // earlier, already-committed step) still holds the prior
+          // attempt's rows, and onProgress persists last_committed_row as
+          // the ABSOLUTE Blocks-row index, so skip-then-append is
+          // correct. INSERT OR IGNORE remains the collision safety net.
+          const chk = await this.env.GEOIP_DB.prepare(
+            `SELECT last_committed_row FROM geo_ip_refresh_log WHERE id = ?`,
+          ).bind(refreshLogId).first<{ last_committed_row: number | null }>();
+          const resumeFromRow = Math.max(
+            resumeState.resumeFromRow,
+            chk?.last_committed_row ?? 0,
+          );
           const zip = new R2ZipReader(this.env.GEOIP_STAGING!, stagingKey);
           await zip.open();
           return await runGeoipBlocksImport(this.env.GEOIP_DB, zip, {
-            resumeFromRow: resumeState.resumeFromRow,
+            resumeFromRow,
             onProgress: async (rowsProcessed) => {
               await this.env.GEOIP_DB.prepare(`
                 UPDATE geo_ip_refresh_log

@@ -46,6 +46,7 @@ import { getBudgetState, DAILY_BUDGET, WARN_THRESHOLD, fetchBillingCycleMetrics,
 import { getLastDispatchAt, getCooldownUntil } from "../lib/workflow-dispatch";
 import { getWorkflowAgentStats } from "../lib/workflow-agent-stats";
 import { PRIVATE_IP_SQL_FILTER } from "../lib/geoip";
+import { evaluateGeoipStall, type GeoipStallWatch } from "../lib/geoip-stall";
 import { parseCronIntervalMs } from "../lib/feedRunner";
 import { cachedCount } from "../lib/cached-count";
 
@@ -1374,35 +1375,67 @@ export const flightControlAgent: AgentModule = {
     // ~1 hour after the workflow died. Aligned with the existing
     // platform_agent_stalled pattern (§14.3 dedup via group_key).
     //
-    // STUCK_THRESHOLD_MIN must sit ABOVE the import step's own timeout
-    // (raised to 2h in workflows/geoipRefresh.ts), else FC force-fails a
-    // legitimately-long import mid-flight — which is exactly what killed
-    // the 2026-05-24 run (import was progressing at 60 min; FC marked it
-    // failed). This age is measured from geo_ip_refresh_log.started_at,
-    // which spans the whole workflow incl. retries, so it must clear a
-    // single 2h attempt plus margin. 180 min is the backstop for TRULY
-    // hung workflows; the step's own 2h timeout is the primary guard.
+    // History: this used to force-fail purely on started_at AGE (>180
+    // min). That repeatedly killed legitimately-long-but-progressing
+    // imports mid-flight — the 2026-05-24 run (progressing at 60 min)
+    // and, once resume-on-retry regressed, four consecutive 3h00m
+    // recoveries on 2026-07-24. The age threshold could never be "high
+    // enough": under D1 contention a real rebuild can run for hours while
+    // still writing rows. The fix below decouples "stuck" from "old" —
+    // see the progress-aware logic. The age floor is retained only as a
+    // gate so we don't even scrutinise a young run.
     //
     // Skipped when GEOIP_DB binding is unset — the table won't
     // exist, throwing on the SELECT. Wrapping in try/catch keeps
     // FC's tick robust against optional bindings.
-    const GEOIP_STUCK_THRESHOLD_MIN = 180;
+    // Age alone is NOT sufficient to declare a run stuck — the decision
+    // is delegated to the pure `evaluateGeoipStall` state machine
+    // (lib/geoip-stall.ts), which recovers a run only when its checkpoint
+    // (`last_committed_row`) has stopped advancing for the grace window,
+    // or when it blows a hard runaway ceiling. Progress is tracked via a
+    // per-run KV high-water stamp between (hourly) FC ticks. See that
+    // module's header for the full rationale and the prod 2026-07-24
+    // regression it fixes.
     if (env.GEOIP_DB) {
       try {
-        const stuck = await env.GEOIP_DB.prepare(`
-          SELECT id, source_version, started_at,
+        const running = await env.GEOIP_DB.prepare(`
+          SELECT id, source_version, started_at, last_committed_row,
                  CAST((julianday('now') - julianday(started_at)) * 24 * 60 AS INTEGER) AS age_min
           FROM geo_ip_refresh_log
           WHERE status = 'running'
-            AND started_at < datetime('now', '-' || ? || ' minutes')
-        `).bind(GEOIP_STUCK_THRESHOLD_MIN).all<{
+        `).all<{
           id: string;
           source_version: string | null;
           started_at: string;
+          last_committed_row: number | null;
           age_min: number;
         }>();
-        for (const row of stuck.results ?? []) {
+        for (const row of running.results ?? []) {
           try {
+            const watchKey = `geoip:stuck_watch:${row.id}`;
+            let prev: GeoipStallWatch | null = null;
+            try {
+              prev = env.CACHE ? await env.CACHE.get<GeoipStallWatch>(watchKey, 'json') : null;
+            } catch { prev = null; }
+
+            const decision = evaluateGeoipStall({
+              lastCommittedRow: row.last_committed_row ?? 0,
+              ageMin: row.age_min,
+              prev,
+              nowMs: Date.now(),
+            });
+
+            if (!decision.kill) {
+              // Healthy (or too young / still progressing). Persist the
+              // watermark so the next tick can judge progress.
+              try {
+                if (env.CACHE) {
+                  await env.CACHE.put(watchKey, JSON.stringify(decision.nextWatch), { expirationTtl: 6 * 3600 });
+                }
+              } catch { /* best-effort */ }
+              continue;
+            }
+
             await env.GEOIP_DB.prepare(`
               UPDATE geo_ip_refresh_log
               SET status = 'failed',
@@ -1410,9 +1443,10 @@ export const flightControlAgent: AgentModule = {
                   error_message = ?
               WHERE id = ? AND status = 'running'
             `).bind(
-              `Auto-recovered by Flight Control: stuck >${GEOIP_STUCK_THRESHOLD_MIN} min`,
+              `Auto-recovered by Flight Control: ${decision.reason}`,
               row.id,
             ).run();
+            try { if (env.CACHE) await env.CACHE.delete(watchKey); } catch { /* best-effort */ }
             await emitPlatformNotification(env, 'platform_geoip_refresh_stalled',
               renderPlatformGeoipRefreshStalled({
                 refresh_log_id: row.id,

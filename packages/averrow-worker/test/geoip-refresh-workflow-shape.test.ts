@@ -89,4 +89,26 @@ describe("GeoipRefreshWorkflow — 1 MiB step-output invariant", () => {
     // closure (lib/geoip-import.ts), never across a workflow step.
     expect(source).not.toMatch(/return\s*\{\s*[^}]*\blocations\s*:/);
   });
+
+  // ── Resume-on-retry invariant (prod 2026-07-24) ──
+  it("re-reads last_committed_row INSIDE the import step so retries resume", () => {
+    // The full-rebuild import step is retried by the Workflows runtime
+    // whenever an attempt ends early (step timeout, transient D1 error,
+    // Worker eviction mid-stream). `resumeState.resumeFromRow` is frozen
+    // at its pre-step value (0 on a fresh dispatch), so the retry MUST
+    // re-read the committed high-water from geo_ip_refresh_log itself —
+    // otherwise it restarts at row 0, re-streams the whole CSV, and the
+    // full rebuild never converges before Flight Control's backstop
+    // (four consecutive 3h00m failures, DB stale for days).
+    //
+    // Pin the checkpoint re-read that resolves resumeFromRow, located
+    // inside the `import` step. A refactor that drops it (reverting to
+    // the frozen resumeState value) fails here.
+    const idx = source.search(/step\.do\(\s*['"]import['"]/);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const importBody = source.slice(idx, idx + 2500);
+    expect(importBody).toMatch(/SELECT last_committed_row FROM geo_ip_refresh_log WHERE id = \?/);
+    // resumeFromRow is derived from that checkpoint and passed to the loader.
+    expect(importBody).toMatch(/resumeFromRow/);
+  });
 });
