@@ -2114,7 +2114,7 @@ export function computeIsStalled(opts: {
  *  isRunningOrphan || isPartialOrphan check inline in recoverStalledAgents
  *  below. A 'running' row is always an orphan (worker died mid-run); a
  *  'partial' row is only an orphan when completed_at is still NULL (killed
- *  before agentRunner's finalize UPDATE landed). */
+ *  before agentRunner's finalize write landed). */
 export function isOrphanedRun(opts: { status: string | null; completedAt: string | null }): boolean {
   return opts.status === 'running' || (opts.status === 'partial' && opts.completedAt == null);
 }
@@ -2520,7 +2520,7 @@ async function recoverStalledAgents(
     // Without this clear, the orphan stays the latest started_at and re-trips
     // is_stalled every FC tick. Marked 'failed' so the recovery run becomes
     // the latest started_at on the next tick. The completed_at IS NULL guard
-    // in the WHERE keeps the UPDATE from ever touching a completed row.
+    // in the WHERE keeps the force-fail write from ever touching a completed row.
     if (isOrphanedRun({ status: agent.last_run_status, completedAt: agent.last_run_completed_at }) && agent.last_run_at) {
       recoveryStmts.push(db.prepare(`
         UPDATE agent_runs
